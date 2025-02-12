@@ -46,7 +46,7 @@ class MusicPlayer:
     def __init__(self, window):
         self.window = window
         self.window.title("mt")
-        self.window.geometry("640x480")
+        self.window.geometry("640x720")
         self.is_playing = False
         self.current_time = 0
 
@@ -77,25 +77,33 @@ class MusicPlayer:
         else:
             self.loop_enabled = (result[0] == '1')
 
-        # Create progress bar frame with increased height
-        self.progress_frame = tk.Frame(self.window, height=100)
-        self.progress_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(10, 20))
+        # Create progress bar frame with increased height and adjusted padding
+        self.progress_frame = tk.Frame(self.window, height=60)
+        self.progress_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 20))
 
-        # Create canvas for progress bar with increased height
-        self.canvas = tk.Canvas(self.progress_frame, height=80)
-        self.canvas.pack(fill=tk.X)
+        # Create canvas for progress bar
+        self.canvas = tk.Canvas(self.progress_frame, height=50)  # Increased height from 40 to 50
+        self.canvas.pack(fill=tk.X, expand=True)
 
-        # Create progress line and circle - centered at y=20
-        self.line = self.canvas.create_line(10, 20, self.canvas.winfo_reqwidth()-10, 20, fill='gray', width=2)
-        self.progress_circle = self.canvas.create_oval(5, 15, 20, 30, fill='blue', activefill='lightblue')
+        # Calculate vertical center
+        self.bar_y = 20  # Vertical center of the canvas
+        self.circle_radius = 6  # Define circle radius as instance variable
+
+        # Create progress line and circle
+        self.line = self.canvas.create_line(10, self.bar_y, self.canvas.winfo_reqwidth()-10, self.bar_y, fill='gray', width=2)
+        self.progress_circle = self.canvas.create_oval(
+            10 - self.circle_radius, self.bar_y - self.circle_radius,
+            10 + self.circle_radius, self.bar_y + self.circle_radius,
+            fill='blue', activefill='lightblue'
+        )
 
         # Add time labels below the line
-        self.elapsed_text = self.canvas.create_text(10, 65, anchor='sw', text="00:00")
-        self.remaining_text = self.canvas.create_text(self.canvas.winfo_width()-10, 65, anchor='se', text="00:00")
+        self.elapsed_text = self.canvas.create_text(10, 45, anchor='sw', text="00:00")  # Changed y from 35 to 45
+        self.remaining_text = self.canvas.create_text(self.canvas.winfo_width()-10, 45, anchor='se', text="00:00")  # Changed y from 35 to 45
 
-        # Create the queue with adjusted padding
+        # Create the queue with no top padding
         self.queue = tk.Listbox(self.window, width=50, selectmode=tk.EXTENDED)
-        self.queue.pack(pady=10, expand=True, fill=tk.BOTH)
+        self.queue.pack(pady=(0, 15), expand=True, fill=tk.BOTH)
 
         # Add double-click binding
         self.queue.bind('<Double-Button-1>', self.play_selected)
@@ -107,9 +115,9 @@ class MusicPlayer:
         self.queue.bind('<Delete>', self.handle_delete)
         self.queue.bind('<BackSpace>', self.handle_delete)
 
-        # Create the controls frame with more padding and a border
+        # Create the controls frame with adjusted padding
         controls_frame = tk.Frame(self.window)
-        controls_frame.pack(pady=20)
+        controls_frame.pack(pady=(0, 5))
 
         # Common button style configuration
         button_config = {
@@ -188,7 +196,9 @@ class MusicPlayer:
         if self.dragging:
             width = self.canvas.winfo_width() - 20
             x = min(max(event.x, 10), self.canvas.winfo_width() - 10)
-            self.canvas.coords(self.progress_circle, x-7.5, 15, x+7.5, 30)
+            self.canvas.coords(self.progress_circle,
+                x - self.circle_radius, self.bar_y - self.circle_radius,
+                x + self.circle_radius, self.bar_y + self.circle_radius)
             ratio = (x - 10) / width
             if self.media_player.get_length() > 0:
                 self.current_time = int(self.media_player.get_length() * ratio)
@@ -199,20 +209,19 @@ class MusicPlayer:
             self.dragging = False
             if self.media_player.get_length() > 0:
                 self.media_player.set_time(self.current_time)
-                # Update progress circle based on current_time immediately
                 duration = self.media_player.get_length()
                 ratio = self.current_time / duration if duration > 0 else 0
                 width = self.canvas.winfo_width()
                 x = 10 + (width - 20) * ratio
-                self.canvas.coords(self.progress_circle, x-7.5, 15, x+7.5, 30)
-                # Resume playback manually if it was playing before dragging
+                self.canvas.coords(self.progress_circle,
+                    x - self.circle_radius, self.bar_y - self.circle_radius,
+                    x + self.circle_radius, self.bar_y + self.circle_radius)
                 if self.was_playing:
                     self.media_player.play()
                     self.play_button.config(text="⏸")
                     self.is_playing = True
 
     def click_progress(self, event):
-        # Ignore if the click is on the progress circle (handled by drag)
         circle_coords = self.canvas.coords(self.progress_circle)
         if circle_coords[0] <= event.x <= circle_coords[2] and circle_coords[1] <= event.y <= circle_coords[3]:
             return
@@ -222,18 +231,17 @@ class MusicPlayer:
         if self.media_player.get_length() > 0:
             self.current_time = int(self.media_player.get_length() * ratio)
             self.media_player.set_time(self.current_time)
-            # Update progress circle position immediately
-            self.canvas.coords(self.progress_circle, x-7.5, 15, x+7.5, 30)
+            self.canvas.coords(self.progress_circle,
+                x - self.circle_radius, self.bar_y - self.circle_radius,
+                x + self.circle_radius, self.bar_y + self.circle_radius)
 
     def on_resize(self, event):
-        self.canvas.coords(self.line, 10, 20, event.width-10, 20)
-        # Update positions of time labels
-        self.canvas.coords(self.elapsed_text, 10, 65)
-        self.canvas.coords(self.remaining_text, event.width-10, 65)
+        self.canvas.coords(self.line, 10, self.bar_y, event.width-10, self.bar_y)
+        self.canvas.coords(self.elapsed_text, 10, 45)  # Changed y from 35 to 45
+        self.canvas.coords(self.remaining_text, event.width-10, 45)  # Changed y from 35 to 45
 
     def update_progress(self):
         if self.is_playing and self.media_player.is_playing():
-            # Only update position if not dragging and enough time has passed since last drag
             if not self.dragging and (time.time() - self.last_drag_time) > 0.1:
                 current = self.media_player.get_time()
                 duration = self.media_player.get_length()
@@ -242,7 +250,9 @@ class MusicPlayer:
                     ratio = current / duration
                     width = self.canvas.winfo_width()
                     x = 10 + (width - 20) * ratio
-                    self.canvas.coords(self.progress_circle, x-7.5, 15, x+7.5, 30)
+                    self.canvas.coords(self.progress_circle,
+                        x - self.circle_radius, self.bar_y - self.circle_radius,
+                        x + self.circle_radius, self.bar_y + self.circle_radius)
 
                     # Compute and update elapsed and remaining times
                     elapsed_seconds = current / 1000
