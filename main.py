@@ -59,6 +59,18 @@ def find_audio_files(directory, max_depth=5):
 
 
 class MusicPlayer:
+    def update_scrollbar(self):
+        # Get the total height of all items
+        total_height = self.queue.size() * self.queue.bbox(0)[3] if self.queue.size() > 0 else 0
+        # Get the visible height of the listbox
+        visible_height = self.queue.winfo_height()
+
+        # Show/hide scrollbar based on content
+        if total_height > visible_height:
+            self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        else:
+            self.scrollbar.pack_forget()
+
     def load_queue(self):
         self.db_cursor.execute('SELECT filepath FROM queue ORDER BY id')
         for (filepath,) in self.db_cursor.fetchall():
@@ -68,6 +80,7 @@ class MusicPlayer:
             self.queue.selection_set(0)
             self.queue.activate(0)
         self.refresh_colors()
+        self.update_scrollbar()
 
     def play_pause(self):
         if not self.is_playing:
@@ -152,9 +165,28 @@ class MusicPlayer:
         self.elapsed_text = self.canvas.create_text(10, 45, anchor='sw', text="00:00")  # Changed y from 35 to 45
         self.remaining_text = self.canvas.create_text(self.canvas.winfo_width()-10, 45, anchor='se', text="00:00")  # Changed y from 35 to 45
 
-        # Create the queue with no top padding
-        self.queue = tk.Listbox(self.window, width=50, selectmode=tk.EXTENDED)
-        self.queue.pack(pady=(0, 15), expand=True, fill=tk.BOTH)
+        # Create a frame to hold the listbox and scrollbar
+        self.queue_frame = tk.Frame(self.window)
+        self.queue_frame.pack(pady=(0, 15), expand=True, fill=tk.BOTH)
+
+        # Create the scrollbar
+        self.scrollbar = tk.Scrollbar(self.queue_frame, orient=tk.VERTICAL)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Create the queue with scrollbar
+        self.queue = tk.Listbox(
+            self.queue_frame,
+            width=50,
+            selectmode=tk.EXTENDED,
+            yscrollcommand=self.scrollbar.set
+        )
+        self.queue.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+
+        # Configure the scrollbar to scroll the listbox
+        self.scrollbar.config(command=self.queue.yview)
+
+        # Add resize binding for scrollbar updates
+        self.queue_frame.bind('<Configure>', lambda e: self.update_scrollbar())
 
         # Configure colors for the listbox
         self.queue.configure(selectbackground='lightblue', activestyle='none')
@@ -411,6 +443,7 @@ class MusicPlayer:
                 self.queue.selection_set(0)
                 self.queue.activate(0)
             self.refresh_colors()
+            self.update_scrollbar()
 
     def add_to_queue(self):
         # Let user choose between files or directory
@@ -449,6 +482,7 @@ class MusicPlayer:
             self.db_cursor.execute('DELETE FROM queue WHERE filepath = ?', (filepath,))
         self.db_conn.commit()
         self.refresh_colors()
+        self.update_scrollbar()
 
     def handle_delete(self, event):
         self.remove_song()
