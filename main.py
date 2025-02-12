@@ -10,6 +10,23 @@ from pathlib import Path
 from tkinter import filedialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
+def normalize_path(path_str):
+    if isinstance(path_str, Path):
+        return path_str
+
+    path_str = path_str.strip('{}').strip('"')
+
+    if sys.platform == 'darwin' and '/Volumes/' in path_str:
+        try:
+            abs_path = os.path.abspath(path_str)
+            real_path = os.path.realpath(abs_path)
+            if os.path.exists(real_path):
+                return Path(real_path)
+        except (OSError, ValueError):
+            pass
+
+    return Path(path_str)
+
 def find_audio_files(directory, max_depth=5):
     AUDIO_EXTENSIONS = {
         '.m4a', '.mp3', '.wav', '.ogg', '.wma', '.flac', '.aac',
@@ -19,7 +36,7 @@ def find_audio_files(directory, max_depth=5):
     }
 
     found_files = set()
-    base_path = Path(directory)
+    base_path = normalize_path(directory)
 
     def scan_directory(path, current_depth):
         if current_depth > max_depth:
@@ -27,11 +44,14 @@ def find_audio_files(directory, max_depth=5):
 
         try:
             for item in path.iterdir():
-                if item.is_file() and item.suffix.lower() in AUDIO_EXTENSIONS:
-                    found_files.add(str(item))
-                elif item.is_dir():
-                    scan_directory(item, current_depth + 1)
-        except PermissionError:
+                try:
+                    if item.is_file() and item.suffix.lower() in AUDIO_EXTENSIONS:
+                        found_files.add(str(item))
+                    elif item.is_dir() and not item.is_symlink():
+                        scan_directory(item, current_depth + 1)
+                except OSError:
+                    continue
+        except (PermissionError, OSError):
             pass
 
     scan_directory(base_path, 1)
@@ -361,27 +381,32 @@ class MusicPlayer:
         self.next_song_button()
 
     def process_paths(self, paths):
-        # Get existing files from queue
         existing_files = set(self.queue.get(0, tk.END))
         new_files = set()
 
         for path in paths:
-            if os.path.isdir(path):
-                new_files.update(find_audio_files(path))
-            else:
-                new_files.add(path)
+            if not path or path.isspace():
+                continue
 
-        # Remove duplicates and sort
+            normalized_path = normalize_path(path)
+
+            if os.path.exists(str(normalized_path)):
+                if os.path.isdir(str(normalized_path)):
+                    new_files.update(find_audio_files(normalized_path))
+                elif os.path.isfile(str(normalized_path)):
+                    new_files.add(str(normalized_path))
+
         files_to_add = sorted(new_files - existing_files)
 
         if files_to_add:
             for file_path in files_to_add:
-                self.queue.insert(tk.END, file_path)
-                self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)',
-                                     (file_path,))
+                if os.path.exists(file_path):
+                    self.queue.insert(tk.END, file_path)
+                    self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)',
+                                        (file_path,))
+
             self.db_conn.commit()
 
-            # Select first song if queue was empty
             if self.queue.size() == len(files_to_add):
                 self.queue.selection_set(0)
                 self.queue.activate(0)
@@ -457,9 +482,38 @@ class MusicPlayer:
         self.queue.dnd_bind('<<Drop>>', self.handle_drop)
 
     def handle_drop(self, event):
-        paths = event.data.split(' ')
-        # Clean up paths (tkdnd might add braces and quotes)
-        paths = [p.strip('{}').strip('"') for p in paths]
+        raw_paths = event.data
+
+        if sys.platform == 'darwin':
+            if '/Volumes/' in raw_paths:
+                potential_paths = raw_paths.split('\n')
+
+                if len(potential_paths) == 1:
+                    parts = raw_paths.split()
+                    reconstructed_path = []
+                    current_path = []
+
+                    for part in parts:
+                        if part.startswith('/') or part.startswith('/Volumes'):
+                            if current_path:
+                                reconstructed_path.append(' '.join(current_path))
+                                current_path = []
+                            current_path.append(part)
+                        else:
+                            current_path.append(part)
+
+                    if current_path:
+                        reconstructed_path.append(' '.join(current_path))
+
+                    paths = reconstructed_path
+                else:
+                    paths = potential_paths
+            else:
+                paths = raw_paths.split()
+        else:
+            paths = raw_paths.split()
+
+        paths = [p.strip('{}').strip('"') for p in paths if p.strip()]
         self.process_paths(paths)
 
     def __del__(self):
