@@ -209,6 +209,9 @@ class MusicPlayer:
         the_event = vlc.EventType.MediaPlayerEndReached
         self.media_player.event_manager().event_attach(the_event, self.next_song)
 
+        # Initialize drag and drop
+        self.setup_drag_drop()
+
     def toggle_loop(self):
         self.loop_enabled = not self.loop_enabled
         # Update button fg based on loop_enabled state
