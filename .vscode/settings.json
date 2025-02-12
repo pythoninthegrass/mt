@@ -1,0 +1,23 @@
+{
+  "[python]": {
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit"
+    }
+  },
+  "python.testing.pytestArgs": [
+    "tests"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  // https://github.com/astral-sh/ruff-vscode
+  "python.analysis.ignore": [
+    "*"
+  ],
+  "python.defaultInterpreterPath": "/opt/venv/bin/python",
+  "python.analysis.extraPaths": [
+    ".venv/bin/python",
+    "/opt/venv/bin/python"
+  ]
+}

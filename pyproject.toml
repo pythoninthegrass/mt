@@ -1,0 +1,17 @@
+[project]
+name = "mt"
+version = "0.1.0"
+authors = [
+    { name = "pythoninthegrass", email = "4097471+pythoninthegrass@users.noreply.github.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.1.0",
+    "python-vlc>=3.0.21203",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.9.6",
+    "tk>=0.1.0",
+]

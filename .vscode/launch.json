@@ -1,0 +1,55 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  // pytest: https://stackoverflow.com/questions/70259564/how-to-debug-the-current-python-test-file-with-pytest-in-vs-code
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "program": "${file}",
+      "cwd": "${fileDirname}",
+      "pythonArgs": [
+        "-Xfrozen_modules=off"
+      ],
+      "env": {
+        "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+      }
+      // "args": ["-i", "response.xml", "-o", "response.csv"],
+    },
+    {
+      "name": "Python: Flask",
+      "type": "debugpy",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "env": {
+        "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+      },
+      "module": "flask",
+      "args": [
+        "--app",
+        "${file}",
+        "run",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--debug"
+      ],
+      "justMyCode": true
+    },
+    {
+      "name": "Python: Debug Tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "${file}"
+      ],
+      "console": "integratedTerminal"
+    },
+  ],
+}
