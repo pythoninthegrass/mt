@@ -2,10 +2,40 @@
 
 import os
 import sqlite3
+import sys
 import time
 import tkinter as tk
 import vlc
+from pathlib import Path
 from tkinter import filedialog
+from tkinterdnd2 import DND_FILES, TkinterDnD
+
+def find_audio_files(directory, max_depth=5):
+    AUDIO_EXTENSIONS = {
+        '.m4a', '.mp3', '.wav', '.ogg', '.wma', '.flac', '.aac',
+        '.ac3', '.dts', '.mpc', '.ape', '.ra', '.mid', '.midi',
+        '.mod', '.3gp', '.aif', '.aiff', '.wv', '.tta', '.m4b',
+        '.m4r', '.mp1', '.mp2'
+    }
+
+    found_files = set()
+    base_path = Path(directory)
+
+    def scan_directory(path, current_depth):
+        if current_depth > max_depth:
+            return
+
+        try:
+            for item in path.iterdir():
+                if item.is_file() and item.suffix.lower() in AUDIO_EXTENSIONS:
+                    found_files.add(str(item))
+                elif item.is_dir():
+                    scan_directory(item, current_depth + 1)
+        except PermissionError:
+            pass
+
+    scan_directory(base_path, 1)
+    return sorted(found_files)
 
 
 class MusicPlayer:
@@ -327,30 +357,60 @@ class MusicPlayer:
         # For automatic next on song end
         self.next_song_button()
 
+    def process_paths(self, paths):
+        # Get existing files from queue
+        existing_files = set(self.queue.get(0, tk.END))
+        new_files = set()
+
+        for path in paths:
+            if os.path.isdir(path):
+                new_files.update(find_audio_files(path))
+            else:
+                new_files.add(path)
+
+        # Remove duplicates and sort
+        files_to_add = sorted(new_files - existing_files)
+
+        if files_to_add:
+            for file_path in files_to_add:
+                self.queue.insert(tk.END, file_path)
+                self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)',
+                                     (file_path,))
+            self.db_conn.commit()
+
+            # Select first song if queue was empty
+            if self.queue.size() == len(files_to_add):
+                self.queue.selection_set(0)
+                self.queue.activate(0)
+            self.refresh_colors()
+
     def add_to_queue(self):
-        file_paths = filedialog.askopenfilenames(
+        # Let user choose between files or directory
+        action = filedialog.askdirectory(title="Select Music Directory")
+
+        if action:
+            path_obj = Path(action)
+            if path_obj.is_dir():
+                mixed_paths = find_audio_files(path_obj)
+                if mixed_paths:
+                    self.process_paths(mixed_paths)
+                return
+
+        # If directory selection was cancelled, show file selection dialog
+        paths = filedialog.askopenfilenames(
+            title="Select Audio Files",
             filetypes=[
                 (
                     "Audio Files",
-                    """
-                    *.m4a *.mp3 *.wav *.ogg *.wma *.flac *.aac *.ac3
-                    *.dts *.mpc *.ape *.ra *.mid *.midi *.mod *.3gp
-                    *.aif *.aiff *.wv *.tta *.m4b *.m4r *.mp1 *.mp2
-                    """
+                    "*.m4a *.mp3 *.wav *.ogg *.wma *.flac *.aac *.ac3 "
+                    "*.dts *.mpc *.ape *.ra *.mid *.midi *.mod *.3gp "
+                    "*.aif *.aiff *.wv *.tta *.m4b *.m4r *.mp1 *.mp2"
                 )
             ]
         )
 
-        if file_paths:
-            for file_path in file_paths:
-                self.queue.insert(tk.END, file_path)
-                self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (file_path,))
-            self.db_conn.commit()
-            # Select first song if queue was empty
-            if self.queue.size() == len(file_paths):
-                self.queue.selection_set(0)
-                self.queue.activate(0)
-            self.refresh_colors()
+        if paths:
+            self.process_paths([str(Path(p)) for p in paths])
 
     def remove_song(self):
         selected_indices = self.queue.curselection()
@@ -389,6 +449,16 @@ class MusicPlayer:
             bg_color = '#f0f0f0' if i % 2 else 'white'
             self.queue.itemconfigure(i, background=bg_color)
 
+    def setup_drag_drop(self):
+        self.queue.drop_target_register('DND_Files')
+        self.queue.dnd_bind('<<Drop>>', self.handle_drop)
+
+    def handle_drop(self, event):
+        paths = event.data.split(' ')
+        # Clean up paths (tkdnd might add braces and quotes)
+        paths = [p.strip('{}').strip('"') for p in paths]
+        self.process_paths(paths)
+
     def __del__(self):
         # Clean up database connection
         if hasattr(self, 'db_conn'):
@@ -396,9 +466,9 @@ class MusicPlayer:
 
 
 def main():
-    window = tk.Tk()
-    music_player = MusicPlayer(window)
-    window.mainloop()
+    root = TkinterDnD.Tk()
+    player = MusicPlayer(root)
+    root.mainloop()
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ requires-python = ">=3.11"
 dependencies = [
     "flask>=3.1.0",
     "python-vlc>=3.0.21203",
+    "tkinterdnd2>=0.4.2",
 ]
 
 [project.optional-dependencies]
