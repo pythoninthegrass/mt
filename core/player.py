@@ -1,10 +1,10 @@
-import vlc
 import sys
-from pathlib import Path
-from utils.ui import ProgressBar, QueueList, ControlPanel, show_file_dialog
+import vlc
+from config import WINDOW_SIZE, WINDOW_TITLE
 from core.queue import QueueManager
-from config import WINDOW_TITLE, WINDOW_SIZE
-from utils.files import normalize_path, find_audio_files
+from pathlib import Path
+from utils.files import find_audio_files, normalize_path
+from utils.ui import ControlPanel, ProgressBar, QueueList, show_file_dialog
 
 
 class MusicPlayer:

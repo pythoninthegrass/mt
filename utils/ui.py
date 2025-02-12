@@ -1,8 +1,8 @@
 import time
 import tkinter as tk
-from tkinter import filedialog
-from pathlib import Path
 from config import BUTTON_STYLE
+from pathlib import Path
+from tkinter import filedialog
 from tkinterdnd2 import DND_FILES
 from utils.files import find_audio_files
 

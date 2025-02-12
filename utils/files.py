@@ -1,7 +1,8 @@
 import os
 import sys
-from pathlib import Path
 from config import AUDIO_EXTENSIONS, MAX_SCAN_DEPTH
+from pathlib import Path
+
 
 def normalize_path(path_str):
     if isinstance(path_str, Path):

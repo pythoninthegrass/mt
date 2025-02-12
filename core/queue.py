@@ -1,8 +1,9 @@
 import sqlite3
-from pathlib import Path
 import tkinter as tk
 from config import DB_NAME, DB_TABLES
-from utils.files import normalize_path, find_audio_files
+from pathlib import Path
+from utils.files import find_audio_files, normalize_path
+
 
 class QueueManager:
     def __init__(self, listbox: tk.Listbox):
