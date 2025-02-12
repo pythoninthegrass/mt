@@ -17,6 +17,7 @@ class MusicPlayer:
         if self.queue.size() > 0:
             self.queue.selection_set(0)
             self.queue.activate(0)
+        self.refresh_colors()
 
     def play_pause(self):
         if not self.is_playing:
@@ -104,6 +105,9 @@ class MusicPlayer:
         # Create the queue with no top padding
         self.queue = tk.Listbox(self.window, width=50, selectmode=tk.EXTENDED)
         self.queue.pack(pady=(0, 15), expand=True, fill=tk.BOTH)
+
+        # Configure colors for the listbox
+        self.queue.configure(selectbackground='lightblue', activestyle='none')
 
         # Add double-click binding
         self.queue.bind('<Double-Button-1>', self.play_selected)
@@ -346,6 +350,7 @@ class MusicPlayer:
             if self.queue.size() == len(file_paths):
                 self.queue.selection_set(0)
                 self.queue.activate(0)
+            self.refresh_colors()
 
     def remove_song(self):
         selected_indices = self.queue.curselection()
@@ -355,6 +360,7 @@ class MusicPlayer:
             self.queue.delete(index)
             self.db_cursor.execute('DELETE FROM queue WHERE filepath = ?', (filepath,))
         self.db_conn.commit()
+        self.refresh_colors()
 
     def handle_delete(self, event):
         self.remove_song()
@@ -376,6 +382,12 @@ class MusicPlayer:
             self.is_playing = True
             self.play_button.config(text="⏸")
         return "break"  # Prevent default double-click behavior
+
+    def refresh_colors(self):
+        """Update the background colors of all items in the queue"""
+        for i in range(self.queue.size()):
+            bg_color = '#f0f0f0' if i % 2 else 'white'
+            self.queue.itemconfigure(i, background=bg_color)
 
     def __del__(self):
         # Clean up database connection
