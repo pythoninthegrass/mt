@@ -12,6 +12,7 @@
 * UI
   * better, modern styling
   * split panes
+  * app icon
 * UX
   * performance
     * faster directory traversal
@@ -20,13 +21,18 @@
 * Features 
   * read ID3 tags
   * media keys
+  * arrow keys
+    * playhead navigation
   * shuffle
   * repeat (1, all)
   * search
     * search form
     * dynamic fuzzy search by artist
   * dynamic queue order
+  * library
+    * deduplication
   * last.fm scrobbling
+  * mobile remote control
   * lyrics
   * volume control
   * playlists
@@ -42,4 +48,5 @@
   * windows (eventually)
 * CI/CD
   * pre-commit hooks
-  * linting/formatting
+  * ~~linting/formatting~~
+  * codesigning
