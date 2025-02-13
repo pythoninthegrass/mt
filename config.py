@@ -1,5 +1,17 @@
+import json
 import os
+from decouple import config
 from pathlib import Path
+
+# Theme Configuration
+THEME_CONFIG_FILE = 'themes.json'
+DEFAULT_THEME = 'spotify'
+ACTIVE_THEME = config('MT_THEME', default=DEFAULT_THEME)
+
+# Load theme data
+with open(THEME_CONFIG_FILE) as f:
+    THEMES_DATA = json.load(f)
+    THEME_CONFIG = next(theme for theme in THEMES_DATA['themes'] if ACTIVE_THEME in theme)[ACTIVE_THEME]
 
 # Audio Configuration
 AUDIO_EXTENSIONS = {

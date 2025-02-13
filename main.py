@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
+import json
 import os
 import sqlite3
 import sys
 import time
 import tkinter as tk
+import ttkbootstrap as ttk
 import vlc
 from config import (
     AUDIO_EXTENSIONS,
@@ -18,6 +20,7 @@ from config import (
     MAX_SCAN_DEPTH,
     PROGRESS_BAR,
     PROGRESS_UPDATE_INTERVAL,
+    THEME_CONFIG,
     WINDOW_SIZE,
     WINDOW_TITLE,
 )
@@ -42,6 +45,7 @@ def normalize_path(path_str):
             pass
 
     return Path(path_str)
+
 
 def find_audio_files(directory, max_depth=MAX_SCAN_DEPTH):
     found_files = set()
@@ -108,12 +112,12 @@ class MusicPlayer:
                     self.media_player.set_time(self.current_time)
                 else:
                     self.media_player.play()
-            self.play_button.config(text=BUTTON_SYMBOLS['pause'])
+            self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
             self.is_playing = True
         else:
             self.current_time = self.media_player.get_time()
             self.media_player.pause()
-            self.play_button.config(text=BUTTON_SYMBOLS['play'])
+            self.play_button.configure(text=BUTTON_SYMBOLS['play'])
             self.is_playing = False
 
     def __init__(self, window):
@@ -141,11 +145,13 @@ class MusicPlayer:
             self.loop_enabled = (result[0] == '1')
 
         # Create progress bar frame
-        self.progress_frame = tk.Frame(self.window, height=PROGRESS_BAR['frame_height'])
+        self.progress_frame = ttk.Frame(self.window, height=PROGRESS_BAR['frame_height'], style='TFrame')
         self.progress_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=PROGRESS_BAR['frame_side_padding'], pady=PROGRESS_BAR['frame_padding'])
 
         # Create canvas for progress bar
-        self.canvas = tk.Canvas(self.progress_frame, height=PROGRESS_BAR['canvas_height'])
+        self.canvas = tk.Canvas(self.progress_frame, height=PROGRESS_BAR['canvas_height'],
+                              background=COLORS['alternate_row_colors'][0],
+                              highlightthickness=0)
         self.canvas.pack(fill=tk.X, expand=True)
 
         # Store progress bar configuration
@@ -165,31 +171,36 @@ class MusicPlayer:
 
         # Add time labels
         self.elapsed_text = self.canvas.create_text(
-            10, PROGRESS_BAR['time_label_y'], anchor='sw', text="00:00"
+            10, PROGRESS_BAR['time_label_y'], anchor='sw', text="00:00",
+            fill=LISTBOX_CONFIG['foreground']
         )
         self.remaining_text = self.canvas.create_text(
             self.canvas.winfo_width()-10, PROGRESS_BAR['time_label_y'],
-            anchor='se', text="00:00"
+            anchor='se', text="00:00",
+            fill=LISTBOX_CONFIG['foreground']
         )
 
         # Create queue frame and listbox
-        self.queue_frame = tk.Frame(self.window)
+        self.queue_frame = ttk.Frame(self.window, style='TFrame')
         self.queue_frame.pack(pady=LISTBOX_CONFIG['padding'], expand=True, fill=tk.BOTH)
 
-        self.scrollbar = tk.Scrollbar(self.queue_frame, orient=tk.VERTICAL)
+        self.scrollbar = ttk.Scrollbar(self.queue_frame, orient=tk.VERTICAL, style='Vertical.TScrollbar')
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.queue = tk.Listbox(
             self.queue_frame,
             width=LISTBOX_CONFIG['width'],
             selectmode=LISTBOX_CONFIG['selectmode'],
-            yscrollcommand=self.scrollbar.set
+            yscrollcommand=self.scrollbar.set,
+            background=LISTBOX_CONFIG['background'],
+            foreground=LISTBOX_CONFIG['foreground'],
+            selectbackground=LISTBOX_CONFIG['selectbackground'],
+            selectforeground=LISTBOX_CONFIG['selectforeground'],
+            activestyle=LISTBOX_CONFIG['activestyle'],
+            borderwidth=0,
+            highlightthickness=0
         )
         self.queue.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
-        self.queue.configure(
-            selectbackground=LISTBOX_CONFIG['selectbackground'],
-            activestyle=LISTBOX_CONFIG['activestyle']
-        )
 
         self.scrollbar.config(command=self.queue.yview)
         self.queue_frame.bind('<Configure>', lambda e: self.update_scrollbar())
@@ -203,28 +214,28 @@ class MusicPlayer:
         self.load_queue()
 
         # Create controls frame
-        controls_frame = tk.Frame(self.window)
+        controls_frame = ttk.Frame(self.window, style='TFrame')
         controls_frame.pack(pady=(0, 5))
 
         # Create buttons
-        self.add_button = tk.Button(controls_frame, text=BUTTON_SYMBOLS['add'], **BUTTON_STYLE)
+        self.add_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['add'], style='TButton')
         self.add_button.config(command=self.add_to_queue)
         self.add_button.grid(row=0, column=0, padx=8)
 
-        self.prev_button = tk.Button(controls_frame, text=BUTTON_SYMBOLS['prev'], **BUTTON_STYLE)
+        self.prev_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['prev'], style='TButton')
         self.prev_button.config(command=self.previous_song)
         self.prev_button.grid(row=0, column=1, padx=8)
 
-        self.play_button = tk.Button(controls_frame, text=BUTTON_SYMBOLS['play'], **BUTTON_STYLE)
+        self.play_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['play'], style='TButton')
         self.play_button.config(command=self.play_pause)
         self.play_button.grid(row=0, column=2, padx=8)
 
-        self.next_button = tk.Button(controls_frame, text=BUTTON_SYMBOLS['next'], **BUTTON_STYLE)
+        self.next_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['next'], style='TButton')
         self.next_button.config(command=self.next_song_button)
         self.next_button.grid(row=0, column=3, padx=8)
 
         initial_color = COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled']
-        self.loop_button = tk.Button(controls_frame, text=BUTTON_SYMBOLS['loop'], fg=initial_color, **BUTTON_STYLE)
+        self.loop_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['loop'], style='TButton')
         self.loop_button.config(command=self.toggle_loop)
         self.loop_button.grid(row=0, column=4, padx=8)
 
@@ -252,10 +263,9 @@ class MusicPlayer:
 
     def toggle_loop(self):
         self.loop_enabled = not self.loop_enabled
-        self.loop_button.config(
-            text=BUTTON_SYMBOLS['loop'],
-            fg=COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled']
-        )
+        style = ttk.Style()
+        style.configure('TButton',
+                       foreground=COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled'])
         self.db_cursor.execute(
             "UPDATE settings SET value = ? WHERE key = ?",
             ('1' if self.loop_enabled else '0', 'loop_enabled')
@@ -268,7 +278,7 @@ class MusicPlayer:
         # Pause manually instead of toggling play_pause
         if self.is_playing:
             self.media_player.pause()
-            self.play_button.config(text=BUTTON_SYMBOLS['play'])
+            self.play_button.configure(text=BUTTON_SYMBOLS['play'])
             self.is_playing = False
 
     def drag(self, event):
@@ -297,7 +307,7 @@ class MusicPlayer:
                     x + self.circle_radius, self.bar_y + self.circle_radius)
                 if self.was_playing:
                     self.media_player.play()
-                    self.play_button.config(text=BUTTON_SYMBOLS['pause'])
+                    self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
                     self.is_playing = True
 
     def click_progress(self, event):
@@ -360,7 +370,7 @@ class MusicPlayer:
             elif not self.loop_enabled and current_index == self.queue.size() - 1:
                 self.media_player.stop()
                 self.is_playing = False
-                self.play_button.config(text=BUTTON_SYMBOLS['play'])
+                self.play_button.configure(text=BUTTON_SYMBOLS['play'])
                 self.current_time = 0
                 return
             else:
@@ -375,7 +385,7 @@ class MusicPlayer:
             self.media_player.play()
             self.current_time = 0
             self.is_playing = True
-            self.play_button.config(text=BUTTON_SYMBOLS['pause'])
+            self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
 
     def previous_song(self):
         if self.queue.size() > 0:
@@ -396,7 +406,7 @@ class MusicPlayer:
             self.media_player.play()
             self.current_time = 0
             self.is_playing = True
-            self.play_button.config(text=BUTTON_SYMBOLS['pause'])
+            self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
 
     def next_song(self, event):
         # For automatic next on song end
@@ -492,7 +502,7 @@ class MusicPlayer:
             self.media_player.play()
             self.current_time = 0
             self.is_playing = True
-            self.play_button.config(text=BUTTON_SYMBOLS['pause'])
+            self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
         return "break"  # Prevent default double-click behavior
 
     def refresh_colors(self):
@@ -545,7 +555,47 @@ class MusicPlayer:
 
 
 def main():
+    # Create custom theme style
     root = TkinterDnD.Tk()
+    style = ttk.Style(theme='darkly')  # Start with darkly as base
+
+    # Apply theme colors from config
+    style.configure('TButton',
+                   background=THEME_CONFIG['colors']['bg'],
+                   foreground=THEME_CONFIG['colors']['fg'],
+                   bordercolor=THEME_CONFIG['colors']['border'],
+                   focuscolor=THEME_CONFIG['colors']['primary'],
+                   font=BUTTON_STYLE['font'])
+
+    style.configure('TFrame', background=THEME_CONFIG['colors']['bg'])
+    style.configure('TLabel', background=THEME_CONFIG['colors']['bg'], foreground=THEME_CONFIG['colors']['fg'])
+    style.configure('Vertical.TScrollbar',
+                   background=THEME_CONFIG['colors']['bg'],
+                   troughcolor=THEME_CONFIG['colors']['dark'],
+                   arrowcolor=THEME_CONFIG['colors']['fg'])
+
+    # Update progress bar colors
+    PROGRESS_BAR.update({
+        'line_color': THEME_CONFIG['colors']['secondary'],
+        'circle_fill': THEME_CONFIG['colors']['primary'],
+        'circle_active_fill': THEME_CONFIG['colors']['active']
+    })
+
+    # Update listbox colors
+    LISTBOX_CONFIG.update({
+        'selectbackground': THEME_CONFIG['colors']['selectbg'],
+        'selectforeground': THEME_CONFIG['colors']['selectfg'],
+        'background': THEME_CONFIG['colors']['bg'],
+        'foreground': THEME_CONFIG['colors']['fg']
+    })
+
+    # Update colors
+    COLORS.update({
+        'loop_enabled': THEME_CONFIG['colors']['primary'],
+        'loop_disabled': THEME_CONFIG['colors']['secondary'],
+        'alternate_row_colors': [THEME_CONFIG['colors']['bg'], THEME_CONFIG['colors']['selectbg']]
+    })
+
     player = MusicPlayer(root)
     root.mainloop()
 
