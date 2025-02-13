@@ -214,28 +214,59 @@ class MusicPlayer:
         self.load_queue()
 
         # Create controls frame
-        controls_frame = ttk.Frame(self.window, style='TFrame')
+        controls_frame = ttk.Frame(self.window, style='Controls.TFrame')
         controls_frame.pack(pady=(0, 5))
 
-        # Create buttons
-        self.add_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['add'], style='TButton')
+        # Configure a special style for the controls frame
+        style = ttk.Style()
+        style.configure('Controls.TFrame',
+                       background=THEME_CONFIG['colors']['bg'],
+                       padding=5)
+
+        # Configure button style specifically for controls
+        style.configure('Controls.TButton',
+                       background=THEME_CONFIG['colors']['bg'],
+                       foreground=THEME_CONFIG['colors']['fg'],
+                       bordercolor=THEME_CONFIG['colors']['border'],
+                       focuscolor=THEME_CONFIG['colors']['primary'],
+                       font=BUTTON_STYLE['font'],
+                       relief='flat',
+                       padding=(BUTTON_STYLE['padx'], BUTTON_STYLE['pady']))
+
+        style.layout('Controls.TButton', [
+            ('Button.padding', {'children': [
+                ('Button.label', {'sticky': 'nswe'})
+            ], 'sticky': 'nswe'})
+        ])
+
+        style.map('Controls.TButton',
+                 background=[('active', THEME_CONFIG['colors']['active']),
+                           ('pressed', THEME_CONFIG['colors']['active'])],
+                 foreground=[('active', THEME_CONFIG['colors']['fg']),
+                           ('pressed', THEME_CONFIG['colors']['fg'])])
+
+        # Create buttons with the new style
+        self.add_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['add'], style='Controls.TButton')
         self.add_button.config(command=self.add_to_queue)
         self.add_button.grid(row=0, column=0, padx=8)
 
-        self.prev_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['prev'], style='TButton')
+        self.prev_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['prev'], style='Controls.TButton')
         self.prev_button.config(command=self.previous_song)
         self.prev_button.grid(row=0, column=1, padx=8)
 
-        self.play_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['play'], style='TButton')
+        self.play_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['play'], style='Controls.TButton')
         self.play_button.config(command=self.play_pause)
         self.play_button.grid(row=0, column=2, padx=8)
 
-        self.next_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['next'], style='TButton')
+        self.next_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['next'], style='Controls.TButton')
         self.next_button.config(command=self.next_song_button)
         self.next_button.grid(row=0, column=3, padx=8)
 
-        initial_color = COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled']
-        self.loop_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['loop'], style='TButton')
+        # Create a special style for the loop button
+        style.configure('Loop.Controls.TButton',
+                       foreground=THEME_CONFIG['colors']['primary'] if self.loop_enabled else THEME_CONFIG['colors']['fg'])
+
+        self.loop_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['loop'], style='Loop.Controls.TButton')
         self.loop_button.config(command=self.toggle_loop)
         self.loop_button.grid(row=0, column=4, padx=8)
 
@@ -263,9 +294,11 @@ class MusicPlayer:
 
     def toggle_loop(self):
         self.loop_enabled = not self.loop_enabled
+        # Update the loop button style based on state
         style = ttk.Style()
-        style.configure('TButton',
-                       foreground=COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled'])
+        style.configure('Loop.Controls.TButton',
+            foreground=THEME_CONFIG['colors']['primary'] if self.loop_enabled else THEME_CONFIG['colors']['fg']
+        )
         self.db_cursor.execute(
             "UPDATE settings SET value = ? WHERE key = ?",
             ('1' if self.loop_enabled else '0', 'loop_enabled')
