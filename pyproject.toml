@@ -8,6 +8,7 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.1.0",
+    "python-decouple>=3.8",
     "python-vlc>=3.0.21203",
     "tk>=0.1.0",
     "tkinterdnd2>=0.4.2",

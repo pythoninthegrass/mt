@@ -20,6 +20,47 @@ BUTTON_STYLE = {
     'pady': 5,
 }
 
+# Progress Bar Configuration
+PROGRESS_BAR = {
+    'frame_height': 60,
+    'canvas_height': 50,
+    'bar_y': 20,  # Vertical center of the canvas
+    'circle_radius': 6,
+    'line_color': 'gray',
+    'line_width': 2,
+    'circle_fill': 'blue',
+    'circle_active_fill': 'lightblue',
+    'time_label_y': 45,
+    'frame_padding': (0, 20),  # (top, bottom)
+    'frame_side_padding': 10,  # left/right padding
+}
+
+# Listbox Configuration
+LISTBOX_CONFIG = {
+    'width': 50,
+    'selectmode': 'extended',
+    'selectbackground': 'lightblue',
+    'activestyle': 'none',
+    'padding': (0, 15),  # (top, bottom)
+}
+
+# Color Configuration
+COLORS = {
+    'loop_enabled': 'green',
+    'loop_disabled': 'black',
+    'alternate_row_colors': ['white', '#f0f0f0'],
+}
+
+# Button Symbols
+BUTTON_SYMBOLS = {
+    'play': '⏯',
+    'pause': '⏸',
+    'prev': '⏮',
+    'next': '⏭',
+    'add': '+',
+    'loop': '⟳',
+}
+
 # Database Configuration
 DB_NAME = 'mt.db'
 DB_TABLES = {
@@ -38,3 +79,7 @@ DB_TABLES = {
 
 # File System
 MAX_SCAN_DEPTH = 5
+
+# Player Configuration
+PROGRESS_UPDATE_INTERVAL = 100  # milliseconds
+DEFAULT_LOOP_ENABLED = True
