@@ -38,10 +38,10 @@ PROGRESS_BAR = {
     'canvas_height': 50,
     'bar_y': 20,  # Vertical center of the canvas
     'circle_radius': 6,
-    'line_color': 'gray',
+    'line_color': THEME_CONFIG['colors']['secondary'],
     'line_width': 2,
-    'circle_fill': 'blue',
-    'circle_active_fill': 'lightblue',
+    'circle_fill': THEME_CONFIG['colors']['primary'],
+    'circle_active_fill': THEME_CONFIG['colors']['active'],
     'time_label_y': 45,
     'frame_padding': (0, 20),  # (top, bottom)
     'frame_side_padding': 10,  # left/right padding
@@ -51,16 +51,22 @@ PROGRESS_BAR = {
 LISTBOX_CONFIG = {
     'width': 50,
     'selectmode': 'extended',
-    'selectbackground': 'lightblue',
+    'selectbackground': THEME_CONFIG['colors']['selectbg'],
+    'selectforeground': THEME_CONFIG['colors']['selectfg'],
     'activestyle': 'none',
     'padding': (0, 15),  # (top, bottom)
+    'background': THEME_CONFIG['colors']['bg'],
+    'foreground': THEME_CONFIG['colors']['fg'],
 }
 
 # Color Configuration
 COLORS = {
-    'loop_enabled': 'green',
-    'loop_disabled': 'black',
-    'alternate_row_colors': ['white', '#f0f0f0'],
+    'loop_enabled': '#00b7c3',       # Updated to teal
+    'loop_disabled': '#686868',      # Updated to theme secondary color
+    'alternate_row_colors': [
+        THEME_CONFIG['colors']['bg'],
+        THEME_CONFIG['colors']['selectbg']
+    ],
 }
 
 # Button Symbols
