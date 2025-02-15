@@ -3,79 +3,18 @@ import os
 import tkinter as tk
 import tkinter.font as tkfont
 import ttkbootstrap as ttk
+from config import (
+    BUTTON_STYLE,
+    BUTTON_SYMBOLS,
+    COLORS,
+    LISTBOX_CONFIG,
+    PROGRESS_BAR,
+    THEME_CONFIG,
+)
+from core.controls import PlayerCore
 from decouple import config
 from pathlib import Path
 
-# Theme Configuration
-THEME_CONFIG_FILE = os.path.join(Path(__file__).parents[1], 'themes.json')
-DEFAULT_THEME = 'spotify'
-ACTIVE_THEME = config('MT_THEME', default=DEFAULT_THEME)
-
-# Load theme data
-with open(THEME_CONFIG_FILE) as f:
-    THEMES_DATA = json.load(f)
-    THEME_CONFIG = next(theme for theme in THEMES_DATA['themes'] if ACTIVE_THEME in theme)[ACTIVE_THEME]
-
-# Window Configuration
-WINDOW_SIZE = "1280x720"
-WINDOW_TITLE = "mt"
-
-# Button Configuration
-BUTTON_STYLE = {
-    'width': 3,
-    'font': ('TkDefaultFont', 30),
-}
-
-# Button Symbols
-BUTTON_SYMBOLS = {
-    'play': '▶',
-    'pause': '⏸',
-    'prev': '⏮',
-    'next': '⏭',
-    'add': '+',
-    'loop': '⟳',
-}
-
-# Progress Bar Configuration
-PROGRESS_BAR = {
-    'frame_height': 80,
-    'canvas_height': 70,
-    'bar_y': 50,
-    'circle_radius': 6,
-    'line_color': THEME_CONFIG['colors']['secondary'],
-    'line_width': 2,
-    'circle_fill': THEME_CONFIG['colors']['primary'],
-    'circle_active_fill': THEME_CONFIG['colors']['active'],
-    'time_label_y': 30,
-    'track_info_y': 30,
-    'track_info_x': None,
-    'frame_padding': (0, 20),
-    'frame_side_padding': 10,
-    'controls_y': 50,
-    'button_spacing': 2,
-}
-
-# Listbox Configuration
-LISTBOX_CONFIG = {
-    'width': 50,
-    'selectmode': 'extended',
-    'selectbackground': THEME_CONFIG['colors']['selectbg'],
-    'selectforeground': THEME_CONFIG['colors']['selectfg'],
-    'activestyle': 'none',
-    'padding': (0, 15),  # (top, bottom)
-    'background': THEME_CONFIG['colors']['bg'],
-    'foreground': THEME_CONFIG['colors']['fg'],
-}
-
-# Color Configuration
-COLORS = {
-    'loop_enabled': THEME_CONFIG['colors']['primary'],
-    'loop_disabled': THEME_CONFIG['colors']['secondary'],
-    'alternate_row_colors': [
-        THEME_CONFIG['colors']['bg'],
-        THEME_CONFIG['colors']['selectbg']
-    ],
-}
 
 def setup_theme(root):
     """Configure the application theme and styles"""
@@ -170,13 +109,13 @@ def setup_theme(root):
     })
 
 class PlayerControls:
-    def __init__(self, canvas, command_callbacks):
+    def __init__(self, canvas, command_callbacks, initial_loop_enabled=True):
         self.canvas = canvas
         self.callbacks = command_callbacks
         self.add_button = None
         self.loop_button = None
         self.play_button = None
-        self.loop_enabled = True  # Initialize to True since it's the default
+        self.loop_enabled = initial_loop_enabled
         self.setup_playback_controls()
         self.setup_utility_controls()
 
@@ -241,7 +180,7 @@ class PlayerControls:
             self.canvas,
             text=BUTTON_SYMBOLS['loop'],
             font=BUTTON_STYLE['font'],
-            fg=COLORS['loop_enabled'],  # Initialize with enabled color since default is True
+            fg=THEME_CONFIG['colors']['fg'],  # Start with default color
             bg=THEME_CONFIG['colors']['bg']
         )
         self.loop_button.place(x=canvas_width - 120, y=y_position)
@@ -250,6 +189,9 @@ class PlayerControls:
         self.loop_button.bind('<Leave>', lambda e: self.loop_button.configure(
             fg=COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled']
         ))
+
+        # Force update loop button color after creation
+        self.update_loop_button_color(self.loop_enabled)
 
         # Store the width for progress bar calculations
         self.utility_width = 120
@@ -284,10 +226,11 @@ class PlayerControls:
         )
 
 class ProgressBar:
-    def __init__(self, window, progress_frame, callbacks):
+    def __init__(self, window, progress_frame, callbacks, initial_loop_enabled=True):
         self.window = window
         self.progress_frame = progress_frame
         self.callbacks = callbacks
+        self.initial_loop_enabled = initial_loop_enabled
         self.setup_progress_bar()
 
     def setup_progress_bar(self):
@@ -300,8 +243,8 @@ class ProgressBar:
         )
         self.canvas.pack(fill=tk.X)
 
-        # Create controls
-        self.controls = PlayerControls(self.canvas, self.callbacks)
+        # Create controls with initial loop state
+        self.controls = PlayerControls(self.canvas, self.callbacks, initial_loop_enabled=self.initial_loop_enabled)
         self.controls_width = self.controls.controls_width
 
         # Create track info text - positioned above progress line
@@ -516,3 +459,16 @@ class QueueView:
         # Setup drag and drop
         self.queue.drop_target_register('DND_Files')
         self.queue.dnd_bind('<<Drop>>', self.callbacks['handle_drop'])
+
+class MusicPlayer:
+    def __init__(self, window: tk.Tk, theme_manager):
+        self.window = window
+        self.theme_manager = theme_manager
+        self.setup_components()
+
+    def setup_components(self):
+        # Create player core first
+        self.player_core = PlayerCore(self.db, self.queue_manager, self.queue_view)
+        self.player_core.window = self.window  # Set window reference for thread-safe callbacks
+
+        # ... existing code ...

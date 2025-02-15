@@ -1,7 +1,8 @@
 import os
+import tkinter as tk
 import vlc
+from config import BUTTON_SYMBOLS
 from core.db import MusicDatabase
-from core.gui import BUTTON_SYMBOLS
 from core.queue import QueueManager
 
 
@@ -17,6 +18,10 @@ class PlayerCore:
         self.was_playing = False
         self.loop_enabled = self.db.get_loop_enabled()
         self.progress_bar = None  # Will be set by MusicPlayer
+        self.window = None  # Will be set by MusicPlayer
+
+        # Set up end of track event handler
+        self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
 
     def play_pause(self) -> None:
         """Toggle play/pause state."""
@@ -93,6 +98,10 @@ class PlayerCore:
         self.current_time = 0
         self.is_playing = True
         self._update_track_info()
+
+        # Update play button to pause symbol since we're now playing
+        if self.progress_bar and hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'play_button'):
+            self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
 
     def _update_track_info(self) -> None:
         """Update track info in progress bar based on current selection."""
@@ -197,3 +206,27 @@ class PlayerCore:
 
         current_index = children.index(current_selection[0])
         return current_index == len(children) - 1
+
+    def _on_track_end(self, event):
+        """Handle end of track event by scheduling the next action in the main thread."""
+        if self.window:
+            # Schedule the handler in the main thread since VLC calls this from its own thread
+            self.window.after(0, self._handle_track_end)
+
+    def _handle_track_end(self):
+        """Handle track end in the main thread."""
+        if self.loop_enabled:
+            # If loop is enabled, play the next track (or first if at end)
+            self.next_song()
+        else:
+            # If loop is disabled and we're at the last track, stop playback
+            if self._is_last_song():
+                self.stop()
+            else:
+                self.next_song()
+
+        # Update UI elements
+        if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+            self.progress_bar.controls.play_button.configure(
+                text=BUTTON_SYMBOLS['pause'] if self.is_playing else BUTTON_SYMBOLS['play']
+            )

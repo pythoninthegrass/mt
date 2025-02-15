@@ -77,35 +77,9 @@ class MusicPlayer:
         # Setup views with callbacks
         self.setup_views()
 
-        # Initialize player core with queue view
+        # Initialize player core first
         self.player_core = PlayerCore(self.db, self.queue_manager, self.queue_view.queue)
 
-        # Add progress bar and controls at bottom
-        self.setup_progress_bar()
-
-        # Connect progress bar to player core
-        self.player_core.progress_bar = self.progress_bar
-
-        # Start progress update
-        self.update_progress()
-
-    def setup_views(self):
-        """Setup library and queue views with their callbacks."""
-        # Setup library view
-        self.library_view = LibraryView(self.left_panel, {
-            'on_section_select': self.on_section_select,
-        })
-
-        # Setup queue view
-        self.queue_view = QueueView(self.right_panel, {
-            'play_selected': self.play_selected,
-            'handle_delete': self.handle_delete,
-            'on_song_select': self.on_song_select,
-            'handle_drop': self.handle_drop,
-        })
-
-    def setup_progress_bar(self):
-        """Setup progress bar with controls."""
         # Create frame for progress bar
         self.progress_frame = ttk.Frame(self.window, height=80)
         self.progress_frame.pack(
@@ -127,6 +101,27 @@ class MusicPlayer:
             'end_drag': self.end_drag,
             'click_progress': self.click_progress,
             'on_resize': self.on_resize,
+        }, initial_loop_enabled=self.player_core.loop_enabled)
+
+        # Connect progress bar to player core
+        self.player_core.progress_bar = self.progress_bar
+
+        # Start progress update
+        self.update_progress()
+
+    def setup_views(self):
+        """Setup library and queue views with their callbacks."""
+        # Setup library view
+        self.library_view = LibraryView(self.left_panel, {
+            'on_section_select': self.on_section_select,
+        })
+
+        # Setup queue view
+        self.queue_view = QueueView(self.right_panel, {
+            'play_selected': self.play_selected,
+            'handle_delete': self.handle_delete,
+            'on_song_select': self.on_song_select,
+            'handle_drop': self.handle_drop,
         })
 
     def setup_file_watcher(self):
@@ -296,8 +291,31 @@ class MusicPlayer:
 
     def handle_drop(self, event):
         """Handle drag and drop of files."""
-        paths = event.data.split()
-        paths = [p.strip('{}').strip('"') for p in paths if p.strip()]
+        # On macOS, paths are separated by spaces and wrapped in curly braces
+        # Example: "{/path/to/first file.mp3} {/path/to/second file.mp3}"
+        raw_data = event.data.strip()
+        paths = []
+
+        # Extract paths between curly braces
+        current = 0
+        while current < len(raw_data):
+            if raw_data[current] == '{':
+                end = raw_data.find('}', current)
+                if end != -1:
+                    # Extract path without braces and handle quotes
+                    path = raw_data[current + 1:end].strip().strip('"')
+                    if path:  # Only add non-empty paths
+                        paths.append(path)
+                    current = end + 1
+                else:
+                    break
+            else:
+                current += 1
+
+        if not paths:  # Fallback for non-macOS or different format
+            paths = [p.strip('{}').strip('"') for p in event.data.split() if p.strip()]
+
+        print("Parsed paths:", paths)  # Debug output
 
         # Get current view to determine where to add files
         selected_item = self.library_view.library_tree.selection()

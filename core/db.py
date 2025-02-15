@@ -46,6 +46,12 @@ class MusicDatabase:
         # Create tables
         for _, create_sql in db_tables.items():
             self.db_cursor.execute(create_sql)
+
+        # Initialize settings with default values if they don't exist
+        self.db_cursor.execute("SELECT COUNT(*) FROM settings WHERE key = 'loop_enabled'")
+        if self.db_cursor.fetchone()[0] == 0:
+            self.set_loop_enabled(True)  # Set default loop state
+
         self.db_conn.commit()
 
     def close(self):
