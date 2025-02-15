@@ -4,7 +4,6 @@ import importlib
 import json
 import mutagen
 import os
-import sqlite3
 import sys
 import time
 import tkinter as tk
@@ -17,7 +16,6 @@ from config import (
     BUTTON_SYMBOLS,
     COLORS,
     DB_NAME,
-    DB_TABLES,
     DEFAULT_LOOP_ENABLED,
     LISTBOX_CONFIG,
     MAX_SCAN_DEPTH,
@@ -28,6 +26,7 @@ from config import (
     WINDOW_SIZE,
     WINDOW_TITLE,
 )
+from core.db import DB_TABLES, MusicDatabase
 from pathlib import Path
 from tkinter import filedialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -89,14 +88,7 @@ class MusicPlayer:
         for item in self.queue.get_children():
             self.queue.delete(item)
 
-        self.db_cursor.execute('''
-            SELECT q.filepath, l.title, l.artist, l.album, l.track_number, l.date
-            FROM queue q
-            LEFT JOIN library l ON q.filepath = l.filepath
-            ORDER BY q.id
-        ''')
-
-        rows = self.db_cursor.fetchall()
+        rows = self.db.get_queue_items()
         if not rows:
             return
 
@@ -167,36 +159,17 @@ class MusicPlayer:
 
                 track_num, title, artist, album, year = values
 
-                # Build query to find the matching file
-                self.db_cursor.execute('''
-                    SELECT filepath FROM library
-                    WHERE (
-                        (title = ? OR (title IS NULL AND ? = '')) AND
-                        (artist = ? OR (artist IS NULL AND ? = '')) AND
-                        (album = ? OR (album IS NULL AND ? = '')) AND
-                        (CASE
-                            WHEN ? != '' THEN
-                                CASE
-                                    WHEN track_number LIKE '%/%'
-                                    THEN printf('%02d', CAST(substr(track_number, 1, instr(track_number, '/') - 1) AS INTEGER)) = ?
-                                    ELSE printf('%02d', CAST(track_number AS INTEGER)) = ?
-                                END
-                            ELSE track_number IS NULL
-                        END)
-                    )
-                ''', (title, title, artist, artist, album, album, track_num, track_num, track_num))
-
-                result = self.db_cursor.fetchone()
-                if not result:
+                # Find the file in the database
+                filepath = self.db.find_file_by_metadata(title, artist, album, track_num)
+                if not filepath:
                     print(f"File not found in database: {title}")
                     return
 
-                selected_song = result[0]
-                if not os.path.exists(selected_song):
-                    print(f"File not found on disk: {selected_song}")
+                if not os.path.exists(filepath):
+                    print(f"File not found on disk: {filepath}")
                     return
 
-                media = self.player.media_new(selected_song)
+                media = self.player.media_new(filepath)
                 self.media_player.set_media(media)
                 if self.current_time > 0:
                     self.media_player.play()
@@ -232,21 +205,8 @@ class MusicPlayer:
             self.observer = None
 
         # Initialize database
-        self.db_conn = sqlite3.connect(DB_NAME)
-        self.db_cursor = self.db_conn.cursor()
-        for table_name, create_sql in DB_TABLES.items():
-            self.db_cursor.execute(create_sql)
-        self.db_conn.commit()
-
-        # Load loop state from settings
-        self.db_cursor.execute("SELECT value FROM settings WHERE key = 'loop_enabled'")
-        result = self.db_cursor.fetchone()
-        if result is None:
-            self.loop_enabled = DEFAULT_LOOP_ENABLED
-            self.db_cursor.execute("INSERT INTO settings (key, value) VALUES ('loop_enabled', '1')")
-            self.db_conn.commit()
-        else:
-            self.loop_enabled = (result[0] == '1')
+        self.db = MusicDatabase(DB_NAME, DB_TABLES)
+        self.loop_enabled = self.db.get_loop_enabled()
 
         # Create main container
         self.main_container = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
@@ -406,24 +366,7 @@ class MusicPlayer:
         for item in self.queue.get_children():
             self.queue.delete(item)
 
-        # Load all known music files from database with metadata
-        self.db_cursor.execute('''
-            SELECT filepath, title, artist, album, track_number, date
-            FROM library
-            ORDER BY
-                CASE WHEN artist IS NULL THEN 1 ELSE 0 END,
-                artist COLLATE NOCASE,
-                CASE WHEN album IS NULL THEN 1 ELSE 0 END,
-                album COLLATE NOCASE,
-                CASE
-                    WHEN track_number IS NULL THEN 999999
-                    WHEN track_number LIKE '%/%' THEN CAST(substr(track_number, 1, instr(track_number, '/') - 1) AS INTEGER)
-                    ELSE CAST(track_number AS INTEGER)
-                END,
-                title COLLATE NOCASE
-        ''')
-
-        rows = self.db_cursor.fetchall()
+        rows = self.db.get_library_items()
         if not rows:
             return
 
@@ -477,11 +420,7 @@ class MusicPlayer:
         style.configure('Loop.Controls.TButton',
             foreground=THEME_CONFIG['colors']['primary'] if self.loop_enabled else THEME_CONFIG['colors']['fg']
         )
-        self.db_cursor.execute(
-            "UPDATE settings SET value = ? WHERE key = ?",
-            ('1' if self.loop_enabled else '0', 'loop_enabled')
-        )
-        self.db_conn.commit()
+        self.db.set_loop_enabled(self.loop_enabled)
 
     def start_drag(self, event):
         self.dragging = True
@@ -621,43 +560,9 @@ class MusicPlayer:
         print(f"\nPlaying next song: {title}")
         print(f"Selected values: track={track_num}, artist={artist}, album={album}")
 
-        # First try exact match
-        query = '''
-            SELECT filepath, title, artist, album, track_number
-            FROM library
-            WHERE LOWER(title) = LOWER(?)
-            AND (LOWER(artist) = LOWER(?) OR artist IS NULL OR ? = '')
-            LIMIT 1
-        '''
-
-        print("\nExecuting query with parameters:", title, artist, artist)
-        self.db_cursor.execute(query, (title, artist, artist))
-        result = self.db_cursor.fetchone()
-
-        # If no exact match, try matching just the title
+        result = self.db.find_song_by_title_artist(title, artist)
         if not result:
-            print("\nNo exact match found, trying title-only match...")
-            query = '''
-                SELECT filepath, title, artist, album, track_number
-                FROM library
-                WHERE LOWER(title) = LOWER(?)
-                LIMIT 1
-            '''
-            print("Executing query with parameter:", title)
-            self.db_cursor.execute(query, (title,))
-            result = self.db_cursor.fetchone()
-
-        if not result:
-            print("\nNo match found. Dumping all entries with similar titles:")
-            self.db_cursor.execute('''
-                SELECT filepath, title, artist, album, track_number
-                FROM library
-                WHERE LOWER(title) LIKE LOWER(?)
-                OR LOWER(filepath) LIKE LOWER(?)
-            ''', (f"%{title}%", f"%{title}%"))
-
-            for row in self.db_cursor.fetchall():
-                print(f"Found: filepath={row[0]}, title={row[1]}, artist={row[2]}, album={row[3]}, track={row[4]}")
+            print(f"File not found in database: {title}")
             return
 
         filepath, db_title, db_artist, db_album, db_track = result
@@ -682,60 +587,57 @@ class MusicPlayer:
         self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
 
     def previous_song(self):
-        if self.queue.size() > 0:
-            # Get current selection or default to 0
-            current = self.queue.curselection()
-            current_index = current[0] if current else 0
-            prev_index = (current_index - 1) % self.queue.size()
+        children = self.queue.get_children()
+        if not children:
+            return
 
-            self.queue.selection_clear(0, tk.END)
-            self.queue.activate(prev_index)
-            self.queue.selection_set(prev_index)
-            self.queue.see(prev_index)
+        current_selection = self.queue.selection()
+        if not current_selection:
+            # If nothing is selected, start with the last item
+            prev_index = len(children) - 1
+        else:
+            current_index = children.index(current_selection[0])
+            # Move to previous song (or last if at beginning)
+            prev_index = (current_index - 1) % len(children)
 
-            # Get the filepath from the database based on the display text
-            display_text = self.queue.get(prev_index)
+        prev_item = children[prev_index]
+        self.queue.selection_set(prev_item)
+        self.queue.see(prev_item)
 
-            # Get the filepath from the database with updated query
-            self.db_cursor.execute('''
-                SELECT filepath FROM library
-                WHERE CASE
-                    WHEN track_number IS NOT NULL
-                    THEN printf('%02d %s - %s (%s)',
-                              CAST(CASE
-                                WHEN track_number LIKE '%/%'
-                                THEN substr(track_number, 1, instr(track_number, '/') - 1)
-                                ELSE track_number
-                              END AS INTEGER),
-                              title,
-                              artist,
-                              album) = ?
-                    WHEN artist IS NOT NULL AND album IS NOT NULL
-                    THEN title || ' ' || artist || ' - (' || album || ')' = ?
-                    WHEN artist IS NOT NULL
-                    THEN title || ' - ' || artist = ?
-                    ELSE title = ?
-                END
-                OR title = ?
-                OR filepath = ?
-            ''', (display_text, display_text, display_text, display_text, display_text, display_text))
+        # Get the values from the selected item
+        values = self.queue.item(prev_item)['values']
+        if not values:
+            return
 
-            result = self.db_cursor.fetchone()
-            if not result:
-                print(f"File not found in database: {display_text}")
-                return
+        track_num, title, artist, album, year = values
+        print(f"\nPlaying previous song: {title}")
+        print(f"Selected values: track={track_num}, artist={artist}, album={album}")
 
-            selected_song = result[0]
-            if not os.path.exists(selected_song):
-                print(f"File not found on disk: {selected_song}")
-                return
+        result = self.db.find_song_by_title_artist(title, artist)
+        if not result:
+            print(f"File not found in database: {title}")
+            return
 
-            media = self.player.media_new(selected_song)
-            self.media_player.set_media(media)
-            self.media_player.play()
-            self.current_time = 0
-            self.is_playing = True
-            self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
+        filepath, db_title, db_artist, db_album, db_track = result
+        print("\nFound matching entry:")
+        print(f"filepath: {filepath}")
+        print(f"title: {db_title}")
+        print(f"artist: {db_artist}")
+        print(f"album: {db_album}")
+        print(f"track: {db_track}")
+
+        if not os.path.exists(filepath):
+            print(f"File not found on disk: {filepath}")
+            return
+
+        print(f"File exists on disk, playing: {filepath}")
+
+        media = self.player.media_new(filepath)
+        self.media_player.set_media(media)
+        self.media_player.play()
+        self.current_time = 0
+        self.is_playing = True
+        self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
 
     def add_files_to_library(self):
         home_dir = Path.home()
@@ -796,12 +698,7 @@ class MusicPlayer:
 
     def process_paths(self, paths):
         print("\nProcessing paths for library addition:")
-        existing_files = set()
-        # Get existing files from library
-        self.db_cursor.execute('SELECT filepath FROM library')
-        for (filepath,) in self.db_cursor.fetchall():
-            existing_files.add(filepath)
-
+        existing_files = self.db.get_existing_files()
         files_to_add = []  # Use a list to maintain order
 
         for path in paths:
@@ -891,33 +788,14 @@ class MusicPlayer:
                                 print(f"No title found, using filename: {metadata['title']}")
 
                             # Add to library with metadata
-                            self.db_cursor.execute('''
-                                INSERT INTO library
-                                (filepath, title, artist, album, album_artist,
-                                track_number, track_total, date, duration)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            ''', (
-                                str(file_path),
-                                metadata['title'],
-                                metadata['artist'],
-                                metadata['album'],
-                                metadata['album_artist'],
-                                metadata['track_number'],
-                                metadata['track_total'],
-                                metadata['date'],
-                                metadata['duration']
-                            ))
+                            self.db.add_to_library(str(file_path), metadata)
                             print("Successfully added to library")
                     except Exception as e:
                         print(f"Error reading metadata for {file_path}: {e}")
                         # Add file without metadata if there's an error
-                        self.db_cursor.execute(
-                            'INSERT INTO library (filepath, title) VALUES (?, ?)',
-                            (str(file_path), path_obj.stem)
-                        )
+                        self.db.add_to_library(str(file_path), {'title': path_obj.stem})
                         print("Added to library with filename only")
 
-            self.db_conn.commit()
             print("\nFinished processing files")
 
             # If we're currently viewing the Music library, update the view
@@ -940,31 +818,9 @@ class MusicPlayer:
                 continue
 
             track_num, title, artist, album, year = values
-
-            # Find the filepath in the library
-            self.db_cursor.execute('''
-                SELECT filepath FROM library
-                WHERE (
-                    (title = ? OR (title IS NULL AND ? = '')) AND
-                    (artist = ? OR (artist IS NULL AND ? = '')) AND
-                    (album = ? OR (album IS NULL AND ? = '')) AND
-                    (CASE
-                        WHEN ? != '' THEN
-                            CASE
-                                WHEN track_number LIKE '%/%'
-                                THEN printf('%02d', CAST(substr(track_number, 1, instr(track_number, '/') - 1) AS INTEGER)) = ?
-                                ELSE printf('%02d', CAST(track_number AS INTEGER)) = ?
-                            END
-                        ELSE track_number IS NULL
-                    END)
-                )
-            ''', (title, title, artist, artist, album, album, track_num, track_num, track_num))
-
-            result = self.db_cursor.fetchone()
-            if result:
-                self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (result[0],))
-
-        self.db_conn.commit()
+            filepath = self.db.find_file_by_metadata(title, artist, album, track_num)
+            if filepath:
+                self.db.add_to_queue(filepath)
 
         # If we're viewing Now Playing, refresh the view
         selected_item = self.library_tree.selection()
@@ -985,33 +841,9 @@ class MusicPlayer:
                 continue
 
             track_num, title, artist, album, year = values
-
-            # Find and delete the filepath from the queue
-            self.db_cursor.execute('''
-                DELETE FROM queue
-                WHERE filepath IN (
-                    SELECT filepath FROM library
-                    WHERE (
-                        (title = ? OR (title IS NULL AND ? = '')) AND
-                        (artist = ? OR (artist IS NULL AND ? = '')) AND
-                        (album = ? OR (album IS NULL AND ? = '')) AND
-                        (CASE
-                            WHEN ? != '' THEN
-                                CASE
-                                    WHEN track_number LIKE '%/%'
-                                    THEN printf('%02d', CAST(substr(track_number, 1, instr(track_number, '/') - 1) AS INTEGER)) = ?
-                                    ELSE printf('%02d', CAST(track_number AS INTEGER)) = ?
-                                END
-                            ELSE track_number IS NULL
-                        END)
-                    )
-                )
-            ''', (title, title, artist, artist, album, album, track_num, track_num, track_num))
-
-            # Delete the item from the treeview
+            self.db.remove_from_queue(title, artist, album, track_num)
             self.queue.delete(item)
 
-        self.db_conn.commit()
         self.refresh_colors()
 
     def handle_delete(self, event):
@@ -1041,73 +873,15 @@ class MusicPlayer:
         if not tags:
             return "break"
 
-        # First try exact match
+        # Find the file based on the current view
         if tags[0] == 'now_playing':
-            query = '''
-                SELECT q.filepath, l.title, l.artist, l.album, l.track_number
-                FROM queue q
-                JOIN library l ON q.filepath = l.filepath
-                WHERE LOWER(l.title) = LOWER(?)
-                AND (LOWER(l.artist) = LOWER(?) OR l.artist IS NULL OR ? = '')
-                ORDER BY q.id
-                LIMIT 1
-            '''
+            filepath = self.db.find_file_in_queue(title, artist)
         else:
-            query = '''
-                SELECT filepath, title, artist, album, track_number
-                FROM library
-                WHERE LOWER(title) = LOWER(?)
-                AND (LOWER(artist) = LOWER(?) OR artist IS NULL OR ? = '')
-                LIMIT 1
-            '''
+            filepath = self.db.find_file_by_metadata(title, artist, album, track_num)
 
-        print("\nExecuting query with parameters:", title, artist, artist)
-        self.db_cursor.execute(query, (title, artist, artist))
-        result = self.db_cursor.fetchone()
-
-        # If no exact match, try matching just the title
-        if not result:
-            print("\nNo exact match found, trying title-only match...")
-            if tags[0] == 'now_playing':
-                query = '''
-                    SELECT q.filepath, l.title, l.artist, l.album, l.track_number
-                    FROM queue q
-                    JOIN library l ON q.filepath = l.filepath
-                    WHERE LOWER(l.title) = LOWER(?)
-                    ORDER BY q.id
-                    LIMIT 1
-                '''
-            else:
-                query = '''
-                    SELECT filepath, title, artist, album, track_number
-                    FROM library
-                    WHERE LOWER(title) = LOWER(?)
-                    LIMIT 1
-                '''
-            print("Executing query with parameter:", title)
-            self.db_cursor.execute(query, (title,))
-            result = self.db_cursor.fetchone()
-
-        if not result:
-            print("\nNo match found. Dumping all entries with similar titles:")
-            self.db_cursor.execute('''
-                SELECT filepath, title, artist, album, track_number
-                FROM library
-                WHERE LOWER(title) LIKE LOWER(?)
-                OR LOWER(filepath) LIKE LOWER(?)
-            ''', (f"%{title}%", f"%{title}%"))
-
-            for row in self.db_cursor.fetchall():
-                print(f"Found: filepath={row[0]}, title={row[1]}, artist={row[2]}, album={row[3]}, track={row[4]}")
+        if not filepath:
+            print(f"File not found in database: {title}")
             return "break"
-
-        filepath, db_title, db_artist, db_album, db_track = result
-        print("\nFound matching entry:")
-        print(f"filepath: {filepath}")
-        print(f"title: {db_title}")
-        print(f"artist: {db_artist}")
-        print(f"album: {db_album}")
-        print(f"track: {db_track}")
 
         if not os.path.exists(filepath):
             print(f"File not found on disk: {filepath}")
@@ -1117,8 +891,7 @@ class MusicPlayer:
 
         # If playing from library view, add to queue
         if tags[0] == 'music':
-            self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (filepath,))
-            self.db_conn.commit()
+            self.db.add_to_queue(filepath)
 
         media = self.player.media_new(filepath)
         self.media_player.set_media(media)
@@ -1186,8 +959,7 @@ class MusicPlayer:
                     for path in paths:
                         normalized_path = str(normalize_path(path))
                         if os.path.exists(normalized_path):
-                            self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (normalized_path,))
-                    self.db_conn.commit()
+                            self.db.add_to_queue(normalized_path)
                     self.load_queue()
 
     def setup_progress_bar(self):
@@ -1304,8 +1076,8 @@ class MusicPlayer:
             self.observer.join()
 
         # Clean up database connection
-        if hasattr(self, 'db_conn'):
-            self.db_conn.close()
+        if hasattr(self, 'db'):
+            self.db.close()
 
 
 def main():

@@ -16,6 +16,9 @@ with open(THEME_CONFIG_FILE) as f:
     THEMES_DATA = json.load(f)
     THEME_CONFIG = next(theme for theme in THEMES_DATA['themes'] if ACTIVE_THEME in theme)[ACTIVE_THEME]
 
+# Database Configuration
+DB_NAME = 'mt.db'
+
 # Audio Configuration
 AUDIO_EXTENSIONS = {
     '.m4a', '.mp3', '.wav', '.ogg', '.wma', '.flac', '.aac',
@@ -80,38 +83,6 @@ BUTTON_SYMBOLS = {
     'next': '⏭',
     'add': '+',
     'loop': '⟳',
-}
-
-# Database Configuration
-DB_NAME = 'mt.db'
-DB_TABLES = {
-    'queue': '''
-        CREATE TABLE IF NOT EXISTS queue
-        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-         filepath TEXT NOT NULL)
-    ''',
-    'library': '''
-        CREATE TABLE IF NOT EXISTS library
-        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-         filepath TEXT NOT NULL,
-         title TEXT,
-         artist TEXT,
-         album TEXT,
-         album_artist TEXT,
-         track_number TEXT,
-         track_total TEXT,
-         date TEXT,
-         duration REAL,
-         added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-         last_played TIMESTAMP,
-         play_count INTEGER DEFAULT 0)
-    ''',
-    'settings': '''
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        )
-    '''
 }
 
 # File System
