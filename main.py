@@ -27,6 +27,7 @@ from config import (
     WINDOW_TITLE,
 )
 from core.db import DB_TABLES, MusicDatabase
+from core.gui import setup_theme
 from pathlib import Path
 from tkinter import filedialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -1089,97 +1090,8 @@ def main():
         icon = tk.PhotoImage(file='mt.png')
         root.wm_iconphoto(False, icon)
 
-        style = ttk.Style(theme='darkly')  # Start with darkly as base
-
-        # Apply theme colors from config
-        style.configure('TButton',
-                       background=THEME_CONFIG['colors']['bg'],
-                       foreground=THEME_CONFIG['colors']['fg'],
-                       borderwidth=0,
-                       relief='flat',
-                       focuscolor='',           # Remove focus border
-                       highlightthickness=0,    # Remove highlight border
-                       font=BUTTON_STYLE['font'])
-
-        # Configure specific styles for control buttons
-        style.configure('Controls.TButton',
-                       background=THEME_CONFIG['colors']['bg'],
-                       foreground=THEME_CONFIG['colors']['fg'],
-                       borderwidth=0,
-                       relief='flat',
-                       focuscolor='',           # Remove focus border
-                       highlightthickness=0,    # Remove highlight border
-                       font=BUTTON_STYLE['font'],
-                       padding=BUTTON_STYLE['padding'])
-
-        style.configure('Loop.Controls.TButton',
-                       background=THEME_CONFIG['colors']['bg'],
-                       foreground=THEME_CONFIG['colors']['fg'],
-                       borderwidth=0,
-                       relief='flat',
-                       focuscolor='',           # Remove focus border
-                       highlightthickness=0,    # Remove highlight border
-                       font=BUTTON_STYLE['font'],
-                       padding=BUTTON_STYLE['padding'])
-
-        style.map('Controls.TButton',
-                 background=[('active', THEME_CONFIG['colors']['bg'])],
-                 foreground=[('active', THEME_CONFIG['colors']['primary'])])
-
-        style.map('Loop.Controls.TButton',
-                 background=[('active', THEME_CONFIG['colors']['bg'])],
-                 foreground=[('active', THEME_CONFIG['colors']['primary'])])
-
-        style.configure('TFrame', background=THEME_CONFIG['colors']['bg'])
-        style.configure('TLabel', background=THEME_CONFIG['colors']['bg'], foreground=THEME_CONFIG['colors']['fg'])
-        style.configure('Vertical.TScrollbar',
-                       background=THEME_CONFIG['colors']['bg'],
-                       troughcolor=THEME_CONFIG['colors']['dark'],
-                       arrowcolor=THEME_CONFIG['colors']['fg'])
-
-        # Configure Treeview style
-        style.configure('Treeview',
-                       background=THEME_CONFIG['colors']['bg'],
-                       foreground=THEME_CONFIG['colors']['fg'],
-                       fieldbackground=THEME_CONFIG['colors']['bg'],
-                       borderwidth=0,
-                       relief='flat')
-
-        style.configure('Treeview.Heading',
-                       background=THEME_CONFIG['colors']['bg'],
-                       foreground=THEME_CONFIG['colors']['fg'],
-                       relief='flat',
-                       borderwidth=0)
-
-        style.map('Treeview.Heading',
-                 background=[('active', THEME_CONFIG['colors']['bg'])],
-                 foreground=[('active', THEME_CONFIG['colors']['primary'])])
-
-        style.map('Treeview',
-                 background=[('selected', THEME_CONFIG['colors']['selectbg'])],
-                 foreground=[('selected', THEME_CONFIG['colors']['selectfg'])])
-
-        # Update progress bar colors
-        PROGRESS_BAR.update({
-            'line_color': THEME_CONFIG['colors']['secondary'],
-            'circle_fill': THEME_CONFIG['colors']['primary'],
-            'circle_active_fill': THEME_CONFIG['colors']['active']
-        })
-
-        # Update listbox colors
-        LISTBOX_CONFIG.update({
-            'selectbackground': THEME_CONFIG['colors']['selectbg'],
-            'selectforeground': THEME_CONFIG['colors']['selectfg'],
-            'background': THEME_CONFIG['colors']['bg'],
-            'foreground': THEME_CONFIG['colors']['fg']
-        })
-
-        # Update colors
-        COLORS.update({
-            'loop_enabled': THEME_CONFIG['colors']['primary'],
-            'loop_disabled': THEME_CONFIG['colors']['secondary'],
-            'alternate_row_colors': [THEME_CONFIG['colors']['bg'], THEME_CONFIG['colors']['selectbg']]
-        })
+        # Setup theme and styles
+        setup_theme(root)
 
         global player_instance
         player_instance = MusicPlayer(root)
