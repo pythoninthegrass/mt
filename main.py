@@ -31,66 +31,8 @@ from config import (
 from pathlib import Path
 from tkinter import filedialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
-from watchdog.events import FileSystemEventHandler
+from utils.reload import ConfigFileHandler
 from watchdog.observers import Observer
-
-
-class ConfigFileHandler(FileSystemEventHandler):
-    def __init__(self, app_instance):
-        self.app_instance = app_instance
-        self.last_reload_time = 0
-        self.reload_cooldown = 1.0  # seconds
-        self.watched_files = {'config.py', 'themes.json', 'main.py'}
-
-    def on_modified(self, event):
-        if not RELOAD or event.is_directory:
-            return
-
-        current_time = time.time()
-        if current_time - self.last_reload_time < self.reload_cooldown:
-            return
-
-        file_path = event.src_path
-        file_name = os.path.basename(file_path)
-
-        if file_name in self.watched_files:
-            print(f"Detected change in {file_name}, reloading configuration...")
-            self.last_reload_time = current_time
-
-            try:
-                if file_name == 'main.py':
-                    # For main.py changes, we need to restart the entire process
-                    if self.app_instance and self.app_instance.window:
-                        self.app_instance.window.after(100, self.restart_process)
-                else:
-                    # For other files, reload config and restart window
-                    if 'config' in sys.modules:
-                        importlib.reload(sys.modules['config'])
-                    if self.app_instance and self.app_instance.window:
-                        self.app_instance.window.after(100, self.restart_application)
-            except Exception as e:
-                print(f"Error reloading configuration: {e}")
-
-    def restart_process(self):
-        """Restart the entire Python process"""
-        try:
-            if self.app_instance and self.app_instance.window:
-                self.app_instance.window.destroy()
-            python = sys.executable
-            os.execl(python, python, *sys.argv)
-        except Exception as e:
-            print(f"Error restarting process: {e}")
-            sys.exit(1)
-
-    def restart_application(self):
-        """Restart just the application window"""
-        try:
-            if self.app_instance and self.app_instance.window:
-                self.app_instance.window.destroy()
-                main()
-        except Exception as e:
-            print(f"Error restarting application: {e}")
-            sys.exit(1)
 
 
 def normalize_path(path_str):
@@ -112,7 +54,7 @@ def normalize_path(path_str):
 
 
 def find_audio_files(directory, max_depth=MAX_SCAN_DEPTH):
-    found_files = []  # Changed to list to maintain order
+    found_files = []
     base_path = normalize_path(directory)
 
     def scan_directory(path, current_depth):
@@ -277,9 +219,10 @@ class MusicPlayer:
         self.window.minsize(1280, 720)
         self.is_playing = False
         self.current_time = 0
+        self.reload_enabled = RELOAD
 
         # Initialize file watcher only if RELOAD is enabled
-        if RELOAD:
+        if self.reload_enabled:
             print("Development mode: watching for file changes...")
             self.observer = Observer()
             event_handler = ConfigFileHandler(self)
