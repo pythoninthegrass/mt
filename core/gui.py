@@ -303,7 +303,7 @@ class LibraryView:
 
         # Library section
         library_id = self.library_tree.insert('', 'end', text='Library', open=True)
-        self.library_tree.insert(library_id, 'end', text='Music', tags=('music',))
+        music_item = self.library_tree.insert(library_id, 'end', text='Music', tags=('music',))
         self.library_tree.insert(
             library_id, 'end', text='Now Playing', tags=('now_playing',)
         )
@@ -319,6 +319,12 @@ class LibraryView:
         self.library_tree.insert(
             playlists_id, 'end', text='Top 25 Most Played', tags=('top_played',)
         )
+
+        # Select Music by default
+        self.library_tree.selection_set(music_item)
+        self.library_tree.see(music_item)
+        # Trigger the selection event to load the library
+        self.library_tree.event_generate('<<TreeviewSelect>>')
 
         # Calculate optimal width
         items = [
