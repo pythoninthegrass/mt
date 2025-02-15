@@ -2,6 +2,7 @@ import importlib
 import os
 import sys
 import time
+from pathlib import Path
 from watchdog.events import FileSystemEventHandler
 
 
@@ -10,7 +11,8 @@ class ConfigFileHandler(FileSystemEventHandler):
         self.app_instance = app_instance
         self.last_reload_time = 0
         self.reload_cooldown = 1.0  # seconds
-        self.watched_files = {'config.py', 'themes.json', 'main.py'}
+        self.watched_files = {p.name for p in Path('.').glob('**/*.py') if '.venv' not in str(p) and len(p.parents) <= 2}
+        self.watched_files.add('themes.json')
 
     def on_modified(self, event):
         if not self.app_instance.reload_enabled or event.is_directory:
