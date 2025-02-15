@@ -94,6 +94,14 @@ DB_TABLES = {
         CREATE TABLE IF NOT EXISTS library
         (id INTEGER PRIMARY KEY AUTOINCREMENT,
          filepath TEXT NOT NULL,
+         title TEXT,
+         artist TEXT,
+         album TEXT,
+         album_artist TEXT,
+         track_number TEXT,
+         track_total TEXT,
+         date TEXT,
+         duration REAL,
          added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
          last_played TIMESTAMP,
          play_count INTEGER DEFAULT 0)
