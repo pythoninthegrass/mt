@@ -21,6 +21,20 @@
       // "args": ["-i", "response.xml", "-o", "response.csv"],
     },
     {
+      "name": "Python: GUI",
+      "type": "debugpy",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "program": "main.py",
+      "cwd": "${workspaceFolder}",
+      "pythonArgs": [
+        "-Xfrozen_modules=off"
+      ],
+      "env": {
+        "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+      }
+    },
+    {
       "name": "Python: Flask",
       "type": "debugpy",
       "request": "launch",
