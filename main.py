@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import importlib
 import json
 import os
 import sqlite3
@@ -21,6 +22,7 @@ from config import (
     MAX_SCAN_DEPTH,
     PROGRESS_BAR,
     PROGRESS_UPDATE_INTERVAL,
+    RELOAD,
     THEME_CONFIG,
     WINDOW_SIZE,
     WINDOW_TITLE,
@@ -28,6 +30,66 @@ from config import (
 from pathlib import Path
 from tkinter import filedialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+
+
+class ConfigFileHandler(FileSystemEventHandler):
+    def __init__(self, app_instance):
+        self.app_instance = app_instance
+        self.last_reload_time = 0
+        self.reload_cooldown = 1.0  # seconds
+        self.watched_files = {'config.py', 'themes.json', 'main.py'}
+
+    def on_modified(self, event):
+        if not RELOAD or event.is_directory:
+            return
+
+        current_time = time.time()
+        if current_time - self.last_reload_time < self.reload_cooldown:
+            return
+
+        file_path = event.src_path
+        file_name = os.path.basename(file_path)
+
+        if file_name in self.watched_files:
+            print(f"Detected change in {file_name}, reloading configuration...")
+            self.last_reload_time = current_time
+
+            try:
+                if file_name == 'main.py':
+                    # For main.py changes, we need to restart the entire process
+                    if self.app_instance and self.app_instance.window:
+                        self.app_instance.window.after(100, self.restart_process)
+                else:
+                    # For other files, reload config and restart window
+                    if 'config' in sys.modules:
+                        importlib.reload(sys.modules['config'])
+                    if self.app_instance and self.app_instance.window:
+                        self.app_instance.window.after(100, self.restart_application)
+            except Exception as e:
+                print(f"Error reloading configuration: {e}")
+
+    def restart_process(self):
+        """Restart the entire Python process"""
+        try:
+            if self.app_instance and self.app_instance.window:
+                self.app_instance.window.destroy()
+            python = sys.executable
+            os.execl(python, python, *sys.argv)
+        except Exception as e:
+            print(f"Error restarting process: {e}")
+            sys.exit(1)
+
+    def restart_application(self):
+        """Restart just the application window"""
+        try:
+            if self.app_instance and self.app_instance.window:
+                self.app_instance.window.destroy()
+                main()
+        except Exception as e:
+            print(f"Error restarting application: {e}")
+            sys.exit(1)
 
 
 def normalize_path(path_str):
@@ -129,6 +191,16 @@ class MusicPlayer:
         self.window.minsize(1280, 720)
         self.is_playing = False
         self.current_time = 0
+
+        # Initialize file watcher only if RELOAD is enabled
+        if RELOAD:
+            print("Development mode: watching for file changes...")
+            self.observer = Observer()
+            event_handler = ConfigFileHandler(self)
+            self.observer.schedule(event_handler, path='.', recursive=False)
+            self.observer.start()
+        else:
+            self.observer = None
 
         # Initialize database
         self.db_conn = sqlite3.connect(DB_NAME)
@@ -699,87 +771,100 @@ class MusicPlayer:
                 self.loop_button = button
 
     def __del__(self):
+        # Stop the file watcher if it exists
+        if hasattr(self, 'observer') and self.observer:
+            self.observer.stop()
+            self.observer.join()
+
         # Clean up database connection
         if hasattr(self, 'db_conn'):
             self.db_conn.close()
 
 
 def main():
-    # Create custom theme style
-    root = TkinterDnD.Tk()
-    style = ttk.Style(theme='darkly')  # Start with darkly as base
+    try:
+        # Create custom theme style
+        root = TkinterDnD.Tk()
+        style = ttk.Style(theme='darkly')  # Start with darkly as base
 
-    # Apply theme colors from config
-    style.configure('TButton',
-                   background=THEME_CONFIG['colors']['bg'],
-                   foreground=THEME_CONFIG['colors']['fg'],
-                   borderwidth=0,
-                   relief='flat',
-                   focuscolor='',  # Remove focus border
-                   highlightthickness=0,  # Remove highlight border
-                   font=BUTTON_STYLE['font'])
+        # Apply theme colors from config
+        style.configure('TButton',
+                       background=THEME_CONFIG['colors']['bg'],
+                       foreground=THEME_CONFIG['colors']['fg'],
+                       borderwidth=0,
+                       relief='flat',
+                       focuscolor='',  # Remove focus border
+                       highlightthickness=0,  # Remove highlight border
+                       font=BUTTON_STYLE['font'])
 
-    # Configure specific styles for control buttons
-    style.configure('Controls.TButton',
-                   background=THEME_CONFIG['colors']['bg'],
-                   foreground=THEME_CONFIG['colors']['fg'],
-                   borderwidth=0,
-                   relief='flat',
-                   focuscolor='',  # Remove focus border
-                   highlightthickness=0,  # Remove highlight border
-                   font=BUTTON_STYLE['font'],
-                   padding=BUTTON_STYLE['padding'])
+        # Configure specific styles for control buttons
+        style.configure('Controls.TButton',
+                       background=THEME_CONFIG['colors']['bg'],
+                       foreground=THEME_CONFIG['colors']['fg'],
+                       borderwidth=0,
+                       relief='flat',
+                       focuscolor='',  # Remove focus border
+                       highlightthickness=0,  # Remove highlight border
+                       font=BUTTON_STYLE['font'],
+                       padding=BUTTON_STYLE['padding'])
 
-    style.configure('Loop.Controls.TButton',
-                   background=THEME_CONFIG['colors']['bg'],
-                   foreground=THEME_CONFIG['colors']['fg'],
-                   borderwidth=0,
-                   relief='flat',
-                   focuscolor='',  # Remove focus border
-                   highlightthickness=0,  # Remove highlight border
-                   font=BUTTON_STYLE['font'],
-                   padding=BUTTON_STYLE['padding'])
+        style.configure('Loop.Controls.TButton',
+                       background=THEME_CONFIG['colors']['bg'],
+                       foreground=THEME_CONFIG['colors']['fg'],
+                       borderwidth=0,
+                       relief='flat',
+                       focuscolor='',  # Remove focus border
+                       highlightthickness=0,  # Remove highlight border
+                       font=BUTTON_STYLE['font'],
+                       padding=BUTTON_STYLE['padding'])
 
-    style.map('Controls.TButton',
-             background=[('active', THEME_CONFIG['colors']['bg'])],
-             foreground=[('active', THEME_CONFIG['colors']['primary'])])
+        style.map('Controls.TButton',
+                 background=[('active', THEME_CONFIG['colors']['bg'])],
+                 foreground=[('active', THEME_CONFIG['colors']['primary'])])
 
-    style.map('Loop.Controls.TButton',
-             background=[('active', THEME_CONFIG['colors']['bg'])],
-             foreground=[('active', THEME_CONFIG['colors']['primary'])])
+        style.map('Loop.Controls.TButton',
+                 background=[('active', THEME_CONFIG['colors']['bg'])],
+                 foreground=[('active', THEME_CONFIG['colors']['primary'])])
 
-    style.configure('TFrame', background=THEME_CONFIG['colors']['bg'])
-    style.configure('TLabel', background=THEME_CONFIG['colors']['bg'], foreground=THEME_CONFIG['colors']['fg'])
-    style.configure('Vertical.TScrollbar',
-                   background=THEME_CONFIG['colors']['bg'],
-                   troughcolor=THEME_CONFIG['colors']['dark'],
-                   arrowcolor=THEME_CONFIG['colors']['fg'])
+        style.configure('TFrame', background=THEME_CONFIG['colors']['bg'])
+        style.configure('TLabel', background=THEME_CONFIG['colors']['bg'], foreground=THEME_CONFIG['colors']['fg'])
+        style.configure('Vertical.TScrollbar',
+                       background=THEME_CONFIG['colors']['bg'],
+                       troughcolor=THEME_CONFIG['colors']['dark'],
+                       arrowcolor=THEME_CONFIG['colors']['fg'])
 
-    # Update progress bar colors
-    PROGRESS_BAR.update({
-        'line_color': THEME_CONFIG['colors']['secondary'],
-        'circle_fill': THEME_CONFIG['colors']['primary'],
-        'circle_active_fill': THEME_CONFIG['colors']['active']
-    })
+        # Update progress bar colors
+        PROGRESS_BAR.update({
+            'line_color': THEME_CONFIG['colors']['secondary'],
+            'circle_fill': THEME_CONFIG['colors']['primary'],
+            'circle_active_fill': THEME_CONFIG['colors']['active']
+        })
 
-    # Update listbox colors
-    LISTBOX_CONFIG.update({
-        'selectbackground': THEME_CONFIG['colors']['selectbg'],
-        'selectforeground': THEME_CONFIG['colors']['selectfg'],
-        'background': THEME_CONFIG['colors']['bg'],
-        'foreground': THEME_CONFIG['colors']['fg']
-    })
+        # Update listbox colors
+        LISTBOX_CONFIG.update({
+            'selectbackground': THEME_CONFIG['colors']['selectbg'],
+            'selectforeground': THEME_CONFIG['colors']['selectfg'],
+            'background': THEME_CONFIG['colors']['bg'],
+            'foreground': THEME_CONFIG['colors']['fg']
+        })
 
-    # Update colors
-    COLORS.update({
-        'loop_enabled': THEME_CONFIG['colors']['primary'],
-        'loop_disabled': THEME_CONFIG['colors']['secondary'],
-        'alternate_row_colors': [THEME_CONFIG['colors']['bg'], THEME_CONFIG['colors']['selectbg']]
-    })
+        # Update colors
+        COLORS.update({
+            'loop_enabled': THEME_CONFIG['colors']['primary'],
+            'loop_disabled': THEME_CONFIG['colors']['secondary'],
+            'alternate_row_colors': [THEME_CONFIG['colors']['bg'], THEME_CONFIG['colors']['selectbg']]
+        })
 
-    player = MusicPlayer(root)
-    root.mainloop()
+        global player_instance
+        player_instance = MusicPlayer(root)
+        root.mainloop()
+    except Exception as e:
+        print(f"Error in main: {e}")
+        if 'root' in locals():
+            root.destroy()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
+    player_instance = None
     main()

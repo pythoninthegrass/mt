@@ -3,6 +3,9 @@ import os
 from decouple import config
 from pathlib import Path
 
+# Reload app during development
+RELOAD = config('MT_RELOAD', default=False, cast=bool)
+
 # Theme Configuration
 THEME_CONFIG_FILE = 'themes.json'
 DEFAULT_THEME = 'spotify'
@@ -26,7 +29,7 @@ WINDOW_SIZE = "1280x720"
 WINDOW_TITLE = "mt"
 BUTTON_STYLE = {
     'width': 6,
-    'padding': 1.5,
+    'padding': 1.0,
     'font': ('TkDefaultFont', 25),
 }
 
