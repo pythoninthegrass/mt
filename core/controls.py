@@ -41,17 +41,22 @@ class PlayerCore:
 
     def next_song(self) -> None:
         """Play the next song in the queue."""
+        print("next_song called")  # Debug log
         if not self.loop_enabled and self._is_last_song():
+            print("Last song and loop disabled, stopping")  # Debug log
             self.stop()
             return
 
         filepath = self._get_next_filepath()
+        print(f"Next filepath: {filepath}")  # Debug log
         if filepath:
             self._play_file(filepath)
 
     def previous_song(self) -> None:
         """Play the previous song in the queue."""
+        print("previous_song called")  # Debug log
         filepath = self._get_previous_filepath()
+        print(f"Previous filepath: {filepath}")  # Debug log
         if filepath:
             self._play_file(filepath)
 
@@ -143,19 +148,24 @@ class PlayerCore:
         """Get filepath of next song."""
         children = self.queue_view.get_children()
         if not children:
+            print("No children in queue")  # Debug log
             return None
 
         current_selection = self.queue_view.selection()
         if not current_selection:
             # If nothing is selected, start with the first item
+            print("No selection, starting with first item")  # Debug log
             next_index = 0
         else:
             current_index = children.index(current_selection[0])
+            print(f"Current index: {current_index}")  # Debug log
             # If loop is disabled and on the last song, then stop playback
             if not self.loop_enabled and current_index == len(children) - 1:
+                print("Last song and loop disabled")  # Debug log
                 return None
             # Otherwise, move to next song (or first if at end)
             next_index = (current_index + 1) % len(children)
+            print(f"Next index: {next_index}")  # Debug log
 
         next_item = children[next_index]
         self.queue_view.selection_set(next_item)
@@ -163,6 +173,7 @@ class PlayerCore:
 
         values = self.queue_view.item(next_item)['values']
         if not values:
+            print("No values for next item")  # Debug log
             return None
 
         track_num, title, artist, album, year = values
@@ -172,16 +183,20 @@ class PlayerCore:
         """Get filepath of previous song."""
         children = self.queue_view.get_children()
         if not children:
+            print("No children in queue")  # Debug log
             return None
 
         current_selection = self.queue_view.selection()
         if not current_selection:
             # If nothing is selected, start with the last item
+            print("No selection, starting with last item")  # Debug log
             prev_index = len(children) - 1
         else:
             current_index = children.index(current_selection[0])
+            print(f"Current index: {current_index}")  # Debug log
             # Move to previous song (or last if at beginning)
             prev_index = (current_index - 1) % len(children)
+            print(f"Previous index: {prev_index}")  # Debug log
 
         prev_item = children[prev_index]
         self.queue_view.selection_set(prev_item)
@@ -189,6 +204,7 @@ class PlayerCore:
 
         values = self.queue_view.item(prev_item)['values']
         if not values:
+            print("No values for previous item")  # Debug log
             return None
 
         track_num, title, artist, album, year = values

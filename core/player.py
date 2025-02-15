@@ -43,6 +43,16 @@ from utils.files import find_audio_files, normalize_path
 from utils.reload import ConfigFileHandler
 from watchdog.observers import Observer
 
+# Import AppKit for media key support on macOS
+if sys.platform == 'darwin':
+    try:
+        import Quartz
+        from utils.mediakeys import MediaKeyController
+        MEDIA_KEY_SUPPORT = True
+    except ImportError:
+        MEDIA_KEY_SUPPORT = False
+else:
+    MEDIA_KEY_SUPPORT = False
 
 class MusicPlayer:
     def __init__(self, window):
@@ -66,6 +76,10 @@ class MusicPlayer:
         # Initialize file watcher if enabled
         self.setup_file_watcher()
 
+        # Setup media key support
+        if sys.platform == 'darwin' and MEDIA_KEY_SUPPORT:
+            self.media_key_controller = MediaKeyController(self.window)
+
     def setup_components(self):
         """Initialize and setup all components."""
         # Initialize database and managers
@@ -85,11 +99,12 @@ class MusicPlayer:
         self.right_panel = ttk.Frame(self.main_container)
         self.main_container.add(self.right_panel, weight=3)
 
-        # Setup views with callbacks
+        # Setup views with callbacks first
         self.setup_views()
 
-        # Initialize player core first
+        # Initialize player core after views are set up
         self.player_core = PlayerCore(self.db, self.queue_manager, self.queue_view.queue)
+        self.player_core.window = self.window  # Set window reference for thread-safe callbacks
 
         # Create frame for progress bar
         self.progress_frame = ttk.Frame(self.window, height=80)
@@ -119,6 +134,10 @@ class MusicPlayer:
 
         # Start progress update
         self.update_progress()
+
+        # If media key controller exists, set this instance as the player
+        if hasattr(self, 'media_key_controller'):
+            self.media_key_controller.set_player(self)
 
     def setup_views(self):
         """Setup library and queue views with their callbacks."""

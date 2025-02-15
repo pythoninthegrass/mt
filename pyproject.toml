@@ -16,6 +16,7 @@ dependencies = [
     "ttkbootstrap>=1.10.1",
     "watchdog>=6.0.0",
     'pyobjc-framework-Cocoa; platform_system == "Darwin"',  # Only on macOS
+    'pyobjc-framework-Quartz; sys_platform == "darwin"',  # For media key support on macOS
 ]
 
 [project.optional-dependencies]
