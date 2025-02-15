@@ -101,7 +101,7 @@ class MusicDatabase:
     def get_queue_items(self) -> list[tuple]:
         """Get all items in the queue with their metadata."""
         self.db_cursor.execute('''
-            SELECT q.filepath, l.title, l.artist, l.album, l.track_number, l.date
+            SELECT q.filepath, l.artist, l.title, l.album, l.track_number, l.date
             FROM queue q
             LEFT JOIN library l ON q.filepath = l.filepath
             ORDER BY q.id
@@ -111,7 +111,7 @@ class MusicDatabase:
     def get_library_items(self) -> list[tuple]:
         """Get all items in the library with their metadata."""
         self.db_cursor.execute('''
-            SELECT filepath, title, artist, album, track_number, date
+            SELECT filepath, artist, title, album, track_number, date
             FROM library
             ORDER BY
                 CASE WHEN artist IS NULL THEN 1 ELSE 0 END,

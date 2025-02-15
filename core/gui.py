@@ -1,11 +1,13 @@
 import json
+import os
 import tkinter as tk
 import tkinter.font as tkfont
 import ttkbootstrap as ttk
 from decouple import config
+from pathlib import Path
 
 # Theme Configuration
-THEME_CONFIG_FILE = 'themes.json'
+THEME_CONFIG_FILE = os.path.join(Path(__file__).parents[1], 'themes.json')
 DEFAULT_THEME = 'spotify'
 ACTIVE_THEME = config('MT_THEME', default=DEFAULT_THEME)
 
@@ -39,16 +41,18 @@ BUTTON_SYMBOLS = {
 PROGRESS_BAR = {
     'frame_height': 80,
     'canvas_height': 70,
-    'bar_y': 40,
+    'bar_y': 50,
     'circle_radius': 6,
     'line_color': THEME_CONFIG['colors']['secondary'],
     'line_width': 2,
     'circle_fill': THEME_CONFIG['colors']['primary'],
     'circle_active_fill': THEME_CONFIG['colors']['active'],
-    'time_label_y': 15,
+    'time_label_y': 30,
+    'track_info_y': 30,
+    'track_info_x': None,
     'frame_padding': (0, 20),
     'frame_side_padding': 10,
-    'controls_y': 40,
+    'controls_y': 50,
     'button_spacing': 2,
 }
 
@@ -248,6 +252,15 @@ class ProgressBar:
         self.controls = PlayerControls(self.canvas, self.callbacks)
         self.controls_width = self.controls.controls_width
 
+        # Create track info text - positioned above progress line
+        self.track_info = self.canvas.create_text(
+            self.controls_width,  # Align with start of progress line
+            PROGRESS_BAR['track_info_y'],
+            text="",  # Initialize with empty text
+            fill=THEME_CONFIG['colors']['fg'],
+            anchor=tk.W,
+        )
+
         # Create time labels
         self.time_text = self.canvas.create_text(
             self.canvas.winfo_width() - 160,
@@ -286,7 +299,44 @@ class ProgressBar:
         self.canvas.tag_bind(self.progress_circle, '<B1-Motion>', self.callbacks['drag'])
         self.canvas.tag_bind(self.progress_circle, '<ButtonRelease-1>', self.callbacks['end_drag'])
         self.canvas.bind('<Button-1>', self.callbacks['click_progress'])
-        self.canvas.bind('<Configure>', self.callbacks['on_resize'])
+        self.canvas.bind('<Configure>', self.on_resize)
+
+    def on_resize(self, event):
+        """Handle window resize."""
+        # Update progress line
+        self.canvas.coords(
+            self.line,
+            self.controls_width,
+            self.bar_y,
+            event.width - 160,
+            self.bar_y,
+        )
+
+        # Update time text position
+        self.canvas.coords(
+            self.time_text,
+            event.width - 160,
+            PROGRESS_BAR['time_label_y'],
+        )
+
+        # Update track info position
+        self.canvas.coords(
+            self.track_info,
+            self.controls_width,
+            PROGRESS_BAR['track_info_y'],
+        )
+
+    def update_track_info(self, title=None, artist=None):
+        """Update the track info display."""
+        if title and artist:
+            track_info = f"{artist} - {title}"  # Display as "Artist - Title"
+        else:
+            track_info = ""
+        self.canvas.itemconfig(self.track_info, text=track_info)
+
+    def clear_track_info(self):
+        """Clear the track info display."""
+        self.canvas.itemconfig(self.track_info, text="")
 
 class LibraryView:
     def __init__(self, parent, callbacks):

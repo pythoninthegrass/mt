@@ -83,6 +83,9 @@ class MusicPlayer:
         # Add progress bar and controls at bottom
         self.setup_progress_bar()
 
+        # Connect progress bar to player core
+        self.player_core.progress_bar = self.progress_bar
+
         # Start progress update
         self.update_progress()
 
@@ -180,16 +183,18 @@ class MusicPlayer:
 
     def _populate_queue_view(self, rows):
         """Populate queue view with rows of data."""
-        for filepath, title, artist, album, track_number, date in rows:
+        for filepath, artist, title, album, track_number, date in rows:
             if os.path.exists(filepath):
                 track_display = self._format_track_number(track_number)
-                title = title or os.path.basename(filepath)
+                # Use filename as fallback, but if that's empty too, use "Unknown Title"
+                title = title or os.path.basename(filepath) or 'Unknown Title'
+                artist = artist or 'Unknown Artist'
                 year = self._extract_year(date)
 
                 self.queue_view.queue.insert(
                     '',
                     'end',
-                    values=(track_display, title, artist or '', album or '', year),
+                    values=(track_display, title, artist, album or '', year),
                 )
 
         # Select first item if any were added

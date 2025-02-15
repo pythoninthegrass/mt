@@ -15,12 +15,15 @@ class PlayerCore:
         self.current_time = 0
         self.was_playing = False
         self.loop_enabled = self.db.get_loop_enabled()
+        self.progress_bar = None  # Will be set by MusicPlayer
 
     def play_pause(self) -> None:
         """Toggle play/pause state."""
         if not self.is_playing:
             if self.media_player.get_media() is not None:
                 self.media_player.play()
+                self.is_playing = True
+                self._update_track_info()
             else:
                 filepath = self._get_current_filepath()
                 if filepath:
@@ -57,6 +60,8 @@ class PlayerCore:
         self.media_player.stop()
         self.is_playing = False
         self.current_time = 0
+        if self.progress_bar:
+            self.progress_bar.clear_track_info()
 
     def toggle_loop(self) -> None:
         """Toggle loop mode."""
@@ -82,6 +87,23 @@ class PlayerCore:
         self.media_player.play()
         self.current_time = 0
         self.is_playing = True
+        self._update_track_info()
+
+    def _update_track_info(self) -> None:
+        """Update track info in progress bar based on current selection."""
+        if not self.progress_bar or not self.queue_view:
+            return
+
+        current_selection = self.queue_view.selection()
+        if current_selection:
+            values = self.queue_view.item(current_selection[0])['values']
+            if values and len(values) >= 3:
+                # Queue view columns are: track, title, artist, album, year
+                track_num, title, artist, album, year = values
+                # We should always have values since we set defaults in _populate_queue_view
+                self.progress_bar.update_track_info(title=title, artist=artist)
+        else:
+            self.progress_bar.clear_track_info()
 
     def _get_current_filepath(self) -> str | None:
         """Get filepath of current song."""
