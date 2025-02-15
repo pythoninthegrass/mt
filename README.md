@@ -30,8 +30,8 @@
     * search form
     * dynamic fuzzy search by artist
   * dynamic queue order
-  * library
-    * deduplication
+  * ~~library~~
+    * ~~deduplication~~
   * last.fm scrobbling
   * mobile remote control
   * lyrics

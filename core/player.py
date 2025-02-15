@@ -173,6 +173,10 @@ class MusicPlayer:
 
     def load_library(self):
         """Load and display library items."""
+        # Clear current view
+        for item in self.queue_view.queue.get_children():
+            self.queue_view.queue.delete(item)
+
         rows = self.library_manager.get_library_items()
         if not rows:
             return

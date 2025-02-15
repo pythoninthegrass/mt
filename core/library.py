@@ -74,14 +74,22 @@ class LibraryManager:
                     metadata['title'] = path_obj.stem
                     print(f"No title found, using filename: {metadata['title']}")
 
-                # Add to library with metadata
-                self.db.add_to_library(str(file_path), metadata)
-                print("Successfully added to library")
+                # Check for duplicates before adding
+                if not self.db.is_duplicate(metadata):
+                    # Add to library with metadata
+                    self.db.add_to_library(str(file_path), metadata)
+                    print("Successfully added to library")
+                else:
+                    print("Skipping duplicate track")
         except Exception as e:
             print(f"Error reading metadata for {file_path}: {e}")
-            # Add file without metadata if there's an error
-            self.db.add_to_library(str(file_path), {'title': path_obj.stem})
-            print("Added to library with filename only")
+            # Add file without metadata if there's an error and it's not a duplicate
+            basic_metadata = {'title': path_obj.stem}
+            if not self.db.is_duplicate(basic_metadata):
+                self.db.add_to_library(str(file_path), basic_metadata)
+                print("Added to library with filename only")
+            else:
+                print("Skipping duplicate track")
 
     def _extract_metadata(self, audio: mutagen.FileType) -> dict[str, Any]:
         """Extract metadata from an audio file."""

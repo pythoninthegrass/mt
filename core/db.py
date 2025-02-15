@@ -117,19 +117,61 @@ class MusicDatabase:
     def get_library_items(self) -> list[tuple]:
         """Get all items in the library with their metadata."""
         self.db_cursor.execute('''
-            SELECT filepath, artist, title, album, track_number, date
-            FROM library
+            WITH RECURSIVE
+            -- First, get the track number as an integer for sorting
+            parsed_tracks AS (
+                SELECT
+                    id,
+                    filepath,
+                    artist,
+                    title,
+                    album,
+                    track_number,
+                    date,
+                    CASE
+                        WHEN track_number IS NULL THEN 999999
+                        WHEN track_number LIKE '%/%' THEN CAST(substr(track_number, 1, instr(track_number, '/') - 1) AS INTEGER)
+                        ELSE CAST(track_number AS INTEGER)
+                    END as track_num_int
+                FROM library
+            ),
+            -- Then, deduplicate based on metadata while keeping the first added version
+            deduped AS (
+                SELECT
+                    filepath,
+                    artist,
+                    title,
+                    album,
+                    track_number,
+                    date,
+                    track_num_int,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY
+                            LOWER(COALESCE(title, '')),
+                            LOWER(COALESCE(artist, '')),
+                            LOWER(COALESCE(album, '')),
+                            COALESCE(track_number, '')
+                        ORDER BY id ASC
+                    ) as rn
+                FROM parsed_tracks
+            )
+            -- Finally, select and sort the deduplicated results
+            SELECT
+                filepath,
+                artist,
+                title,
+                album,
+                track_number,
+                date
+            FROM deduped
+            WHERE rn = 1
             ORDER BY
                 CASE WHEN artist IS NULL THEN 1 ELSE 0 END,
-                artist COLLATE NOCASE,
+                LOWER(COALESCE(artist, '')),
                 CASE WHEN album IS NULL THEN 1 ELSE 0 END,
-                album COLLATE NOCASE,
-                CASE
-                    WHEN track_number IS NULL THEN 999999
-                    WHEN track_number LIKE '%/%' THEN CAST(substr(track_number, 1, instr(track_number, '/') - 1) AS INTEGER)
-                    ELSE CAST(track_number AS INTEGER)
-                END,
-                title COLLATE NOCASE
+                LOWER(COALESCE(album, '')),
+                track_num_int,
+                LOWER(COALESCE(title, ''))
         ''')
         return self.db_cursor.fetchall()
 
@@ -258,3 +300,46 @@ class MusicDatabase:
             result = self.db_cursor.fetchone()
 
         return result
+
+    def is_duplicate(self, metadata: dict[str, Any]) -> bool:
+        """Check if a track with the same metadata already exists in the library.
+
+        Returns:
+            bool: True if a duplicate exists, False otherwise
+        """
+        # Build query based on available metadata
+        query_parts = []
+        params = []
+
+        if metadata.get('title'):
+            query_parts.append('LOWER(title) = LOWER(?)')
+            params.append(metadata['title'])
+
+        if metadata.get('artist'):
+            query_parts.append('LOWER(artist) = LOWER(?)')
+            params.append(metadata['artist'])
+
+        if metadata.get('album'):
+            query_parts.append('LOWER(album) = LOWER(?)')
+            params.append(metadata['album'])
+
+        if metadata.get('track_number'):
+            query_parts.append('track_number = ?')
+            params.append(metadata['track_number'])
+
+        if metadata.get('duration'):
+            # Allow 1 second tolerance for duration comparison
+            query_parts.append('ABS(duration - ?) < 1')
+            params.append(metadata['duration'])
+
+        if not query_parts:
+            return False
+
+        query = f'''
+            SELECT COUNT(*) FROM library
+            WHERE {' AND '.join(query_parts)}
+        '''
+
+        self.db_cursor.execute(query, params)
+        count = self.db_cursor.fetchone()[0]
+        return count > 0
