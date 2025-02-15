@@ -28,7 +28,7 @@ BUTTON_STYLE = {
 
 # Button Symbols
 BUTTON_SYMBOLS = {
-    'play': '⏯',
+    'play': '▶',
     'pause': '⏸',
     'prev': '⏮',
     'next': '⏭',
@@ -173,8 +173,15 @@ class PlayerControls:
     def __init__(self, canvas, command_callbacks):
         self.canvas = canvas
         self.callbacks = command_callbacks
+        self.add_button = None
+        self.loop_button = None
+        self.play_button = None
+        self.loop_enabled = True  # Initialize to True since it's the default
         self.setup_playback_controls()
         self.setup_utility_controls()
+
+        # Bind canvas resize after all buttons are created
+        self.canvas.bind('<Configure>', self._on_canvas_resize)
 
     def setup_playback_controls(self):
         # Create playback controls directly on canvas
@@ -208,9 +215,6 @@ class PlayerControls:
         # Store the width for progress bar calculations
         self.controls_width = x_position + 15
 
-        # Bind canvas resize to recenter buttons vertically
-        self.canvas.bind('<Configure>', self._on_canvas_resize)
-
     def setup_utility_controls(self):
         # Create utility controls directly on canvas
         y_position = PROGRESS_BAR['controls_y'] - 25
@@ -237,19 +241,24 @@ class PlayerControls:
             self.canvas,
             text=BUTTON_SYMBOLS['loop'],
             font=BUTTON_STYLE['font'],
-            fg=THEME_CONFIG['colors']['fg'],
+            fg=COLORS['loop_enabled'],  # Initialize with enabled color since default is True
             bg=THEME_CONFIG['colors']['bg']
         )
         self.loop_button.place(x=canvas_width - 120, y=y_position)
         self.loop_button.bind('<Button-1>', lambda e: self.callbacks['loop']())
         self.loop_button.bind('<Enter>', lambda e: self.loop_button.configure(fg=THEME_CONFIG['colors']['primary']))
-        self.loop_button.bind('<Leave>', lambda e: self.loop_button.configure(fg=THEME_CONFIG['colors']['fg']))
+        self.loop_button.bind('<Leave>', lambda e: self.loop_button.configure(
+            fg=COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled']
+        ))
 
         # Store the width for progress bar calculations
         self.utility_width = 120
 
     def _on_canvas_resize(self, event):
         """Recenter the buttons vertically and reposition utility controls when canvas is resized."""
+        if not all([self.add_button, self.loop_button]):
+            return
+
         # Update all button positions
         for button in self.canvas.winfo_children():
             if isinstance(button, tk.Label):
@@ -266,6 +275,13 @@ class PlayerControls:
                 else:
                     # For playback controls, keep x position
                     button.place(y=new_y)
+
+    def update_loop_button_color(self, loop_enabled):
+        """Update loop button color based on loop state."""
+        self.loop_enabled = loop_enabled  # Update the internal state
+        self.loop_button.configure(
+            fg=COLORS['loop_enabled'] if loop_enabled else COLORS['loop_disabled']
+        )
 
 class ProgressBar:
     def __init__(self, window, progress_frame, callbacks):

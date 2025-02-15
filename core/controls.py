@@ -1,6 +1,7 @@
 import os
 import vlc
 from core.db import MusicDatabase
+from core.gui import BUTTON_SYMBOLS
 from core.queue import QueueManager
 
 
@@ -62,11 +63,15 @@ class PlayerCore:
         self.current_time = 0
         if self.progress_bar:
             self.progress_bar.clear_track_info()
+            if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'play_button'):
+                self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['play'])
 
     def toggle_loop(self) -> None:
         """Toggle loop mode."""
         self.loop_enabled = not self.loop_enabled
         self.db.set_loop_enabled(self.loop_enabled)
+        if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+            self.progress_bar.controls.update_loop_button_color(self.loop_enabled)
 
     def get_current_time(self) -> int:
         """Get current playback time in milliseconds."""
