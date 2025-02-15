@@ -22,9 +22,9 @@ WINDOW_TITLE = "mt"
 
 # Button Configuration
 BUTTON_STYLE = {
-    'width': 6,
-    'padding': 1.0,
-    'font': ('TkDefaultFont', 25),
+    'width': 0,
+    'padding': 0.0,
+    'font': ('TkDefaultFont', 37),
 }
 
 # Button Symbols
@@ -182,7 +182,7 @@ class PlayerControls:
     def setup_playback_controls(self):
         # Create buttons frame within canvas for playback controls (prev, play, next)
         self.button_frame = ttk.Frame(self.canvas)
-        self.button_frame.place(x=10, y=PROGRESS_BAR['controls_y'] - 15)
+        self.button_frame.place(x=10, y=0)  # Start at left edge
 
         for action, symbol in [
             ('previous', BUTTON_SYMBOLS['prev']),
@@ -203,15 +203,27 @@ class PlayerControls:
 
         # Update the button frame after all buttons are packed to get its true width
         self.button_frame.update()
+
+        # Position the frame lower in the canvas
+        self.button_frame.place(x=10, y=PROGRESS_BAR['controls_y'] - 25)
+
         # Store the width for progress bar calculations
         self.controls_width = self.button_frame.winfo_width() + 20
+
+        # Bind canvas resize to recenter buttons vertically
+        self.canvas.bind('<Configure>', self._on_canvas_resize)
+
+    def _on_canvas_resize(self, event):
+        """Recenter the button frame vertically when canvas is resized."""
+        if hasattr(self, 'button_frame'):
+            frame_height = self.button_frame.winfo_height()
+            y = (event.height - frame_height) // 2
+            self.button_frame.place(x=10, y=y)
 
     def setup_utility_controls(self):
         # Create buttons frame within canvas for utility controls (loop, add)
         self.utility_frame = ttk.Frame(self.canvas)
-        self.utility_frame.place(
-            x=self.canvas.winfo_width() - 150, y=PROGRESS_BAR['controls_y'] - 15
-        )
+        self.utility_frame.place(x=self.canvas.winfo_width() - 150, y=PROGRESS_BAR['controls_y'] - 25)
 
         for action, symbol in [
             ('loop', BUTTON_SYMBOLS['loop']),
@@ -230,6 +242,26 @@ class PlayerControls:
 
             if action == 'loop':
                 self.loop_button = button
+
+        # Update the frame after all buttons are packed to get its true width
+        self.utility_frame.update()
+
+        # Store the width for progress bar calculations
+        self.utility_width = self.utility_frame.winfo_width() + 20
+
+        # Update the _on_canvas_resize method to also handle utility frame positioning
+        self.canvas.bind('<Configure>', self._on_canvas_resize)
+
+    def _on_canvas_resize(self, event):
+        """Recenter the button frames vertically when canvas is resized."""
+        if hasattr(self, 'button_frame'):
+            frame_height = self.button_frame.winfo_height()
+            y = (event.height - frame_height) // 2
+            self.button_frame.place(x=10, y=y)
+
+            # Also update utility frame position
+            if hasattr(self, 'utility_frame'):
+                self.utility_frame.place(x=event.width - 150, y=y)
 
 class ProgressBar:
     def __init__(self, window, progress_frame, callbacks):
