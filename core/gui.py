@@ -22,9 +22,8 @@ WINDOW_TITLE = "mt"
 
 # Button Configuration
 BUTTON_STYLE = {
-    'width': 0,
-    'padding': 0.0,
-    'font': ('TkDefaultFont', 37),
+    'width': 3,
+    'font': ('TkDefaultFont', 30),
 }
 
 # Button Symbols
@@ -100,8 +99,7 @@ def setup_theme(root):
                    relief='flat',
                    focuscolor='',           # Remove focus border
                    highlightthickness=0,    # Remove highlight border
-                   font=BUTTON_STYLE['font'],
-                   padding=BUTTON_STYLE['padding'])
+                   font=BUTTON_STYLE['font'])
 
     style.configure('Loop.Controls.TButton',
                    background=THEME_CONFIG['colors']['bg'],
@@ -110,8 +108,7 @@ def setup_theme(root):
                    relief='flat',
                    focuscolor='',           # Remove focus border
                    highlightthickness=0,    # Remove highlight border
-                   font=BUTTON_STYLE['font'],
-                   padding=BUTTON_STYLE['padding'])
+                   font=BUTTON_STYLE['font'])
 
     style.map('Controls.TButton',
              background=[('active', THEME_CONFIG['colors']['bg'])],
@@ -180,88 +177,95 @@ class PlayerControls:
         self.setup_utility_controls()
 
     def setup_playback_controls(self):
-        # Create buttons frame within canvas for playback controls (prev, play, next)
-        self.button_frame = ttk.Frame(self.canvas)
-        self.button_frame.place(x=10, y=0)  # Start at left edge
+        # Create playback controls directly on canvas
+        x_position = 10
+        y_position = PROGRESS_BAR['controls_y'] - 25
 
         for action, symbol in [
             ('previous', BUTTON_SYMBOLS['prev']),
             ('play', BUTTON_SYMBOLS['play']),
             ('next', BUTTON_SYMBOLS['next']),
         ]:
-            button = ttk.Button(
-                self.button_frame,
+            button = tk.Label(
+                self.canvas,
                 text=symbol,
-                style='Controls.TButton',
-                command=self.callbacks[action],
-                width=3,
+                font=BUTTON_STYLE['font'],
+                fg=THEME_CONFIG['colors']['fg'],
+                bg=THEME_CONFIG['colors']['bg']
             )
-            button.pack(side=tk.LEFT, padx=2)
+            button.place(x=x_position, y=y_position)
+
+            # Bind click and hover events
+            button.bind('<Button-1>', lambda e, a=action: self.callbacks[a]())
+            button.bind('<Enter>', lambda e, b=button: b.configure(fg=THEME_CONFIG['colors']['primary']))
+            button.bind('<Leave>', lambda e, b=button: b.configure(fg=THEME_CONFIG['colors']['fg']))
 
             if action == 'play':
                 self.play_button = button
 
-        # Update the button frame after all buttons are packed to get its true width
-        self.button_frame.update()
-
-        # Position the frame lower in the canvas
-        self.button_frame.place(x=10, y=PROGRESS_BAR['controls_y'] - 25)
+            x_position += button.winfo_reqwidth() + 5  # Add spacing between buttons
 
         # Store the width for progress bar calculations
-        self.controls_width = self.button_frame.winfo_width() + 20
+        self.controls_width = x_position + 15
 
         # Bind canvas resize to recenter buttons vertically
         self.canvas.bind('<Configure>', self._on_canvas_resize)
 
-    def _on_canvas_resize(self, event):
-        """Recenter the button frame vertically when canvas is resized."""
-        if hasattr(self, 'button_frame'):
-            frame_height = self.button_frame.winfo_height()
-            y = (event.height - frame_height) // 2
-            self.button_frame.place(x=10, y=y)
-
     def setup_utility_controls(self):
-        # Create buttons frame within canvas for utility controls (loop, add)
-        self.utility_frame = ttk.Frame(self.canvas)
-        self.utility_frame.place(x=self.canvas.winfo_width() - 150, y=PROGRESS_BAR['controls_y'] - 25)
+        # Create utility controls directly on canvas
+        y_position = PROGRESS_BAR['controls_y'] - 25
 
-        for action, symbol in [
-            ('loop', BUTTON_SYMBOLS['loop']),
-            ('add', BUTTON_SYMBOLS['add']),
-        ]:
-            button = ttk.Button(
-                self.utility_frame,
-                text=symbol,
-                style='Loop.Controls.TButton'
-                if action == 'loop'
-                else 'Controls.TButton',
-                command=self.callbacks[action],
-                width=3,
-            )
-            button.pack(side=tk.LEFT, padx=2)
+        # Wait for canvas to be ready
+        self.canvas.update_idletasks()
+        canvas_width = self.canvas.winfo_width()
 
-            if action == 'loop':
-                self.loop_button = button
+        # Add button (rightmost)
+        self.add_button = tk.Label(
+            self.canvas,
+            text=BUTTON_SYMBOLS['add'],
+            font=BUTTON_STYLE['font'],
+            fg=THEME_CONFIG['colors']['fg'],
+            bg=THEME_CONFIG['colors']['bg']
+        )
+        self.add_button.place(x=canvas_width - 60, y=y_position)
+        self.add_button.bind('<Button-1>', lambda e: self.callbacks['add']())
+        self.add_button.bind('<Enter>', lambda e: self.add_button.configure(fg=THEME_CONFIG['colors']['primary']))
+        self.add_button.bind('<Leave>', lambda e: self.add_button.configure(fg=THEME_CONFIG['colors']['fg']))
 
-        # Update the frame after all buttons are packed to get its true width
-        self.utility_frame.update()
+        # Loop button (to the left of add button)
+        self.loop_button = tk.Label(
+            self.canvas,
+            text=BUTTON_SYMBOLS['loop'],
+            font=BUTTON_STYLE['font'],
+            fg=THEME_CONFIG['colors']['fg'],
+            bg=THEME_CONFIG['colors']['bg']
+        )
+        self.loop_button.place(x=canvas_width - 120, y=y_position)
+        self.loop_button.bind('<Button-1>', lambda e: self.callbacks['loop']())
+        self.loop_button.bind('<Enter>', lambda e: self.loop_button.configure(fg=THEME_CONFIG['colors']['primary']))
+        self.loop_button.bind('<Leave>', lambda e: self.loop_button.configure(fg=THEME_CONFIG['colors']['fg']))
 
         # Store the width for progress bar calculations
-        self.utility_width = self.utility_frame.winfo_width() + 20
-
-        # Update the _on_canvas_resize method to also handle utility frame positioning
-        self.canvas.bind('<Configure>', self._on_canvas_resize)
+        self.utility_width = 120
 
     def _on_canvas_resize(self, event):
-        """Recenter the button frames vertically when canvas is resized."""
-        if hasattr(self, 'button_frame'):
-            frame_height = self.button_frame.winfo_height()
-            y = (event.height - frame_height) // 2
-            self.button_frame.place(x=10, y=y)
+        """Recenter the buttons vertically and reposition utility controls when canvas is resized."""
+        # Update all button positions
+        for button in self.canvas.winfo_children():
+            if isinstance(button, tk.Label):
+                # Calculate new y position
+                new_y = (event.height - button.winfo_reqheight()) // 2
 
-            # Also update utility frame position
-            if hasattr(self, 'utility_frame'):
-                self.utility_frame.place(x=event.width - 150, y=y)
+                # For utility controls, update x position from right
+                if button == self.add_button:
+                    new_x = event.width - 60
+                    button.place(x=new_x, y=new_y)
+                elif button == self.loop_button:
+                    new_x = event.width - 120
+                    button.place(x=new_x, y=new_y)
+                else:
+                    # For playback controls, keep x position
+                    button.place(y=new_y)
 
 class ProgressBar:
     def __init__(self, window, progress_frame, callbacks):
