@@ -20,9 +20,23 @@ def setup_theme(root):
     """Configure the application theme and styles"""
     style = ttk.Style(theme='darkly')  # Start with darkly as base
 
+    # Configure root window and base theme
+    root.configure(background=THEME_CONFIG['colors']['bg'])
+    root.option_add('*Background', THEME_CONFIG['colors']['bg'])
+    root.option_add('*Foreground', THEME_CONFIG['colors']['fg'])
+
     # Apply theme colors from config
-    style.configure('TButton',
+    style.configure('.',
                    background=THEME_CONFIG['colors']['bg'],
+                   foreground=THEME_CONFIG['colors']['fg'])
+
+    # Configure all ttk widgets to use the same background
+    for widget in ['TFrame', 'TPanedwindow', 'Treeview', 'TButton', 'TLabel']:
+        style.configure(widget,
+                      background=THEME_CONFIG['colors']['bg'],
+                      fieldbackground=THEME_CONFIG['colors']['bg'])
+
+    style.configure('TButton',
                    foreground=THEME_CONFIG['colors']['fg'],
                    borderwidth=0,
                    relief='flat',

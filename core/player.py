@@ -50,6 +50,17 @@ class MusicPlayer:
         self.window.title(WINDOW_TITLE)
         self.window.geometry(WINDOW_SIZE)
         self.window.minsize(1280, 720)
+
+        # Setup theme and styles first
+        setup_theme(self.window)
+
+        # Configure macOS specific appearance
+        if sys.platform == 'darwin':
+            # Set document style with dark appearance
+            self.window.tk.call('::tk::unsupported::MacWindowStyle', 'style', self.window._w, 'document')
+            self.window.tk.call('::tk::unsupported::MacWindowStyle', 'appearance', self.window._w, 'dark')
+            self.window.createcommand('tk::mac::Quit', self.window.destroy)
+
         self.reload_enabled = RELOAD
 
         # Initialize file watcher if enabled
