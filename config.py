@@ -25,9 +25,9 @@ AUDIO_EXTENSIONS = {
 WINDOW_SIZE = "1280x720"
 WINDOW_TITLE = "mt"
 BUTTON_STYLE = {
-    'width': 3,
-    'padding': 2,
-    'font': ('TkDefaultFont', 12),
+    'width': 6,
+    'padding': 1.5,
+    'font': ('TkDefaultFont', 25),
 }
 
 # Progress Bar Configuration

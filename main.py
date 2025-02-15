@@ -713,9 +713,35 @@ def main():
     style.configure('TButton',
                    background=THEME_CONFIG['colors']['bg'],
                    foreground=THEME_CONFIG['colors']['fg'],
-                   bordercolor=THEME_CONFIG['colors']['border'],
+                   borderwidth=0,  # Remove border
+                   relief='flat',  # Flat appearance
                    focuscolor=THEME_CONFIG['colors']['primary'],
                    font=BUTTON_STYLE['font'])
+
+    # Configure specific styles for control buttons
+    style.configure('Controls.TButton',
+                   background=THEME_CONFIG['colors']['bg'],
+                   foreground=THEME_CONFIG['colors']['fg'],
+                   borderwidth=0,
+                   relief='flat',
+                   font=BUTTON_STYLE['font'],
+                   padding=BUTTON_STYLE['padding'])
+
+    style.configure('Loop.Controls.TButton',
+                   background=THEME_CONFIG['colors']['bg'],
+                   foreground=THEME_CONFIG['colors']['fg'],
+                   borderwidth=0,
+                   relief='flat',
+                   font=BUTTON_STYLE['font'],
+                   padding=BUTTON_STYLE['padding'])
+
+    style.map('Controls.TButton',
+             background=[('active', THEME_CONFIG['colors']['bg'])],
+             foreground=[('active', THEME_CONFIG['colors']['primary'])])
+
+    style.map('Loop.Controls.TButton',
+             background=[('active', THEME_CONFIG['colors']['bg'])],
+             foreground=[('active', THEME_CONFIG['colors']['primary'])])
 
     style.configure('TFrame', background=THEME_CONFIG['colors']['bg'])
     style.configure('TLabel', background=THEME_CONFIG['colors']['bg'], foreground=THEME_CONFIG['colors']['fg'])
