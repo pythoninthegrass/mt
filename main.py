@@ -528,7 +528,12 @@ class MusicPlayer:
             self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
 
     def process_paths(self, paths):
-        existing_files = set(self.queue.get(0, tk.END))
+        existing_files = set()
+        # Get existing files from library
+        self.db_cursor.execute('SELECT filepath FROM library')
+        for (filepath,) in self.db_cursor.fetchall():
+            existing_files.add(filepath)
+
         new_files = set()
 
         for path in paths:
@@ -537,32 +542,66 @@ class MusicPlayer:
 
             normalized_path = normalize_path(path)
 
-            if os.path.exists(str(normalized_path)):
-                if os.path.isdir(str(normalized_path)):
-                    new_files.update(find_audio_files(normalized_path))
-                elif os.path.isfile(str(normalized_path)):
-                    new_files.add(str(normalized_path))
+            try:
+                if normalized_path.exists():
+                    if normalized_path.is_dir():
+                        new_files.update(find_audio_files(normalized_path))
+                    elif normalized_path.is_file():
+                        new_files.add(str(normalized_path))
+            except (OSError, PermissionError):
+                continue
 
         files_to_add = sorted(new_files - existing_files)
 
         if files_to_add:
             for file_path in files_to_add:
-                if os.path.exists(file_path):
-                    self.queue.insert(tk.END, file_path)
-                    self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)',
-                                        (file_path,))
+                path_obj = Path(file_path)
+                if path_obj.exists():
+                    # Add to library instead of queue
+                    self.db_cursor.execute(
+                        'INSERT INTO library (filepath) VALUES (?)',
+                        (str(file_path),)
+                    )
 
             self.db_conn.commit()
 
-            if self.queue.size() == len(files_to_add):
-                self.queue.selection_set(0)
-                self.queue.activate(0)
-            self.refresh_colors()
-            self.update_scrollbar()
+            # If we're currently viewing the Music library, update the view
+            selected_item = self.library_tree.selection()
+            if selected_item:
+                tags = self.library_tree.item(selected_item[0])['tags']
+                if tags and tags[0] == 'music':
+                    self.load_library()
 
     def add_to_queue(self):
+        # Get selected items from the current view
+        selected_indices = self.queue.curselection()
+        if not selected_indices:
+            return
+
+        # Get the filepaths of selected items
+        selected_files = [self.queue.get(idx) for idx in selected_indices]
+
+        # Add selected files to queue
+        for filepath in selected_files:
+            self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (filepath,))
+        self.db_conn.commit()
+
+        # If we're viewing Now Playing, refresh the view
+        selected_item = self.library_tree.selection()
+        if selected_item:
+            tags = self.library_tree.item(selected_item[0])['tags']
+            if tags and tags[0] == 'now_playing':
+                self.load_queue()
+
+    def add_files_to_library(self):
+        # Get user's home directory using pathlib
+        home_dir = Path.home()
+
         # Let user choose between files or directory
-        action = filedialog.askdirectory(title="Select Music Directory")
+        action = filedialog.askdirectory(
+            title="Select Music Directory",
+            initialdir=str(home_dir)
+        )
 
         if action:
             path_obj = Path(action)
@@ -575,6 +614,7 @@ class MusicPlayer:
         # If directory selection was cancelled, show file selection dialog
         paths = filedialog.askopenfilenames(
             title="Select Audio Files",
+            initialdir=str(home_dir),
             filetypes=[
                 (
                     "Audio Files",
@@ -586,7 +626,7 @@ class MusicPlayer:
         )
 
         if paths:
-            self.process_paths([str(Path(p)) for p in paths])
+            self.process_paths([Path(p) for p in paths])
 
     def remove_song(self):
         selected_indices = self.queue.curselection()
@@ -612,6 +652,16 @@ class MusicPlayer:
             self.queue.selection_set(clicked_index)
             self.queue.activate(clicked_index)
             selected_song = self.queue.get(clicked_index)
+
+            # Check if we're in the Music library view
+            selected_item = self.library_tree.selection()
+            if selected_item:
+                tags = self.library_tree.item(selected_item[0])['tags']
+                if tags and tags[0] == 'music':
+                    # Add to queue if playing from library
+                    self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (selected_song,))
+                    self.db_conn.commit()
+
             media = self.player.media_new(selected_song)
             self.media_player.set_media(media)
             self.media_player.play()
@@ -661,7 +711,25 @@ class MusicPlayer:
                 paths = raw_paths.split()
 
         paths = [p.strip('{}').strip('"') for p in paths if p.strip()]
-        self.process_paths(paths)
+
+        # Get current view to determine where to add files
+        selected_item = self.library_tree.selection()
+        if selected_item:
+            tags = self.library_tree.item(selected_item[0])['tags']
+            if tags:
+                if tags[0] == 'music':
+                    # Add to library
+                    self.process_paths(paths)
+                elif tags[0] == 'now_playing':
+                    # Add to queue - first ensure files are in library
+                    self.process_paths(paths)
+                    # Then add to queue
+                    for path in paths:
+                        normalized_path = str(normalize_path(path))
+                        if os.path.exists(normalized_path):
+                            self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (normalized_path,))
+                    self.db_conn.commit()
+                    self.load_queue()
 
     def setup_progress_bar(self):
         # Create frame for progress bar
@@ -762,7 +830,7 @@ class MusicPlayer:
                 utility_frame,
                 text=symbol,
                 style='Loop.Controls.TButton' if action == 'loop' else 'Controls.TButton',
-                command=getattr(self, "toggle_loop" if action == 'loop' else 'add_to_queue'),
+                command=getattr(self, "toggle_loop" if action == 'loop' else 'add_files_to_library'),
                 width=3
             )
             button.pack(side=tk.LEFT, padx=2)
