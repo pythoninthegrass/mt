@@ -713,9 +713,10 @@ def main():
     style.configure('TButton',
                    background=THEME_CONFIG['colors']['bg'],
                    foreground=THEME_CONFIG['colors']['fg'],
-                   borderwidth=0,  # Remove border
-                   relief='flat',  # Flat appearance
-                   focuscolor=THEME_CONFIG['colors']['primary'],
+                   borderwidth=0,
+                   relief='flat',
+                   focuscolor='',  # Remove focus border
+                   highlightthickness=0,  # Remove highlight border
                    font=BUTTON_STYLE['font'])
 
     # Configure specific styles for control buttons
@@ -724,6 +725,8 @@ def main():
                    foreground=THEME_CONFIG['colors']['fg'],
                    borderwidth=0,
                    relief='flat',
+                   focuscolor='',  # Remove focus border
+                   highlightthickness=0,  # Remove highlight border
                    font=BUTTON_STYLE['font'],
                    padding=BUTTON_STYLE['padding'])
 
@@ -732,6 +735,8 @@ def main():
                    foreground=THEME_CONFIG['colors']['fg'],
                    borderwidth=0,
                    relief='flat',
+                   focuscolor='',  # Remove focus border
+                   highlightthickness=0,  # Remove highlight border
                    font=BUTTON_STYLE['font'],
                    padding=BUTTON_STYLE['padding'])
 
