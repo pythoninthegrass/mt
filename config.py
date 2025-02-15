@@ -22,29 +22,29 @@ AUDIO_EXTENSIONS = {
 }
 
 # UI Configuration
-WINDOW_SIZE = "640x720"
+WINDOW_SIZE = "1280x720"
 WINDOW_TITLE = "mt"
 BUTTON_STYLE = {
-    'width': 5,
-    'height': 2,
-    'font': ('TkDefaultFont', 18, 'bold'),
-    'padx': 8,
-    'pady': 5,
+    'width': 3,
+    'padding': 2,
+    'font': ('TkDefaultFont', 12),
 }
 
 # Progress Bar Configuration
 PROGRESS_BAR = {
-    'frame_height': 60,
-    'canvas_height': 50,
-    'bar_y': 20,  # Vertical center of the canvas
+    'frame_height': 80,
+    'canvas_height': 70,
+    'bar_y': 40,
     'circle_radius': 6,
     'line_color': THEME_CONFIG['colors']['secondary'],
     'line_width': 2,
     'circle_fill': THEME_CONFIG['colors']['primary'],
     'circle_active_fill': THEME_CONFIG['colors']['active'],
-    'time_label_y': 45,
-    'frame_padding': (0, 20),  # (top, bottom)
-    'frame_side_padding': 10,  # left/right padding
+    'time_label_y': 15,
+    'frame_padding': (0, 20),
+    'frame_side_padding': 10,
+    'controls_y': 40,
+    'button_spacing': 2,
 }
 
 # Listbox Configuration
@@ -86,6 +86,14 @@ DB_TABLES = {
         CREATE TABLE IF NOT EXISTS queue
         (id INTEGER PRIMARY KEY AUTOINCREMENT,
          filepath TEXT NOT NULL)
+    ''',
+    'library': '''
+        CREATE TABLE IF NOT EXISTS library
+        (id INTEGER PRIMARY KEY AUTOINCREMENT,
+         filepath TEXT NOT NULL,
+         added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+         last_played TIMESTAMP,
+         play_count INTEGER DEFAULT 0)
     ''',
     'settings': '''
         CREATE TABLE IF NOT EXISTS settings (

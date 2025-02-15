@@ -6,6 +6,7 @@ import sqlite3
 import sys
 import time
 import tkinter as tk
+import tkinter.font as tkfont
 import ttkbootstrap as ttk
 import vlc
 from config import (
@@ -124,6 +125,8 @@ class MusicPlayer:
         self.window = window
         self.window.title(WINDOW_TITLE)
         self.window.geometry(WINDOW_SIZE)
+        # Force the window to open at the specified size and prevent smaller sizes
+        self.window.minsize(1280, 720)
         self.is_playing = False
         self.current_time = 0
 
@@ -134,7 +137,7 @@ class MusicPlayer:
             self.db_cursor.execute(create_sql)
         self.db_conn.commit()
 
-        # Load loop state from settings; default to configured value if unset
+        # Load loop state from settings
         self.db_cursor.execute("SELECT value FROM settings WHERE key = 'loop_enabled'")
         result = self.db_cursor.fetchone()
         if result is None:
@@ -144,52 +147,99 @@ class MusicPlayer:
         else:
             self.loop_enabled = (result[0] == '1')
 
-        # Create progress bar frame
-        self.progress_frame = ttk.Frame(self.window, height=PROGRESS_BAR['frame_height'], style='TFrame')
-        self.progress_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=PROGRESS_BAR['frame_side_padding'], pady=PROGRESS_BAR['frame_padding'])
+        # Create main container
+        self.main_container = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
+        self.main_container.pack(expand=True, fill=tk.BOTH)
 
-        # Create canvas for progress bar
-        self.canvas = tk.Canvas(self.progress_frame, height=PROGRESS_BAR['canvas_height'],
-                              background=COLORS['alternate_row_colors'][0],
-                              highlightthickness=0)
-        self.canvas.pack(fill=tk.X, expand=True)
+        # Create left panel (Library/Playlists)
+        self.left_panel = ttk.Frame(self.main_container)
+        self.main_container.add(self.left_panel, weight=1)
 
-        # Store progress bar configuration
-        self.bar_y = PROGRESS_BAR['bar_y']
-        self.circle_radius = PROGRESS_BAR['circle_radius']
+        # Create right panel (Content)
+        self.right_panel = ttk.Frame(self.main_container)
+        self.main_container.add(self.right_panel, weight=3)
 
-        # Create progress line and circle
-        self.line = self.canvas.create_line(
-            10, self.bar_y, self.canvas.winfo_reqwidth()-10, self.bar_y,
-            fill=PROGRESS_BAR['line_color'], width=PROGRESS_BAR['line_width']
+        # Setup left panel sections
+        self.setup_left_panel()
+
+        # Setup right panel (initially empty)
+        self.setup_right_panel()
+
+        # Initialize VLC player
+        self.player = vlc.Instance()
+        self.media_player = self.player.media_player_new()
+        self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self.next_song)
+
+        # Add progress bar and controls at bottom
+        self.setup_progress_bar()
+
+    def setup_left_panel(self):
+        # Create treeview for library/playlists
+        self.library_tree = ttk.Treeview(self.left_panel, show='tree', selectmode='browse')
+        self.library_tree.pack(expand=True, fill=tk.BOTH)
+
+        # Library section
+        library_id = self.library_tree.insert('', 'end', text='Library', open=True)
+        self.library_tree.insert(library_id, 'end', text='Music', tags=('music',))
+        self.library_tree.insert(library_id, 'end', text='Now Playing', tags=('now_playing',))
+
+        # Playlists section
+        playlists_id = self.library_tree.insert('', 'end', text='Playlists', open=True)
+        self.library_tree.insert(playlists_id, 'end', text='Recently Added', tags=('recent_added',))
+        self.library_tree.insert(playlists_id, 'end', text='Recently Played', tags=('recent_played',))
+        self.library_tree.insert(playlists_id, 'end', text='Top 25 Most Played', tags=('top_played',))
+
+        # Calculate the width needed for the longest item
+        items = [
+            'Library', 'Music', 'Now Playing',
+            'Playlists', 'Recently Added', 'Recently Played', 'Top 25 Most Played'
+        ]
+
+        # Get the font from the Treeview style
+        style = ttk.Style()
+        font_str = style.lookup('Treeview', 'font')
+        if not font_str:  # If no font specified in style, use default
+            font_str = 'TkDefaultFont'
+        font = tkfont.nametofont(font_str)
+
+        # Calculate max width including all necessary padding
+        text_width = max(font.measure(text) for text in items)
+        indent_width = 10                           # Width for each level of indentation
+        icon_width = 10                             # Width for tree icons
+        max_indent_level = 2                        # Maximum indentation level in our tree
+        side_padding = 0                            # Reduced from 80 to move divider left
+
+        # Total width calculation
+        total_width = (
+            text_width +                            # Actual text width
+            (indent_width * max_indent_level) +     # Indentation for nested items
+            icon_width +                            # Space for tree icons
+            side_padding                            # Extra padding for visual comfort
         )
-        self.progress_circle = self.canvas.create_oval(
-            10 - self.circle_radius, self.bar_y - self.circle_radius,
-            10 + self.circle_radius, self.bar_y + self.circle_radius,
-            fill=PROGRESS_BAR['circle_fill'], activefill=PROGRESS_BAR['circle_active_fill']
-        )
 
-        # Add time labels
-        self.elapsed_text = self.canvas.create_text(
-            10, PROGRESS_BAR['time_label_y'], anchor='sw', text="00:00",
-            fill=LISTBOX_CONFIG['foreground']
-        )
-        self.remaining_text = self.canvas.create_text(
-            self.canvas.winfo_width()-10, PROGRESS_BAR['time_label_y'],
-            anchor='se', text="00:00",
-            fill=LISTBOX_CONFIG['foreground']
-        )
+        # Add extra width to match the manual position
+        pane_width = total_width + 40  # Reduced from 60 to move divider left
 
-        # Create queue frame and listbox
-        self.queue_frame = ttk.Frame(self.window, style='TFrame')
-        self.queue_frame.pack(pady=LISTBOX_CONFIG['padding'], expand=True, fill=tk.BOTH)
+        # Configure the left panel width and prevent it from being too small
+        self.left_panel.configure(width=pane_width)
+        self.left_panel.pack_propagate(False)  # Prevent the frame from shrinking
 
-        self.scrollbar = ttk.Scrollbar(self.queue_frame, orient=tk.VERTICAL, style='Vertical.TScrollbar')
+        # Force the sash (divider) position after a short delay to ensure the window is fully created
+        self.window.after(100, lambda: self.main_container.sashpos(0, pane_width))
+
+        # Bind selection event
+        self.library_tree.bind('<<TreeviewSelect>>', self.on_section_select)
+
+    def setup_right_panel(self):
+        # Create queue frame and listbox (similar to original queue setup)
+        self.queue_frame = ttk.Frame(self.right_panel)
+        self.queue_frame.pack(expand=True, fill=tk.BOTH)
+
+        self.scrollbar = ttk.Scrollbar(self.queue_frame, orient=tk.VERTICAL)
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.queue = tk.Listbox(
             self.queue_frame,
-            width=LISTBOX_CONFIG['width'],
             selectmode=LISTBOX_CONFIG['selectmode'],
             yscrollcommand=self.scrollbar.set,
             background=LISTBOX_CONFIG['background'],
@@ -201,96 +251,43 @@ class MusicPlayer:
             highlightthickness=0
         )
         self.queue.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
-
         self.scrollbar.config(command=self.queue.yview)
-        self.queue_frame.bind('<Configure>', lambda e: self.update_scrollbar())
 
         # Add queue bindings
         self.queue.bind('<Double-Button-1>', self.play_selected)
         self.queue.bind('<Delete>', self.handle_delete)
         self.queue.bind('<BackSpace>', self.handle_delete)
 
-        # Load saved queue
-        self.load_queue()
-
-        # Create controls frame
-        controls_frame = ttk.Frame(self.window, style='Controls.TFrame')
-        controls_frame.pack(pady=(0, 5))
-
-        # Configure a special style for the controls frame
-        style = ttk.Style()
-        style.configure('Controls.TFrame',
-                       background=THEME_CONFIG['colors']['bg'],
-                       padding=5)
-
-        # Configure button style specifically for controls
-        style.configure('Controls.TButton',
-                       background=THEME_CONFIG['colors']['bg'],
-                       foreground=THEME_CONFIG['colors']['fg'],
-                       bordercolor=THEME_CONFIG['colors']['border'],
-                       focuscolor=THEME_CONFIG['colors']['primary'],
-                       font=BUTTON_STYLE['font'],
-                       relief='flat',
-                       padding=(BUTTON_STYLE['padx'], BUTTON_STYLE['pady']))
-
-        style.layout('Controls.TButton', [
-            ('Button.padding', {'children': [
-                ('Button.label', {'sticky': 'nswe'})
-            ], 'sticky': 'nswe'})
-        ])
-
-        style.map('Controls.TButton',
-                 background=[('active', THEME_CONFIG['colors']['active']),
-                           ('pressed', THEME_CONFIG['colors']['active'])],
-                 foreground=[('active', THEME_CONFIG['colors']['fg']),
-                           ('pressed', THEME_CONFIG['colors']['fg'])])
-
-        # Create buttons with the new style
-        self.add_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['add'], style='Controls.TButton')
-        self.add_button.config(command=self.add_to_queue)
-        self.add_button.grid(row=0, column=0, padx=8)
-
-        self.prev_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['prev'], style='Controls.TButton')
-        self.prev_button.config(command=self.previous_song)
-        self.prev_button.grid(row=0, column=1, padx=8)
-
-        self.play_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['play'], style='Controls.TButton')
-        self.play_button.config(command=self.play_pause)
-        self.play_button.grid(row=0, column=2, padx=8)
-
-        self.next_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['next'], style='Controls.TButton')
-        self.next_button.config(command=self.next_song_button)
-        self.next_button.grid(row=0, column=3, padx=8)
-
-        # Create a special style for the loop button
-        style.configure('Loop.Controls.TButton',
-                       foreground=THEME_CONFIG['colors']['primary'] if self.loop_enabled else THEME_CONFIG['colors']['fg'])
-
-        self.loop_button = ttk.Button(controls_frame, text=BUTTON_SYMBOLS['loop'], style='Loop.Controls.TButton')
-        self.loop_button.config(command=self.toggle_loop)
-        self.loop_button.grid(row=0, column=4, padx=8)
-
-        # Add progress bar bindings
-        self.canvas.tag_bind(self.progress_circle, '<Button-1>', self.start_drag)
-        self.canvas.tag_bind(self.progress_circle, '<B1-Motion>', self.drag)
-        self.canvas.tag_bind(self.progress_circle, '<ButtonRelease-1>', self.end_drag)
-        self.canvas.bind('<Button-1>', self.click_progress)
-        self.canvas.bind('<Configure>', self.on_resize)
-
-        # Initialize dragging state
-        self.dragging = False
-        self.last_drag_time = 0
-
-        # Add update timer
-        self.window.after(PROGRESS_UPDATE_INTERVAL, self.update_progress)
-
-        # Initialize VLC player
-        self.player = vlc.Instance()
-        self.media_player = self.player.media_player_new()
-        self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self.next_song)
-
-        # Initialize drag and drop
+        # Setup drag and drop
         self.setup_drag_drop()
+
+    def on_section_select(self, event):
+        selected_item = self.library_tree.selection()[0]
+        tags = self.library_tree.item(selected_item)['tags']
+
+        if not tags:
+            return
+
+        tag = tags[0]
+        self.queue.delete(0, tk.END)  # Clear current view
+
+        if tag == 'music':
+            # Load full library
+            self.load_library()
+        elif tag == 'now_playing':
+            # Load current queue
+            self.load_queue()
+        elif tag in ('recent_added', 'recent_played', 'top_played'):
+            # These will be implemented later
+            pass
+
+    def load_library(self):
+        # Load all known music files from database
+        self.db_cursor.execute('SELECT DISTINCT filepath FROM library ORDER BY filepath')
+        for (filepath,) in self.db_cursor.fetchall():
+            if os.path.exists(filepath):
+                self.queue.insert(tk.END, filepath)
+        self.refresh_colors()
 
     def toggle_loop(self):
         self.loop_enabled = not self.loop_enabled
@@ -316,12 +313,18 @@ class MusicPlayer:
 
     def drag(self, event):
         if self.dragging:
-            width = self.canvas.winfo_width() - 20
-            x = min(max(event.x, 10), self.canvas.winfo_width() - 10)
+            # Only allow dragging within the valid progress bar area
+            x = min(max(event.x, self.controls_width),
+                    self.canvas.winfo_width() - 160)
+
+            # Update circle position
             self.canvas.coords(self.progress_circle,
                 x - self.circle_radius, self.bar_y - self.circle_radius,
                 x + self.circle_radius, self.bar_y + self.circle_radius)
-            ratio = (x - 10) / width
+
+            # Calculate new time based on position
+            width = self.canvas.winfo_width() - self.controls_width - 160
+            ratio = (x - self.controls_width) / width
             if self.media_player.get_length() > 0:
                 self.current_time = int(self.media_player.get_length() * ratio)
                 self.last_drag_time = time.time()
@@ -334,7 +337,7 @@ class MusicPlayer:
                 duration = self.media_player.get_length()
                 ratio = self.current_time / duration if duration > 0 else 0
                 width = self.canvas.winfo_width()
-                x = 10 + (width - 20) * ratio
+                x = self.controls_width + (width - self.controls_width - 160) * ratio
                 self.canvas.coords(self.progress_circle,
                     x - self.circle_radius, self.bar_y - self.circle_radius,
                     x + self.circle_radius, self.bar_y + self.circle_radius)
@@ -344,23 +347,33 @@ class MusicPlayer:
                     self.is_playing = True
 
     def click_progress(self, event):
-        circle_coords = self.canvas.coords(self.progress_circle)
-        if circle_coords[0] <= event.x <= circle_coords[2] and circle_coords[1] <= event.y <= circle_coords[3]:
+        # Only process clicks within the valid progress bar area
+        if event.x < self.controls_width or event.x > self.canvas.winfo_width() - 10:
             return
-        width = self.canvas.winfo_width() - 20
-        x = min(max(event.x, 10), self.canvas.winfo_width() - 10)
-        ratio = (x - 10) / width
+
+        # Calculate the new position
+        width = self.canvas.winfo_width() - self.controls_width - 160
+        ratio = (event.x - self.controls_width) / width
+
         if self.media_player.get_length() > 0:
             self.current_time = int(self.media_player.get_length() * ratio)
             self.media_player.set_time(self.current_time)
+            # Update circle position
             self.canvas.coords(self.progress_circle,
-                x - self.circle_radius, self.bar_y - self.circle_radius,
-                x + self.circle_radius, self.bar_y + self.circle_radius)
+                event.x - self.circle_radius, self.bar_y - self.circle_radius,
+                event.x + self.circle_radius, self.bar_y + self.circle_radius)
 
     def on_resize(self, event):
-        self.canvas.coords(self.line, 10, self.bar_y, event.width-10, self.bar_y)
-        self.canvas.coords(self.elapsed_text, 10, PROGRESS_BAR['time_label_y'])
-        self.canvas.coords(self.remaining_text, event.width-10, PROGRESS_BAR['time_label_y'])
+        # Update progress bar line
+        self.canvas.coords(self.line,
+            self.controls_width, self.bar_y,
+            event.width-160, self.bar_y)
+        # Update time text position
+        self.canvas.coords(self.time_text,
+            event.width-160, PROGRESS_BAR['time_label_y'])
+        # Update utility controls position
+        for widget in self.canvas.find_withtag('utility_frame'):
+            self.canvas.coords(widget, event.width-150, PROGRESS_BAR['controls_y']-15)
 
     def update_progress(self):
         if (self.is_playing and self.media_player.is_playing() and
@@ -371,26 +384,27 @@ class MusicPlayer:
             if duration > 0:
                 ratio = current / duration
                 width = self.canvas.winfo_width()
-                x = 10 + (width - 20) * ratio
+                x = self.controls_width + (width - self.controls_width - 160) * ratio
                 self.canvas.coords(self.progress_circle,
                     x - self.circle_radius, self.bar_y - self.circle_radius,
                     x + self.circle_radius, self.bar_y + self.circle_radius)
 
-                # Compute and update elapsed and remaining times
-                elapsed_seconds = current / 1000
-                duration_seconds = duration / 1000
-                remaining_seconds = duration_seconds - elapsed_seconds
+                # Update time display with current/total format
                 def format_time(seconds):
                     seconds = int(seconds)
-                    sign = "" if seconds >= 0 else "-"
-                    seconds = abs(seconds)
                     m = seconds // 60
                     s = seconds % 60
-                    return f"{sign}{m:02d}:{s:02d}"
-                self.canvas.itemconfig(self.elapsed_text, text=format_time(elapsed_seconds))
-                self.canvas.itemconfig(self.remaining_text, text=format_time(remaining_seconds))
+                    return f"{m:02d}:{s:02d}"
+
+                current_time = format_time(current / 1000)
+                total_time = format_time(duration / 1000)
+                self.canvas.itemconfig(self.time_text, text=f"{current_time} / {total_time}")
 
         self.window.after(PROGRESS_UPDATE_INTERVAL, self.update_progress)
+
+    def next_song(self, event=None):
+        # For automatic next on song end and manual next
+        self.next_song_button()
 
     def next_song_button(self, event=None):
         if self.queue.size() > 0:
@@ -440,10 +454,6 @@ class MusicPlayer:
             self.current_time = 0
             self.is_playing = True
             self.play_button.configure(text=BUTTON_SYMBOLS['pause'])
-
-    def next_song(self, event):
-        # For automatic next on song end
-        self.next_song_button()
 
     def process_paths(self, paths):
         existing_files = set(self.queue.get(0, tk.END))
@@ -580,6 +590,113 @@ class MusicPlayer:
 
         paths = [p.strip('{}').strip('"') for p in paths if p.strip()]
         self.process_paths(paths)
+
+    def setup_progress_bar(self):
+        # Create frame for progress bar
+        self.progress_frame = ttk.Frame(self.window, height=PROGRESS_BAR['frame_height'])
+        self.progress_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=PROGRESS_BAR['frame_side_padding'],
+                               pady=PROGRESS_BAR['frame_padding'])
+
+        # Create canvas for custom progress bar
+        self.canvas = tk.Canvas(
+            self.progress_frame,
+            height=PROGRESS_BAR['canvas_height'],
+            background=THEME_CONFIG['colors']['bg'],
+            highlightthickness=0
+        )
+        self.canvas.pack(fill=tk.X)
+
+        # Setup playback controls on the left
+        self.setup_playback_controls()
+
+        # Create time labels
+        self.time_text = self.canvas.create_text(
+            self.canvas.winfo_width()-160, PROGRESS_BAR['time_label_y'],
+            text="00:00 / 00:00",
+            fill=THEME_CONFIG['colors']['fg'],
+            anchor=tk.E
+        )
+
+        # Create progress bar line - start after the control buttons
+        self.bar_y = PROGRESS_BAR['bar_y']
+        self.line = self.canvas.create_line(
+            self.controls_width, self.bar_y,
+            self.canvas.winfo_width()-160, self.bar_y,
+            fill=PROGRESS_BAR['line_color'],
+            width=PROGRESS_BAR['line_width']
+        )
+
+        # Create progress circle at start position
+        self.circle_radius = PROGRESS_BAR['circle_radius']
+        self.progress_circle = self.canvas.create_oval(
+            self.controls_width - self.circle_radius, self.bar_y - self.circle_radius,
+            self.controls_width + self.circle_radius, self.bar_y + self.circle_radius,
+            fill=PROGRESS_BAR['circle_fill'],
+            outline=""
+        )
+
+        # Setup utility controls on the right
+        self.setup_utility_controls()
+
+        # Bind events
+        self.dragging = False
+        self.last_drag_time = 0
+        self.canvas.tag_bind(self.progress_circle, '<Button-1>', self.start_drag)
+        self.canvas.tag_bind(self.progress_circle, '<B1-Motion>', self.drag)
+        self.canvas.tag_bind(self.progress_circle, '<ButtonRelease-1>', self.end_drag)
+        self.canvas.bind('<Button-1>', self.click_progress)
+        self.canvas.bind('<Configure>', self.on_resize)
+
+        # Start progress update
+        self.update_progress()
+
+    def setup_playback_controls(self):
+        # Create buttons frame within canvas for playback controls (prev, play, next)
+        button_frame = ttk.Frame(self.canvas)
+        button_frame.place(x=10, y=PROGRESS_BAR['controls_y']-15)
+
+        for i, (action, symbol) in enumerate([
+            ('previous', BUTTON_SYMBOLS['prev']),
+            ('play', BUTTON_SYMBOLS['play']),
+            ('next', BUTTON_SYMBOLS['next'])
+        ]):
+            button = ttk.Button(
+                button_frame,
+                text=symbol,
+                style='Controls.TButton',
+                command=getattr(self, f"{action}_song" if action != 'play' else 'play_pause'),
+                width=3
+            )
+            button.pack(side=tk.LEFT, padx=2)
+
+            if action == 'play':
+                self.play_button = button
+
+        # Update the button frame after all buttons are packed to get its true width
+        button_frame.update()
+        # Store the width for progress bar calculations
+        self.controls_width = button_frame.winfo_width() + 20
+
+    def setup_utility_controls(self):
+        # Create buttons frame within canvas for utility controls (loop, add)
+        utility_frame = ttk.Frame(self.canvas)
+        utility_frame.place(x=self.canvas.winfo_width()-150, y=PROGRESS_BAR['controls_y']-15)
+
+        for action, symbol in [
+            ('loop', BUTTON_SYMBOLS['loop']),
+            ('add', BUTTON_SYMBOLS['add'])
+        ]:
+            button = ttk.Button(
+                utility_frame,
+                text=symbol,
+                style='Loop.Controls.TButton' if action == 'loop' else 'Controls.TButton',
+                command=getattr(self, "toggle_loop" if action == 'loop' else 'add_to_queue'),
+                width=3
+            )
+            button.pack(side=tk.LEFT, padx=2)
+
+            if action == 'loop':
+                self.loop_button = button
 
     def __del__(self):
         # Clean up database connection
