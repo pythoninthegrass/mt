@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 # Database initialization tables
 # These tables are created when the database is first initialized
@@ -44,7 +44,7 @@ class MusicDatabase:
         self.db_cursor = self.db_conn.cursor()
 
         # Create tables
-        for table_name, create_sql in db_tables.items():
+        for _, create_sql in db_tables.items():
             self.db_cursor.execute(create_sql)
         self.db_conn.commit()
 
