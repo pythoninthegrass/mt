@@ -469,10 +469,18 @@ class QueueView:
         self.queue.bind('<Delete>', self.callbacks['handle_delete'])
         self.queue.bind('<BackSpace>', self.callbacks['handle_delete'])
         self.queue.bind('<<TreeviewSelect>>', self.callbacks['on_song_select'])
+        # Add select all keyboard shortcuts
+        self.queue.bind('<Command-a>', self.select_all)  # macOS
+        self.queue.bind('<Control-a>', self.select_all)  # Windows/Linux
 
         # Setup drag and drop
         self.queue.drop_target_register('DND_Files')
         self.queue.dnd_bind('<<Drop>>', self.callbacks['handle_drop'])
+
+    def select_all(self, event=None):
+        """Select all items in the queue."""
+        self.queue.selection_set(self.queue.get_children())
+        return "break"  # Prevent default handling
 
 class MusicPlayer:
     def __init__(self, window: tk.Tk, theme_manager):
