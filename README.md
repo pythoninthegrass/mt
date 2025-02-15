@@ -11,15 +11,16 @@
 
 * UI
   * better, modern styling
-  * split panes
-  * app icon
+  * ~~split panes~~
+  * ~~app icon~~
 * UX
+  * end of library loopback (w/o prev/next)
   * performance
     * faster directory traversal
     * sqlite vs. duckdb
     * network caching / buffer / prefetch
 * Features 
-  * read ID3 tags
+  * ~~read ID3 tags~~
   * media keys
   * arrow keys
     * playhead navigation
