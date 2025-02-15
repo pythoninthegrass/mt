@@ -785,6 +785,11 @@ def main():
     try:
         # Create custom theme style
         root = TkinterDnD.Tk()
+
+        # Set application icon
+        icon = tk.PhotoImage(file='mt.png')
+        root.wm_iconphoto(False, icon)
+
         style = ttk.Style(theme='darkly')  # Start with darkly as base
 
         # Apply theme colors from config
@@ -793,8 +798,8 @@ def main():
                        foreground=THEME_CONFIG['colors']['fg'],
                        borderwidth=0,
                        relief='flat',
-                       focuscolor='',  # Remove focus border
-                       highlightthickness=0,  # Remove highlight border
+                       focuscolor='',           # Remove focus border
+                       highlightthickness=0,    # Remove highlight border
                        font=BUTTON_STYLE['font'])
 
         # Configure specific styles for control buttons
@@ -803,8 +808,8 @@ def main():
                        foreground=THEME_CONFIG['colors']['fg'],
                        borderwidth=0,
                        relief='flat',
-                       focuscolor='',  # Remove focus border
-                       highlightthickness=0,  # Remove highlight border
+                       focuscolor='',           # Remove focus border
+                       highlightthickness=0,    # Remove highlight border
                        font=BUTTON_STYLE['font'],
                        padding=BUTTON_STYLE['padding'])
 
@@ -813,8 +818,8 @@ def main():
                        foreground=THEME_CONFIG['colors']['fg'],
                        borderwidth=0,
                        relief='flat',
-                       focuscolor='',  # Remove focus border
-                       highlightthickness=0,  # Remove highlight border
+                       focuscolor='',           # Remove focus border
+                       highlightthickness=0,    # Remove highlight border
                        font=BUTTON_STYLE['font'],
                        padding=BUTTON_STYLE['padding'])
 
