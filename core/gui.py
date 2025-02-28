@@ -12,7 +12,9 @@ from config import (
     THEME_CONFIG,
 )
 from core.controls import PlayerCore
+from core.progress import ProgressControl
 from core.theme import setup_theme
+from core.volume import VolumeControl
 from decouple import config
 from pathlib import Path
 
@@ -157,429 +159,96 @@ class ProgressBar:
         self.controls = PlayerControls(self.canvas, self.callbacks, initial_loop_enabled=self.initial_loop_enabled)
         self.controls_width = self.controls.controls_width
 
-        # Create track info text - positioned above progress line
-        self.track_info = self.canvas.create_text(
-            self.controls_width,  # Align with start of progress line
-            PROGRESS_BAR['track_info_y'],
-            text="",  # Initialize with empty text
-            fill=THEME_CONFIG['colors']['fg'],
-            anchor=tk.W,
+        # Create progress bar control
+        self.progress_control = ProgressControl(
+            self.canvas,
+            {
+                'bar_y': PROGRESS_BAR['bar_y'],
+                'circle_radius': PROGRESS_BAR['circle_radius'],
+                'line_width': PROGRESS_BAR['line_width'],
+                'colors': THEME_CONFIG['colors'],
+                'progress_bg': PROGRESS_BAR['progress_bg'],
+                'time_label_y': PROGRESS_BAR['time_label_y'],
+                'track_info_y': PROGRESS_BAR['track_info_y']
+            },
+            {
+                'start_drag': self.callbacks['start_drag'],
+                'drag': self.callbacks['drag'],
+                'end_drag': self.callbacks['end_drag'],
+                'click_progress': self.callbacks['click_progress']
+            }
         )
+        self.progress_control.set_controls_width(self.controls_width)
 
-        # Create time labels - moved to the left to make room for volume control
-        self.time_text = self.canvas.create_text(
-            self.canvas.winfo_width() - 260,  # Position before volume control
-            PROGRESS_BAR['time_label_y'],
-            text="00:00 / 00:00",
-            fill=THEME_CONFIG['colors']['fg'],
-            anchor=tk.E,
-        )
-
-        # Create progress bar background (dark line)
+        # Define properties for backwards compatibility
         self.bar_y = PROGRESS_BAR['bar_y']
-        self.line = self.canvas.create_line(
-            self.controls_width,
-            self.bar_y,
-            self.canvas.winfo_width() - 260,  # Make shorter to accommodate volume control
-            self.bar_y,
-            fill=PROGRESS_BAR['progress_bg'],  # Use dark background color
-            width=PROGRESS_BAR['line_width'] + 2,  # Slightly wider for the background
-        )
-
-        # Create progress bar foreground (teal line) - initially at start position
-        self.progress_line = self.canvas.create_line(
-            self.controls_width,
-            self.bar_y,
-            self.controls_width,  # Initially same as start
-            self.bar_y,
-            fill=THEME_CONFIG['colors']['primary'],  # Teal color
-            width=PROGRESS_BAR['line_width'],
-        )
-
-        # Create progress circle with teal fill
         self.circle_radius = PROGRESS_BAR['circle_radius']
-        self.progress_circle = self.canvas.create_oval(
-            self.controls_width - self.circle_radius,
-            self.bar_y - self.circle_radius,
-            self.controls_width + self.circle_radius,
-            self.bar_y + self.circle_radius,
-            fill=THEME_CONFIG['colors']['primary'],  # Teal fill
-            outline=THEME_CONFIG['colors']['playhead_border'],  # Border to make it more visible
-        )
-
-        # Ensure proper z-order - playhead must be on top
-        self.canvas.tag_raise(self.progress_line)  # Progress line above background
-        self.canvas.tag_raise(self.progress_circle)  # Playhead circle on top of everything
-
-        # Bind events
+        self.line = self.progress_control.line
+        self.progress_line = self.progress_control.progress_line
+        self.progress_circle = self.progress_control.progress_circle
+        self.time_text = self.progress_control.time_text
+        self.track_info = self.progress_control.track_info
         self.dragging = False
         self.last_drag_time = 0
-        self.canvas.tag_bind(self.progress_circle, '<Button-1>', self.callbacks['start_drag'])
-        self.canvas.tag_bind(self.progress_circle, '<B1-Motion>', self.callbacks['drag'])
-        self.canvas.tag_bind(self.progress_circle, '<ButtonRelease-1>', self.callbacks['end_drag'])
 
-        # Create invisible hitbox for the progress bar to handle clicks
-        progress_end_x = self.canvas.coords(self.line)[2]
-        self.progress_hitbox = self.canvas.create_rectangle(
-            self.controls_width - 5,
-            self.bar_y - 10,
-            progress_end_x + 5,
-            self.bar_y + 10,
-            fill='',  # Transparent fill
-            outline='',  # No outline
-            tags=('progress_hitbox',)
-        )
+        # For compatibility with existing code
+        self.progress_hitbox = self.progress_control.progress_hitbox
 
-        # Bind click to the hitbox instead of the whole canvas
-        self.canvas.tag_bind('progress_hitbox', '<Button-1>', self.callbacks['click_progress'])
+        # Bind window resize
         self.canvas.bind('<Configure>', self.on_resize)
 
     def setup_volume_control(self):
         """Create and setup custom volume control slider."""
-        # Get the circle radius for consistent styling
-        self.volume_circle_radius = self.circle_radius  # Use same radius as progress circle
-
-        # Calculate loop button position (based on the PlayerControls class)
-        canvas_width = self.canvas.winfo_width()
-        loop_button_x = canvas_width - 120
-
-        # Set the volume slider width
-        self.volume_slider_width = PROGRESS_BAR['volume_slider_length']
-
         # Calculate positions with proper spacing
         progress_end_x = self.canvas.coords(self.line)[2]  # End of progress line
 
         # Calculate volume position with proper spacing (centered between progress and loop)
         volume_x_start = progress_end_x + 40  # Add padding after progress line
 
-        # Create volume icon
-        self.volume_icon = tk.Label(
+        # Create volume control
+        self.volume_control = VolumeControl(
             self.canvas,
-            text=BUTTON_SYMBOLS['volume'],
-            font=('TkDefaultFont', 12),
-            bg=THEME_CONFIG['colors']['bg'],
-            fg=THEME_CONFIG['colors']['primary']
-        )
-        self.volume_icon.place(x=volume_x_start - 25, y=self.bar_y - 10)  # Position icon to the left of slider
-
-        # Default volume is 80%
-        self.volume_value = 80
-
-        # Add padding to ensure circle never goes behind icon (equal to circle radius)
-        self.volume_slider_padding = self.volume_circle_radius
-
-        # Store the actual slider bounds (with padding for the circle)
-        self.volume_slider_start = volume_x_start + self.volume_slider_padding
-        self.volume_slider_end = volume_x_start + self.volume_slider_width
-
-        # Store the visual bounds (where the line is drawn)
-        self.volume_line_start = volume_x_start
-        self.volume_line_end = volume_x_start + self.volume_slider_width
-
-        # Calculate initial volume position with padding
-        volume_position = self.volume_slider_start + ((self.volume_slider_end - self.volume_slider_start) * 0.8)
-
-        # Create volume slider background line
-        self.volume_line_bg = self.canvas.create_line(
-            self.volume_line_start,
             self.bar_y,
-            self.volume_line_end,
-            self.bar_y,
-            fill=PROGRESS_BAR['progress_bg'],  # Same color as progress bar background
-            width=PROGRESS_BAR['line_width'] + 2,  # Same width as progress bar bg
+            self.circle_radius,
+            BUTTON_SYMBOLS,
+            THEME_CONFIG,
+            {'volume_change': self.callbacks['volume_change']}
         )
+        self.volume_control.setup_volume_control(volume_x_start, PROGRESS_BAR['volume_slider_length'])
 
-        # Create volume slider foreground line - now white as requested
-        self.volume_line_fg = self.canvas.create_line(
-            self.volume_line_start,
-            self.bar_y,
-            volume_position,
-            self.bar_y,
-            fill='white',  # White color as requested
-            width=PROGRESS_BAR['line_width'],  # Same width as progress bar
-        )
-
-        # Create volume slider handle (circle with white outline, black fill)
-        self.volume_circle = self.canvas.create_oval(
-            volume_position - self.volume_circle_radius,
-            self.bar_y - self.volume_circle_radius,
-            volume_position + self.volume_circle_radius,
-            self.bar_y + self.volume_circle_radius,
-            fill='black',  # Black fill as requested
-            outline='white',  # White outline as requested
-            width=1,  # Outline width
-            tags=('volume_circle',)  # Add tag for easier reference
-        )
-
-        # Set proper z-order
-        self.canvas.tag_raise(self.volume_line_fg)  # Foreground above background
-        self.canvas.tag_raise(self.volume_circle)    # Circle above lines
-
-        # Store volume control coordinates for later reference
-        self.volume_x_start = volume_x_start
-        self.volume_x_end = volume_x_start + self.volume_slider_width
-
-        # Bind events for volume slider
-        self.canvas.tag_bind('volume_circle', '<Button-1>', self._start_volume_drag)
-        self.canvas.tag_bind('volume_circle', '<B1-Motion>', self._drag_volume)
-        self.canvas.tag_bind('volume_circle', '<ButtonRelease-1>', self._end_volume_drag)
-
-        # Create invisible hitbox for clicking on volume slider directly
-        self.volume_hitbox = self.canvas.create_rectangle(
-            volume_x_start - 5,  # Slightly wider than visible slider
-            self.bar_y - 10,
-            volume_x_start + self.volume_slider_width + 5,
-            self.bar_y + 10,
-            fill='',  # Transparent fill
-            outline='',  # No outline
-            tags=('volume_hitbox',)
-        )
-
-        # Ensure volume hitbox is above progress hitbox to capture events first
-        self.canvas.tag_raise('volume_hitbox')
-
-        # Ensure circle is on top of everything for proper dragging
-        self.canvas.tag_raise(self.volume_circle)
-
-        # Bind click on the hitbox
-        self.canvas.tag_bind('volume_hitbox', '<Button-1>', self._click_volume)
-
-        # Set initial volume after a short delay
-        if self.callbacks and 'volume_change' in self.callbacks:
-            self.canvas.after(1000, lambda: self.callbacks['volume_change'](80))
-
-    def _start_volume_drag(self, event):
-        """Start dragging the volume slider."""
-        self.volume_dragging = True
-
-    def _drag_volume(self, event):
-        """Handle volume slider dragging."""
-        if not hasattr(self, 'volume_dragging') or not self.volume_dragging:
-            return
-
-        # Print debug info
-        print(f"Dragging volume: {event.x}")
-
-        # Calculate new volume based on drag position
-        x = event.x
-
-        # Constrain x to slider bounds with padding for the circle
-        if x < self.volume_slider_start:
-            x = self.volume_slider_start
-        elif x > self.volume_slider_end:
-            x = self.volume_slider_end
-
-        # Update volume value (0-100)
-        slider_range = self.volume_slider_end - self.volume_slider_start
-        self.volume_value = int(((x - self.volume_slider_start) / slider_range) * 100)
-
-        # Update slider position
-        self._update_volume_slider_position()
-
-        # Call volume change callback
-        if self.callbacks and 'volume_change' in self.callbacks:
-            self.callbacks['volume_change'](self.volume_value)
-
-    def _end_volume_drag(self, event):
-        """End volume slider dragging."""
+        # Add properties for backwards compatibility
+        self.volume_circle = self.volume_control.volume_circle
         self.volume_dragging = False
-
-    def _click_volume(self, event):
-        """Handle click directly on volume slider."""
-        # Calculate new volume based on click position
-        x = event.x
-
-        # Constrain x to slider bounds with padding for the circle
-        if x < self.volume_slider_start:
-            x = self.volume_slider_start
-        elif x > self.volume_slider_end:
-            x = self.volume_slider_end
-
-        # Update volume value (0-100)
-        slider_range = self.volume_slider_end - self.volume_slider_start
-        self.volume_value = int(((x - self.volume_slider_start) / slider_range) * 100)
-
-        # Update slider position
-        self._update_volume_slider_position()
-
-        # Call volume change callback
-        if self.callbacks and 'volume_change' in self.callbacks:
-            self.callbacks['volume_change'](self.volume_value)
-
-    def _update_volume_slider_position(self):
-        """Update the position of the volume slider based on current volume."""
-        # Calculate position based on volume value with padding
-        slider_range = self.volume_slider_end - self.volume_slider_start
-        x = self.volume_slider_start + (slider_range * (self.volume_value / 100))
-
-        # Update foreground line
-        self.canvas.coords(
-            self.volume_line_fg,
-            self.volume_line_start,  # Line always starts at the visual start
-            self.bar_y,
-            x,
-            self.bar_y,
-        )
-
-        # Update circle position
-        self.canvas.coords(
-            self.volume_circle,
-            x - self.volume_circle_radius,
-            self.bar_y - self.volume_circle_radius,
-            x + self.volume_circle_radius,
-            self.bar_y + self.volume_circle_radius,
-        )
-
-        # Ensure circle remains on top
-        self.canvas.tag_raise(self.volume_circle)
+        self.volume_value = 80
+        self.volume_x_start = volume_x_start
+        self.volume_line_bg = self.volume_control.volume_line_bg
+        self.volume_line_fg = self.volume_control.volume_line_fg
+        self.volume_slider_width = self.volume_control.volume_slider_width
+        self.volume_circle_radius = self.volume_control.volume_circle_radius
+        self.volume_hitbox = self.volume_control.volume_hitbox
+        self.volume_icon = self.volume_control.volume_icon
 
     def on_resize(self, event):
         """Handle window resize."""
-        # Update progress line background - shortened to make room for volume control
-        self.canvas.coords(
-            self.line,
-            self.controls_width,
-            self.bar_y,
-            event.width - 260,  # Shortened to make room for volume control
-            self.bar_y,
-        )
+        # Update progress bar positions
+        self.progress_control.update_positions()
 
-        # Update progress line foreground
-        # Keep the same ratio as before
-        if hasattr(self, 'progress_line'):
-            current_coords = self.canvas.coords(self.progress_line)
-            if len(current_coords) == 4:
-                # Calculate current ratio
-                total_width_before = self.canvas.coords(self.line)[2] - self.controls_width
-                if total_width_before > 0:
-                    current_ratio = (current_coords[2] - self.controls_width) / total_width_before
+        # Calculate positions for volume control
+        progress_end_x = self.canvas.coords(self.line)[2]
+        volume_x_start = progress_end_x + 40  # Add padding after progress line
 
-                    # Apply ratio to new width
-                    new_total_width = event.width - 260 - self.controls_width  # Updated width
-                    new_x = self.controls_width + (new_total_width * current_ratio)
-
-                    self.canvas.coords(
-                        self.progress_line,
-                        self.controls_width,
-                        self.bar_y,
-                        new_x,
-                        self.bar_y,
-                    )
-
-                    # Also move the circle
-                    self.canvas.coords(
-                        self.progress_circle,
-                        new_x - self.circle_radius,
-                        self.bar_y - self.circle_radius,
-                        new_x + self.circle_radius,
-                        self.bar_y + self.circle_radius,
-                    )
-
-        # Update time label position - moved to make room for volume
-        self.canvas.coords(
-            self.time_text,
-            event.width - 260,  # Position before volume control
-            PROGRESS_BAR['time_label_y'],
-        )
-
-        # Update track info position if available
-        if self.track_info:
-            current_text = self.canvas.itemcget(self.track_info, 'text')
-            if current_text:
-                # Keep text anchored to the left but update when window changes
-                self.canvas.coords(
-                    self.track_info,
-                    self.controls_width,
-                    PROGRESS_BAR['track_info_y'],
-                )
-
-        # Reposition volume control on resize
-        if hasattr(self, 'volume_line_bg'):
-            # Calculate new positions with proper spacing
-            progress_end_x = self.canvas.coords(self.line)[2]  # End of progress line
-            loop_button_x = event.width - 120  # Loop button position
-
-            # Position volume with proper spacing
-            volume_x_start = progress_end_x + 40  # Add padding after progress line
-
-            # Update slider bounds
-            self.volume_slider_start = volume_x_start + self.volume_slider_padding
-            self.volume_slider_end = volume_x_start + self.volume_slider_width
-            self.volume_line_start = volume_x_start
-            self.volume_line_end = volume_x_start + self.volume_slider_width
-
-            # Calculate current volume position
-            slider_range = self.volume_slider_end - self.volume_slider_start
-            volume_position = self.volume_slider_start + (slider_range * (self.volume_value / 100))
-
-            # Update volume slider background
-            self.canvas.coords(
-                self.volume_line_bg,
-                self.volume_line_start,
-                self.bar_y,
-                self.volume_line_end,
-                self.bar_y,
-            )
-
-            # Update volume slider foreground
-            self.canvas.coords(
-                self.volume_line_fg,
-                self.volume_line_start,
-                self.bar_y,
-                volume_position,
-                self.bar_y,
-            )
-
-            # Update volume slider handle
-            self.canvas.coords(
-                self.volume_circle,
-                volume_position - self.volume_circle_radius,
-                self.bar_y - self.volume_circle_radius,
-                volume_position + self.volume_circle_radius,
-                self.bar_y + self.volume_circle_radius,
-            )
-
-            # Ensure circle remains on top after resize
-            self.canvas.tag_raise(self.volume_circle)
-
-            # Update hitbox
-            self.canvas.coords(
-                self.volume_hitbox,
-                volume_x_start - 5,
-                self.bar_y - 10,
-                volume_x_start + self.volume_slider_width + 5,
-                self.bar_y + 10,
-            )
-
-            # Update volume icon position
-            self.volume_icon.place(x=volume_x_start - 25, y=self.bar_y - 10)
-
-            # Store updated coordinates
-            self.volume_x_start = volume_x_start
-            self.volume_x_end = volume_x_start + self.volume_slider_width
-
-        # Update progress hitbox
-        if hasattr(self, 'progress_hitbox'):
-            progress_end_x = self.canvas.coords(self.line)[2]
-            self.canvas.coords(
-                self.progress_hitbox,
-                self.controls_width - 5,
-                self.bar_y - 10,
-                progress_end_x + 5,
-                self.bar_y + 10,
-            )
+        # Update volume control positions
+        if hasattr(self, 'volume_control'):
+            self.volume_control.update_positions(volume_x_start)
 
     def update_track_info(self, title=None, artist=None):
         """Update the track info display."""
-        if title and artist:
-            track_info = f"{artist} - {title}"  # Display as "Artist - Title"
-        else:
-            track_info = ""
-        self.canvas.itemconfig(self.track_info, text=track_info)
+        self.progress_control.update_track_info(title, artist)
 
     def clear_track_info(self):
         """Clear the track info display."""
-        self.canvas.itemconfig(self.track_info, text="")
+        self.progress_control.clear_track_info()
+
 
 class LibraryView:
     def __init__(self, parent, callbacks):

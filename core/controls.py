@@ -71,8 +71,12 @@ class PlayerCore:
         self.media_player.stop()
         self.is_playing = False
         self.current_time = 0
+
+        # Hide playback elements in progress bar
         if self.progress_bar:
             self.progress_bar.clear_track_info()
+            if hasattr(self.progress_bar, 'progress_control'):
+                self.progress_bar.progress_control.hide_playback_elements()
             if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'play_button'):
                 self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['play'])
 
@@ -131,6 +135,10 @@ class PlayerCore:
 
         # Update track info in UI
         self._update_track_info()
+
+        # Show playback elements in progress bar
+        if self.progress_bar and hasattr(self.progress_bar, 'progress_control'):
+            self.progress_bar.progress_control.show_playback_elements()
 
         # Update play button to pause symbol since we're now playing
         if self.progress_bar and hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'play_button'):

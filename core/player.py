@@ -34,8 +34,10 @@ from core.gui import (
     QueueView,
 )
 from core.library import LibraryManager
+from core.progress import ProgressControl
 from core.queue import QueueManager
 from core.theme import setup_theme
+from core.volume import VolumeControl
 from pathlib import Path
 from tkinter import filedialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -79,6 +81,10 @@ class MusicPlayer:
         # Setup media key support
         if sys.platform == 'darwin' and MEDIA_KEY_SUPPORT:
             self.media_key_controller = MediaKeyController(self.window)
+
+        # For tracking seek position
+        self.target_seek_ratio = None
+        self.last_seek_time = 0
 
     def setup_components(self):
         """Initialize and setup all components."""
@@ -171,10 +177,21 @@ class MusicPlayer:
 
     def play_pause(self):
         """Handle play/pause button click."""
+        was_playing = self.player_core.is_playing
         self.player_core.play_pause()
+
+        # Update play button appearance
         self.progress_bar.controls.play_button.configure(
             text=BUTTON_SYMBOLS['pause'] if self.player_core.is_playing else BUTTON_SYMBOLS['play']
         )
+
+        # Show playback elements if we started playing, hide if we stopped
+        if not was_playing and self.player_core.is_playing:
+            self.progress_bar.progress_control.show_playback_elements()
+        elif was_playing and not self.player_core.is_playing:
+            # Optional: hide playback elements when paused
+            # self.progress_bar.progress_control.hide_playback_elements()
+            pass
 
     def on_section_select(self, event):
         """Handle library section selection."""
@@ -483,44 +500,67 @@ class MusicPlayer:
 
     def update_progress(self):
         """Update progress bar position and time display."""
-        if (self.player_core.is_playing and
+        current_time = time.time()
+
+        # If we're currently dragging, don't update UI elements
+        # This ensures the user's drag action takes precedence over timer-based updates
+        if self.progress_bar.dragging:
+            # Just schedule the next update and return
+            self.window.after(100, self.update_progress)
+            return
+
+        # Use target_seek_ratio if it's set and it's been less than 2 seconds since the last seek
+        if self.target_seek_ratio is not None and (current_time - self.last_seek_time < 2.0):
+            # Continue using the target ratio for a short time after seeking
+            ratio = self.target_seek_ratio
+            duration = self.player_core.get_duration()
+
+            # Update progress with our target ratio
+            self.progress_bar.progress_control.update_progress(ratio)
+
+            # Update time display with calculated position
+            current_time_ms = int(duration * ratio)
+            current_time_fmt = self._format_time(current_time_ms / 1000)
+            total_time_fmt = self._format_time(duration / 1000)
+            self.progress_bar.progress_control.update_time_display(current_time_fmt, total_time_fmt)
+
+        # Otherwise use the normal player position if we're playing and not recently dragged
+        elif (self.player_core.is_playing and
             self.player_core.media_player.is_playing() and
             not self.progress_bar.dragging and
-            (time.time() - self.progress_bar.last_drag_time) > 0.1):
+            (current_time - self.progress_bar.last_drag_time) > 0.1):
 
             current = self.player_core.get_current_time()
             duration = self.player_core.get_duration()
 
             if duration > 0:
                 ratio = current / duration
-                width = self.progress_bar.canvas.winfo_width()
-                x = self.progress_bar.controls_width + (width - self.progress_bar.controls_width - 160) * ratio
 
-                # Update circle position
-                self.progress_bar.canvas.coords(
-                    self.progress_bar.progress_circle,
-                    x - self.progress_bar.circle_radius,
-                    self.progress_bar.bar_y - self.progress_bar.circle_radius,
-                    x + self.progress_bar.circle_radius,
-                    self.progress_bar.bar_y + self.progress_bar.circle_radius,
-                )
+                # If we have a target_seek_ratio and the player has caught up close enough,
+                # clear the target ratio to resume normal updates
+                if self.target_seek_ratio is not None:
+                    target_time = int(duration * self.target_seek_ratio)
+                    # If we're within 50ms of the target, clear it
+                    if abs(current - target_time) < 50:
+                        self.target_seek_ratio = None
+                    else:
+                        # If VLC is too far off from our target, force it back to our target
+                        if abs(current - target_time) > 500:  # More than 0.5 seconds off
+                            print(f"Correcting seek: VLC at {current/1000:.2f}s, target {target_time/1000:.2f}s")
+                            self.player_core.seek(self.target_seek_ratio)
+                            # Force the UI to show our target position
+                            self.progress_bar.progress_control.update_progress(self.target_seek_ratio)
+                            # Schedule next update and return to avoid conflicting updates
+                            self.window.after(100, self.update_progress)
+                            return
 
-                # Update progress line coordinates (from start to current position)
-                self.progress_bar.canvas.coords(
-                    self.progress_bar.progress_line,
-                    self.progress_bar.controls_width,
-                    self.progress_bar.bar_y,
-                    x,
-                    self.progress_bar.bar_y,
-                )
+                # Use the progress control's update_progress method
+                self.progress_bar.progress_control.update_progress(ratio)
 
                 # Update time display
-                current_time = self._format_time(current / 1000)
-                total_time = self._format_time(duration / 1000)
-                self.progress_bar.canvas.itemconfig(
-                    self.progress_bar.time_text,
-                    text=f"{current_time} / {total_time}"
-                )
+                current_time_fmt = self._format_time(current / 1000)
+                total_time_fmt = self._format_time(duration / 1000)
+                self.progress_bar.progress_control.update_time_display(current_time_fmt, total_time_fmt)
 
         self.window.after(100, self.update_progress)
 
@@ -544,11 +584,23 @@ class MusicPlayer:
     def drag(self, event):
         """Handle progress circle drag."""
         if self.progress_bar.dragging:
+            # Update last drag time to prevent progress updates immediately after dragging
+            self.progress_bar.last_drag_time = time.time()
+
             controls_width = self.progress_bar.controls_width
-            max_width = self.progress_bar.canvas.winfo_width() - 160
+            # Calculate max width for progress bar (consistent with other methods)
+            max_width = self.progress_bar.canvas.winfo_width() - 260
 
             # Constrain x to valid range
             x = max(controls_width, min(event.x, max_width))
+
+            # Calculate ratio for later use (needed for time display)
+            width = max_width - controls_width
+            ratio = (x - controls_width) / width
+            ratio = max(0, min(ratio, 1))  # Constrain to 0-1
+
+            # Store current target ratio to ensure consistency in visual updates
+            self.target_seek_ratio = ratio
 
             # Update circle position
             circle_radius = self.progress_bar.circle_radius
@@ -561,7 +613,7 @@ class MusicPlayer:
                 bar_y + circle_radius
             )
 
-            # Update progress line position
+            # Update progress line coordinates (from start to current position)
             self.progress_bar.canvas.coords(
                 self.progress_bar.progress_line,
                 controls_width,
@@ -570,24 +622,69 @@ class MusicPlayer:
                 bar_y
             )
 
+            # Calculate and update the time display during drag for better feedback
+            if self.player_core.media_player.get_length() > 0:
+                duration = self.player_core.get_duration()
+                current_time_ms = int(duration * ratio)
+
+                # Update time display in real time
+                current_time = self._format_time(current_time_ms / 1000)
+                total_time = self._format_time(duration / 1000)
+                self.progress_bar.progress_control.update_time_display(current_time, total_time)
+
     def end_drag(self, event):
         """End dragging the progress circle and seek to the position."""
         if self.progress_bar.dragging:
-            self.progress_bar.dragging = False
+            # Set dragging to false AFTER we've done all calculations
+            # to prevent race conditions with progress updates
 
-            # Calculate seek ratio
-            width = self.progress_bar.canvas.winfo_width() - self.progress_bar.controls_width - 160
-            x = min(max(event.x, self.progress_bar.controls_width), self.progress_bar.canvas.winfo_width() - 160)
+            # Calculate seek ratio using consistent boundaries
+            max_width = self.progress_bar.canvas.winfo_width() - 260
+            width = max_width - self.progress_bar.controls_width
+
+            # Constrain x within valid range
+            x = min(max(event.x, self.progress_bar.controls_width), max_width)
+
+            # Calculate final ratio
             ratio = (x - self.progress_bar.controls_width) / width
+            ratio = max(0, min(ratio, 1))  # Ensure ratio is between 0 and 1
 
-            # Seek to position
-            self.player_core.seek(ratio)
+            # Store target seek ratio and timestamp
+            self.target_seek_ratio = ratio
+            self.last_seek_time = time.time()
 
-            # Resume playback if it was playing before
-            if self.player_core.was_playing:
-                self.player_core.media_player.play()
-                self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
-                self.player_core.is_playing = True
+            # Update UI immediately (like in _seek_to_position)
+            if self.player_core.media_player.get_length() > 0:
+                # Set a longer timeout after dragging to avoid immediate updates
+                self.progress_bar.last_drag_time = time.time()
+
+                # Directly update progress control UI with the new position
+                self.progress_bar.progress_control.update_progress(ratio)
+
+                # Calculate the time for the time display
+                duration = self.player_core.get_duration()
+                new_time_ms = int(duration * ratio)
+                self.player_core.current_time = new_time_ms
+
+                # Update time display
+                current_time = self._format_time(new_time_ms / 1000)
+                total_time = self._format_time(duration / 1000)
+                self.progress_bar.progress_control.update_time_display(current_time, total_time)
+
+                # Seek to position in player (actual media update)
+                self.player_core.seek(ratio)
+
+                # Now that everything is updated, mark dragging as finished
+                self.progress_bar.dragging = False
+
+                # Resume playback if it was playing before
+                if self.player_core.was_playing:
+                    self.player_core.media_player.play()
+                    self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
+                    self.player_core.is_playing = True
+            else:
+                # If no media is loaded, just mark dragging as finished
+                self.progress_bar.dragging = False
 
     def click_progress(self, event):
         """Handle click on progress bar."""
@@ -600,7 +697,9 @@ class MusicPlayer:
     def _update_progress_position(self, x):
         """Update the position of the progress circle and line."""
         controls_width = self.progress_bar.controls_width
-        max_x = self.progress_bar.canvas.winfo_width() - 160
+
+        # Use consistent calculation for max x position
+        max_x = self.progress_bar.canvas.winfo_width() - 260
 
         # Constrain x to valid range
         x = max(controls_width, min(x, max_x))
@@ -628,16 +727,38 @@ class MusicPlayer:
     def _seek_to_position(self, x):
         """Seek to a position in the track based on x coordinate."""
         controls_width = self.progress_bar.controls_width
-        width = self.progress_bar.canvas.winfo_width() - controls_width - 160
 
-        # Calculate ratio of position
+        # Calculate available width for progress bar (same calculation as in progress.py)
+        width = self.progress_bar.canvas.winfo_width() - controls_width - 260
+
+        # Calculate ratio of position (constrained to 0-1)
         ratio = (x - controls_width) / width
         ratio = max(0, min(ratio, 1))  # Constrain to 0-1
 
+        # Store target seek ratio and timestamp
+        self.target_seek_ratio = ratio
+        self.last_seek_time = time.time()
+
         # Update player position
         if self.player_core.media_player.get_length() > 0:
-            self.player_core.current_time = int(self.player_core.media_player.get_length() * ratio)
+            # Set a longer timeout after dragging to avoid immediate updates
             self.progress_bar.last_drag_time = time.time()
+
+            # Directly update progress control UI with the new position
+            # This will ensure the UI reflects exactly where the user clicked/dragged
+            self.progress_bar.progress_control.update_progress(ratio)
+
+            # Calculate the time for the time display
+            duration = self.player_core.get_duration()
+            new_time_ms = int(duration * ratio)
+            self.player_core.current_time = new_time_ms
+
+            # Update time display
+            current_time = self._format_time(new_time_ms / 1000)
+            total_time = self._format_time(duration / 1000)
+            self.progress_bar.progress_control.update_time_display(current_time, total_time)
+
+            # Now seek in the player
             self.player_core.seek(ratio)
 
     def on_resize(self, event):
@@ -647,7 +768,8 @@ class MusicPlayer:
         right_margin = PROGRESS_BAR['right_margin']
         volume_width = self.progress_bar.volume_control_width
 
-        # Calculate where progress line should end (before volume control)
+        # Use consistent calculation: event.width - 260
+        # The 260 value accounts for time display (right_margin of 160) plus volume control (approx 100px)
         volume_start_x = event.width - right_margin - volume_width
 
         # Update line coordinates (end BEFORE volume control)
@@ -674,24 +796,51 @@ class MusicPlayer:
         )
 
         # Update progress line if it exists and we're playing
-        if hasattr(self.progress_bar, 'progress_line') and self.player_core.is_playing:
-            # Ensure progress line doesn't extend beyond where volume control starts
-            current_coords = self.progress_bar.canvas.coords(self.progress_bar.progress_line)
-            if current_coords and len(current_coords) == 4:
-                # Calculate the max x-position where progress line can go
-                max_x = volume_start_x - 10
+        if hasattr(self.progress_bar, 'progress_line'):
+            # If we have a stored target_seek_ratio, use it to position progress elements
+            if hasattr(self, 'target_seek_ratio') and self.target_seek_ratio is not None:
+                # Use the stored ratio to calculate the new position
+                max_width = event.width - 260
+                x = controls_width + ((max_width - controls_width) * self.target_seek_ratio)
 
-                # Keep progress line within bounds
-                if current_coords[2] > max_x:
-                    current_coords[2] = max_x
+                # Update circle position
+                if hasattr(self.progress_bar, 'progress_circle'):
+                    circle_radius = self.progress_bar.circle_radius
+                    bar_y = self.progress_bar.bar_y
+                    self.progress_bar.canvas.coords(
+                        self.progress_bar.progress_circle,
+                        x - circle_radius,
+                        bar_y - circle_radius,
+                        x + circle_radius,
+                        bar_y + circle_radius
+                    )
 
+                # Update progress line
                 self.progress_bar.canvas.coords(
                     self.progress_bar.progress_line,
-                    current_coords[0],
-                    current_coords[1],
-                    current_coords[2],
-                    current_coords[3]
+                    controls_width,
+                    self.progress_bar.bar_y,
+                    x,
+                    self.progress_bar.bar_y,
                 )
+            # Otherwise just ensure the progress line doesn't extend beyond the volume control
+            else:
+                current_coords = self.progress_bar.canvas.coords(self.progress_bar.progress_line)
+                if current_coords and len(current_coords) == 4:
+                    # Calculate the max x-position where progress line can go
+                    max_x = volume_start_x - 10
+
+                    # Keep progress line within bounds
+                    if current_coords[2] > max_x:
+                        current_coords[2] = max_x
+
+                    self.progress_bar.canvas.coords(
+                        self.progress_bar.progress_line,
+                        current_coords[0],
+                        current_coords[1],
+                        current_coords[2],
+                        current_coords[3]
+                    )
 
     def volume_change(self, volume):
         """Handle volume slider changes."""
