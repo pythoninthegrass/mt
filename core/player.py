@@ -32,10 +32,10 @@ from core.gui import (
     PlayerControls,
     ProgressBar,
     QueueView,
-    setup_theme,
 )
 from core.library import LibraryManager
 from core.queue import QueueManager
+from core.theme import setup_theme
 from pathlib import Path
 from tkinter import filedialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
