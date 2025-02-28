@@ -11,17 +11,18 @@
 
 * UI
   * better, modern styling
+    * Use font awesome (fas) icons
   * ~~split panes~~
   * ~~app icon~~
 * UX
-  * end of library loopback (w/o prev/next)
+  * ~~end of library loopback (w/o prev/next)~~
   * performance
     * faster directory traversal
     * sqlite vs. duckdb
     * network caching / buffer / prefetch
-* Features 
+* Features
   * ~~read ID3 tags~~
-  * media keys
+  * ~~media keys~~
   * arrow keys
     * playhead navigation
   * shuffle
@@ -35,8 +36,13 @@
   * last.fm scrobbling
   * mobile remote control
   * lyrics
-  * volume control
+  * ~~volume control~~
+    * see fas
+  * now playing (queue)
   * playlists
+    * recently added
+    * recently played
+    * top 25 most played
 * Testing
   * unit tests
   * integration tests
