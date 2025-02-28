@@ -88,7 +88,16 @@
           "border": "#2a2a2a",
           "inputfg": "#ffffff",
           "inputbg": "#2a2a2a",
-          "active": "#00b7c3"
+          "active": "#00b7c3",
+          "row_alt": "#242424",
+          "row_hover": "#303030",
+          "playing_bg": "#00343a",
+          "playing_fg": "#33eeff",
+          "selected_bg": "#00b7c3",
+          "selected_fg": "#ffffff",
+          "playhead_border": "#000000",
+          "playhead_shadow": "rgba(0, 183, 195, 0.5)",
+          "progress_bg": "#404040"
         }
       }
     }

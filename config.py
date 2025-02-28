@@ -35,11 +35,12 @@ BUTTON_SYMBOLS = {
     'next': '⏭',
     'add': '+',
     'loop': '⟳',
+    'volume': '🔊',
 }
 
 # Theme Configuration
 THEME_CONFIG_FILE = Path('themes.json')
-DEFAULT_THEME = 'spotify'
+DEFAULT_THEME = 'metro-teal'
 ACTIVE_THEME = config('MT_THEME', default=DEFAULT_THEME)
 
 # Load theme data
@@ -66,6 +67,10 @@ PROGRESS_BAR = {
     'frame_side_padding': 10,
     'controls_y': 50,
     'button_spacing': 2,
+    'progress_bg': THEME_CONFIG['colors'].get('progress_bg', '#404040'),
+    'volume_control_width': 110,  # Width of volume control (icon + slider)
+    'volume_slider_length': 80,   # Length of the volume slider
+    'right_margin': 160,          # Space reserved for time display
 }
 
 # Listbox Configuration
@@ -86,7 +91,7 @@ COLORS = {
     'loop_disabled': THEME_CONFIG['colors']['secondary'],
     'alternate_row_colors': [
         THEME_CONFIG['colors']['bg'],
-        THEME_CONFIG['colors']['selectbg'],
+        THEME_CONFIG['colors'].get('row_alt', THEME_CONFIG['colors']['selectbg']),
     ],
 }
 

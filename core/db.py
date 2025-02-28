@@ -250,14 +250,35 @@ class MusicDatabase:
         self.db_conn.commit()
 
     def update_play_count(self, filepath: str):
-        """Update the play count and last played time for a song."""
-        self.db_cursor.execute('''
-            UPDATE library
-            SET play_count = play_count + 1,
+        """Increment play count for a song."""
+        query = """
+            UPDATE library SET
+                play_count = play_count + 1,
                 last_played = CURRENT_TIMESTAMP
             WHERE filepath = ?
-        ''', (filepath,))
+        """
+        self.db_cursor.execute(query, (filepath,))
         self.db_conn.commit()
+
+    def get_metadata_by_filepath(self, filepath: str) -> dict:
+        """Get metadata for a file by its path."""
+        query = """
+            SELECT title, artist, album, track_number, date
+            FROM library
+            WHERE filepath = ?
+        """
+        self.db_cursor.execute(query, (filepath,))
+        result = self.db_cursor.fetchone()
+
+        if result:
+            return {
+                'title': result[0],
+                'artist': result[1],
+                'album': result[2],
+                'track_number': result[3],
+                'date': result[4]
+            }
+        return {}
 
     def find_song_by_title_artist(self, title: str, artist: str = None) -> tuple[str, str, str, str, str] | None:
         """Find a song in the library by title and artist.

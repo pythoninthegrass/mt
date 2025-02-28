@@ -1,4 +1,5 @@
 # ETC
+.aider*
 *.db
 *.sqlite
 .ruff*

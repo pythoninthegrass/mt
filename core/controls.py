@@ -91,22 +91,92 @@ class PlayerCore:
         """Get total duration of current track in milliseconds."""
         return self.media_player.get_length()
 
+    def get_volume(self) -> int:
+        """Get current volume (0-100)."""
+        return self.media_player.audio_get_volume()
+
+    def set_volume(self, volume: int) -> None:
+        """Set volume (0-100)."""
+        print(f"PlayerCore: Setting volume to {volume}")  # Debug log
+        try:
+            # Ensure volume is within valid range
+            volume = max(0, min(100, int(volume)))
+            result = self.media_player.audio_set_volume(volume)
+            print(f"VLC set_volume result: {result}")  # Debug result
+            return result
+        except Exception as e:
+            print(f"Exception in set_volume: {e}")
+            return -1
+
     def _play_file(self, filepath: str) -> None:
         """Play a specific file."""
         if not os.path.exists(filepath):
             print(f"File not found on disk: {filepath}")
             return
 
+        # Store the current volume before changing media
+        current_volume = self.get_volume()
+
         media = self.player.media_new(filepath)
         self.media_player.set_media(media)
         self.media_player.play()
         self.current_time = 0
         self.is_playing = True
+
+        # Restore volume after media change
+        self.set_volume(current_volume if current_volume > 0 else 80)
+
+        # Find and select the corresponding item in the queue view
+        self._select_item_by_filepath(filepath)
+
+        # Update track info in UI
         self._update_track_info()
 
         # Update play button to pause symbol since we're now playing
         if self.progress_bar and hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'play_button'):
             self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
+
+    def _select_item_by_filepath(self, filepath: str) -> None:
+        """Find and select the item in the queue view that corresponds to the given filepath."""
+        if not self.queue_view or not filepath:
+            return
+
+        # Get the metadata for the file
+        metadata = self.db.get_metadata_by_filepath(filepath)
+        if not metadata:
+            return
+
+        # Find the corresponding item in the queue view
+        for item in self.queue_view.get_children():
+            values = self.queue_view.item(item)['values']
+            if not values or len(values) < 3:
+                continue
+
+            # Values are: track, title, artist, album, year
+            track, title, artist, album, year = values[:5]
+
+            # Check if this item matches the metadata
+            if (title == metadata.get('title') and
+                artist == metadata.get('artist')):
+                # Found the matching item - select it and make it visible
+                self.queue_view.selection_set(item)
+                self.queue_view.see(item)
+
+                # Also tell the player to refresh colors to highlight this item
+                if hasattr(self, 'window') and self.window:
+                    # Schedule the refresh_colors call using the event loop
+                    # Use a faster refresh (50ms) to ensure highlighting happens quickly
+                    self.window.after(50, self._refresh_colors_callback)
+                break
+
+    def _refresh_colors_callback(self):
+        """Callback to refresh colors in the player."""
+        # Find the MusicPlayer instance
+        for child in self.window.winfo_children():
+            if hasattr(child, 'refresh_colors'):
+                print("Calling refresh_colors from PlayerCore")  # Debug log
+                child.refresh_colors()
+                break
 
     def _update_track_info(self) -> None:
         """Update track info in progress bar based on current selection."""
