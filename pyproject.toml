@@ -14,13 +14,14 @@ dependencies = [
     "tk>=0.1.0",
     "tkinterdnd2>=0.4.2",
     "ttkbootstrap>=1.10.1",
-    "watchdog>=6.0.0",
+    "watchdog>=4.0.0",
     'pyobjc-framework-Cocoa; platform_system == "Darwin"',  # Only on macOS
     'pyobjc-framework-Quartz; sys_platform == "darwin"',  # For media key support on macOS
 ]
 
 [project.optional-dependencies]
 dev = [
+    "flet[all]>=0.27.4",
     "pytest==8.3.4",
     "pytest-asyncio==0.25.2",
     "pytest-cov==6.0.0",
@@ -131,7 +132,3 @@ docstring-quotes = "double"
 [tool.ruff.lint.mccabe]
 # Unlike Flake8, default to a complexity level of 10.
 max-complexity = 10
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
