@@ -18,7 +18,7 @@ AUDIO_EXTENSIONS = {
 }
 
 # Window Configuration
-WINDOW_SIZE = "1280x720"
+WINDOW_SIZE = "1366x768"
 WINDOW_TITLE = "mt"
 
 # Button Configuration
@@ -64,9 +64,9 @@ with open(THEME_CONFIG_FILE) as f:
 # Progress Bar Configuration
 PROGRESS_BAR = {
     'frame_height': 80,
-    'canvas_height': 70,
+    'canvas_height': 80,
     'bar_y': 50,
-    'circle_radius': 6,
+    'circle_radius': 3,
     'line_color': THEME_CONFIG['colors']['secondary'],
     'line_width': 2,
     'circle_fill': THEME_CONFIG['colors']['primary'],
@@ -74,13 +74,13 @@ PROGRESS_BAR = {
     'time_label_y': 30,
     'track_info_y': 30,
     'track_info_x': None,
-    'frame_padding': (0, 20),
+    'frame_padding': (0, 25),
     'frame_side_padding': 10,
     'controls_y': 50,
     'button_spacing': 2,
     'progress_bg': THEME_CONFIG['colors'].get('progress_bg', '#404040'),
-    'volume_control_width': 110,  # Width of volume control (icon + slider)
-    'volume_slider_length': 80,   # Length of the volume slider
+    'volume_control_width': 120,  # Width of volume control (icon + slider)
+    'volume_slider_length': 90,   # Length of the volume slider
     'right_margin': 160,          # Space reserved for time display
 }
 
@@ -115,7 +115,7 @@ DEFAULT_LOOP_ENABLED = True
 
 # Application settings
 APP_NAME = "mt"
-VERSION = "1.0.0"
+VERSION = "0.1.0"
 
 # File extensions recognized as music files
 MUSIC_EXTENSIONS = [
@@ -127,16 +127,16 @@ MUSIC_EXTENSIONS = [
     ".aac"
 ]
 
-# UI Colors (based on MusicBee screenshots)
+# UI Colors - Using colors from the active theme
 COLORS = {
-    "background": "#1E1E1E",
-    "sidebar_bg": "#252526",
-    "text_primary": "#FFFFFF",
-    "text_secondary": "#BBBBBB",
-    "accent": "#0078D7",
-    "selection": "#3A3D41",
-    "divider": "#333333",
-    "player_bg": "#2D2D30",
+    "background": THEME_CONFIG['colors'].get('bg', "#1E1E1E"),
+    "sidebar_bg": THEME_CONFIG['colors'].get('dark', "#252526"),
+    "text_primary": THEME_CONFIG['colors'].get('fg', "#FFFFFF"),
+    "text_secondary": THEME_CONFIG['colors'].get('light', "#BBBBBB"),
+    "accent": THEME_CONFIG['colors'].get('primary', "#0078D7"),
+    "selection": THEME_CONFIG['colors'].get('selectbg', "#3A3D41"),
+    "divider": THEME_CONFIG['colors'].get('border', "#333333"),
+    "player_bg": THEME_CONFIG['colors'].get('inputbg', "#2D2D30"),
 }
 
 # UI Settings
@@ -166,14 +166,28 @@ PLAYER_SETTINGS = {
     "visualizer_enabled": True,
 }
 
-# Column display preferences
-DISPLAY_COLUMNS = [
-    {"name": "#", "width": 40, "visible": True},
-    {"name": "Title", "width": 250, "visible": True},
-    {"name": "Artist", "width": 200, "visible": True},
-    {"name": "Album", "width": 200, "visible": True},
-    {"name": "Genre", "width": 120, "visible": True},
-    {"name": "Year", "width": 80, "visible": True},
-    {"name": "Duration", "width": 80, "visible": True},
-    {"name": "Rating", "width": 100, "visible": True},
+# Column configuration
+COLUMNS = [
+    {"id": "number", "name": "#", "width": 40, "visible": True},
+    {"id": "title", "name": "Title", "width": 400, "visible": True},
+    {"id": "artist", "name": "Artist", "width": 300, "visible": True},
+    {"id": "album", "name": "Album", "width": 350, "visible": True},
+    {"id": "genre", "name": "Genre", "width": 120, "visible": True},
+    {"id": "year", "name": "Year", "width": 100, "visible": True},
+    {"id": "duration", "name": "Duration", "width": 90, "visible": True},
 ]
+
+# Alphabet Row Configuration
+ALPHABET_ROW = {
+    'min_breakpoint': 850,        # Minimum width breakpoint before scaling
+    'fixed_width': 1150,           # Fixed width when above breakpoint
+    'height': 40,                 # Height of the alphabet row
+    'initial_x': None,            # None means centered, or specify a pixel value
+    'button_width': 25,           # Width for each letter button
+    'button_height': 30,          # Height for each letter button
+    'button_spacing': -5,         # Spacing between buttons (negative to bring closer)
+    'padding_top': 5,             # Top padding for the container
+    'padding_bottom': 5,          # Bottom padding for the container
+    'use_wrap': False,            # Whether to allow wrapping to multiple rows
+    'scale_factor': 0.9,          # Scaling factor when below breakpoint (90% of window width)
+}

@@ -523,6 +523,7 @@ dependencies = [
 dev = [
     { name = "flet", extra = ["all"] },
     { name = "mypy" },
+    { name = "pyclean" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -535,6 +536,7 @@ requires-dist = [
     { name = "flet", extras = ["all"], marker = "extra == 'dev'", specifier = ">=0.27.4" },
     { name = "mutagen", specifier = ">=1.47.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==1.14.1" },
+    { name = "pyclean", marker = "extra == 'dev'", specifier = ">=3.1.0" },
     { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
     { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.3.4" },
@@ -673,6 +675,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/96/2d/02d4312c973c6050a18b314a5ad0b3210edb65a906f868e31c111dede4a6/pluggy-1.5.0.tar.gz", hash = "sha256:2cffa88e94fdc978c4c574f15f9e59b7f4201d439195c3715ca9e2486f1d0cf1", size = 67955 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/88/5f/e351af9a41f866ac3f1fac4ca0613908d9a41741cfcf2228f4ad853b697d/pluggy-1.5.0-py3-none-any.whl", hash = "sha256:44e1ad92c8ca002de6377e165f3e0f1be63266ab4d554740532335b9d75ea669", size = 20556 },
+]
+
+[[package]]
+name = "pyclean"
+version = "3.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/04/6c/a7c0cfd4013405408aa894ee2dace6fdbad58f379344aba2396dfea85d46/pyclean-3.1.0.tar.gz", hash = "sha256:d23fa900558696e08c79401c79f242fe6f7f38fd58ccd035f875a01c5bc7a6fc", size = 46150 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cf/6d/a0d36ecfe8849d029f0dfbac5733e8b74732ff3f86fa75a501107903c54b/pyclean-3.1.0-py3-none-any.whl", hash = "sha256:46652f7416816924cab565cd045d0c341237aced0368a3727d66b5192c16728c", size = 21588 },
 ]
 
 [[package]]

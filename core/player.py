@@ -1,862 +1,742 @@
-import importlib
-import json
-import mutagen
+#!/usr/bin/env python
+
 import os
-import sys
+import random
+import threading
 import time
-import tkinter as tk
-import tkinter.font as tkfont
-import ttkbootstrap as ttk
-import vlc
-from config import (
-    AUDIO_EXTENSIONS,
-    BUTTON_STYLE,
-    COLORS,
-    DB_NAME,
-    DEFAULT_LOOP_ENABLED,
-    LISTBOX_CONFIG,
-    MAX_SCAN_DEPTH,
-    PROGRESS_BAR,
-    PROGRESS_UPDATE_INTERVAL,
-    RELOAD,
-    THEME_CONFIG,
-    WINDOW_SIZE,
-    WINDOW_TITLE,
-)
-from contextlib import suppress
+import traceback
+from collections.abc import Callable
 from core.controls import PlayerCore
 from core.db import DB_TABLES, MusicDatabase
-from core.gui import (
-    BUTTON_SYMBOLS,
-    LibraryView,
-    PlayerControls,
-    ProgressBar,
-    QueueView,
-)
 from core.library import LibraryManager
-from core.progress import ProgressControl
+from core.models import Track
 from core.queue import QueueManager
-from core.theme import setup_theme
-from core.volume import VolumeControl
-from pathlib import Path
-from tkinter import filedialog
-from tkinterdnd2 import DND_FILES, TkinterDnD
-from utils.files import find_audio_files, normalize_path
-from utils.reload import ConfigFileHandler
-from watchdog.observers import Observer
+from typing import Optional
+from urllib.parse import unquote
+from utils.common import format_time, set_db_instance
+from utils.logs import get_player_logger
 
-# Import AppKit for media key support on macOS
-if sys.platform == 'darwin':
-    try:
-        import Quartz
-        from utils.mediakeys import MediaKeyController
-        MEDIA_KEY_SUPPORT = True
-    except ImportError:
-        MEDIA_KEY_SUPPORT = False
-else:
-    MEDIA_KEY_SUPPORT = False
+# Setup logger
+logger = get_player_logger()
 
-class MusicPlayer:
-    def __init__(self, window):
-        self.window = window
-        self.window.title(WINDOW_TITLE)
-        self.window.geometry(WINDOW_SIZE)
-        self.window.minsize(1280, 720)
 
-        # Setup theme and styles first
-        setup_theme(self.window)
+class Player:
+    """
+    Player class that provides high-level playback control.
 
-        # Configure macOS specific appearance
-        if sys.platform == 'darwin':
-            # Set document style with dark appearance
-            self.window.tk.call('::tk::unsupported::MacWindowStyle', 'style', self.window._w, 'document')
-            self.window.tk.call('::tk::unsupported::MacWindowStyle', 'appearance', self.window._w, 'dark')
-            self.window.createcommand('tk::mac::Quit', self.window.destroy)
+    This class wraps the PlayerCore and QueueManager to provide a simplified
+    interface for playing and controlling music playback.
+    """
 
-        self.reload_enabled = RELOAD
-
-        # Initialize file watcher if enabled
-        self.setup_file_watcher()
-
-        # Setup media key support
-        if sys.platform == 'darwin' and MEDIA_KEY_SUPPORT:
-            self.media_key_controller = MediaKeyController(self.window)
-
-        # For tracking seek position
-        self.target_seek_ratio = None
-        self.last_seek_time = 0
-
-    def setup_components(self):
-        """Initialize and setup all components."""
-        # Initialize database and managers
-        self.db = MusicDatabase(DB_NAME, DB_TABLES)
+    def __init__(self):
+        """Initialize player components and database."""
+        # Initialize database, queue manager, and player core
+        self.db = MusicDatabase('mt.db', DB_TABLES)
         self.queue_manager = QueueManager(self.db)
+        self.player_core = PlayerCore(self.db, self.queue_manager)
         self.library_manager = LibraryManager(self.db)
+        self.current_track = None
+        self.is_playing = False
+        self.error_handler = None
 
-        # Create main container
-        self.main_container = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
-        self.main_container.pack(expand=True, fill=tk.BOTH)
+        # Register callback handlers
+        self.player_core.on_track_end_callback = self._on_track_end
+        self.player_core.on_track_info_updated_callback = self._on_track_info_updated
 
-        # Create left panel (Library/Playlists)
-        self.left_panel = ttk.Frame(self.main_container)
-        self.main_container.add(self.left_panel, weight=1)
+        # Event handlers for UI updates
+        self.on_track_changed = None
+        self.on_playback_state_changed = None
 
-        # Create right panel (Content)
-        self.right_panel = ttk.Frame(self.main_container)
-        self.main_container.add(self.right_panel, weight=3)
+        # Set global database instance for app access
+        set_db_instance(self.db)
 
-        # Setup views with callbacks first
-        self.setup_views()
+        logger.info("Player initialized")
 
-        # Initialize player core after views are set up
-        self.player_core = PlayerCore(self.db, self.queue_manager, self.queue_view.queue)
-        self.player_core.window = self.window  # Set window reference for thread-safe callbacks
+    def play(self, track: Track | None = None) -> None:
+        """
+        Play a track or resume playback.
 
-        # Create frame for progress bar
-        self.progress_frame = ttk.Frame(self.window, height=80)
-        self.progress_frame.pack(
-            side=tk.BOTTOM,
-            fill=tk.X,
-            padx=10,
-            pady=(0, 20),
-        )
-
-        # Setup progress bar with callbacks
-        self.progress_bar = ProgressBar(self.window, self.progress_frame, {
-            'previous': self.player_core.previous_song,
-            'play': self.play_pause,
-            'next': self.player_core.next_song,
-            'loop': self.player_core.toggle_loop,
-            'add': self.add_files_to_library,
-            'start_drag': self.start_drag,
-            'drag': self.drag,
-            'end_drag': self.end_drag,
-            'click_progress': self.click_progress,
-            'on_resize': self.on_resize,
-            'volume_change': self.volume_change,
-        }, initial_loop_enabled=self.player_core.loop_enabled)
-
-        # Connect progress bar to player core
-        self.player_core.progress_bar = self.progress_bar
-
-        # Start progress update
-        self.update_progress()
-
-        # Initialize the volume after a delay to ensure VLC is ready
-        self.window.after(1000, lambda: self.player_core.set_volume(80))
-
-        # If media key controller exists, set this instance as the player
-        if hasattr(self, 'media_key_controller'):
-            self.media_key_controller.set_player(self)
-
-    def setup_views(self):
-        """Setup library and queue views with their callbacks."""
-        # Setup library view
-        self.library_view = LibraryView(self.left_panel, {
-            'on_section_select': self.on_section_select,
-        })
-
-        # Setup queue view
-        self.queue_view = QueueView(self.right_panel, {
-            'play_selected': self.play_selected,
-            'handle_delete': self.handle_delete,
-            'on_song_select': self.on_song_select,
-            'handle_drop': self.handle_drop,
-        })
-
-    def setup_file_watcher(self):
-        """Setup file watcher for development mode."""
-        if self.reload_enabled:
-            print("Development mode: watching for file changes...")
-            self.observer = Observer()
-            event_handler = ConfigFileHandler(self)
-            self.observer.schedule(event_handler, path='.', recursive=False)
-            self.observer.start()
-        else:
-            self.observer = None
-
-    def play_pause(self):
-        """Handle play/pause button click."""
-        was_playing = self.player_core.is_playing
-        self.player_core.play_pause()
-
-        # Update play button appearance
-        self.progress_bar.controls.play_button.configure(
-            text=BUTTON_SYMBOLS['pause'] if self.player_core.is_playing else BUTTON_SYMBOLS['play']
-        )
-
-        # Show playback elements if we started playing, hide if we stopped
-        if not was_playing and self.player_core.is_playing:
-            self.progress_bar.progress_control.show_playback_elements()
-        elif was_playing and not self.player_core.is_playing:
-            # Optional: hide playback elements when paused
-            # self.progress_bar.progress_control.hide_playback_elements()
-            pass
-
-    def on_section_select(self, event):
-        """Handle library section selection."""
-        selected_item = self.library_view.library_tree.selection()[0]
-        tags = self.library_view.library_tree.item(selected_item)['tags']
-
-        if not tags:
-            return
-
-        tag = tags[0]
-        # Clear current view
-        for item in self.queue_view.queue.get_children():
-            self.queue_view.queue.delete(item)
-
-        if tag == 'music':
-            self.load_library()
-        elif tag == 'now_playing':
-            self.load_queue()
-
-    def load_library(self):
-        """Load and display library items."""
-        # Clear current view
-        for item in self.queue_view.queue.get_children():
-            self.queue_view.queue.delete(item)
-
-        rows = self.library_manager.get_library_items()
-        if not rows:
-            return
-
-        self._populate_queue_view(rows)
-        self.refresh_colors()
-
-    def load_queue(self):
-        """Load and display queue items."""
-        rows = self.queue_manager.get_queue_items()
-        if not rows:
-            return
-
-        self._populate_queue_view(rows)
-        self.refresh_colors()
-
-    def _populate_queue_view(self, rows):
-        """Populate queue view with rows of data."""
-        for i, (filepath, artist, title, album, track_number, date) in enumerate(rows):
-            if os.path.exists(filepath):
-                track_display = self._format_track_number(track_number)
-                # Use filename as fallback, but if that's empty too, use "Unknown Title"
-                title = title or os.path.basename(filepath) or 'Unknown Title'
-                artist = artist or 'Unknown Artist'
-                year = self._extract_year(date)
-
-                # Apply alternating row tags
-                row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-
-                item_id = self.queue_view.queue.insert(
-                    '',
-                    'end',
-                    values=(track_display, title, artist, album or '', year),
-                    tags=(row_tag,)
-                )
-
-        # Select first item if any were added
-        if self.queue_view.queue.get_children():
-            first_item = self.queue_view.queue.get_children()[0]
-            self.queue_view.queue.selection_set(first_item)
-            self.queue_view.queue.see(first_item)
-
-        # Apply playing track highlight if needed
-        self.refresh_colors()
-
-    def _format_track_number(self, track_number):
-        """Format track number for display."""
-        if not track_number:
-            return ''
-        try:
-            track_num = track_number.split('/')[0]
-            return f"{int(track_num):02d}"
-        except (ValueError, IndexError):
-            return ''
-
-    def _extract_year(self, date):
-        """Extract year from date string."""
-        if not date:
-            return ''
-        try:
-            return date.split('-')[0] if '-' in date else date[:4]
-        except Exception:
-            return ''
-
-    def add_files_to_library(self):
-        """Open file dialog and add selected files to library."""
-        home_dir = Path.home()
-        music_dir = home_dir / 'Music'
-        start_dir = str(music_dir if music_dir.exists() else home_dir)
-
-        if sys.platform == 'darwin':
-            try:
-                # Try to import AppKit for native macOS file dialog
-                from AppKit import NSURL, NSApplication, NSModalResponseOK, NSOpenPanel
-
-                # Create and configure the open panel
-                panel = NSOpenPanel.alloc().init()
-                panel.setCanChooseFiles_(True)
-                panel.setCanChooseDirectories_(True)
-                panel.setAllowsMultipleSelection_(True)
-                panel.setTitle_("Select Audio Files and Folders")
-                panel.setMessage_("Select audio files and/or folders to add to your library")
-                panel.setDirectoryURL_(NSURL.fileURLWithPath_(start_dir))
-
-                # Run the panel
-                if panel.runModal() == NSModalResponseOK:
-                    # Get selected paths
-                    paths = [str(url.path()) for url in panel.URLs()]
-                    if paths:
-                        selected_paths = []
-                        for path in paths:
-                            path_obj = Path(path)
-                            if path_obj.is_dir():
-                                mixed_paths = find_audio_files(path_obj)
-                                if mixed_paths:
-                                    selected_paths.extend([Path(p) for p in mixed_paths])
-                            else:
-                                selected_paths.append(path_obj)
-                        if selected_paths:
-                            self.library_manager.add_files_to_library(selected_paths)
-                            # Refresh view if needed
-                            selected_item = self.library_view.library_tree.selection()
-                            if selected_item:
-                                tags = self.library_view.library_tree.item(selected_item[0])['tags']
-                                if tags and tags[0] == 'music':
-                                    self.load_library()
+        Args:
+            track (Optional[Track], optional): Track to play. Defaults to None.
+        """
+        if track is None:
+            # If we're paused, just resume
+            if self.current_track and not self.player_core.is_playing and self.player_core.media_player.get_media() is not None:
+                logger.info(f"Resuming playback of current track: {self.current_track.title}")
+                self.player_core.play()
+                self.is_playing = True
+                if self.on_playback_state_changed:
+                    self.on_playback_state_changed(self.is_playing)
                 return
-            except ImportError:
-                pass  # Fall back to tkinter dialog if AppKit is not available
 
-        # Configure file types for standard dialog
-        file_types = []
-        for ext in sorted(AUDIO_EXTENSIONS):
-            ext = ext.lstrip('.')
-            file_types.extend([f'*.{ext}', f'*.{ext.upper()}'])
-
-        # Use standard file dialog as fallback
-        paths = filedialog.askopenfilenames(
-            title="Select Audio Files",
-            initialdir=start_dir,
-            filetypes=[("Audio Files", ' '.join(file_types))]
-        )
-
-        if paths:
-            selected_paths = [Path(p) for p in paths]
-            if selected_paths:
-                self.library_manager.add_files_to_library(selected_paths)
-                # Refresh view if needed
-                selected_item = self.library_view.library_tree.selection()
-                if selected_item:
-                    tags = self.library_view.library_tree.item(selected_item[0])['tags']
-                    if tags and tags[0] == 'music':
-                        self.load_library()
-
-    def handle_drop(self, event):
-        """Handle drag and drop of files."""
-        # On macOS, paths are separated by spaces and wrapped in curly braces
-        # Example: "{/path/to/first file.mp3} {/path/to/second file.mp3}"
-        raw_data = event.data.strip()
-        paths = []
-
-        # Extract paths between curly braces
-        current = 0
-        while current < len(raw_data):
-            if raw_data[current] == '{':
-                end = raw_data.find('}', current)
-                if end != -1:
-                    # Extract path without braces and handle quotes
-                    path = raw_data[current + 1:end].strip().strip('"')
-                    if path:  # Only add non-empty paths
-                        paths.append(path)
-                    current = end + 1
-                else:
-                    break
-            else:
-                current += 1
-
-        if not paths:  # Fallback for non-macOS or different format
-            paths = [p.strip('{}').strip('"') for p in event.data.split() if p.strip()]
-
-        print("Parsed paths:", paths)  # Debug output
-
-        # Get current view to determine where to add files
-        selected_item = self.library_view.library_tree.selection()
-        if selected_item:
-            tags = self.library_view.library_tree.item(selected_item[0])['tags']
-            if tags:
-                if tags[0] == 'music':
-                    self.library_manager.add_files_to_library(paths)
-                    self.load_library()
-                elif tags[0] == 'now_playing':
-                    self.library_manager.add_files_to_library(paths)
-                    self.queue_manager.process_dropped_files(paths)
-                    self.load_queue()
-
-    def play_selected(self, event=None):
-        """Play the selected track."""
-        selected_items = self.queue_view.queue.selection()
-        if not selected_items:
-            return "break"
-
-        item_values = self.queue_view.queue.item(selected_items[0])['values']
-        if not item_values:
-            return "break"
-
-        track_num, title, artist, album, year = item_values
-        filepath = self.library_manager.find_file_by_metadata(title, artist, album, track_num)
-
-        if filepath and os.path.exists(filepath):
-            self.player_core._play_file(filepath)
-            self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
-            # Refresh colors to highlight the playing track
-            self.refresh_colors()
-
-        return "break"
-
-    def handle_delete(self, event):
-        """Handle delete key press."""
-        selected_items = self.queue_view.queue.selection()
-        if not selected_items:
-            return
-
-        for item in selected_items:
-            values = self.queue_view.queue.item(item)['values']
-            if values:
-                track_num, title, artist, album, year = values
-                self.queue_manager.remove_from_queue(title, artist, album, track_num)
-                self.queue_view.queue.delete(item)
-
-        self.refresh_colors()
-        return "break"
-
-    def on_song_select(self, event):
-        """Handle song selection in queue view."""
-        # This method can be used to update UI or track the currently selected song
-        pass
-
-    def refresh_colors(self):
-        """Update the background colors of all items in the queue view."""
-        # Get the currently playing filepath if available
-        current_filepath = None
-        if hasattr(self, 'player_core') and self.player_core.is_playing:
-            # Get the currently playing file path from the media player
-            media = self.player_core.media_player.get_media()
-            if media:
-                current_filepath = media.get_mrl()
-                # Convert file:// URL to normal path
-                if current_filepath.startswith('file://'):
-                    current_filepath = current_filepath[7:]
-                # On macOS, decode URL characters
-                import urllib.parse
-                current_filepath = urllib.parse.unquote(current_filepath)
-                print(f"Current playing filepath: {current_filepath}")  # Debug log
-
-        # Configure all the tag styles before applying them
-        # Define playing tag - strong teal highlight
-        playing_bg = THEME_CONFIG['colors'].get('playing_bg', '#00343a')
-        playing_fg = THEME_CONFIG['colors'].get('playing_fg', '#33eeff')
-        print(f"Playing colors - bg: {playing_bg}, fg: {playing_fg}")  # Debug log
-
-        # Configure the tag style for the playing track
-        self.queue_view.queue.tag_configure(
-            'playing',
-            background=playing_bg,
-            foreground=playing_fg
-        )
-
-        # Configure even/odd row tag styles
-        self.queue_view.queue.tag_configure('evenrow', background=THEME_CONFIG['colors']['bg'])
-        self.queue_view.queue.tag_configure('oddrow', background=THEME_CONFIG['colors'].get('row_alt', '#242424'))
-
-        # Process each row in the queue view
-        playing_item_found = False
-        for i, item in enumerate(self.queue_view.queue.get_children()):
-            values = self.queue_view.queue.item(item, 'values')
-            if not values or len(values) < 3:  # Need at least track, title, artist
-                continue
-
-            # If we have a current filepath, check if this item corresponds to it
-            is_current = False
-            if current_filepath:
-                track_num, title, artist, album, year = values
-                # Find the filepath for this metadata
-                item_filepath = self.library_manager.find_file_by_metadata(title, artist, album, track_num)
-                # Check if it matches the currently playing file
-                if item_filepath and os.path.normpath(item_filepath) == os.path.normpath(current_filepath):
-                    is_current = True
-                    playing_item_found = True
-                    print(f"Found playing item: {title} by {artist}")  # Debug log
-
-            if is_current:
-                # This is the currently playing track - highlight with teal
-                self.queue_view.queue.item(item, tags=('playing',))
-            else:
-                # Determine if this is an even or odd row for alternating colors
-                row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-                self.queue_view.queue.item(item, tags=(row_tag,))
-
-        if not playing_item_found and current_filepath:
-            print(f"Warning: Could not find item matching filepath: {current_filepath}")  # Debug log
-
-    def update_progress(self):
-        """Update progress bar position and time display."""
-        current_time = time.time()
-
-        # If we're currently dragging, don't update UI elements
-        # This ensures the user's drag action takes precedence over timer-based updates
-        if self.progress_bar.dragging:
-            # Just schedule the next update and return
-            self.window.after(100, self.update_progress)
-            return
-
-        # Use target_seek_ratio if it's set and it's been less than 2 seconds since the last seek
-        if self.target_seek_ratio is not None and (current_time - self.last_seek_time < 2.0):
-            # Continue using the target ratio for a short time after seeking
-            ratio = self.target_seek_ratio
-            duration = self.player_core.get_duration()
-
-            # Update progress with our target ratio
-            self.progress_bar.progress_control.update_progress(ratio)
-
-            # Update time display with calculated position
-            current_time_ms = int(duration * ratio)
-            current_time_fmt = self._format_time(current_time_ms / 1000)
-            total_time_fmt = self._format_time(duration / 1000)
-            self.progress_bar.progress_control.update_time_display(current_time_fmt, total_time_fmt)
-
-        # Otherwise use the normal player position if we're playing and not recently dragged
-        elif (self.player_core.is_playing and
-            self.player_core.media_player.is_playing() and
-            not self.progress_bar.dragging and
-            (current_time - self.progress_bar.last_drag_time) > 0.1):
-
-            current = self.player_core.get_current_time()
-            duration = self.player_core.get_duration()
-
-            if duration > 0:
-                ratio = current / duration
-
-                # If we have a target_seek_ratio and the player has caught up close enough,
-                # clear the target ratio to resume normal updates
-                if self.target_seek_ratio is not None:
-                    target_time = int(duration * self.target_seek_ratio)
-                    # If we're within 50ms of the target, clear it
-                    if abs(current - target_time) < 50:
-                        self.target_seek_ratio = None
-                    else:
-                        # If VLC is too far off from our target, force it back to our target
-                        if abs(current - target_time) > 500:  # More than 0.5 seconds off
-                            print(f"Correcting seek: VLC at {current/1000:.2f}s, target {target_time/1000:.2f}s")
-                            self.player_core.seek(self.target_seek_ratio)
-                            # Force the UI to show our target position
-                            self.progress_bar.progress_control.update_progress(self.target_seek_ratio)
-                            # Schedule next update and return to avoid conflicting updates
-                            self.window.after(100, self.update_progress)
+            # If no current track, start from the beginning of the library
+            if not self.current_track:
+                logger.info("No current track, starting from first track in library")
+                library_items = self.library_manager.get_library_items()
+                if library_items:
+                    first_track_path = library_items[0][0]  # First item's filepath
+                    if first_track_path and os.path.exists(first_track_path):
+                        # Set up the queue from the beginning
+                        self.set_up_queue()
+                        # Get track metadata
+                        metadata = self.db.get_metadata_by_filepath(first_track_path)
+                        if metadata:
+                            # Create a Track object
+                            track = Track(
+                                id=metadata.get('id', ''),
+                                title=metadata.get('title', os.path.basename(first_track_path)),
+                                artist=metadata.get('artist', ''),
+                                album=metadata.get('album', ''),
+                                path=first_track_path,
+                                duration=metadata.get('duration', 0),
+                                year=metadata.get('year', ''),
+                                genre=metadata.get('genre', ''),
+                                track_number=metadata.get('track_number', '')
+                            )
+                            logger.info(f"Starting playback from first track: {track.title}")
+                        else:
+                            logger.warning(f"No metadata found for first track: {first_track_path}")
                             return
-
-                # Use the progress control's update_progress method
-                self.progress_bar.progress_control.update_progress(ratio)
-
-                # Update time display
-                current_time_fmt = self._format_time(current / 1000)
-                total_time_fmt = self._format_time(duration / 1000)
-                self.progress_bar.progress_control.update_time_display(current_time_fmt, total_time_fmt)
-
-        self.window.after(100, self.update_progress)
-
-    def _format_time(self, seconds):
-        """Format time in seconds to MM:SS format."""
-        seconds = int(seconds)
-        m = seconds // 60
-        s = seconds % 60
-        return f"{m:02d}:{s:02d}"
-
-    def start_drag(self, event):
-        """Start dragging the progress circle."""
-        self.progress_bar.dragging = True
-        self.progress_bar.last_drag_time = time.time()
-        self.player_core.was_playing = self.player_core.is_playing
-        if self.player_core.is_playing:
-            self.player_core.media_player.pause()
-            self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['play'])
-            self.player_core.is_playing = False
-
-    def drag(self, event):
-        """Handle progress circle drag."""
-        if self.progress_bar.dragging:
-            # Update last drag time to prevent progress updates immediately after dragging
-            self.progress_bar.last_drag_time = time.time()
-
-            controls_width = self.progress_bar.controls_width
-            # Calculate max width for progress bar (consistent with other methods)
-            max_width = self.progress_bar.canvas.winfo_width() - 260
-
-            # Constrain x to valid range
-            x = max(controls_width, min(event.x, max_width))
-
-            # Calculate ratio for later use (needed for time display)
-            width = max_width - controls_width
-            ratio = (x - controls_width) / width
-            ratio = max(0, min(ratio, 1))  # Constrain to 0-1
-
-            # Store current target ratio to ensure consistency in visual updates
-            self.target_seek_ratio = ratio
-
-            # Update circle position
-            circle_radius = self.progress_bar.circle_radius
-            bar_y = self.progress_bar.bar_y
-            self.progress_bar.canvas.coords(
-                self.progress_bar.progress_circle,
-                x - circle_radius,
-                bar_y - circle_radius,
-                x + circle_radius,
-                bar_y + circle_radius
-            )
-
-            # Update progress line coordinates (from start to current position)
-            self.progress_bar.canvas.coords(
-                self.progress_bar.progress_line,
-                controls_width,
-                bar_y,
-                x,
-                bar_y
-            )
-
-            # Calculate and update the time display during drag for better feedback
-            if self.player_core.media_player.get_length() > 0:
-                duration = self.player_core.get_duration()
-                current_time_ms = int(duration * ratio)
-
-                # Update time display in real time
-                current_time = self._format_time(current_time_ms / 1000)
-                total_time = self._format_time(duration / 1000)
-                self.progress_bar.progress_control.update_time_display(current_time, total_time)
-
-    def end_drag(self, event):
-        """End dragging the progress circle and seek to the position."""
-        if self.progress_bar.dragging:
-            # Set dragging to false AFTER we've done all calculations
-            # to prevent race conditions with progress updates
-
-            # Calculate seek ratio using consistent boundaries
-            max_width = self.progress_bar.canvas.winfo_width() - 260
-            width = max_width - self.progress_bar.controls_width
-
-            # Constrain x within valid range
-            x = min(max(event.x, self.progress_bar.controls_width), max_width)
-
-            # Calculate final ratio
-            ratio = (x - self.progress_bar.controls_width) / width
-            ratio = max(0, min(ratio, 1))  # Ensure ratio is between 0 and 1
-
-            # Store target seek ratio and timestamp
-            self.target_seek_ratio = ratio
-            self.last_seek_time = time.time()
-
-            # Update UI immediately (like in _seek_to_position)
-            if self.player_core.media_player.get_length() > 0:
-                # Set a longer timeout after dragging to avoid immediate updates
-                self.progress_bar.last_drag_time = time.time()
-
-                # Directly update progress control UI with the new position
-                self.progress_bar.progress_control.update_progress(ratio)
-
-                # Calculate the time for the time display
-                duration = self.player_core.get_duration()
-                new_time_ms = int(duration * ratio)
-                self.player_core.current_time = new_time_ms
-
-                # Update time display
-                current_time = self._format_time(new_time_ms / 1000)
-                total_time = self._format_time(duration / 1000)
-                self.progress_bar.progress_control.update_time_display(current_time, total_time)
-
-                # Seek to position in player (actual media update)
-                self.player_core.seek(ratio)
-
-                # Now that everything is updated, mark dragging as finished
-                self.progress_bar.dragging = False
-
-                # Resume playback if it was playing before
-                if self.player_core.was_playing:
-                    self.player_core.media_player.play()
-                    self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
-                    self.player_core.is_playing = True
+                    else:
+                        logger.warning("First track path is invalid or doesn't exist")
+                        return
+                else:
+                    logger.warning("No tracks in library to play")
+                    return
             else:
-                # If no media is loaded, just mark dragging as finished
-                self.progress_bar.dragging = False
+                # We have a current track but it's not playing, so play it
+                track = self.current_track
+                logger.info(f"Playing current track: {track.title}")
+        else:
+            # If we have a specific track to play
+            logger.info(f"Playing specific track: {track.title}")
+            # Set up the queue starting from this track
+            self.set_up_queue(track.path)
 
-    def click_progress(self, event):
-        """Handle click on progress bar."""
-        # Check if click was near the progress bar and not on a button
-        if abs(event.y - self.progress_bar.bar_y) < 10 and not self.progress_bar.dragging:
-            self._update_progress_position(event.x)
-            # Set position in player
-            self._seek_to_position(event.x)
+        # At this point, we have a valid track to play
+        try:
+            # Use _play_file method instead of set_media_by_filepath
+            self.player_core._play_file(track.path)
 
-    def _update_progress_position(self, x):
-        """Update the position of the progress circle and line."""
-        controls_width = self.progress_bar.controls_width
+            # Update current track and state
+            self.current_track = track
+            self.is_playing = True
 
-        # Use consistent calculation for max x position
-        max_x = self.progress_bar.canvas.winfo_width() - 260
+            # Notify listeners about track and state changes
+            if self.on_track_changed:
+                self.on_track_changed(self.current_track)
+            if self.on_playback_state_changed:
+                self.on_playback_state_changed(self.is_playing)
 
-        # Constrain x to valid range
-        x = max(controls_width, min(x, max_x))
+            logger.info(f"Started playback of: {track.title}")
+        except Exception as e:
+            # Log the error
+            logger.error(f"Error playing track {track.title}: {e}")
+            # Include stack trace for debugging
+            logger.error(traceback.format_exc())
 
-        # Update circle position
-        circle_radius = self.progress_bar.circle_radius
-        bar_y = self.progress_bar.bar_y
-        self.progress_bar.canvas.coords(
-            self.progress_bar.progress_circle,
-            x - circle_radius,
-            bar_y - circle_radius,
-            x + circle_radius,
-            bar_y + circle_radius
-        )
+            # Reset player state
+            self.is_playing = False
 
-        # Update progress line position
-        self.progress_bar.canvas.coords(
-            self.progress_bar.progress_line,
-            controls_width,
-            bar_y,
-            x,
-            bar_y
-        )
+            # Use error handler if available, otherwise just log
+            if self.error_handler:
+                self.error_handler(str(e))
+            # Notify of playback state change even if error
+            if self.on_playback_state_changed:
+                self.on_playback_state_changed(False)
 
-    def _seek_to_position(self, x):
-        """Seek to a position in the track based on x coordinate."""
-        controls_width = self.progress_bar.controls_width
+    def _rebuild_queue_from_track(self, selected_track: Track):
+        """
+        Rebuild the queue to start from the selected track and continue sequentially.
 
-        # Calculate available width for progress bar (same calculation as in progress.py)
-        width = self.progress_bar.canvas.winfo_width() - controls_width - 260
+        Args:
+            selected_track: Track to start the queue from
+        """
+        try:
+            logger.info("Rebuilding queue from track: %s - %s", selected_track.title, selected_track.artist)
 
-        # Calculate ratio of position (constrained to 0-1)
-        ratio = (x - controls_width) / width
-        ratio = max(0, min(ratio, 1))  # Constrain to 0-1
+            # Get all library items
+            library_items = self.library_manager.get_library_items()
+            if not library_items:
+                logger.warning("Cannot rebuild queue: no library items")
+                return
 
-        # Store target seek ratio and timestamp
-        self.target_seek_ratio = ratio
-        self.last_seek_time = time.time()
+            # Find the index of the selected track in the library
+            selected_index = -1
+            selected_filepath = os.path.abspath(selected_track.path)
 
-        # Update player position
-        if self.player_core.media_player.get_length() > 0:
-            # Set a longer timeout after dragging to avoid immediate updates
-            self.progress_bar.last_drag_time = time.time()
+            for i, item in enumerate(library_items):
+                filepath = item[0]
+                if os.path.abspath(filepath) == selected_filepath:
+                    selected_index = i
+                    break
 
-            # Directly update progress control UI with the new position
-            # This will ensure the UI reflects exactly where the user clicked/dragged
-            self.progress_bar.progress_control.update_progress(ratio)
+            if selected_index == -1:
+                logger.warning("Selected track not found in library, cannot rebuild queue")
+                # Still ensure the track is in queue
+                self._ensure_track_in_queue(selected_track.path)
+                return
 
-            # Calculate the time for the time display
-            duration = self.player_core.get_duration()
-            new_time_ms = int(duration * ratio)
-            self.player_core.current_time = new_time_ms
+            # Clear current queue (optional - based on whether you want to keep history)
+            # For now, we'll keep the queue as is and just ensure the selected track is in it
 
-            # Update time display
-            current_time = self._format_time(new_time_ms / 1000)
-            total_time = self._format_time(duration / 1000)
-            self.progress_bar.progress_control.update_time_display(current_time, total_time)
+            # Add the selected track and all subsequent tracks to the queue
+            # Only add tracks that aren't already in the queue
+            queue_items = self.queue_manager.get_queue_items()
+            queue_paths = [os.path.abspath(item[0]) for item in queue_items] if queue_items else []
 
-            # Now seek in the player
-            self.player_core.seek(ratio)
+            # Add selected track first if not already in queue
+            if selected_filepath not in queue_paths:
+                self.queue_manager.add_to_queue(selected_track.path)
+                logger.info("Added selected track to queue: %s", os.path.basename(selected_track.path))
 
-    def on_resize(self, event):
-        """Handle window resize."""
-        # Calculate positions
-        controls_width = self.progress_bar.controls_width
-        right_margin = PROGRESS_BAR['right_margin']
-        volume_width = self.progress_bar.volume_control_width
+            # Add subsequent tracks
+            for i in range(selected_index + 1, len(library_items)):
+                filepath = library_items[i][0]
+                abs_path = os.path.abspath(filepath)
+                if abs_path not in queue_paths and os.path.exists(filepath):
+                    self.queue_manager.add_to_queue(filepath)
+                    logger.info("Added subsequent track to queue: %s", os.path.basename(filepath))
 
-        # Use consistent calculation: event.width - 260
-        # The 260 value accounts for time display (right_margin of 160) plus volume control (approx 100px)
-        volume_start_x = event.width - right_margin - volume_width
+            logger.info("Queue rebuilt from selected track")
+        except Exception as e:
+            logger.error("Error rebuilding queue: %s", e)
+            traceback.print_exc()
 
-        # Update line coordinates (end BEFORE volume control)
-        self.progress_bar.canvas.coords(
-            self.progress_bar.line,
-            controls_width,
-            self.progress_bar.bar_y,
-            volume_start_x - 10,  # Add a small gap before volume control
-            self.progress_bar.bar_y,
-        )
+    def _ensure_track_in_queue(self, filepath: str):
+        """
+        Ensure that a track is in the queue.
 
-        # Update time display position
-        self.progress_bar.canvas.coords(
-            self.progress_bar.time_text,
-            event.width - (right_margin / 2),  # Center in right margin
-            PROGRESS_BAR['time_label_y'],
-        )
+        Args:
+            filepath: Path to the media file to add to queue
+        """
+        try:
+            # Check if the track is already in the queue
+            items = self.queue_manager.get_queue_items()
+            for item in items:
+                if os.path.abspath(item[0]) == os.path.abspath(filepath):
+                    logger.debug("Track already in queue: %s", os.path.basename(filepath))
+                    return
 
-        # Reposition volume control
-        self.progress_bar.canvas.coords(
-            self.progress_bar.volume_window,
-            volume_start_x + (volume_width / 2),  # Center the volume control
-            self.progress_bar.bar_y,
-        )
+            # If not in queue, add it
+            logger.info("Adding track to queue: %s", os.path.basename(filepath))
+            self.queue_manager.add_to_queue(filepath)
+        except Exception as e:
+            logger.error("Error ensuring track in queue: %s", e)
+            traceback.print_exc()
 
-        # Update progress line if it exists and we're playing
-        if hasattr(self.progress_bar, 'progress_line'):
-            # If we have a stored target_seek_ratio, use it to position progress elements
-            if hasattr(self, 'target_seek_ratio') and self.target_seek_ratio is not None:
-                # Use the stored ratio to calculate the new position
-                max_width = event.width - 260
-                x = controls_width + ((max_width - controls_width) * self.target_seek_ratio)
+    def add_library_to_queue(self, tracks=None):
+        """
+        Add all library items to the queue to enable next/previous navigation.
 
-                # Update circle position
-                if hasattr(self.progress_bar, 'progress_circle'):
-                    circle_radius = self.progress_bar.circle_radius
-                    bar_y = self.progress_bar.bar_y
-                    self.progress_bar.canvas.coords(
-                        self.progress_bar.progress_circle,
-                        x - circle_radius,
-                        bar_y - circle_radius,
-                        x + circle_radius,
-                        bar_y + circle_radius
-                    )
+        This method populates the queue with all tracks from the library,
+        enabling seamless navigation through the entire collection.
 
-                # Update progress line
-                self.progress_bar.canvas.coords(
-                    self.progress_bar.progress_line,
-                    controls_width,
-                    self.progress_bar.bar_y,
-                    x,
-                    self.progress_bar.bar_y,
+        Args:
+            tracks: Optional list of Track objects to add to the queue directly.
+                   If provided, these will be added instead of querying the database.
+        """
+        try:
+            items_to_add = 0
+
+            # Get current queue items to avoid duplicates
+            queue_items = self.queue_manager.get_queue_items()
+
+            # Debug queue items
+            logger.info(f"Current queue has {len(queue_items) if queue_items else 0} items")
+
+            # Extract absolute paths from queue items for comparison
+            queue_paths = []
+            if queue_items:
+                for item in queue_items:
+                    if item and len(item) > 0:
+                        filepath = item[0]
+                        if filepath:
+                            queue_paths.append(os.path.abspath(filepath))
+
+            if tracks:
+                # Add tracks provided directly from the UI's MusicLibrary
+                logger.info(f"Adding {len(tracks)} tracks from provided library to queue")
+                for track in tracks:
+                    if hasattr(track, 'path') and track.path:
+                        # Debug track information
+                        logger.info(f"Processing track: {track.title} - path: {track.path}")
+
+                        if os.path.exists(track.path):
+                            abs_path = os.path.abspath(track.path)
+
+                            # Debug path comparison
+                            logger.info(f"Checking if path is already in queue: {abs_path}")
+                            logger.info(f"Queue contains {len(queue_paths)} paths")
+
+                            if abs_path not in queue_paths:
+                                logger.info(f"Adding track to queue: {track.title}")
+                                self.queue_manager.add_to_queue(abs_path)
+                                items_to_add += 1
+                            else:
+                                logger.info(f"Track already in queue: {track.title}")
+                        else:
+                            logger.warning(f"Track path doesn't exist: {track.path}")
+                    else:
+                        logger.warning(f"Track has no valid path: {track}")
+            else:
+                # Get all library items from the database if no tracks provided
+                library_items = self.library_manager.get_library_items()
+                if not library_items:
+                    logger.info("No library items to add to queue")
+                    return
+
+                # Add each library item to queue if not already there
+                for item in library_items:
+                    # Library item format depends on the specific query, but filepath should be at a consistent index
+                    # Assuming filepath is the first element in the tuple
+                    filepath = item[0]
+                    if filepath and os.path.exists(filepath):
+                        abs_path = os.path.abspath(filepath)
+                        if abs_path not in queue_paths:
+                            self.queue_manager.add_to_queue(filepath)
+                            items_to_add += 1
+
+            logger.info(f"Added {items_to_add} tracks from library to queue")
+        except Exception as e:
+            logger.error(f"Error adding library to queue: {e}")
+            traceback.print_exc()
+
+    def _play_file(self, filepath: str):
+        """
+        Play a file and update playback state.
+
+        Args:
+            filepath: Path to the media file to play
+        """
+        try:
+            # Play the file using player core
+            old_state = self.player_core.is_playing
+            self.player_core._play_file(filepath)
+            new_state = self.player_core.is_playing
+
+            # Log state change if it occurred
+            if old_state != new_state:
+                logger.info("Player state changed in _play_file: %s to %s", old_state, new_state)
+                if self.on_playback_state_changed:
+                    self.on_playback_state_changed(new_state)
+
+            # Update current track info
+            track_info = self.db.get_metadata_by_filepath(filepath)
+            if track_info:
+                # Create a Track object from the metadata
+                track_id = os.path.basename(filepath)
+                self.current_track = Track(
+                    id=track_id,
+                    title=track_info.get('title', 'Unknown Title'),
+                    artist=track_info.get('artist', 'Unknown Artist'),
+                    album=track_info.get('album', 'Unknown Album'),
+                    path=filepath,
+                    duration=track_info.get('length', 0),
+                    year=track_info.get('year', ''),
+                    genre=track_info.get('genre', ''),
+                    track_number=track_info.get('track_num', 0)
                 )
-            # Otherwise just ensure the progress line doesn't extend beyond the volume control
+
+                logger.info("Now playing: %s - %s", self.current_track.title, self.current_track.artist)
+
+                # Notify listeners
+                if self.on_track_changed:
+                    self.on_track_changed(self.current_track)
+
+                # Update play count in database
+                self._update_play_count(filepath)
             else:
-                current_coords = self.progress_bar.canvas.coords(self.progress_bar.progress_line)
-                if current_coords and len(current_coords) == 4:
-                    # Calculate the max x-position where progress line can go
-                    max_x = volume_start_x - 10
+                logger.warning("No track metadata found for %s", os.path.basename(filepath))
+        except Exception as e:
+            logger.error("Error playing file: %s", e)
+            traceback.print_exc()
 
-                    # Keep progress line within bounds
-                    if current_coords[2] > max_x:
-                        current_coords[2] = max_x
+    def _update_play_count(self, filepath: str):
+        """
+        Update play count for a track in the database.
 
-                    self.progress_bar.canvas.coords(
-                        self.progress_bar.progress_line,
-                        current_coords[0],
-                        current_coords[1],
-                        current_coords[2],
-                        current_coords[3]
+        Args:
+            filepath: Path to the track file
+        """
+        def update_play_count():
+            try:
+                # Delay a bit to make sure playback has really started
+                time.sleep(5)
+                # Only update if we're still playing the same track
+                current_media = self.player_core.media_player.get_media()
+                if current_media:
+                    current_mrl = current_media.get_mrl()
+                    if current_mrl:
+                        current_path = current_mrl[7:] if current_mrl.startswith('file://') else current_mrl
+                        if os.path.abspath(current_path) == os.path.abspath(filepath):
+                            self.db.increment_play_count(filepath)
+                            logger.debug("Incremented play count for %s", os.path.basename(filepath))
+            except Exception as e:
+                logger.error("Error updating play count: %s", e)
+                traceback.print_exc()
+
+        # Run in a separate thread to not block UI
+        threading.Thread(target=update_play_count, daemon=True).start()
+
+    def pause(self):
+        """Pause playback if playing."""
+        if self.player_core.is_playing:
+            old_state = self.player_core.is_playing
+            self.player_core.play_pause()
+            new_state = self.player_core.is_playing
+            logger.info("Pause called: is_playing changed from %s to %s", old_state, new_state)
+            if self.on_playback_state_changed:
+                self.on_playback_state_changed(self.player_core.is_playing)
+
+    def stop(self):
+        """Stop playback."""
+        old_state = self.player_core.is_playing
+        self.player_core.stop()
+        logger.info("Stop called: was_playing=%s, is_playing=False", old_state)
+        if self.on_playback_state_changed:
+            self.on_playback_state_changed(False)
+
+    def next(self) -> None:
+        """
+        Skip to the next track in the queue.
+        """
+        try:
+            if not self.queue_manager.get_queue_items():
+                logger.warning("Cannot skip to next track: queue is empty")
+                return
+
+            queue_items = self.queue_manager.get_queue_items()
+            logger.info(f"Current queue has {len(queue_items)} items")
+
+            current_filepath = None
+            if self.current_track:
+                current_filepath = self.current_track.path
+                logger.info(f"Current track before next: {os.path.basename(current_filepath)}")
+            else:
+                logger.info("No current track before next")
+
+            # Use the player core to go to the next track
+            self.player_core.next_song()
+
+            # Get the current media after navigation
+            next_filepath = None
+            if self.player_core.media_player.get_media():
+                next_mrl = self.player_core.media_player.get_media().get_mrl()
+                if next_mrl:
+                    next_filepath = next_mrl[7:] if next_mrl.startswith('file://') else next_mrl
+                    # Decode URL-encoded characters
+                    next_filepath = unquote(next_filepath)
+                    logger.info(f"Next filepath after navigation: {next_filepath}")
+
+            if next_filepath and os.path.exists(next_filepath):
+                # Get track metadata
+                metadata = self.db.get_metadata_by_filepath(next_filepath)
+                if metadata:
+                    # Create a Track object
+                    next_track = Track(
+                        id=metadata.get('id', ''),
+                        title=metadata.get('title', os.path.basename(next_filepath)),
+                        artist=metadata.get('artist', ''),
+                        album=metadata.get('album', ''),
+                        path=next_filepath,
+                        duration=metadata.get('duration', 0),
+                        year=metadata.get('year', ''),
+                        genre=metadata.get('genre', ''),
+                        track_number=metadata.get('track_number', '')
                     )
 
-    def volume_change(self, volume):
-        """Handle volume slider changes."""
-        print(f"MusicPlayer: Setting volume to {volume}")  # Debug log
-        if hasattr(self, 'player_core') and self.player_core:
+                    # Update current track
+                    self.current_track = next_track
+                    self.is_playing = self.player_core.is_playing
+
+                    # Notify listeners
+                    if self.on_track_changed:
+                        self.on_track_changed(next_track)
+                    if self.on_playback_state_changed:
+                        self.on_playback_state_changed(self.is_playing)
+
+                    logger.info(f"Updated to next track: {next_track.title}")
+                else:
+                    logger.warning(f"No metadata found for next track: {next_filepath}")
+            else:
+                logger.warning("Failed to get next track filepath or file doesn't exist")
+        except Exception as e:
+            logger.error(f"Error in next track navigation: {e}")
+            logger.error(traceback.format_exc())
+            # Reset state
+            self.is_playing = False
+            if self.on_playback_state_changed:
+                self.on_playback_state_changed(False)
+
+    def previous(self) -> None:
+        """
+        Skip to the previous track in the queue.
+        """
+        try:
+            if not self.queue_manager.get_queue_items():
+                logger.warning("Cannot skip to previous track: queue is empty")
+                return
+
+            queue_items = self.queue_manager.get_queue_items()
+            logger.info(f"Current queue has {len(queue_items)} items")
+
+            current_filepath = None
+            if self.current_track:
+                current_filepath = self.current_track.path
+                logger.info(f"Current track before previous: {os.path.basename(current_filepath)}")
+            else:
+                logger.info("No current track before previous")
+
+            # Use the player core to go to the previous track
+            self.player_core.previous_song()
+
+            # Get the current media after navigation
+            prev_filepath = None
+            if self.player_core.media_player.get_media():
+                prev_mrl = self.player_core.media_player.get_media().get_mrl()
+                if prev_mrl:
+                    prev_filepath = prev_mrl[7:] if prev_mrl.startswith('file://') else prev_mrl
+                    # Decode URL-encoded characters
+                    prev_filepath = unquote(prev_filepath)
+                    logger.info(f"Previous filepath after navigation: {prev_filepath}")
+
+            if prev_filepath and os.path.exists(prev_filepath):
+                # Get track metadata
+                metadata = self.db.get_metadata_by_filepath(prev_filepath)
+                if metadata:
+                    # Create a Track object
+                    prev_track = Track(
+                        id=metadata.get('id', ''),
+                        title=metadata.get('title', os.path.basename(prev_filepath)),
+                        artist=metadata.get('artist', ''),
+                        album=metadata.get('album', ''),
+                        path=prev_filepath,
+                        duration=metadata.get('duration', 0),
+                        year=metadata.get('year', ''),
+                        genre=metadata.get('genre', ''),
+                        track_number=metadata.get('track_number', '')
+                    )
+
+                    # Update current track
+                    self.current_track = prev_track
+                    self.is_playing = self.player_core.is_playing
+
+                    # Notify listeners
+                    if self.on_track_changed:
+                        self.on_track_changed(prev_track)
+                    if self.on_playback_state_changed:
+                        self.on_playback_state_changed(self.is_playing)
+
+                    logger.info(f"Updated to previous track: {prev_track.title}")
+                else:
+                    logger.warning(f"No metadata found for previous track: {prev_filepath}")
+            else:
+                logger.warning("Failed to get previous track filepath or file doesn't exist")
+        except Exception as e:
+            logger.error(f"Error in previous track navigation: {e}")
+            logger.error(traceback.format_exc())
+            # Reset state
+            self.is_playing = False
+            if self.on_playback_state_changed:
+                self.on_playback_state_changed(False)
+
+    def _on_track_end(self):
+        """Handle track end event from player core."""
+        logger.info("Track end event received")
+
+        # Get updated track info if playback continued to next track
+        if self.player_core.is_playing:
+            logger.info("Playback continued to next track")
+            current_media = self.player_core.media_player.get_media()
+            if current_media:
+                current_mrl = current_media.get_mrl()
+                if current_mrl:
+                    current_path = current_mrl[7:] if current_mrl.startswith('file://') else current_mrl
+                    track_info = self.db.get_metadata_by_filepath(current_path)
+                    if track_info:
+                        # Update current track with new information
+                        track_id = os.path.basename(current_path)
+                        self.current_track = Track(
+                            id=track_id,
+                            title=track_info.get('title', 'Unknown Title'),
+                            artist=track_info.get('artist', 'Unknown Artist'),
+                            album=track_info.get('album', 'Unknown Album'),
+                            path=current_path,
+                            duration=track_info.get('length', 0),
+                            year=track_info.get('year', ''),
+                            genre=track_info.get('genre', ''),
+                            track_number=track_info.get('track_num', 0)
+                        )
+
+                        logger.info("Track changed to: %s - %s", self.current_track.title, self.current_track.artist)
+
+                        # Notify listeners
+                        if self.on_track_changed:
+                            self.on_track_changed(self.current_track)
+                    else:
+                        logger.warning("No metadata found for next track: %s", os.path.basename(current_path))
+        else:
+            # Playback stopped at end of queue
+            logger.info("Playback stopped at end of queue")
+            self.current_track = None
+            if self.on_track_changed:
+                self.on_track_changed(None)
+
+        # Notify about playback state
+        if self.on_playback_state_changed:
+            logger.info("Notifying UI of playback state: is_playing=%s", self.player_core.is_playing)
+            self.on_playback_state_changed(self.player_core.is_playing)
+
+    def _on_track_info_updated(self):
+        """Handle track info updated event from player core."""
+        logger.debug("Track info updated event received")
+        # This method is called by the player core when track information is updated
+
+    def toggle_play(self):
+        """Toggle play/pause state."""
+        old_state = self.player_core.is_playing
+        self.player_core.play_pause()
+        new_state = self.player_core.is_playing
+        logger.info("Toggle play called: is_playing changed from %s to %s", old_state, new_state)
+        if self.on_playback_state_changed:
+            self.on_playback_state_changed(self.player_core.is_playing)
+
+    def set_position(self, position: int):
+        """
+        Set the playback position.
+
+        Args:
+            position: Position in milliseconds
+        """
+        self.player_core.seek(position)
+
+    def set_volume(self, volume: float):
+        """
+        Set the player volume.
+
+        Args:
+            volume: Volume level from 0.0 to 1.0
+        """
+        # Convert from 0.0-1.0 to 0-100 for VLC
+        volume_int = int(volume * 100)
+        self.player_core.set_volume(volume_int)
+
+    def toggle_loop(self):
+        """Toggle loop playback mode."""
+        self.player_core.toggle_loop()
+        return self.player_core.loop_enabled
+
+    def _update_current_track_from_filepath(self, filepath: str) -> bool:
+        """
+        Update the current_track property based on a filepath.
+
+        Args:
+            filepath: Path to the audio file
+
+        Returns:
+            bool: True if the track was updated successfully, False otherwise
+        """
+        if not filepath or not os.path.exists(filepath):
+            logger.warning(f"Cannot update track info - file doesn't exist: {filepath}")
+            return False
+
+        try:
+            # Get metadata from the database
+            track_info = self.db.get_metadata_by_filepath(filepath)
+            if track_info:
+                # Create a Track object from the metadata
+                track_id = os.path.basename(filepath)
+                self.current_track = Track(
+                    id=track_id,
+                    title=track_info.get('title', 'Unknown Title'),
+                    artist=track_info.get('artist', 'Unknown Artist'),
+                    album=track_info.get('album', 'Unknown Album'),
+                    path=filepath,
+                    duration=track_info.get('duration', 0),
+                    year=track_info.get('date', ''),
+                    genre=track_info.get('genre', ''),
+                    track_number=track_info.get('track_number', 0)
+                )
+
+                logger.info(f"Updated current track to: {self.current_track.title} - {self.current_track.artist}")
+
+                # Notify listeners about the track change
+                if self.on_track_changed:
+                    self.on_track_changed(self.current_track)
+
+                return True
+            else:
+                logger.warning(f"No metadata found for track: {os.path.basename(filepath)}")
+        except Exception as e:
+            logger.error(f"Error updating current track: {e}")
+            traceback.print_exc()
+
+        return False
+
+    def set_up_queue(self, start_track_path=None):
+        """
+        Set up the queue with all tracks from the library, optionally starting from a specific track.
+
+        This ensures that next/previous navigation works correctly by having all tracks in the queue.
+
+        Args:
+            start_track_path (str, optional): The path of the track to start the queue from.
+                If None, starts from the beginning of the library.
+        """
+        try:
+            # Get all tracks from the library using the correct method
+            library_items = self.library_manager.get_library_items()
+            if not library_items:
+                logger.warning("No tracks in library to set up queue")
+                return
+
+            logger.info(f"Setting up queue with {len(library_items)} tracks from library")
+
+            # Clear the current queue - use get_queue_items and remove_from_queue instead of clear_queue
             try:
-                result = self.player_core.set_volume(int(volume))
-                print(f"Volume change result: {result}")  # Debug result
+                queue_items = self.queue_manager.get_queue_items()
+                # Remove each item from queue
+                for item in queue_items:
+                    if item and len(item) > 0:
+                        filepath = item[0]
+                        if filepath:
+                            self.queue_manager.remove_from_queue(filepath)
+                logger.info("Queue cleared")
             except Exception as e:
-                print(f"Error setting volume: {e}")
+                logger.warning(f"Could not clear queue: {e}")
 
-    def __del__(self):
-        """Cleanup resources."""
-        if hasattr(self, 'observer') and self.observer:
-            self.observer.stop()
-            self.observer.join()
+            # If a specific start track is provided, reorganize the queue to start from that track
+            if start_track_path:
+                # Find the index of the start track
+                start_index = -1
+                for i, item in enumerate(library_items):
+                    if item[0] == start_track_path:  # First element in tuple is filepath
+                        start_index = i
+                        break
 
-        if hasattr(self, 'db'):
-            self.db.close()
+                if start_index >= 0:
+                    logger.info(f"Starting queue from track at index {start_index}: {os.path.basename(start_track_path)}")
+                    # Rearrange tracks to start from the specified track
+                    library_items = library_items[start_index:] + library_items[:start_index]
+                else:
+                    logger.warning(f"Start track not found in library: {start_track_path}")
+
+            # Add all tracks to the queue
+            for item in library_items:
+                track_path = item[0]  # First element in tuple is filepath
+                if track_path and os.path.exists(track_path):
+                    # Add track to queue
+                    self.queue_manager.add_to_queue(track_path)
+                    logger.info(f"Added to queue: {os.path.basename(track_path)}")
+                else:
+                    logger.warning(f"Skipping invalid track path: {track_path}")
+
+            logger.info(f"Queue set up with {len(self.queue_manager.get_queue_items())} tracks")
+
+            # Update listeners that the queue has changed
+            if self.on_track_changed:
+                self.on_track_changed(self.current_track)
+        except Exception as e:
+            logger.error(f"Error setting up queue: {e}")
+            logger.error(traceback.format_exc())

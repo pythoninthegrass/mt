@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any, Optional
 
@@ -40,8 +41,9 @@ class MusicDatabase:
     def __init__(self, db_name: str, db_tables: dict[str, str]):
         """Initialize database connection and create tables if they don't exist."""
         self.db_name = db_name
-        self.db_conn = sqlite3.connect(db_name)
+        self.db_conn = sqlite3.connect(db_name, check_same_thread=False)
         self.db_cursor = self.db_conn.cursor()
+        self.lock = threading.RLock()
 
         # Create tables
         for _, create_sql in db_tables.items():
@@ -61,23 +63,26 @@ class MusicDatabase:
 
     def get_loop_enabled(self) -> bool:
         """Get loop state from settings."""
-        self.db_cursor.execute("SELECT value FROM settings WHERE key = 'loop_enabled'")
-        result = self.db_cursor.fetchone()
-        return bool(int(result[0])) if result else True
+        with self.lock:  # Use lock to ensure thread safety
+            self.db_cursor.execute("SELECT value FROM settings WHERE key = 'loop_enabled'")
+            result = self.db_cursor.fetchone()
+            return bool(int(result[0])) if result else True
 
     def set_loop_enabled(self, enabled: bool):
         """Set loop state in settings."""
-        value = '1' if enabled else '0'
-        self.db_cursor.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES ('loop_enabled', ?)",
-            (value,)
-        )
-        self.db_conn.commit()
+        with self.lock:  # Use lock to ensure thread safety
+            value = '1' if enabled else '0'
+            self.db_cursor.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('loop_enabled', ?)",
+                (value,)
+            )
+            self.db_conn.commit()
 
     def get_existing_files(self) -> set:
         """Get set of all files currently in library."""
-        self.db_cursor.execute('SELECT filepath FROM library')
-        return {row[0] for row in self.db_cursor.fetchall()}
+        with self.lock:  # Use lock to ensure thread safety
+            self.db_cursor.execute('SELECT filepath FROM library')
+            return {row[0] for row in self.db_cursor.fetchall()}
 
     def add_to_library(self, filepath: str, metadata: dict[str, Any]):
         """Add a file to the library with its metadata."""
@@ -100,19 +105,37 @@ class MusicDatabase:
         self.db_conn.commit()
 
     def add_to_queue(self, filepath: str):
-        """Add a file to the queue."""
-        self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (filepath,))
-        self.db_conn.commit()
+        """
+        Add a file to the queue.
+
+        Args:
+            filepath: The path to the audio file to add to the queue
+        """
+        with self.lock:  # Use lock to ensure thread safety
+            # Normalize the path to avoid platform-specific issues
+            abs_path = os.path.abspath(filepath)
+
+            # Check if the item is already in the queue to prevent duplicates
+            self.db_cursor.execute('SELECT filepath FROM queue WHERE filepath = ?', (abs_path,))
+            existing = self.db_cursor.fetchone()
+
+            if not existing:
+                self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (abs_path,))
+                self.db_conn.commit()
+                print(f"Added to queue: {os.path.basename(abs_path)}")
+            else:
+                print(f"Already in queue: {os.path.basename(abs_path)}")
 
     def get_queue_items(self) -> list[tuple]:
         """Get all items in the queue with their metadata."""
-        self.db_cursor.execute('''
-            SELECT q.filepath, l.artist, l.title, l.album, l.track_number, l.date
-            FROM queue q
-            LEFT JOIN library l ON q.filepath = l.filepath
-            ORDER BY q.id
-        ''')
-        return self.db_cursor.fetchall()
+        with self.lock:  # Use lock to ensure thread safety
+            self.db_cursor.execute('''
+                SELECT q.filepath, l.artist, l.title, l.album, l.track_number, l.date
+                FROM queue q
+                LEFT JOIN library l ON q.filepath = l.filepath
+                ORDER BY q.id
+            ''')
+            return self.db_cursor.fetchall()
 
     def get_library_items(self) -> list[tuple]:
         """Get all items in the library with their metadata."""
@@ -177,59 +200,9 @@ class MusicDatabase:
 
     def find_file_by_metadata(self, title: str, artist: str = None, album: str = None, track_num: str = None) -> str | None:
         """Find a file in the library based on its metadata."""
-        # First try exact match
-        query = '''
-            SELECT filepath FROM library
-            WHERE (
-                (title = ? OR (title IS NULL AND ? = '')) AND
-                (artist = ? OR (artist IS NULL AND ? = '')) AND
-                (album = ? OR (album IS NULL AND ? = '')) AND
-                (CASE
-                    WHEN ? != '' THEN
-                        CASE
-                            WHEN track_number LIKE '%/%'
-                            THEN printf('%02d', CAST(substr(track_number, 1, instr(track_number, '/') - 1) AS INTEGER)) = ?
-                            ELSE printf('%02d', CAST(track_number AS INTEGER)) = ?
-                        END
-                    ELSE track_number IS NULL
-                END)
-            )
-        '''
-        self.db_cursor.execute(query, (title, title, artist, artist, album, album, track_num or '', track_num or '', track_num or ''))
-        result = self.db_cursor.fetchone()
-
-        # If no exact match, try matching just the title
-        if not result:
+        with self.lock:  # Use lock to ensure thread safety
+            # First try exact match
             query = '''
-                SELECT filepath FROM library
-                WHERE LOWER(title) = LOWER(?)
-                LIMIT 1
-            '''
-            self.db_cursor.execute(query, (title,))
-            result = self.db_cursor.fetchone()
-
-        return result[0] if result else None
-
-    def find_file_in_queue(self, title: str, artist: str = None) -> str | None:
-        """Find a file in the queue based on its metadata."""
-        query = '''
-            SELECT q.filepath, l.title, l.artist, l.album, l.track_number
-            FROM queue q
-            JOIN library l ON q.filepath = l.filepath
-            WHERE LOWER(l.title) = LOWER(?)
-            AND (LOWER(l.artist) = LOWER(?) OR l.artist IS NULL OR ? = '')
-            ORDER BY q.id
-            LIMIT 1
-        '''
-        self.db_cursor.execute(query, (title, artist or '', artist or ''))
-        result = self.db_cursor.fetchone()
-        return result[0] if result else None
-
-    def remove_from_queue(self, title: str, artist: str = None, album: str = None, track_num: str = None):
-        """Remove a song from the queue based on its metadata."""
-        self.db_cursor.execute('''
-            DELETE FROM queue
-            WHERE filepath IN (
                 SELECT filepath FROM library
                 WHERE (
                     (title = ? OR (title IS NULL AND ? = '')) AND
@@ -245,9 +218,62 @@ class MusicDatabase:
                         ELSE track_number IS NULL
                     END)
                 )
-            )
-        ''', (title, title, artist, artist, album, album, track_num or '', track_num or '', track_num or ''))
-        self.db_conn.commit()
+            '''
+            self.db_cursor.execute(query, (title, title, artist, artist, album, album, track_num or '', track_num or '', track_num or ''))
+            result = self.db_cursor.fetchone()
+
+            # If no exact match, try matching just the title
+            if not result:
+                query = '''
+                    SELECT filepath FROM library
+                    WHERE LOWER(title) = LOWER(?)
+                    LIMIT 1
+                '''
+                self.db_cursor.execute(query, (title,))
+                result = self.db_cursor.fetchone()
+
+            return result[0] if result else None
+
+    def find_file_in_queue(self, title: str, artist: str = None) -> str | None:
+        """Find a file in the queue based on its metadata."""
+        with self.lock:  # Use lock to ensure thread safety
+            query = '''
+                SELECT q.filepath, l.title, l.artist, l.album, l.track_number
+                FROM queue q
+                JOIN library l ON q.filepath = l.filepath
+                WHERE LOWER(l.title) = LOWER(?)
+                AND (LOWER(l.artist) = LOWER(?) OR l.artist IS NULL OR ? = '')
+                ORDER BY q.id
+                LIMIT 1
+            '''
+            self.db_cursor.execute(query, (title, artist or '', artist or ''))
+            result = self.db_cursor.fetchone()
+            return result[0] if result else None
+
+    def remove_from_queue(self, title: str, artist: str = None, album: str = None, track_num: str = None):
+        """Remove a song from the queue based on its metadata."""
+        with self.lock:  # Use lock to ensure thread safety
+            self.db_cursor.execute('''
+                DELETE FROM queue
+                WHERE filepath IN (
+                    SELECT filepath FROM library
+                    WHERE (
+                        (title = ? OR (title IS NULL AND ? = '')) AND
+                        (artist = ? OR (artist IS NULL AND ? = '')) AND
+                        (album = ? OR (album IS NULL AND ? = '')) AND
+                        (CASE
+                            WHEN ? != '' THEN
+                                CASE
+                                    WHEN track_number LIKE '%/%'
+                                    THEN printf('%02d', CAST(substr(track_number, 1, instr(track_number, '/') - 1) AS INTEGER)) = ?
+                                    ELSE printf('%02d', CAST(track_number AS INTEGER)) = ?
+                                END
+                            ELSE track_number IS NULL
+                        END)
+                    )
+                )
+            ''', (title, title, artist, artist, album, album, track_num or '', track_num or '', track_num or ''))
+            self.db_conn.commit()
 
     def update_play_count(self, filepath: str):
         """Increment play count for a song."""
@@ -261,24 +287,77 @@ class MusicDatabase:
         self.db_conn.commit()
 
     def get_metadata_by_filepath(self, filepath: str) -> dict:
-        """Get metadata for a file by its path."""
-        query = """
-            SELECT title, artist, album, track_number, date
-            FROM library
-            WHERE filepath = ?
         """
-        self.db_cursor.execute(query, (filepath,))
-        result = self.db_cursor.fetchone()
+        Get metadata for a file by its path.
 
-        if result:
-            return {
-                'title': result[0],
-                'artist': result[1],
-                'album': result[2],
-                'track_number': result[3],
-                'date': result[4]
-            }
-        return {}
+        Args:
+            filepath: Path to the audio file
+
+        Returns:
+            dict: Dictionary containing metadata fields
+        """
+        with self.lock:  # Use lock to ensure thread safety
+            try:
+                # Normalize the path for consistent lookup
+                abs_path = os.path.abspath(filepath)
+
+                query = """
+                    SELECT title, artist, album, album_artist, track_number, date, duration, play_count
+                    FROM library
+                    WHERE filepath = ?
+                """
+                self.db_cursor.execute(query, (abs_path,))
+                result = self.db_cursor.fetchone()
+
+                if result:
+                    return {
+                        'title': result[0] if result[0] else os.path.basename(abs_path),
+                        'artist': result[1] if result[1] else 'Unknown Artist',
+                        'album': result[2] if result[2] else 'Unknown Album',
+                        'album_artist': result[3],
+                        'track_number': result[4],
+                        'date': result[5],
+                        'duration': result[6] or 0,
+                        'play_count': result[7] or 0
+                    }
+
+                # If not found with absolute path, try with just the filename as a fallback
+                query = """
+                    SELECT title, artist, album, album_artist, track_number, date, duration, play_count
+                    FROM library
+                    WHERE filepath LIKE ?
+                """
+                filename = os.path.basename(abs_path)
+                self.db_cursor.execute(query, (f"%{filename}",))
+                result = self.db_cursor.fetchone()
+
+                if result:
+                    return {
+                        'title': result[0] if result[0] else filename,
+                        'artist': result[1] if result[1] else 'Unknown Artist',
+                        'album': result[2] if result[2] else 'Unknown Album',
+                        'album_artist': result[3],
+                        'track_number': result[4],
+                        'date': result[5],
+                        'duration': result[6] or 0,
+                        'play_count': result[7] or 0
+                    }
+
+                # If still not found, return basic metadata from the filename
+                return {
+                    'title': os.path.splitext(os.path.basename(abs_path))[0],
+                    'artist': 'Unknown Artist',
+                    'album': 'Unknown Album',
+                    'duration': 0
+                }
+            except Exception as e:
+                print(f"Error getting metadata for {filepath}: {e}")
+                return {
+                    'title': os.path.splitext(os.path.basename(filepath))[0],
+                    'artist': 'Unknown Artist',
+                    'album': 'Unknown Album',
+                    'duration': 0
+                }
 
     def find_song_by_title_artist(self, title: str, artist: str = None) -> tuple[str, str, str, str, str] | None:
         """Find a song in the library by title and artist.

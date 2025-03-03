@@ -1,25 +1,55 @@
+#!/usr/bin/env python
+
 import mutagen
-import os
 from core.db import MusicDatabase
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from utils.files import find_audio_files, normalize_path
 
 
 class LibraryManager:
+    """
+    Manager for the music library catalog.
+
+    This class handles operations related to the music library,
+    including adding files, extracting metadata, and querying
+    library items.
+    """
+
     def __init__(self, db: MusicDatabase):
+        """
+        Initialize the library manager.
+
+        Args:
+            db: The database instance for storing library information
+        """
         self.db = db
 
     def get_library_items(self) -> list[tuple]:
-        """Get all items in the library with their metadata."""
+        """
+        Get all items in the library with their metadata.
+
+        Returns:
+            list[tuple]: A list of library items with their metadata
+        """
         return self.db.get_library_items()
 
     def get_existing_files(self) -> set[str]:
-        """Get set of all files currently in library."""
+        """
+        Get set of all files currently in library.
+
+        Returns:
+            set[str]: A set of file paths in the library
+        """
         return self.db.get_existing_files()
 
     def add_files_to_library(self, paths: list[str | Path]) -> None:
-        """Add files to the library with metadata."""
+        """
+        Add files to the library with metadata.
+
+        Args:
+            paths: A list of file or directory paths to add to the library
+        """
         print("\nProcessing paths for library addition:")
         existing_files = self.get_existing_files()
         files_to_add = []  # Use a list to maintain order
@@ -54,11 +84,27 @@ class LibraryManager:
                 self._process_audio_file(file_path)
 
     def find_file_by_metadata(self, title: str, artist: str = None, album: str = None, track_num: str = None) -> str | None:
-        """Find a file in the library based on its metadata."""
+        """
+        Find a file in the library based on its metadata.
+
+        Args:
+            title: The title of the track
+            artist: The artist name (optional)
+            album: The album name (optional)
+            track_num: The track number (optional)
+
+        Returns:
+            str | None: The file path if found, None otherwise
+        """
         return self.db.find_file_by_metadata(title, artist, album, track_num)
 
     def _process_audio_file(self, file_path: str) -> None:
-        """Process a single audio file and add it to the library."""
+        """
+        Process a single audio file and add it to the library.
+
+        Args:
+            file_path: The path to the audio file
+        """
         path_obj = Path(file_path)
         if not path_obj.exists():
             return
@@ -92,7 +138,15 @@ class LibraryManager:
                 print("Skipping duplicate track")
 
     def _extract_metadata(self, audio: mutagen.FileType) -> dict[str, Any]:
-        """Extract metadata from an audio file."""
+        """
+        Extract metadata from an audio file.
+
+        Args:
+            audio: The mutagen audio file object
+
+        Returns:
+            dict[str, Any]: Dictionary containing the extracted metadata
+        """
         metadata = {
             'title': None,
             'artist': None,
