@@ -40,15 +40,26 @@ BUTTON_SYMBOLS = {
 
 # Theme Configuration
 THEME_CONFIG_FILE = Path('themes.json')
-DEFAULT_THEME = 'metro-teal'
+DEFAULT_THEME = "metro-teal"
 ACTIVE_THEME = config('MT_THEME', default=DEFAULT_THEME)
 
 # Load theme data
 with open(THEME_CONFIG_FILE) as f:
     THEMES_DATA = json.load(f)
-    THEME_CONFIG = next(
-        theme for theme in THEMES_DATA['themes'] if ACTIVE_THEME in theme
-    )[ACTIVE_THEME]
+    # Find the theme dictionary containing our desired theme
+    theme_dict = None
+    for theme_data in THEMES_DATA['themes']:
+        if ACTIVE_THEME in theme_data:
+            theme_dict = theme_data[ACTIVE_THEME]
+            break
+
+    # If theme not found, fallback to the first available theme
+    if theme_dict is None and THEMES_DATA['themes']:
+        first_theme_name = list(THEMES_DATA['themes'][0].keys())[0]
+        theme_dict = THEMES_DATA['themes'][0][first_theme_name]
+        print(f"Theme '{ACTIVE_THEME}' not found, falling back to '{first_theme_name}'")
+
+    THEME_CONFIG = theme_dict
 
 # Progress Bar Configuration
 PROGRESS_BAR = {
@@ -101,3 +112,68 @@ MAX_SCAN_DEPTH = 5
 # Player Configuration
 PROGRESS_UPDATE_INTERVAL = 100  # milliseconds
 DEFAULT_LOOP_ENABLED = True
+
+# Application settings
+APP_NAME = "mt"
+VERSION = "1.0.0"
+
+# File extensions recognized as music files
+MUSIC_EXTENSIONS = [
+    ".mp3",
+    ".flac",
+    ".wav",
+    ".ogg",
+    ".m4a",
+    ".aac"
+]
+
+# UI Colors (based on MusicBee screenshots)
+COLORS = {
+    "background": "#1E1E1E",
+    "sidebar_bg": "#252526",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#BBBBBB",
+    "accent": "#0078D7",
+    "selection": "#3A3D41",
+    "divider": "#333333",
+    "player_bg": "#2D2D30",
+}
+
+# UI Settings
+UI_SETTINGS = {
+    "font_family": "Segoe UI",
+    "default_font_size": 14,
+    "small_font_size": 12,
+    "large_font_size": 16,
+    "row_height": 32,
+    "sidebar_width": 220,
+}
+
+# Default paths
+DEFAULT_PATHS = {
+    "music_dir": "~/Music",
+    "downloads_dir": "~/Downloads",
+    "playlists_dir": "~/Music/Playlists",
+}
+
+# Player settings
+PLAYER_SETTINGS = {
+    "volume": 0.7,
+    "crossfade": 5,  # seconds
+    "output_device": "default",
+    "equalizer_enabled": False,
+    "replay_gain": True,
+    "visualizer_enabled": True,
+}
+
+# Column display preferences
+DISPLAY_COLUMNS = [
+    {"name": "#", "width": 40, "visible": True},
+    {"name": "Title", "width": 250, "visible": True},
+    {"name": "Artist", "width": 200, "visible": True},
+    {"name": "Album", "width": 200, "visible": True},
+    {"name": "Genre", "width": 120, "visible": True},
+    {"name": "Year", "width": 80, "visible": True},
+    {"name": "Duration", "width": 80, "visible": True},
+    {"name": "Rating", "width": 100, "visible": True},
+]
