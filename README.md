@@ -16,29 +16,37 @@
   * better, modern styling
     * Use font awesome (fas) icons
 * UX
-  * looping
-    * ~~end of library loopback (w/o prev/next)~~
-    * dedicated loop button
   * performance
     * go / zig / mojo bindings
     * faster directory traversal
     * sqlite vs. duckdb
     * network caching / buffer / prefetch
 * Features
+  * looping
+    * ~~end of library loopback (w/o prev/next)~~
+    * dedicated loop button
   * media keys
   * arrow keys
     * playhead navigation
   * shuffle
   * repeat (1, all)
+  * keyboard shortcuts
+  * library
+    * drag n drop
+    * deduplication
+    * highlight playing track
+    * select one to many tracks
+    * tagging
+      * inline forms
+      * right click > popup menu to edit one to many tracks
+  * queue
+    * dynamic queue order
+    * now playing
+  * last.fm scrobbling
   * search
     * search form
     * dynamic fuzzy search by artist
-  * dynamic queue order
-  * library
-    * deduplication
-  * last.fm scrobbling
   * lyrics
-  * now playing (queue)
   * playlists
     * recently added
     * recently played
