@@ -31,7 +31,8 @@ def safe_path_join(*args) -> str:
     return os.path.join(*args)
 
 
-def app_page(page: ft.Page):
+def main(page: ft.Page):
+    """Main application entry point that receives the page object directly."""
     # Set initial window properties
     page.title = APP_NAME
     page.theme_mode = "dark" if THEME_CONFIG.get('type') == 'dark' else "light"
@@ -71,6 +72,7 @@ def app_page(page: ft.Page):
                             app.player.db.close()
                     except Exception as err:
                         print(f"Error in fallback cleanup: {err}")
+
             # Also handle resize events
             elif e.data == "resize" and hasattr(app, 'page') and hasattr(app.page, 'on_resize'):
                 try:
@@ -81,18 +83,22 @@ def app_page(page: ft.Page):
         except Exception as e:
             print(f"Error in window event handler: {e}")
             traceback.print_exc()
+        finally:
+            # Ensure window is destroyed even if an exception occurs during cleanup
+            if e.data == "close":
+                page.window.destroy()
 
     # Register window event handler
     page.on_window_event = on_window_event
 
 
-def main():
+if __name__ == "__main__":
     try:
-        ft.app(target=app_page)
+        ft.app(
+            target=main,
+            view=ft.AppView.FLET_APP,
+            assets_dir="assets" if os.path.exists("assets") else None,
+        )
     except Exception as e:
         print(f"Error in main: {e}")
         exit(1)
-
-
-if __name__ == "__main__":
-    main()
