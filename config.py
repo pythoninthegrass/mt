@@ -6,6 +6,10 @@ from pathlib import Path
 # Reload app during development
 RELOAD = config('MT_RELOAD', default=False, cast=bool)
 
+# Application settings
+APP_NAME = "mt"
+VERSION = "0.1.0"
+
 # Database Configuration
 DB_NAME = 'mt.db'
 
@@ -18,8 +22,13 @@ AUDIO_EXTENSIONS = {
 }
 
 # Window Configuration
-WINDOW_SIZE = "1366x768"
-WINDOW_TITLE = "mt"
+WINDOW_SIZE = {
+    "width": 1675,
+    "height": 955,
+    "min_width": 1675,
+    "min_height": 955,
+}
+WINDOW_TITLE = APP_NAME
 
 # Button Configuration
 BUTTON_STYLE = {
@@ -112,10 +121,6 @@ MAX_SCAN_DEPTH = 5
 # Player Configuration
 PROGRESS_UPDATE_INTERVAL = 100  # milliseconds
 DEFAULT_LOOP_ENABLED = True
-
-# Application settings
-APP_NAME = "mt"
-VERSION = "0.1.0"
 
 # File extensions recognized as music files
 MUSIC_EXTENSIONS = [

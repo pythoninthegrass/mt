@@ -6,6 +6,7 @@ from config import (
     APP_NAME,
     THEME_CONFIG,
     VERSION,
+    WINDOW_SIZE,
 )
 from core.ui.app import MusicApp
 from utils.common import format_time
@@ -22,10 +23,10 @@ def app_page(page: ft.Page):
     page.theme_mode = "dark" if THEME_CONFIG.get('type') == 'dark' else "light"
     page.padding = 0
     page.spacing = 0
-    page.window.width = 1280
-    page.window.height = 800
-    page.window.min_width = 1000
-    page.window.min_height = 700
+    page.window.width = WINDOW_SIZE["width"]
+    page.window.height = WINDOW_SIZE["height"]
+    page.window.min_width = WINDOW_SIZE["min_width"]
+    page.window.min_height = WINDOW_SIZE["min_height"]
     page.update()
 
     # Create app instance after initial window setup
