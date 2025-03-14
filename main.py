@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import flet as ft
+import os
 import traceback
 from config import (
     APP_NAME,
@@ -8,16 +9,29 @@ from config import (
     VERSION,
     WINDOW_SIZE,
 )
+from core.db import MusicDatabase
 from core.ui.app import MusicApp
+from typing import Optional
 from utils.common import format_time
+
+_db_instance = None
+
+
+def get_db_instance() -> MusicDatabase | None:
+    global _db_instance
+    return _db_instance
+
+
+def set_db_instance(db: MusicDatabase) -> None:
+    global _db_instance
+    _db_instance = db
+
+
+def safe_path_join(*args) -> str:
+    return os.path.join(*args)
 
 
 def app_page(page: ft.Page):
-    """Set up the application page and handle window events.
-
-    Args:
-        page: The Flet page object to configure.
-    """
     # Set initial window properties
     page.title = APP_NAME
     page.theme_mode = "dark" if THEME_CONFIG.get('type') == 'dark' else "light"
@@ -73,7 +87,6 @@ def app_page(page: ft.Page):
 
 
 def main():
-    """Run the application."""
     try:
         ft.app(target=app_page)
     except Exception as e:
