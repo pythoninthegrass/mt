@@ -9,20 +9,23 @@
 
 ## TODO
 
+* DX
+  * add mcp for github and browser-use
+  * flet context
 * UI
   * better, modern styling
     * Use font awesome (fas) icons
-  * ~~split panes~~
-  * ~~app icon~~
 * UX
-  * ~~end of library loopback (w/o prev/next)~~
+  * looping
+    * ~~end of library loopback (w/o prev/next)~~
+    * dedicated loop button
   * performance
+    * go / zig / mojo bindings
     * faster directory traversal
     * sqlite vs. duckdb
     * network caching / buffer / prefetch
 * Features
-  * ~~read ID3 tags~~
-  * ~~media keys~~
+  * media keys
   * arrow keys
     * playhead navigation
   * shuffle
@@ -31,18 +34,17 @@
     * search form
     * dynamic fuzzy search by artist
   * dynamic queue order
-  * ~~library~~
-    * ~~deduplication~~
+  * library
+    * deduplication
   * last.fm scrobbling
-  * mobile remote control
   * lyrics
-  * ~~volume control~~
-    * see fas
   * now playing (queue)
   * playlists
     * recently added
     * recently played
     * top 25 most played
+  * mobile remote control
+  * secret sauce 💸
 * Testing
   * unit tests
   * integration tests
@@ -50,10 +52,9 @@
 * Build
   * task runners
   * package for macos and linux
-    * tkinter initially
-    * tauri once migrated to web app
+    * ~~tkinter initially~~
+    * ~~tauri~~ flet once migrated to web app
   * windows (eventually)
 * CI/CD
   * pre-commit hooks
-  * ~~linting/formatting~~
   * codesigning
