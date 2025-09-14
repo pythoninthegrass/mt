@@ -7,7 +7,8 @@ dotenv: ['.env']
 
 env:
   TLD: "{{.ROOT_DIR}}"
-  VENV_DIR: ".venv"
+  VENV_DIR: "{{.ROOT_DIR}}/.venv"
+  PATH: "{{.VENV_DIR}}/bin:{{.PATH}}"
 
 vars:
 
