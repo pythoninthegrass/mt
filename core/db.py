@@ -322,25 +322,41 @@ class MusicDatabase:
 
         return result
 
-    def is_duplicate(self, metadata: dict[str, Any]) -> bool:
+    def is_duplicate(self, metadata: dict[str, Any], filepath: str = None) -> bool:
         """Check if a track with the same metadata already exists in the library.
 
         Returns:
             bool: True if a duplicate exists, False otherwise
         """
+        # First check if the exact filepath exists
+        if filepath:
+            self.db_cursor.execute('SELECT COUNT(*) FROM library WHERE filepath = ?', (filepath,))
+            if self.db_cursor.fetchone()[0] > 0:
+                return True
+
+        # Only check for duplicate if we have substantial metadata
+        # A track needs at least title AND (artist OR album) to be considered a duplicate
+        has_title = bool(metadata.get('title'))
+        has_artist = bool(metadata.get('artist'))
+        has_album = bool(metadata.get('album'))
+        
+        # If we only have a title (likely from filename), don't consider it a duplicate
+        if has_title and not has_artist and not has_album:
+            return False
+            
         # Build query based on available metadata
         query_parts = []
         params = []
 
-        if metadata.get('title'):
+        if has_title:
             query_parts.append('LOWER(title) = LOWER(?)')
             params.append(metadata['title'])
 
-        if metadata.get('artist'):
+        if has_artist:
             query_parts.append('LOWER(artist) = LOWER(?)')
             params.append(metadata['artist'])
 
-        if metadata.get('album'):
+        if has_album:
             query_parts.append('LOWER(album) = LOWER(?)')
             params.append(metadata['album'])
 

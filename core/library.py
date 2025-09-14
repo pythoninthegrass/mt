@@ -75,7 +75,7 @@ class LibraryManager:
                     print(f"No title found, using filename: {metadata['title']}")
 
                 # Check for duplicates before adding
-                if not self.db.is_duplicate(metadata):
+                if not self.db.is_duplicate(metadata, str(file_path)):
                     # Add to library with metadata
                     self.db.add_to_library(str(file_path), metadata)
                     print("Successfully added to library")
@@ -85,7 +85,7 @@ class LibraryManager:
             print(f"Error reading metadata for {file_path}: {e}")
             # Add file without metadata if there's an error and it's not a duplicate
             basic_metadata = {'title': path_obj.stem}
-            if not self.db.is_duplicate(basic_metadata):
+            if not self.db.is_duplicate(basic_metadata, str(file_path)):
                 self.db.add_to_library(str(file_path), basic_metadata)
                 print("Added to library with filename only")
             else:
@@ -124,6 +124,18 @@ class LibraryManager:
                         'album_artist': str(tags.get('TPE2', [''])[0]) if 'TPE2' in tags else None,
                         'track_number': str(tags.get('TRCK', [''])[0]) if 'TRCK' in tags else None,
                         'date': str(tags.get('TDRC', [''])[0]) if 'TDRC' in tags else None,
+                    })
+                # MP4/M4A tags
+                elif hasattr(tags, '_DictMixin__dict'):  # MP4Tags
+                    # MP4 tags use different keys
+                    metadata.update({
+                        'title': str(tags.get('\xa9nam', [''])[0]) if '\xa9nam' in tags else None,
+                        'artist': str(tags.get('\xa9ART', [''])[0]) if '\xa9ART' in tags else None,
+                        'album': str(tags.get('\xa9alb', [''])[0]) if '\xa9alb' in tags else None,
+                        'album_artist': str(tags.get('aART', [''])[0]) if 'aART' in tags else None,
+                        'track_number': str(tags.get('trkn', [(0, 0)])[0][0]) if 'trkn' in tags and tags['trkn'][0][0] else None,
+                        'track_total': str(tags.get('trkn', [(0, 0)])[0][1]) if 'trkn' in tags and tags['trkn'][0][1] else None,
+                        'date': str(tags.get('\xa9day', [''])[0]) if '\xa9day' in tags else None,
                     })
                 # FLAC, OGG, etc.
                 else:
