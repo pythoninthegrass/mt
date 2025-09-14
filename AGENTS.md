@@ -20,18 +20,17 @@ The project includes a `run.sh` wrapper script that sets these automatically.
 ## Common Development Commands
 
 ### Running the Application
+
 ```bash
-# Using the wrapper script (recommended on macOS)
-./run.sh
-
-# Or directly with environment variables
-TCL_LIBRARY=/opt/homebrew/opt/tcl-tk/lib/tcl8.6 TK_LIBRARY=/opt/homebrew/opt/tcl-tk/lib/tk8.6 uv run main.py
-
-# Standard run (may fail on macOS without env vars)
+# Standard run 
 uv run main.py
+
+# Run main with auto-reload
+uv run tkreload main.py
 ```
 
 ### Development Workflow
+
 ```bash
 # Install dependencies
 uv sync --frozen
@@ -40,13 +39,13 @@ uv sync --frozen
 uv lock --upgrade
 
 # Run linting
-ruff check --fix --respect-gitignore
+uv run ruff check --fix --respect-gitignore
 
 # Run formatting
-ruff format --respect-gitignore
+uv run ruff format --respect-gitignore
 
 # Run tests
-pytest
+uv run pytest -v
 
 # Run pre-commit hooks
 pre-commit run --all-files
@@ -56,6 +55,7 @@ task pyclean
 ```
 
 ### Task Runner Commands
+
 The project uses Taskfile for common operations:
 ```bash
 task lint       # Run linters
