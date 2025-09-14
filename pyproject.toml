@@ -13,10 +13,9 @@ dependencies = [
     "python-vlc>=3.0.21203",
     "tk>=0.1.0",
     "tkinterdnd2>=0.4.2",
-    "ttkbootstrap>=1.10.1",
     "watchdog>=6.0.0",
-    'pyobjc-framework-Cocoa; platform_system == "Darwin"',  # Only on macOS
-    'pyobjc-framework-Quartz; sys_platform == "darwin"',  # For media key support on macOS
+    'pyobjc-framework-Cocoa; platform_system == "Darwin"',
+    'pyobjc-framework-Quartz; sys_platform == "darwin"',
 ]
 
 [project.optional-dependencies]
@@ -28,110 +27,14 @@ dev = [
     "ruff>=0.9.6",
 ]
 
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-check_untyped_defs = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "-v --cov=app --cov-report=term-missing"
-asyncio_mode = "auto"
-
-[tool.ruff]
-# Fix without reporting on leftover violations
-fix-only = true
-
-# Enumerate all fixed violations
-show-fixes = true
-
-# Indent width (default: 4)
-indent-width = 4
-
-# Black (default: 88)
-line-length = 88
-
-# Exclude a variety of commonly ignored directories.
-exclude = [
-    ".bzr",
-    ".direnv",
-    "dist",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    "__pycache__",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
-]
-
-# Assume Python 3.12
-target-version = "py312"
-
-[tool.ruff.format]
-# Use spaces instead of tabs
-indent-style = "space"
-
-# Use `\n` line endings for all files
-line-ending = "lf"
-
-# Set quote style for strings
-quote-style = "preserve"
-
-[tool.ruff.lint]
-select = [
-    # pycodestyle
-    "E",
-    # Pyflakes
-    "F",
-    # pyupgrade
-    "UP",
-    # flake8-bugbear
-    "B",
-    # flake8-simplify
-    "SIM",
-    # isort
-    "I",
-]
-ignore = ["D203", "E203", "E251", "E266", "E401", "E402", "E501", "F401", "F403"]
-
-# Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-# Allow autofix for all enabled rules (when `--fix`) is provided.
-fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TID", "TRY", "UP", "YTT"]
-
-# unfixable = []
-
-[tool.ruff.lint.isort]
-combine-as-imports = true
-from-first = false
-no-sections = true
-order-by-type = true
-
-[tool.ruff.lint.flake8-quotes]
-docstring-quotes = "double"
-
-[tool.ruff.lint.mccabe]
-# Unlike Flake8, default to a complexity level of 10.
-max-complexity = 10
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "core", "utils"]
+include = [
+    "*.py",
+    "static/",
+    "themes.json",
+]
