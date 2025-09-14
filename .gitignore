@@ -3,6 +3,7 @@
 *.db
 *.sqlite
 .ruff*
+CLAUDE.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
