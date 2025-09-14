@@ -124,6 +124,7 @@ class PlayerCore:
         media = self.player.media_new(filepath)
         self.media_player.set_media(media)
         self.media_player.play()
+        self.media_player.set_time(0)  # Ensure track starts from beginning
         self.current_time = 0
         self.is_playing = True
 
@@ -164,8 +165,7 @@ class PlayerCore:
             track, title, artist, album, year = values[:5]
 
             # Check if this item matches the metadata
-            if (title == metadata.get('title') and
-                artist == metadata.get('artist')):
+            if title == metadata.get('title') and artist == metadata.get('artist'):
                 # Found the matching item - select it and make it visible
                 self.queue_view.selection_set(item)
                 self.queue_view.see(item)

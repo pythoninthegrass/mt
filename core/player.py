@@ -49,11 +49,13 @@ if sys.platform == 'darwin':
     try:
         import Quartz
         from utils.mediakeys import MediaKeyController
+
         MEDIA_KEY_SUPPORT = True
     except ImportError:
         MEDIA_KEY_SUPPORT = False
 else:
     MEDIA_KEY_SUPPORT = False
+
 
 class MusicPlayer:
     def __init__(self, window):
@@ -121,19 +123,24 @@ class MusicPlayer:
         )
 
         # Setup progress bar with callbacks
-        self.progress_bar = ProgressBar(self.window, self.progress_frame, {
-            'previous': self.player_core.previous_song,
-            'play': self.play_pause,
-            'next': self.player_core.next_song,
-            'loop': self.player_core.toggle_loop,
-            'add': self.add_files_to_library,
-            'start_drag': self.start_drag,
-            'drag': self.drag,
-            'end_drag': self.end_drag,
-            'click_progress': self.click_progress,
-            'on_resize': self.on_resize,
-            'volume_change': self.volume_change,
-        }, initial_loop_enabled=self.player_core.loop_enabled)
+        self.progress_bar = ProgressBar(
+            self.window,
+            self.progress_frame,
+            {
+                'previous': lambda: (setattr(self, 'target_seek_ratio', None), self.player_core.previous_song()),
+                'play': self.play_pause,
+                'next': lambda: (setattr(self, 'target_seek_ratio', None), self.player_core.next_song()),
+                'loop': self.player_core.toggle_loop,
+                'add': self.add_files_to_library,
+                'start_drag': self.start_drag,
+                'drag': self.drag,
+                'end_drag': self.end_drag,
+                'click_progress': self.click_progress,
+                'on_resize': self.on_resize,
+                'volume_change': self.volume_change,
+            },
+            initial_loop_enabled=self.player_core.loop_enabled,
+        )
 
         # Connect progress bar to player core
         self.player_core.progress_bar = self.progress_bar
@@ -151,17 +158,23 @@ class MusicPlayer:
     def setup_views(self):
         """Setup library and queue views with their callbacks."""
         # Setup library view
-        self.library_view = LibraryView(self.left_panel, {
-            'on_section_select': self.on_section_select,
-        })
+        self.library_view = LibraryView(
+            self.left_panel,
+            {
+                'on_section_select': self.on_section_select,
+            },
+        )
 
         # Setup queue view
-        self.queue_view = QueueView(self.right_panel, {
-            'play_selected': self.play_selected,
-            'handle_delete': self.handle_delete,
-            'on_song_select': self.on_song_select,
-            'handle_drop': self.handle_drop,
-        })
+        self.queue_view = QueueView(
+            self.right_panel,
+            {
+                'play_selected': self.play_selected,
+                'handle_delete': self.handle_delete,
+                'on_song_select': self.on_song_select,
+                'handle_drop': self.handle_drop,
+            },
+        )
 
     def setup_file_watcher(self):
         """Setup file watcher for development mode."""
@@ -246,10 +259,7 @@ class MusicPlayer:
                 row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
 
                 item_id = self.queue_view.queue.insert(
-                    '',
-                    'end',
-                    values=(track_display, title, artist, album or '', year),
-                    tags=(row_tag,)
+                    '', 'end', values=(track_display, title, artist, album or '', year), tags=(row_tag,)
                 )
 
         # Select first item if any were added
@@ -334,9 +344,7 @@ class MusicPlayer:
 
         # Use standard file dialog as fallback
         paths = filedialog.askopenfilenames(
-            title="Select Audio Files",
-            initialdir=start_dir,
-            filetypes=[("Audio Files", ' '.join(file_types))]
+            title="Select Audio Files", initialdir=start_dir, filetypes=[("Audio Files", ' '.join(file_types))]
         )
 
         if paths:
@@ -364,7 +372,7 @@ class MusicPlayer:
                 end = raw_data.find('}', current)
                 if end != -1:
                     # Extract path without braces and handle quotes
-                    path = raw_data[current + 1:end].strip().strip('"')
+                    path = raw_data[current + 1 : end].strip().strip('"')
                     if path:  # Only add non-empty paths
                         paths.append(path)
                     current = end + 1
@@ -405,6 +413,8 @@ class MusicPlayer:
         filepath = self.library_manager.find_file_by_metadata(title, artist, album, track_num)
 
         if filepath and os.path.exists(filepath):
+            # Clear any pending seek operations before starting new track
+            self.target_seek_ratio = None
             self.player_core._play_file(filepath)
             self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
             # Refresh colors to highlight the playing track
@@ -447,6 +457,7 @@ class MusicPlayer:
                     current_filepath = current_filepath[7:]
                 # On macOS, decode URL characters
                 import urllib.parse
+
                 current_filepath = urllib.parse.unquote(current_filepath)
                 print(f"Current playing filepath: {current_filepath}")  # Debug log
 
@@ -457,11 +468,7 @@ class MusicPlayer:
         print(f"Playing colors - bg: {playing_bg}, fg: {playing_fg}")  # Debug log
 
         # Configure the tag style for the playing track
-        self.queue_view.queue.tag_configure(
-            'playing',
-            background=playing_bg,
-            foreground=playing_fg
-        )
+        self.queue_view.queue.tag_configure('playing', background=playing_bg, foreground=playing_fg)
 
         # Configure even/odd row tag styles
         self.queue_view.queue.tag_configure('evenrow', background=THEME_CONFIG['colors']['bg'])
@@ -524,11 +531,12 @@ class MusicPlayer:
             self.progress_bar.progress_control.update_time_display(current_time_fmt, total_time_fmt)
 
         # Otherwise use the normal player position if we're playing and not recently dragged
-        elif (self.player_core.is_playing and
-            self.player_core.media_player.is_playing() and
-            not self.progress_bar.dragging and
-            (current_time - self.progress_bar.last_drag_time) > 0.1):
-
+        elif (
+            self.player_core.is_playing
+            and self.player_core.media_player.is_playing()
+            and not self.progress_bar.dragging
+            and (current_time - self.progress_bar.last_drag_time) > 0.1
+        ):
             current = self.player_core.get_current_time()
             duration = self.player_core.get_duration()
 
@@ -545,7 +553,7 @@ class MusicPlayer:
                     else:
                         # If VLC is too far off from our target, force it back to our target
                         if abs(current - target_time) > 500:  # More than 0.5 seconds off
-                            print(f"Correcting seek: VLC at {current/1000:.2f}s, target {target_time/1000:.2f}s")
+                            print(f"Correcting seek: VLC at {current / 1000:.2f}s, target {target_time / 1000:.2f}s")
                             self.player_core.seek(self.target_seek_ratio)
                             # Force the UI to show our target position
                             self.progress_bar.progress_control.update_progress(self.target_seek_ratio)
@@ -609,17 +617,11 @@ class MusicPlayer:
                 x - circle_radius,
                 bar_y - circle_radius,
                 x + circle_radius,
-                bar_y + circle_radius
+                bar_y + circle_radius,
             )
 
             # Update progress line coordinates (from start to current position)
-            self.progress_bar.canvas.coords(
-                self.progress_bar.progress_line,
-                controls_width,
-                bar_y,
-                x,
-                bar_y
-            )
+            self.progress_bar.canvas.coords(self.progress_bar.progress_line, controls_width, bar_y, x, bar_y)
 
             # Calculate and update the time display during drag for better feedback
             if self.player_core.media_player.get_length() > 0:
@@ -707,21 +709,11 @@ class MusicPlayer:
         circle_radius = self.progress_bar.circle_radius
         bar_y = self.progress_bar.bar_y
         self.progress_bar.canvas.coords(
-            self.progress_bar.progress_circle,
-            x - circle_radius,
-            bar_y - circle_radius,
-            x + circle_radius,
-            bar_y + circle_radius
+            self.progress_bar.progress_circle, x - circle_radius, bar_y - circle_radius, x + circle_radius, bar_y + circle_radius
         )
 
         # Update progress line position
-        self.progress_bar.canvas.coords(
-            self.progress_bar.progress_line,
-            controls_width,
-            bar_y,
-            x,
-            bar_y
-        )
+        self.progress_bar.canvas.coords(self.progress_bar.progress_line, controls_width, bar_y, x, bar_y)
 
     def _seek_to_position(self, x):
         """Seek to a position in the track based on x coordinate."""
@@ -811,7 +803,7 @@ class MusicPlayer:
                         x - circle_radius,
                         bar_y - circle_radius,
                         x + circle_radius,
-                        bar_y + circle_radius
+                        bar_y + circle_radius,
                     )
 
                 # Update progress line
@@ -838,7 +830,7 @@ class MusicPlayer:
                         current_coords[0],
                         current_coords[1],
                         current_coords[2],
-                        current_coords[3]
+                        current_coords[3],
                     )
 
     def volume_change(self, volume):
