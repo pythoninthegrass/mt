@@ -3,6 +3,7 @@
 *.db
 *.sqlite
 .ruff*
+.serena/
 CLAUDE.md
 
 # Byte-compiled / optimized / DLL files
