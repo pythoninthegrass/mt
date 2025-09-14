@@ -2,9 +2,9 @@
 
 import os
 import tkinter as tk
-import ttkbootstrap as ttk
 from core.player import MusicPlayer
 from core.theme import setup_theme
+from tkinter import ttk
 from tkinterdnd2 import TkinterDnD
 
 

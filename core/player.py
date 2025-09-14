@@ -6,7 +6,6 @@ import sys
 import time
 import tkinter as tk
 import tkinter.font as tkfont
-import ttkbootstrap as ttk
 import vlc
 from config import (
     AUDIO_EXTENSIONS,
@@ -39,7 +38,7 @@ from core.queue import QueueManager
 from core.theme import setup_theme
 from core.volume import VolumeControl
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, ttk
 from tkinterdnd2 import DND_FILES, TkinterDnD
 from utils.files import find_audio_files, normalize_path
 from utils.reload import ConfigFileHandler
@@ -64,7 +63,7 @@ class MusicPlayer:
         self.window.minsize(1280, 720)
 
         # Setup theme and styles first
-        setup_theme(self.window)
+        # setup_theme(self.window)  # Commented out - theme should be set up before creating MusicPlayer
 
         # Configure macOS specific appearance
         if sys.platform == 'darwin':

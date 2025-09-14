@@ -1,6 +1,5 @@
 import tkinter as tk
 import tkinter.font as tkfont
-import ttkbootstrap as ttk
 from config import (
     BUTTON_STYLE,
     COLORS,
@@ -8,11 +7,13 @@ from config import (
     PROGRESS_BAR,
     THEME_CONFIG,
 )
+from tkinter import ttk
 
 
 def setup_theme(root):
     """Configure the application theme and styles"""
-    style = ttk.Style(theme='darkly')  # Start with darkly as base
+    # Use standard ttk.Style without ttkbootstrap
+    style = ttk.Style()
 
     # Configure root window and base theme
     root.configure(background=THEME_CONFIG['colors']['bg'])

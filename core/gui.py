@@ -2,7 +2,6 @@ import json
 import os
 import tkinter as tk
 import tkinter.font as tkfont
-import ttkbootstrap as ttk
 from config import (
     BUTTON_STYLE,
     BUTTON_SYMBOLS,
@@ -17,6 +16,7 @@ from core.theme import setup_theme
 from core.volume import VolumeControl
 from decouple import config
 from pathlib import Path
+from tkinter import ttk
 
 
 class PlayerControls:
