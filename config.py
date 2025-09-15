@@ -37,9 +37,30 @@ AUDIO_EXTENSIONS = {
     '.wv',
 }
 
+
 # Window Configuration
-WINDOW_SIZE = "1280x720"
-WINDOW_TITLE = "mt"
+def _validate_window_size(size_str):
+    """Validate and clean window size string to Tkinter geometry format."""
+    import re
+
+    # Remove any non-numeric characters except 'x'
+    cleaned = re.sub(r'[^0-9x]', '', size_str)
+    # Ensure it has exactly one 'x' and valid dimensions
+    if 'x' not in cleaned or cleaned.count('x') != 1:
+        return "1280x720"  # fallback to default
+    width, height = cleaned.split('x')
+    # Ensure both parts are numeric and reasonable
+    try:
+        w, h = int(width), int(height)
+        if w < 100 or h < 100 or w > 7680 or h > 4320:  # reasonable bounds
+            return "1280x720"
+        return f"{w}x{h}"
+    except ValueError:
+        return "1280x720"
+
+
+WINDOW_SIZE = _validate_window_size(config('MT_WINDOW_SIZE', default="1280x720"))
+WINDOW_TITLE = config('MT_WINDOW_TITLE', default="mt")
 
 # Button Configuration
 BUTTON_STYLE = {
@@ -86,9 +107,9 @@ PROGRESS_BAR = {
     'controls_y': 50,
     'button_spacing': 2,
     'progress_bg': THEME_CONFIG['colors'].get('progress_bg', '#404040'),
-    'volume_control_width': 110,    # Width of volume control (icon + slider)
-    'volume_slider_length': 80,     # Length of the volume slider
-    'right_margin': 160,            # Space reserved for time display
+    'volume_control_width': 110,  # Width of volume control (icon + slider)
+    'volume_slider_length': 80,  # Length of the volume slider
+    'right_margin': 160,  # Space reserved for time display
 }
 
 # Listbox Configuration
