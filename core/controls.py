@@ -3,7 +3,9 @@ import tkinter as tk
 import vlc
 from config import BUTTON_SYMBOLS
 from core.db import MusicDatabase
+from core.logging import controls_logger, log_error, log_player_action
 from core.queue import QueueManager
+from eliot import start_action
 
 
 class PlayerCore:
@@ -17,19 +19,34 @@ class PlayerCore:
         self.current_time = 0
         self.was_playing = False
         self.loop_enabled = self.db.get_loop_enabled()
-        self.progress_bar = None  # Will be set by MusicPlayer
-        self.window = None  # Will be set by MusicPlayer
+        self.progress_bar = None
+        self.window = None
 
         # Set up end of track event handler
         self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
 
     def play_pause(self) -> None:
         """Toggle play/pause state."""
+        try:
+            from core.logging import controls_logger, log_player_action
+
+            with start_action(controls_logger, "play_pause"):
+                log_player_action("play_pause", current_state=self.is_playing)
+        except ImportError:
+            pass
+
         if not self.is_playing:
             if self.media_player.get_media() is not None:
                 self.media_player.play()
                 self.is_playing = True
                 self._update_track_info()
+                try:
+                    from core.logging import controls_logger
+                    from eliot import log_message
+
+                    log_message(message_type="playback_started", message="Playback resumed from pause")
+                except ImportError:
+                    pass
             else:
                 filepath = self._get_current_filepath()
                 if filepath:
@@ -38,6 +55,13 @@ class PlayerCore:
             self.current_time = self.media_player.get_time()
             self.media_player.pause()
             self.is_playing = False
+            try:
+                from core.logging import controls_logger
+                from eliot import log_message
+
+                log_message(message_type="playback_paused", message="Playback paused")
+            except ImportError:
+                pass
 
     def next_song(self) -> None:
         """Play the next song in the queue."""

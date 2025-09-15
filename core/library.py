@@ -1,6 +1,7 @@
 import mutagen
 import os
 from core.db import MusicDatabase
+from core.logging import library_logger, log_error, log_file_operation
 from pathlib import Path
 from typing import Any
 from utils.files import find_audio_files, normalize_path
@@ -20,7 +21,16 @@ class LibraryManager:
 
     def add_files_to_library(self, paths: list[str | Path]) -> None:
         """Add files to the library with metadata."""
-        print("\nProcessing paths for library addition:")
+        try:
+            from core.logging import library_logger, log_file_operation
+
+            log_file_operation("scan", "multiple_paths", path_count=len(paths))
+            from eliot import log_message
+
+            log_message(message_type="library_scan_start", path_count=len(paths), message="Starting library scan for new files")
+        except ImportError:
+            print("\nProcessing paths for library addition:")
+
         existing_files = self.get_existing_files()
         files_to_add = []  # Use a list to maintain order
 
@@ -31,25 +41,66 @@ class LibraryManager:
             try:
                 normalized_path = normalize_path(path)
                 path_str = str(normalized_path)
-                print(f"\nChecking path: {path_str}")
+                try:
+                    from core.logging import library_logger
+                    from eliot import log_message
+
+                    log_message(message_type="path_check", path=path_str, exists=normalized_path.exists())
+                except ImportError:
+                    print(f"\nChecking path: {path_str}")
 
                 if normalized_path.exists():
                     if normalized_path.is_dir():
-                        print("Found directory, scanning for audio files...")
+                        try:
+                            from core.logging import library_logger
+                            from eliot import log_message
+
+                            log_message(
+                                message_type="directory_scan", path=path_str, message="Scanning directory for audio files"
+                            )
+                        except ImportError:
+                            print("Found directory, scanning for audio files...")
                         dir_files = find_audio_files(normalized_path)
                         for file_path in dir_files:
                             if file_path not in existing_files:
-                                print(f"Found new audio file: {file_path}")
+                                try:
+                                    from core.logging import library_logger
+                                    from eliot import log_message
+
+                                    log_message(message_type="new_file_found", filepath=file_path, source="directory_scan")
+                                except ImportError:
+                                    print(f"Found new audio file: {file_path}")
                                 files_to_add.append(file_path)
                     elif normalized_path.is_file() and path_str not in existing_files:
-                        print(f"Found new audio file: {path_str}")
+                        try:
+                            from core.logging import library_logger
+                            from eliot import log_message
+
+                            log_message(message_type="new_file_found", filepath=path_str, source="direct_file")
+                        except ImportError:
+                            print(f"Found new audio file: {path_str}")
                         files_to_add.append(path_str)
             except (OSError, PermissionError) as e:
-                print(f"Error accessing path {path}: {e}")
+                try:
+                    from core.logging import log_error
+
+                    log_error(library_logger, e, path=str(path))
+                except ImportError:
+                    print(f"Error accessing path {path}: {e}")
                 continue
 
         if files_to_add:
-            print(f"\nProcessing {len(files_to_add)} new files...")
+            try:
+                from core.logging import library_logger
+                from eliot import log_message
+
+                log_message(
+                    message_type="processing_start",
+                    file_count=len(files_to_add),
+                    message=f"Processing {len(files_to_add)} new files",
+                )
+            except ImportError:
+                print(f"\nProcessing {len(files_to_add)} new files...")
             for file_path in files_to_add:
                 self._process_audio_file(file_path)
 
@@ -117,36 +168,46 @@ class LibraryManager:
                 print("Found tags:", type(tags).__name__)
                 # MP3 (ID3)
                 if isinstance(tags, mutagen.id3.ID3):
-                    metadata.update({
-                        'title': str(tags.get('TIT2', [''])[0]) if 'TIT2' in tags else None,
-                        'artist': str(tags.get('TPE1', [''])[0]) if 'TPE1' in tags else None,
-                        'album': str(tags.get('TALB', [''])[0]) if 'TALB' in tags else None,
-                        'album_artist': str(tags.get('TPE2', [''])[0]) if 'TPE2' in tags else None,
-                        'track_number': str(tags.get('TRCK', [''])[0]) if 'TRCK' in tags else None,
-                        'date': str(tags.get('TDRC', [''])[0]) if 'TDRC' in tags else None,
-                    })
+                    metadata.update(
+                        {
+                            'title': str(tags.get('TIT2', [''])[0]) if 'TIT2' in tags else None,
+                            'artist': str(tags.get('TPE1', [''])[0]) if 'TPE1' in tags else None,
+                            'album': str(tags.get('TALB', [''])[0]) if 'TALB' in tags else None,
+                            'album_artist': str(tags.get('TPE2', [''])[0]) if 'TPE2' in tags else None,
+                            'track_number': str(tags.get('TRCK', [''])[0]) if 'TRCK' in tags else None,
+                            'date': str(tags.get('TDRC', [''])[0]) if 'TDRC' in tags else None,
+                        }
+                    )
                 # MP4/M4A tags
                 elif hasattr(tags, '_DictMixin__dict'):  # MP4Tags
                     # MP4 tags use different keys
-                    metadata.update({
-                        'title': str(tags.get('\xa9nam', [''])[0]) if '\xa9nam' in tags else None,
-                        'artist': str(tags.get('\xa9ART', [''])[0]) if '\xa9ART' in tags else None,
-                        'album': str(tags.get('\xa9alb', [''])[0]) if '\xa9alb' in tags else None,
-                        'album_artist': str(tags.get('aART', [''])[0]) if 'aART' in tags else None,
-                        'track_number': str(tags.get('trkn', [(0, 0)])[0][0]) if 'trkn' in tags and tags['trkn'][0][0] else None,
-                        'track_total': str(tags.get('trkn', [(0, 0)])[0][1]) if 'trkn' in tags and tags['trkn'][0][1] else None,
-                        'date': str(tags.get('\xa9day', [''])[0]) if '\xa9day' in tags else None,
-                    })
+                    metadata.update(
+                        {
+                            'title': str(tags.get('\xa9nam', [''])[0]) if '\xa9nam' in tags else None,
+                            'artist': str(tags.get('\xa9ART', [''])[0]) if '\xa9ART' in tags else None,
+                            'album': str(tags.get('\xa9alb', [''])[0]) if '\xa9alb' in tags else None,
+                            'album_artist': str(tags.get('aART', [''])[0]) if 'aART' in tags else None,
+                            'track_number': str(tags.get('trkn', [(0, 0)])[0][0])
+                            if 'trkn' in tags and tags['trkn'][0][0]
+                            else None,
+                            'track_total': str(tags.get('trkn', [(0, 0)])[0][1])
+                            if 'trkn' in tags and tags['trkn'][0][1]
+                            else None,
+                            'date': str(tags.get('\xa9day', [''])[0]) if '\xa9day' in tags else None,
+                        }
+                    )
                 # FLAC, OGG, etc.
                 else:
-                    metadata.update({
-                        'title': str(tags.get('title', [''])[0]) if 'title' in tags else None,
-                        'artist': str(tags.get('artist', [''])[0]) if 'artist' in tags else None,
-                        'album': str(tags.get('album', [''])[0]) if 'album' in tags else None,
-                        'album_artist': str(tags.get('albumartist', [''])[0]) if 'albumartist' in tags else None,
-                        'track_number': str(tags.get('tracknumber', [''])[0]) if 'tracknumber' in tags else None,
-                        'track_total': str(tags.get('tracktotal', [''])[0]) if 'tracktotal' in tags else None,
-                        'date': str(tags.get('date', [''])[0]) if 'date' in tags else None,
-                    })
+                    metadata.update(
+                        {
+                            'title': str(tags.get('title', [''])[0]) if 'title' in tags else None,
+                            'artist': str(tags.get('artist', [''])[0]) if 'artist' in tags else None,
+                            'album': str(tags.get('album', [''])[0]) if 'album' in tags else None,
+                            'album_artist': str(tags.get('albumartist', [''])[0]) if 'albumartist' in tags else None,
+                            'track_number': str(tags.get('tracknumber', [''])[0]) if 'tracknumber' in tags else None,
+                            'track_total': str(tags.get('tracktotal', [''])[0]) if 'tracktotal' in tags else None,
+                            'date': str(tags.get('date', [''])[0]) if 'date' in tags else None,
+                        }
+                    )
 
         return metadata

@@ -33,10 +33,12 @@ from core.gui import (
     QueueView,
 )
 from core.library import LibraryManager
+from core.logging import log_error, log_file_operation, log_player_action, player_logger
 from core.progress import ProgressControl
 from core.queue import QueueManager
 from core.theme import setup_theme
 from core.volume import VolumeControl
+from eliot import start_action
 from pathlib import Path
 from tkinter import filedialog, ttk
 from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -89,10 +91,18 @@ class MusicPlayer:
 
     def setup_components(self):
         """Initialize and setup all components."""
+        from eliot import log_message
+
+        log_message(message_type="component_init", message="Starting component initialization")
+
         # Initialize database and managers
         self.db = MusicDatabase(DB_NAME, DB_TABLES)
         self.queue_manager = QueueManager(self.db)
         self.library_manager = LibraryManager(self.db)
+
+        from eliot import log_message
+
+        log_message(message_type="component_init", component="database", message="Database and managers initialized")
 
         # Create main container
         self.main_container = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
@@ -189,6 +199,9 @@ class MusicPlayer:
 
     def play_pause(self):
         """Handle play/pause button click."""
+        with start_action(player_logger, "play_pause_action"):
+            log_player_action("play_pause", was_playing=self.player_core.is_playing)
+
         was_playing = self.player_core.is_playing
         self.player_core.play_pause()
 
@@ -200,9 +213,14 @@ class MusicPlayer:
         # Show playback elements if we started playing, hide if we stopped
         if not was_playing and self.player_core.is_playing:
             self.progress_bar.progress_control.show_playback_elements()
+            from eliot import log_message
+            log_message(message_type="playback_state", state="started", message="Playback started")
         elif was_playing and not self.player_core.is_playing:
             # Optional: hide playback elements when paused
             # self.progress_bar.progress_control.hide_playback_elements()
+            from eliot import log_message
+
+            log_message(message_type="playback_state", state="paused", message="Playback paused")
             pass
 
     def on_section_select(self, event):

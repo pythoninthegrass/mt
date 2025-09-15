@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from core.logging import db_logger, log_database_operation, log_error
 from pathlib import Path
 from typing import Any, Optional
 
@@ -33,8 +34,9 @@ DB_TABLES = {
             key TEXT PRIMARY KEY,
             value TEXT
         )
-    '''
+    ''',
 }
+
 
 class MusicDatabase:
     def __init__(self, db_name: str, db_tables: dict[str, str]):
@@ -68,10 +70,7 @@ class MusicDatabase:
     def set_loop_enabled(self, enabled: bool):
         """Set loop state in settings."""
         value = '1' if enabled else '0'
-        self.db_cursor.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES ('loop_enabled', ?)",
-            (value,)
-        )
+        self.db_cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('loop_enabled', ?)", (value,))
         self.db_conn.commit()
 
     def get_existing_files(self) -> set:
@@ -81,23 +80,43 @@ class MusicDatabase:
 
     def add_to_library(self, filepath: str, metadata: dict[str, Any]):
         """Add a file to the library with its metadata."""
-        self.db_cursor.execute('''
+        try:
+            from core.logging import log_database_operation
+
+            log_database_operation("INSERT", "library", filepath=filepath, title=metadata.get('title'))
+        except ImportError:
+            pass
+
+        self.db_cursor.execute(
+            '''
             INSERT INTO library
             (filepath, title, artist, album, album_artist,
             track_number, track_total, date, duration)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            filepath,
-            metadata.get('title'),
-            metadata.get('artist'),
-            metadata.get('album'),
-            metadata.get('album_artist'),
-            metadata.get('track_number'),
-            metadata.get('track_total'),
-            metadata.get('date'),
-            metadata.get('duration')
-        ))
+        ''',
+            (
+                filepath,
+                metadata.get('title'),
+                metadata.get('artist'),
+                metadata.get('album'),
+                metadata.get('album_artist'),
+                metadata.get('track_number'),
+                metadata.get('track_total'),
+                metadata.get('date'),
+                metadata.get('duration'),
+            ),
+        )
         self.db_conn.commit()
+
+        try:
+            from core.logging import db_logger
+            from eliot import log_message
+
+            log_message(
+                message_type="library_add_success", filepath=filepath, title=metadata.get('title'), artist=metadata.get('artist')
+            )
+        except ImportError:
+            pass
 
     def add_to_queue(self, filepath: str):
         """Add a file to the queue."""
@@ -195,7 +214,9 @@ class MusicDatabase:
                 END)
             )
         '''
-        self.db_cursor.execute(query, (title, title, artist, artist, album, album, track_num or '', track_num or '', track_num or ''))
+        self.db_cursor.execute(
+            query, (title, title, artist, artist, album, album, track_num or '', track_num or '', track_num or '')
+        )
         result = self.db_cursor.fetchone()
 
         # If no exact match, try matching just the title
@@ -227,7 +248,8 @@ class MusicDatabase:
 
     def remove_from_queue(self, title: str, artist: str = None, album: str = None, track_num: str = None):
         """Remove a song from the queue based on its metadata."""
-        self.db_cursor.execute('''
+        self.db_cursor.execute(
+            '''
             DELETE FROM queue
             WHERE filepath IN (
                 SELECT filepath FROM library
@@ -246,7 +268,9 @@ class MusicDatabase:
                     END)
                 )
             )
-        ''', (title, title, artist, artist, album, album, track_num or '', track_num or '', track_num or ''))
+        ''',
+            (title, title, artist, artist, album, album, track_num or '', track_num or '', track_num or ''),
+        )
         self.db_conn.commit()
 
     def update_play_count(self, filepath: str):
@@ -271,13 +295,7 @@ class MusicDatabase:
         result = self.db_cursor.fetchone()
 
         if result:
-            return {
-                'title': result[0],
-                'artist': result[1],
-                'album': result[2],
-                'track_number': result[3],
-                'date': result[4]
-            }
+            return {'title': result[0], 'artist': result[1], 'album': result[2], 'track_number': result[3], 'date': result[4]}
         return {}
 
     def find_song_by_title_artist(self, title: str, artist: str = None) -> tuple[str, str, str, str, str] | None:
@@ -339,11 +357,11 @@ class MusicDatabase:
         has_title = bool(metadata.get('title'))
         has_artist = bool(metadata.get('artist'))
         has_album = bool(metadata.get('album'))
-        
+
         # If we only have a title (likely from filename), don't consider it a duplicate
         if has_title and not has_artist and not has_album:
             return False
-            
+
         # Build query based on available metadata
         query_parts = []
         params = []

@@ -1,5 +1,6 @@
 import os
 from core.db import MusicDatabase
+from core.logging import log_queue_operation, queue_logger
 from pathlib import Path
 from utils.files import normalize_path
 
@@ -10,7 +11,22 @@ class QueueManager:
 
     def add_to_queue(self, filepath: str) -> None:
         """Add a file to the queue."""
+        try:
+            from core.logging import log_queue_operation
+
+            log_queue_operation("add", filepath=filepath)
+        except ImportError:
+            pass
+
         self.db.add_to_queue(filepath)
+
+        try:
+            from core.logging import queue_logger
+            from eliot import log_message
+
+            log_message(message_type="queue_add_success", filepath=filepath, message="File added to queue successfully")
+        except ImportError:
+            pass
 
     def remove_from_queue(self, title: str, artist: str = None, album: str = None, track_num: str = None) -> None:
         """Remove a song from the queue based on its metadata."""

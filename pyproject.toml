@@ -7,8 +7,11 @@ authors = [
 ]
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "flask>=3.1.0",
+    "eliot-tree>=24.0.0",
+    "eliot>=1.17.5",
     "mutagen>=1.47.0",
+    'pyobjc-framework-Cocoa; platform_system == "Darwin"',
+    'pyobjc-framework-Quartz; sys_platform == "darwin"',
     "python-decouple>=3.8",
     "python-vlc>=3.0.21203",
     "tk>=0.1.0",
