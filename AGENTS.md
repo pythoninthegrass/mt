@@ -4,7 +4,7 @@ This file provides guidance to LLMs when working with code in this repository.
 
 ## Project Overview
 
-MT is a desktop music player designed for large music collections, built with Python and Tkinter. It uses VLC for audio playback and supports drag-and-drop functionality.
+mt is a desktop music player designed for large music collections, built with Python and Tkinter. It uses VLC for audio playback and supports drag-and-drop functionality.
 
 ## macOS-Specific Environment Setup
 
@@ -27,6 +27,9 @@ uv run main.py
 
 # Run main with auto-reload
 uv run tkreload main.py
+
+# Alternative auto-reload with repeater utility
+uv run python utils/repeater.py
 ```
 
 ### Development Workflow
@@ -120,6 +123,14 @@ The application follows a modular architecture with clear separation of concerns
 - macOS-specific features: media keys, window styling, drag-and-drop
 - Requires Homebrew-installed Tcl/Tk on macOS for tkinterdnd2 compatibility
 
+### Dependencies
+
+- **VLC**: Audio playback engine
+- **tkinterdnd2**: Drag-and-drop functionality
+- **python-decouple**: Environment variable configuration
+- **eliot/eliot-tree**: Structured logging system
+- **watchdog**: File system monitoring for development tools
+
 ## Important Implementation Notes
 
 1. **Tcl/Tk Compatibility**: The project originally used ttkbootstrap but was refactored to use standard tkinter.ttk due to PIL/ImageTk compatibility issues on macOS
@@ -131,3 +142,21 @@ The application follows a modular architecture with clear separation of concerns
 4. **Testing**: Use pytest exclusively (no unittest module) with full type annotations
 
 5. **Code Style**: Maintained by Ruff with specific configuration in pyproject.toml
+
+## Development Tools
+
+### Repeater Utility (`utils/repeater.py`)
+
+- Auto-reloads Tkinter application when Python files are modified
+- Respects .gitignore patterns for intelligent file watching
+- Watches entire project directory recursively
+- Provides better development experience than basic tkreload
+- Usage: `uv run python utils/repeater.py [main_file]`
+
+### Eliot Logging System
+
+- Structured logging for debugging and monitoring
+- Action tracking with `start_action()` context managers
+- Error reporting and file operation logging
+- Available through `eliot` and `eliot-tree` dependencies
+- Gracefully degrades when eliot is not available
