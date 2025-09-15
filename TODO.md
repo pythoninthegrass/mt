@@ -1,25 +1,29 @@
 # TODO
 
+* Miscellaneous
+  * Fix manual tracking causing repeated bars
+    ```bash
+    Current playing filepath: /Users/lance/Desktop/mt/music/01 Strobe.m4a
+    Playing colors - bg: #00343a, fg: #33eeff
+    Found playing item: 01 Strobe by Unknown Artist
+    Correcting seek: VLC at 328.25s, target 326.35s
+    Correcting seek: VLC at 401.59s, target 400.94s
+    ```
 * UI
   * better, modern styling
     * check out [basecoatui](https://basecoatui.com/)
     * use font awesome (fas) icons
-  * ~~split panes~~
-  * ~~app icon~~
   * Adjustable column widths
 * UX
-  * ~~end of library loopback (w/o prev/next)~~
   * performance
     * faster directory traversal
     * sqlite vs. duckdb
     * network caching / buffer / prefetch
 * Features
   * Cross-platform
-    * ~~macos~~/linux
+    * linux
       * ubuntu/wsl
     * windows (maybe)
-  * ~~read ID3 tags~~
-  * ~~media keys~~
   * arrow keys
     * playhead navigation
   * shuffle
@@ -28,12 +32,9 @@
     * search form
     * dynamic fuzzy search by artist
   * dynamic queue order
-  * ~~library~~
-    * ~~deduplication~~
   * last.fm scrobbling
   * mobile remote control
   * lyrics
-  * ~~volume control~~
     * see fas
   * now playing (queue)
   * playlists
@@ -52,5 +53,4 @@
   * windows (eventually)
 * CI/CD
   * pre-commit hooks
-  * ~~linting/formatting~~
   * codesigning
