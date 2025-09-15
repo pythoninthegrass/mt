@@ -233,11 +233,8 @@ class PlayerCore:
             return None
 
         current_selection = self.queue_view.selection()
-        if not current_selection:
-            # If nothing is selected, start with the first item
-            item = children[0]
-        else:
-            item = current_selection[0]
+        # If nothing is selected, start with the first item
+        item = children[0] if not current_selection else current_selection[0]
 
         values = self.queue_view.item(item)['values']
         if not values:
