@@ -11,10 +11,30 @@ DB_NAME = 'mt.db'
 
 # Audio Configuration
 AUDIO_EXTENSIONS = {
-    '.m4a', '.mp3', '.wav', '.ogg', '.wma', '.flac', '.aac',
-    '.ac3', '.dts', '.mpc', '.ape', '.ra', '.mid', '.midi',
-    '.mod', '.3gp', '.aif', '.aiff', '.wv', '.tta', '.m4b',
-    '.m4r', '.mp1', '.mp2'
+    '.3gp',
+    '.aac',
+    '.ac3',
+    '.aif',
+    '.aiff',
+    '.ape',
+    '.dts',
+    '.flac',
+    '.m4a',
+    '.m4b',
+    '.m4r',
+    '.mid',
+    '.midi',
+    '.mod',
+    '.mp1',
+    '.mp2',
+    '.mp3',
+    '.mpc',
+    '.ogg',
+    '.ra',
+    '.tta',
+    '.wav',
+    '.wma',
+    '.wv',
 }
 
 # Window Configuration
@@ -46,9 +66,7 @@ ACTIVE_THEME = config('MT_THEME', default=DEFAULT_THEME)
 # Load theme data
 with open(THEME_CONFIG_FILE) as f:
     THEMES_DATA = json.load(f)
-    THEME_CONFIG = next(
-        theme for theme in THEMES_DATA['themes'] if ACTIVE_THEME in theme
-    )[ACTIVE_THEME]
+    THEME_CONFIG = next(theme for theme in THEMES_DATA['themes'] if ACTIVE_THEME in theme)[ACTIVE_THEME]
 
 # Progress Bar Configuration
 PROGRESS_BAR = {
@@ -68,9 +86,9 @@ PROGRESS_BAR = {
     'controls_y': 50,
     'button_spacing': 2,
     'progress_bg': THEME_CONFIG['colors'].get('progress_bg', '#404040'),
-    'volume_control_width': 110,  # Width of volume control (icon + slider)
-    'volume_slider_length': 80,   # Length of the volume slider
-    'right_margin': 160,          # Space reserved for time display
+    'volume_control_width': 110,    # Width of volume control (icon + slider)
+    'volume_slider_length': 80,     # Length of the volume slider
+    'right_margin': 160,            # Space reserved for time display
 }
 
 # Listbox Configuration

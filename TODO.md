@@ -1,7 +1,7 @@
 # TODO
 
 * Miscellaneous
-  * Fix manual tracking causing repeated bars
+  * ~~Fix manual tracking causing repeated bars~~
     ```bash
     Current playing filepath: /Users/lance/Desktop/mt/music/01 Strobe.m4a
     Playing colors - bg: #00343a, fg: #33eeff
@@ -17,7 +17,8 @@
 * UX
   * performance
     * faster directory traversal
-    * sqlite vs. duckdb
+    * sqlite vs. ~~duckdb~~
+      * terso
     * network caching / buffer / prefetch
 * Features
   * Cross-platform

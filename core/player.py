@@ -85,10 +85,6 @@ class MusicPlayer:
         if sys.platform == 'darwin' and MEDIA_KEY_SUPPORT:
             self.media_key_controller = MediaKeyController(self.window)
 
-        # For tracking seek position
-        self.target_seek_ratio = None
-        self.last_seek_time = 0
-
     def setup_components(self):
         """Initialize and setup all components."""
         from eliot import log_message
@@ -137,9 +133,9 @@ class MusicPlayer:
             self.window,
             self.progress_frame,
             {
-                'previous': lambda: (setattr(self, 'target_seek_ratio', None), self.player_core.previous_song()),
+                'previous': self.player_core.previous_song,
                 'play': self.play_pause,
-                'next': lambda: (setattr(self, 'target_seek_ratio', None), self.player_core.next_song()),
+                'next': self.player_core.next_song,
                 'loop': self.player_core.toggle_loop,
                 'add': self.add_files_to_library,
                 'start_drag': self.start_drag,
@@ -214,6 +210,7 @@ class MusicPlayer:
         if not was_playing and self.player_core.is_playing:
             self.progress_bar.progress_control.show_playback_elements()
             from eliot import log_message
+
             log_message(message_type="playback_state", state="started", message="Playback started")
         elif was_playing and not self.player_core.is_playing:
             # Optional: hide playback elements when paused
@@ -431,8 +428,6 @@ class MusicPlayer:
         filepath = self.library_manager.find_file_by_metadata(title, artist, album, track_num)
 
         if filepath and os.path.exists(filepath):
-            # Clear any pending seek operations before starting new track
-            self.target_seek_ratio = None
             self.player_core._play_file(filepath)
             self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
             # Refresh colors to highlight the playing track
@@ -533,22 +528,7 @@ class MusicPlayer:
             self.window.after(100, self.update_progress)
             return
 
-        # Use target_seek_ratio if it's set and it's been less than 2 seconds since the last seek
-        if self.target_seek_ratio is not None and (current_time - self.last_seek_time < 2.0):
-            # Continue using the target ratio for a short time after seeking
-            ratio = self.target_seek_ratio
-            duration = self.player_core.get_duration()
-
-            # Update progress with our target ratio
-            self.progress_bar.progress_control.update_progress(ratio)
-
-            # Update time display with calculated position
-            current_time_ms = int(duration * ratio)
-            current_time_fmt = self._format_time(current_time_ms / 1000)
-            total_time_fmt = self._format_time(duration / 1000)
-            self.progress_bar.progress_control.update_time_display(current_time_fmt, total_time_fmt)
-
-        # Otherwise use the normal player position if we're playing and not recently dragged
+        # Use the normal player position if we're playing and not recently dragged
         elif (
             self.player_core.is_playing
             and self.player_core.media_player.is_playing()
@@ -560,24 +540,6 @@ class MusicPlayer:
 
             if duration > 0:
                 ratio = current / duration
-
-                # If we have a target_seek_ratio and the player has caught up close enough,
-                # clear the target ratio to resume normal updates
-                if self.target_seek_ratio is not None:
-                    target_time = int(duration * self.target_seek_ratio)
-                    # If we're within 50ms of the target, clear it
-                    if abs(current - target_time) < 50:
-                        self.target_seek_ratio = None
-                    else:
-                        # If VLC is too far off from our target, force it back to our target
-                        if abs(current - target_time) > 500:  # More than 0.5 seconds off
-                            print(f"Correcting seek: VLC at {current / 1000:.2f}s, target {target_time / 1000:.2f}s")
-                            self.player_core.seek(self.target_seek_ratio)
-                            # Force the UI to show our target position
-                            self.progress_bar.progress_control.update_progress(self.target_seek_ratio)
-                            # Schedule next update and return to avoid conflicting updates
-                            self.window.after(100, self.update_progress)
-                            return
 
                 # Use the progress control's update_progress method
                 self.progress_bar.progress_control.update_progress(ratio)
@@ -624,9 +586,6 @@ class MusicPlayer:
             ratio = (x - controls_width) / width
             ratio = max(0, min(ratio, 1))  # Constrain to 0-1
 
-            # Store current target ratio to ensure consistency in visual updates
-            self.target_seek_ratio = ratio
-
             # Update circle position
             circle_radius = self.progress_bar.circle_radius
             bar_y = self.progress_bar.bar_y
@@ -667,10 +626,6 @@ class MusicPlayer:
             # Calculate final ratio
             ratio = (x - self.progress_bar.controls_width) / width
             ratio = max(0, min(ratio, 1))  # Ensure ratio is between 0 and 1
-
-            # Store target seek ratio and timestamp
-            self.target_seek_ratio = ratio
-            self.last_seek_time = time.time()
 
             # Update UI immediately (like in _seek_to_position)
             if self.player_core.media_player.get_length() > 0:
@@ -744,10 +699,6 @@ class MusicPlayer:
         ratio = (x - controls_width) / width
         ratio = max(0, min(ratio, 1))  # Constrain to 0-1
 
-        # Store target seek ratio and timestamp
-        self.target_seek_ratio = ratio
-        self.last_seek_time = time.time()
-
         # Update player position
         if self.player_core.media_player.get_length() > 0:
             # Set a longer timeout after dragging to avoid immediate updates
@@ -806,50 +757,22 @@ class MusicPlayer:
 
         # Update progress line if it exists and we're playing
         if hasattr(self.progress_bar, 'progress_line'):
-            # If we have a stored target_seek_ratio, use it to position progress elements
-            if hasattr(self, 'target_seek_ratio') and self.target_seek_ratio is not None:
-                # Use the stored ratio to calculate the new position
-                max_width = event.width - 260
-                x = controls_width + ((max_width - controls_width) * self.target_seek_ratio)
+            current_coords = self.progress_bar.canvas.coords(self.progress_bar.progress_line)
+            if current_coords and len(current_coords) == 4:
+                # Calculate the max x-position where progress line can go
+                max_x = volume_start_x - 10
 
-                # Update circle position
-                if hasattr(self.progress_bar, 'progress_circle'):
-                    circle_radius = self.progress_bar.circle_radius
-                    bar_y = self.progress_bar.bar_y
-                    self.progress_bar.canvas.coords(
-                        self.progress_bar.progress_circle,
-                        x - circle_radius,
-                        bar_y - circle_radius,
-                        x + circle_radius,
-                        bar_y + circle_radius,
-                    )
+                # Keep progress line within bounds
+                if current_coords[2] > max_x:
+                    current_coords[2] = max_x
 
-                # Update progress line
                 self.progress_bar.canvas.coords(
                     self.progress_bar.progress_line,
-                    controls_width,
-                    self.progress_bar.bar_y,
-                    x,
-                    self.progress_bar.bar_y,
+                    current_coords[0],
+                    current_coords[1],
+                    current_coords[2],
+                    current_coords[3],
                 )
-            # Otherwise just ensure the progress line doesn't extend beyond the volume control
-            else:
-                current_coords = self.progress_bar.canvas.coords(self.progress_bar.progress_line)
-                if current_coords and len(current_coords) == 4:
-                    # Calculate the max x-position where progress line can go
-                    max_x = volume_start_x - 10
-
-                    # Keep progress line within bounds
-                    if current_coords[2] > max_x:
-                        current_coords[2] = max_x
-
-                    self.progress_bar.canvas.coords(
-                        self.progress_bar.progress_line,
-                        current_coords[0],
-                        current_coords[1],
-                        current_coords[2],
-                        current_coords[3],
-                    )
 
     def volume_change(self, volume):
         """Handle volume slider changes."""
