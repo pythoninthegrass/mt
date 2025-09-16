@@ -6,17 +6,6 @@ This file provides guidance to LLMs when working with code in this repository.
 
 mt is a desktop music player designed for large music collections, built with Python and Tkinter. It uses VLC for audio playback and supports drag-and-drop functionality.
 
-## macOS-Specific Environment Setup
-
-On macOS, the application requires specific environment variables to run correctly due to Tcl/Tk dependencies:
-
-```bash
-export TCL_LIBRARY=/opt/homebrew/opt/tcl-tk/lib/tcl8.6
-export TK_LIBRARY=/opt/homebrew/opt/tcl-tk/lib/tk8.6
-```
-
-The project includes a `run.sh` wrapper script that sets these automatically.
-
 ## Common Development Commands
 
 ### Running the Application
