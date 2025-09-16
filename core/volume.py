@@ -18,9 +18,9 @@ class VolumeControl:
         self.volume_slider_width = 80
         self.volume_slider_padding = self.volume_circle_radius
         self.volume_slider_start = 0  # Will be set during setup
-        self.volume_slider_end = 0    # Will be set during setup
-        self.volume_line_start = 0    # Will be set during setup
-        self.volume_line_end = 0      # Will be set during setup
+        self.volume_slider_end = 0  # Will be set during setup
+        self.volume_line_start = 0  # Will be set during setup
+        self.volume_line_end = 0  # Will be set during setup
 
         # UI elements - will be created during setup
         self.volume_icon = None
@@ -51,7 +51,7 @@ class VolumeControl:
             text=self.button_symbols['volume'],
             font=('TkDefaultFont', 12),
             bg=self.theme_config['colors']['bg'],
-            fg=self.theme_config['colors']['primary']
+            fg=self.theme_config['colors']['primary'],
         )
         self.volume_icon.place(x=volume_x_start - 25, y=self.bar_y - 10)  # Position icon to the left of slider
 
@@ -84,12 +84,12 @@ class VolumeControl:
             fill='black',  # Black fill as requested
             outline='white',  # White outline as requested
             width=1,  # Outline width
-            tags=('volume_circle',)  # Add tag for easier reference
+            tags=('volume_circle',),  # Add tag for easier reference
         )
 
         # Set proper z-order
         self.canvas.tag_raise(self.volume_line_fg)  # Foreground above background
-        self.canvas.tag_raise(self.volume_circle)    # Circle above lines
+        self.canvas.tag_raise(self.volume_circle)  # Circle above lines
 
         # Store volume control coordinates for later reference
         self.volume_x_start = volume_x_start
@@ -108,7 +108,7 @@ class VolumeControl:
             self.bar_y + 10,
             fill='',  # Transparent fill
             outline='',  # No outline
-            tags=('volume_hitbox',)
+            tags=('volume_hitbox',),
         )
 
         # Ensure volume hitbox is above progress hitbox to capture events first

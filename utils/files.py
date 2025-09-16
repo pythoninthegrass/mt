@@ -21,6 +21,7 @@ def normalize_path(path_str):
 
     return Path(path_str)
 
+
 def find_audio_files(directory, max_depth=MAX_SCAN_DEPTH):
     found_files = []
     base_path = normalize_path(directory)

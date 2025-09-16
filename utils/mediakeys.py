@@ -16,27 +16,32 @@ NX_KEYTYPE_PREVIOUS = 18
 NX_KEYTYPE_FAST = 19
 NX_KEYTYPE_REWIND = 20
 
+
 def HIDPostAuxKey(key):
     """Post a media key event to the system."""
+
     def doKey(down):
         ev = Quartz.NSEvent.otherEventWithType_location_modifierFlags_timestamp_windowNumber_context_subtype_data1_data2_(
             NSSystemDefined,  # type
             (0, 0),  # location
-            0xa00 if down else 0xb00,  # flags
+            0xA00 if down else 0xB00,  # flags
             0,  # timestamp
             0,  # window
             0,  # ctx
             8,  # subtype
-            (key << 16) | ((0xa if down else 0xb) << 8),  # data1
-            -1  # data2
+            (key << 16) | ((0xA if down else 0xB) << 8),  # data1
+            -1,  # data2
         )
         cev = ev.CGEvent()
         Quartz.CGEventPost(0, cev)
+
     doKey(True)
     doKey(False)
 
+
 class EventHandler(NSObject):
     """Event handler for media key events."""
+
     def initWithController_(self, controller):
         self = objc.super(EventHandler, self).init()
         if self is None:
@@ -55,8 +60,10 @@ class EventHandler(NSObject):
                 self.controller.handle_media_key(key_code)
         return event
 
+
 class MediaKeyController:
     """Controller for handling media key events."""
+
     def __init__(self, window):
         print("Initializing MediaKeyController")  # Debug log
         self.window = window
@@ -127,6 +134,7 @@ class MediaKeyController:
         except Exception as e:
             print(f"Error handling media key: {e}")
             import traceback
+
             traceback.print_exc()  # Print full stack trace for debugging
 
     def post_media_key(self, command):
@@ -136,7 +144,7 @@ class MediaKeyController:
             'next': NX_KEYTYPE_NEXT,
             'prev': NX_KEYTYPE_PREVIOUS,
             'volup': NX_KEYTYPE_SOUND_UP,
-            'voldown': NX_KEYTYPE_SOUND_DOWN
+            'voldown': NX_KEYTYPE_SOUND_DOWN,
         }
 
         if command in key_map:

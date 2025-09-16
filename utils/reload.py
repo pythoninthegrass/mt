@@ -60,6 +60,7 @@ class ConfigFileHandler(FileSystemEventHandler):
             if self.app_instance and self.app_instance.window:
                 self.app_instance.window.destroy()
                 from main import main
+
                 main()
         except Exception as e:
             print(f"Error restarting application: {e}")

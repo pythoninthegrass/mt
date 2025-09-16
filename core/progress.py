@@ -81,7 +81,7 @@ class ProgressControl:
             self.bar_y + 10,
             fill='',  # Transparent fill
             outline='',  # No outline
-            tags=('progress_hitbox',)
+            tags=('progress_hitbox',),
         )
 
         # Bind click to the hitbox
@@ -237,7 +237,4 @@ class ProgressControl:
 
     def update_time_display(self, current_time, total_time):
         """Update the time display with formatted times"""
-        self.canvas.itemconfig(
-            self.time_text,
-            text=f"{current_time} / {total_time}"
-        )
+        self.canvas.itemconfig(self.time_text, text=f"{current_time} / {total_time}")

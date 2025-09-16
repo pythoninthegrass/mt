@@ -48,7 +48,7 @@ class PlayerControls:
                 text=symbol,
                 font=BUTTON_STYLE['font'],
                 fg=THEME_CONFIG['colors']['fg'],
-                bg=THEME_CONFIG['colors']['bg']
+                bg=THEME_CONFIG['colors']['bg'],
             )
             button.place(x=x_position, y=y_position)
 
@@ -79,7 +79,7 @@ class PlayerControls:
             text=BUTTON_SYMBOLS['add'],
             font=BUTTON_STYLE['font'],
             fg=THEME_CONFIG['colors']['fg'],
-            bg=THEME_CONFIG['colors']['bg']
+            bg=THEME_CONFIG['colors']['bg'],
         )
         self.add_button.place(x=canvas_width - 60, y=y_position)
         self.add_button.bind('<Button-1>', lambda e: self.callbacks['add']())
@@ -92,14 +92,15 @@ class PlayerControls:
             text=BUTTON_SYMBOLS['loop'],
             font=BUTTON_STYLE['font'],
             fg=THEME_CONFIG['colors']['fg'],  # Start with default color
-            bg=THEME_CONFIG['colors']['bg']
+            bg=THEME_CONFIG['colors']['bg'],
         )
         self.loop_button.place(x=canvas_width - 120, y=y_position)
         self.loop_button.bind('<Button-1>', lambda e: self.callbacks['loop']())
         self.loop_button.bind('<Enter>', lambda e: self.loop_button.configure(fg=THEME_CONFIG['colors']['primary']))
-        self.loop_button.bind('<Leave>', lambda e: self.loop_button.configure(
-            fg=COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled']
-        ))
+        self.loop_button.bind(
+            '<Leave>',
+            lambda e: self.loop_button.configure(fg=COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled']),
+        )
 
         # Force update loop button color after creation
         self.update_loop_button_color(self.loop_enabled)
@@ -108,33 +109,47 @@ class PlayerControls:
         self.utility_width = 120
 
     def _on_canvas_resize(self, event):
-        """Recenter the buttons vertically and reposition utility controls when canvas is resized."""
-        if not all([self.add_button, self.loop_button]):
+        """Recenter the buttons vertically and reposition all controls when canvas is resized."""
+        if not all([self.add_button, self.loop_button, self.play_button]):
             return
 
-        # Update all button positions
-        for button in self.canvas.winfo_children():
-            if isinstance(button, tk.Label):
-                # Calculate new y position
-                new_y = (event.height - button.winfo_reqheight()) // 2
+        # Calculate new y position (centered vertically)
+        new_y = (event.height - 25) // 2  # 25 is approximate button height
 
-                # For utility controls, update x position from right
-                if button == self.add_button:
-                    new_x = event.width - 60
-                    button.place(x=new_x, y=new_y)
-                elif button == self.loop_button:
-                    new_x = event.width - 120
-                    button.place(x=new_x, y=new_y)
-                else:
-                    # For playback controls, keep x position
-                    button.place(y=new_y)
+        # Calculate positions relative to canvas width
+        canvas_width = event.width
+
+        # Utility controls are positioned from the right
+        # Add button at right edge minus padding
+        add_x = canvas_width - 60
+        self.add_button.place(x=add_x, y=new_y)
+
+        # Loop button to the left of add button
+        loop_x = canvas_width - 120
+        self.loop_button.place(x=loop_x, y=new_y)
+
+        # Playback controls are positioned from the left, maintaining relative spacing
+        # Find playback control buttons (they are tk.Label widgets that are not add_button or loop_button)
+        playback_buttons = []
+        for child in self.canvas.winfo_children():
+            if isinstance(child, tk.Label) and child not in [self.add_button, self.loop_button]:
+                playback_buttons.append(child)
+
+        # Position playback controls with the same spacing as initial setup
+        x_position = 10  # Same as initial setup
+        for button in playback_buttons:
+            button.place(x=x_position, y=new_y)
+            # Use the same spacing calculation as setup_playback_controls
+            x_position += button.winfo_reqwidth() + 5
+
+        # Update controls width for progress bar calculations
+        self.controls_width = x_position + 15  # Same as initial setup
 
     def update_loop_button_color(self, loop_enabled):
         """Update loop button color based on loop state."""
         self.loop_enabled = loop_enabled  # Update the internal state
-        self.loop_button.configure(
-            fg=COLORS['loop_enabled'] if loop_enabled else COLORS['loop_disabled']
-        )
+        self.loop_button.configure(fg=COLORS['loop_enabled'] if loop_enabled else COLORS['loop_disabled'])
+
 
 class ProgressBar:
     def __init__(self, window, progress_frame, callbacks, initial_loop_enabled=True):
@@ -169,14 +184,14 @@ class ProgressBar:
                 'colors': THEME_CONFIG['colors'],
                 'progress_bg': PROGRESS_BAR['progress_bg'],
                 'time_label_y': PROGRESS_BAR['time_label_y'],
-                'track_info_y': PROGRESS_BAR['track_info_y']
+                'track_info_y': PROGRESS_BAR['track_info_y'],
             },
             {
                 'start_drag': self.callbacks['start_drag'],
                 'drag': self.callbacks['drag'],
                 'end_drag': self.callbacks['end_drag'],
-                'click_progress': self.callbacks['click_progress']
-            }
+                'click_progress': self.callbacks['click_progress'],
+            },
         )
         self.progress_control.set_controls_width(self.controls_width)
 
@@ -202,7 +217,12 @@ class ProgressBar:
         # Calculate positions with proper spacing
         progress_end_x = self.canvas.coords(self.line)[2]  # End of progress line
 
-        # Calculate volume position with proper spacing (centered between progress and loop)
+        # Calculate volume position accounting for utility controls width
+        canvas_width = self.canvas.winfo_width()
+        utility_controls_width = self.controls.utility_width  # Width reserved for loop and add buttons
+        available_space = canvas_width - utility_controls_width - progress_end_x - 40  # 40 for padding
+
+        # Position volume control with proper spacing, ensuring it doesn't overlap with utility controls
         volume_x_start = progress_end_x + 40  # Add padding after progress line
 
         # Create volume control
@@ -212,7 +232,7 @@ class ProgressBar:
             self.circle_radius,
             BUTTON_SYMBOLS,
             THEME_CONFIG,
-            {'volume_change': self.callbacks['volume_change']}
+            {'volume_change': self.callbacks['volume_change']},
         )
         self.volume_control.setup_volume_control(volume_x_start, PROGRESS_BAR['volume_slider_length'])
 
@@ -230,12 +250,24 @@ class ProgressBar:
 
     def on_resize(self, event):
         """Handle window resize."""
+        # Update control button positions first
+        if hasattr(self, 'controls'):
+            # The controls _on_canvas_resize method will update controls_width
+            self.controls._on_canvas_resize(event)
+            # Update progress control with new controls width
+            self.progress_control.set_controls_width(self.controls.controls_width)
+
         # Update progress bar positions
         self.progress_control.update_positions()
 
-        # Calculate positions for volume control
+        # Calculate positions for volume control, accounting for utility controls
         progress_end_x = self.canvas.coords(self.line)[2]
-        volume_x_start = progress_end_x + 40  # Add padding after progress line
+        canvas_width = event.width
+        utility_controls_width = self.controls.utility_width  # Width reserved for loop and add buttons
+
+        # Ensure volume control doesn't overlap with utility controls
+        max_volume_x = canvas_width - utility_controls_width - PROGRESS_BAR['volume_control_width'] - 20  # 20 for padding
+        volume_x_start = min(progress_end_x + 40, max_volume_x)  # Add padding but don't exceed max position
 
         # Update volume control positions
         if hasattr(self, 'volume_control'):
@@ -258,29 +290,19 @@ class LibraryView:
 
     def setup_library_view(self):
         # Create treeview for library/playlists
-        self.library_tree = ttk.Treeview(
-            self.parent, show='tree', selectmode='browse'
-        )
+        self.library_tree = ttk.Treeview(self.parent, show='tree', selectmode='browse')
         self.library_tree.pack(expand=True, fill=tk.BOTH)
 
         # Library section
         library_id = self.library_tree.insert('', 'end', text='Library', open=True)
         music_item = self.library_tree.insert(library_id, 'end', text='Music', tags=('music',))
-        self.library_tree.insert(
-            library_id, 'end', text='Now Playing', tags=('now_playing',)
-        )
+        self.library_tree.insert(library_id, 'end', text='Now Playing', tags=('now_playing',))
 
         # Playlists section
         playlists_id = self.library_tree.insert('', 'end', text='Playlists', open=True)
-        self.library_tree.insert(
-            playlists_id, 'end', text='Recently Added', tags=('recent_added',)
-        )
-        self.library_tree.insert(
-            playlists_id, 'end', text='Recently Played', tags=('recent_played',)
-        )
-        self.library_tree.insert(
-            playlists_id, 'end', text='Top 25 Most Played', tags=('top_played',)
-        )
+        self.library_tree.insert(playlists_id, 'end', text='Recently Added', tags=('recent_added',))
+        self.library_tree.insert(playlists_id, 'end', text='Recently Played', tags=('recent_played',))
+        self.library_tree.insert(playlists_id, 'end', text='Top 25 Most Played', tags=('top_played',))
 
         # Select Music by default
         self.library_tree.selection_set(music_item)
@@ -288,7 +310,7 @@ class LibraryView:
         # Trigger the selection event to load the library
         self.library_tree.event_generate('<<TreeviewSelect>>')
 
-        # Calculate optimal width
+        # Calculate optimal width based on content
         items = [
             'Library',
             'Music',
@@ -311,21 +333,21 @@ class LibraryView:
         max_indent_level = 2
         side_padding = 0
 
-        total_width = (
-            text_width
-            + (indent_width * max_indent_level)
-            + icon_width
-            + side_padding
-        )
+        total_width = text_width + (indent_width * max_indent_level) + icon_width + side_padding
 
-        pane_width = total_width + 40
+        # Set minimum width (breakpoint) - this is the width the panel should maintain
+        self.min_width = total_width + 40
 
-        # Configure width
-        self.parent.configure(width=pane_width)
+        # Configure the parent frame with minimum width
+        self.parent.configure(width=self.min_width)
         self.parent.pack_propagate(False)
+
+        # Store reference for resize handling
+        self._parent_frame = self.parent
 
         # Bind selection event
         self.library_tree.bind('<<TreeviewSelect>>', self.callbacks['on_section_select'])
+
 
 class QueueView:
     def __init__(self, parent, callbacks):
@@ -349,7 +371,7 @@ class QueueView:
             show='headings',
             selectmode='extended',
             yscrollcommand=self.scrollbar.set,
-            style='Treeview'  # Explicit style name
+            style='Treeview',  # Explicit style name
         )
 
         # Enable alternating row colors
@@ -389,6 +411,7 @@ class QueueView:
         """Select all items in the queue."""
         self.queue.selection_set(self.queue.get_children())
         return "break"  # Prevent default handling
+
 
 class MusicPlayer:
     def __init__(self, window: tk.Tk, theme_manager):

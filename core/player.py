@@ -106,14 +106,19 @@ class MusicPlayer:
 
         # Create left panel (Library/Playlists)
         self.left_panel = ttk.Frame(self.main_container)
-        self.main_container.add(self.left_panel, weight=1)
+        self.main_container.add(self.left_panel, weight=0)  # weight=0 means it won't expand
 
         # Create right panel (Content)
         self.right_panel = ttk.Frame(self.main_container)
-        self.main_container.add(self.right_panel, weight=3)
+        self.main_container.add(self.right_panel, weight=1)  # weight=1 means it will expand
 
         # Setup views with callbacks first
         self.setup_views()
+
+        # Set minimum width for left panel based on library view content
+        if hasattr(self.library_view, 'min_width'):
+            # Set the left panel width to the calculated minimum
+            self.left_panel.configure(width=self.library_view.min_width)
 
         # Initialize player core after views are set up
         self.player_core = PlayerCore(self.db, self.queue_manager, self.queue_view.queue)
