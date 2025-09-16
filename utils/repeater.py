@@ -197,6 +197,10 @@ def main():
     try:
         while observer.is_alive():
             observer.join(1)
+            # Check if the subprocess has terminated
+            if event_handler.process and event_handler.process.poll() is not None:
+                print("\nApplication exited, stopping reloader...")
+                break
     except KeyboardInterrupt:
         print("\nStopping observer...")
     finally:
