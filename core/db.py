@@ -73,6 +73,57 @@ class MusicDatabase:
         self.db_cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('loop_enabled', ?)", (value,))
         self.db_conn.commit()
 
+    def get_ui_preference(self, key: str, default: str = '') -> str:
+        """Get a UI preference value from settings."""
+        self.db_cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
+        result = self.db_cursor.fetchone()
+        return result[0] if result else default
+
+    def set_ui_preference(self, key: str, value: str):
+        """Set a UI preference value in settings."""
+        self.db_cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        self.db_conn.commit()
+
+    def get_window_size(self) -> tuple[int, int] | None:
+        """Get saved window size."""
+        size_str = self.get_ui_preference('window_size')
+        if size_str:
+            try:
+                width, height = size_str.split('x')
+                return (int(width), int(height))
+            except ValueError:
+                pass
+        return None
+
+    def set_window_size(self, width: int, height: int):
+        """Save window size."""
+        self.set_ui_preference('window_size', f'{width}x{height}')
+
+    def get_left_panel_width(self) -> int | None:
+        """Get saved left panel width."""
+        width_str = self.get_ui_preference('left_panel_width')
+        return int(width_str) if width_str else None
+
+    def set_left_panel_width(self, width: int):
+        """Save left panel width."""
+        self.set_ui_preference('left_panel_width', str(width))
+
+    def get_queue_column_widths(self) -> dict[str, int]:
+        """Get saved queue column widths."""
+        widths = {}
+        self.db_cursor.execute("SELECT key, value FROM settings WHERE key LIKE 'queue_col_%'")
+        for key, value in self.db_cursor.fetchall():
+            col_name = key.replace('queue_col_', '')
+            try:
+                widths[col_name] = int(value)
+            except ValueError:
+                pass
+        return widths
+
+    def set_queue_column_width(self, column: str, width: int):
+        """Save queue column width."""
+        self.set_ui_preference(f'queue_col_{column}', str(width))
+
     def get_existing_files(self) -> set:
         """Get set of all files currently in library."""
         self.db_cursor.execute('SELECT filepath FROM library')
@@ -194,7 +245,9 @@ class MusicDatabase:
         ''')
         return self.db_cursor.fetchall()
 
-    def find_file_by_metadata(self, title: str, artist: str = None, album: str = None, track_num: str = None) -> str | None:
+    def find_file_by_metadata(
+        self, title: str, artist: Optional[str] = None, album: Optional[str] = None, track_num: Optional[str] = None
+    ) -> str | None:
         """Find a file in the library based on its metadata."""
         # First try exact match
         query = '''
@@ -231,7 +284,7 @@ class MusicDatabase:
 
         return result[0] if result else None
 
-    def find_file_in_queue(self, title: str, artist: str = None) -> str | None:
+    def find_file_in_queue(self, title: str, artist: Optional[str] = None) -> str | None:
         """Find a file in the queue based on its metadata."""
         query = '''
             SELECT q.filepath, l.title, l.artist, l.album, l.track_number
@@ -246,7 +299,9 @@ class MusicDatabase:
         result = self.db_cursor.fetchone()
         return result[0] if result else None
 
-    def remove_from_queue(self, title: str, artist: str = None, album: str = None, track_num: str = None):
+    def remove_from_queue(
+        self, title: str, artist: Optional[str] = None, album: Optional[str] = None, track_num: Optional[str] = None
+    ):
         """Remove a song from the queue based on its metadata."""
         self.db_cursor.execute(
             '''
@@ -298,7 +353,7 @@ class MusicDatabase:
             return {'title': result[0], 'artist': result[1], 'album': result[2], 'track_number': result[3], 'date': result[4]}
         return {}
 
-    def find_song_by_title_artist(self, title: str, artist: str = None) -> tuple[str, str, str, str, str] | None:
+    def find_song_by_title_artist(self, title: str, artist: Optional[str] = None) -> tuple[str, str, str, str, str] | None:
         """Find a song in the library by title and artist.
 
         Returns:
@@ -340,7 +395,7 @@ class MusicDatabase:
 
         return result
 
-    def is_duplicate(self, metadata: dict[str, Any], filepath: str = None) -> bool:
+    def is_duplicate(self, metadata: dict[str, Any], filepath: Optional[str] = None) -> bool:
         """Check if a track with the same metadata already exists in the library.
 
         Returns:

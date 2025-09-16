@@ -355,6 +355,19 @@ class QueueView:
         self.callbacks = callbacks
         self.setup_queue_view()
 
+    def load_column_preferences(self):
+        """Load saved column widths from database."""
+        try:
+            from core.db import MusicDatabase, DB_TABLES
+            from config import DB_NAME
+
+            db = MusicDatabase(DB_NAME, DB_TABLES)
+            saved_widths = db.get_queue_column_widths()
+            db.close()
+            return saved_widths
+        except Exception:
+            return None
+
     def setup_queue_view(self):
         # Create queue frame and treeview
         self.queue_frame = ttk.Frame(self.parent)
@@ -385,11 +398,21 @@ class QueueView:
         self.queue.heading('album', text='Album')
         self.queue.heading('year', text='Year')
 
+        # Set minimal default widths - will be overridden by saved preferences
         self.queue.column('track', width=50, anchor='center')
-        self.queue.column('title', width=300)
-        self.queue.column('artist', width=200)
-        self.queue.column('album', width=200)
-        self.queue.column('year', width=100, anchor='center')
+        self.queue.column('title', width=200, minwidth=100)
+        self.queue.column('artist', width=150, minwidth=80)
+        self.queue.column('album', width=150, minwidth=80)
+        self.queue.column('year', width=80, minwidth=60, anchor='center')
+
+        # Load and apply saved column preferences immediately
+        saved_widths = self.load_column_preferences()
+        if saved_widths:
+            for col_name, width in saved_widths.items():
+                try:
+                    self.queue.column(col_name, width=width)
+                except Exception:
+                    pass
 
         self.queue.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
         self.scrollbar.config(command=self.queue.yview)
@@ -403,6 +426,30 @@ class QueueView:
         self.queue.bind('<Command-a>', self.select_all)  # macOS
         self.queue.bind('<Control-a>', self.select_all)  # Windows/Linux
 
+        # Add column resize handling with periodic check
+        self._last_column_widths = self.get_column_widths()
+        self._column_check_timer = None
+        # Don't start periodic check yet - will be started after preferences are loaded
+
+        # Bind to Map event to apply saved preferences when widget becomes visible
+        self.queue.bind('<Map>', self._on_treeview_mapped)
+
+    def _on_treeview_mapped(self, event=None):
+        """Called when the Treeview becomes visible."""
+        # Apply saved preferences if available
+        if hasattr(self, '_pending_column_widths') and self._pending_column_widths:
+            for col_name, width in self._pending_column_widths.items():
+                try:
+                    self.queue.column(col_name, width=width)
+                except Exception:
+                    pass
+            self._last_column_widths = self.get_column_widths()
+            self._pending_column_widths = None
+
+    def start_column_check(self):
+        """Start the periodic column width checking."""
+        self.schedule_column_check()
+
         # Setup drag and drop
         self.queue.drop_target_register('DND_Files')
         self.queue.dnd_bind('<<Drop>>', self.callbacks['handle_drop'])
@@ -411,6 +458,45 @@ class QueueView:
         """Select all items in the queue."""
         self.queue.selection_set(self.queue.get_children())
         return "break"  # Prevent default handling
+
+    def get_column_widths(self):
+        """Get current column widths."""
+        widths = {}
+        for col in ['track', 'title', 'artist', 'album', 'year']:
+            try:
+                widths[col] = self.queue.column(col, 'width')
+            except Exception:
+                pass
+        return widths
+
+    def schedule_column_check(self):
+        """Schedule periodic check for column width changes."""
+        if self._column_check_timer:
+            self.queue.after_cancel(self._column_check_timer)
+        self._column_check_timer = self.queue.after(1000, self.check_column_changes)  # Check every second
+
+    def check_column_changes(self):
+        """Check if column widths have changed and save if needed."""
+        current_widths = self.get_column_widths()
+        # Check if any column width has changed
+        if current_widths != self._last_column_widths:
+            self._last_column_widths = current_widths
+            # Save column widths if callback is available
+            if 'save_column_widths' in self.callbacks:
+                self.callbacks['save_column_widths'](current_widths)
+        # Schedule next check
+        self.schedule_column_check()
+
+    def on_column_resize(self, event=None):
+        """Handle column resize events (fallback method)."""
+        # This is kept for compatibility but the periodic check is the main method
+        self.check_column_changes()
+
+    def cleanup(self):
+        """Clean up timers and resources."""
+        if self._column_check_timer:
+            self.queue.after_cancel(self._column_check_timer)
+            self._column_check_timer = None
 
 
 class MusicPlayer:

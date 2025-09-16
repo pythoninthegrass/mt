@@ -63,7 +63,9 @@ class MusicPlayer:
     def __init__(self, window):
         self.window = window
         self.window.title(WINDOW_TITLE)
+
         self.window.geometry(WINDOW_SIZE)
+        self.window.update()  # Force update after setting initial geometry
         self.window.minsize(1280, 720)
 
         # Setup theme and styles first
@@ -96,9 +98,14 @@ class MusicPlayer:
         self.queue_manager = QueueManager(self.db)
         self.library_manager = LibraryManager(self.db)
 
-        from eliot import log_message
-
         log_message(message_type="component_init", component="database", message="Database and managers initialized")
+
+        # Load window size before creating UI components to prevent visible resize
+        saved_size = self.db.get_window_size()
+        if saved_size:
+            width, height = saved_size
+            self.window.geometry(f"{width}x{height}")
+            self.window.update()
 
         # Create main container
         self.main_container = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
@@ -119,6 +126,9 @@ class MusicPlayer:
         if hasattr(self.library_view, 'min_width'):
             # Set the left panel width to the calculated minimum
             self.left_panel.configure(width=self.library_view.min_width)
+
+        # Load and apply saved UI preferences (after setting minimum width)
+        self.load_ui_preferences()
 
         # Initialize player core after views are set up
         self.player_core = PlayerCore(self.db, self.queue_manager, self.queue_view.queue)
@@ -166,6 +176,13 @@ class MusicPlayer:
         if hasattr(self, 'media_key_controller'):
             self.media_key_controller.set_player(self)
 
+        # Bind events to save UI preferences
+        self.window.bind('<Configure>', self.on_window_configure)
+        self.main_container.bind('<ButtonRelease-1>', self.on_paned_resize)
+
+        # Save preferences on window close
+        self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
+
     def setup_views(self):
         """Setup library and queue views with their callbacks."""
         # Setup library view
@@ -184,8 +201,62 @@ class MusicPlayer:
                 'handle_delete': self.handle_delete,
                 'on_song_select': self.on_song_select,
                 'handle_drop': self.handle_drop,
+                'save_column_widths': self.save_column_widths,
             },
         )
+
+    def load_ui_preferences(self):
+        """Load and apply saved UI preferences."""
+        try:
+            # Window size is now loaded in setup_components() before UI creation
+
+            # Load left panel width - always use scheduled setting to ensure proper timing
+            saved_left_width = self.db.get_left_panel_width()
+            if saved_left_width:
+                # Schedule setting after window geometry is fully applied and UI is ready
+                self.window.after(500, lambda: self._set_left_panel_width(saved_left_width))
+
+            # Load queue column widths - let Treeview Map event handle application
+            saved_column_widths = self.db.get_queue_column_widths()
+            if saved_column_widths and hasattr(self.queue_view, '_pending_column_widths'):
+                # Store for Map event handler to apply when Treeview becomes visible
+                self.queue_view._pending_column_widths = saved_column_widths
+
+            # Start periodic column width checking after preferences are loaded
+            if hasattr(self.queue_view, 'start_column_check'):
+                self.window.after(500, lambda: self.queue_view.start_column_check())
+        except Exception:
+            pass
+
+    def _set_left_panel_width(self, width):
+        """Set the left panel width by adjusting the sash position."""
+        if hasattr(self.library_view, 'min_width') and hasattr(self, 'main_container'):
+            # Use the larger of saved width and minimum width
+            final_width = max(width, self.library_view.min_width)
+            try:
+                # Ensure the paned window is ready before setting sash position
+                if self.main_container.winfo_exists():
+                    self.main_container.sashpos(0, final_width)
+                    # Force update to ensure the change takes effect
+                    self.window.update_idletasks()
+            except Exception as e:
+                # If sashpos fails, try setting frame width
+                try:
+                    self.left_panel.configure(width=final_width)
+                except Exception as e2:
+                    pass
+
+    def _apply_column_widths(self, saved_column_widths):
+        """Apply saved column widths to the queue Treeview."""
+        if saved_column_widths and hasattr(self, 'queue_view'):
+            for col_name, width in saved_column_widths.items():
+                try:
+                    self.queue_view.queue.column(col_name, width=width)
+                except Exception:
+                    pass
+            # Update the last known widths so periodic check doesn't save immediately
+            if hasattr(self.queue_view, '_last_column_widths'):
+                self.queue_view._last_column_widths = self.queue_view.get_column_widths()
 
     def setup_file_watcher(self):
         """Setup file watcher for development mode."""
@@ -788,6 +859,88 @@ class MusicPlayer:
                 print(f"Volume change result: {result}")  # Debug result
             except Exception as e:
                 print(f"Error setting volume: {e}")
+
+    def on_window_configure(self, event):
+        """Handle window resize/configure events."""
+        # Only save if this is the main window and not during initial setup
+        if event.widget == self.window and hasattr(self, 'db'):
+            # Skip saving if dimensions are too small (likely during initialization)
+            if event.width <= 100 or event.height <= 100:
+                return
+
+            # Skip saving during the first few seconds after startup to avoid
+            # overriding loaded preferences
+            if not hasattr(self, '_startup_time'):
+                from time import time
+
+                self._startup_time = time()
+
+            from time import time
+
+            if time() - self._startup_time < 2.0:  # Skip for first 2 seconds
+                return
+
+            # Debounce saves to avoid excessive database writes
+            if not hasattr(self, '_window_save_timer'):
+                self._window_save_timer = None
+
+            if self._window_save_timer:
+                self.window.after_cancel(self._window_save_timer)
+
+            # Save after 500ms of no resize events
+            self._window_save_timer = self.window.after(500, lambda: self.save_window_size(event.width, event.height))
+
+    def on_paned_resize(self, event):
+        """Handle paned window resize (left panel width changes)."""
+        if hasattr(self, 'db'):
+            # Get current sash position
+            sash_pos = self.main_container.sashpos(0)
+            if sash_pos > 0:
+                self.db.set_left_panel_width(sash_pos)
+
+    def save_column_widths(self, widths):
+        """Save queue column widths."""
+        if hasattr(self, 'db'):
+            for col_name, width in widths.items():
+                self.db.set_queue_column_width(col_name, width)
+
+    def save_window_size(self, width, height):
+        """Save window size to database."""
+        if hasattr(self, 'db'):
+            # Only save reasonable window sizes
+            if width > 100 and height > 100:
+                self.db.set_window_size(width, height)
+
+    def on_window_close(self):
+        """Handle window close event - save final UI state."""
+        # Save current column widths before closing
+        if hasattr(self, 'queue_view') and hasattr(self.queue_view, 'queue'):
+            columns = ['track', 'title', 'artist', 'album', 'year']
+            for col in columns:
+                try:
+                    width = self.queue_view.queue.column(col, 'width')
+                    self.db.set_queue_column_width(col, width)
+                except Exception:
+                    pass
+
+        # Save final window size (only if window is not minimized/iconified)
+        if hasattr(self, 'window'):
+            # Check if window is iconified (minimized)
+            if self.window.wm_state() != 'iconic':
+                geometry = self.window.geometry()
+                # Parse geometry string like "1400x800+100+100"
+                if 'x' in geometry:
+                    size_part = geometry.split('+')[0]  # Get "1400x800" part
+                    try:
+                        width, height = size_part.split('x')
+                        # Only save if dimensions are reasonable (not 1x1)
+                        if int(width) > 100 and int(height) > 100:
+                            self.db.set_window_size(int(width), int(height))
+                    except ValueError:
+                        pass
+
+        # Close the window
+        self.window.destroy()
 
     def __del__(self):
         """Cleanup resources."""
