@@ -99,6 +99,14 @@ class MusicDatabase:
         """Save window size."""
         self.set_ui_preference('window_size', f'{width}x{height}')
 
+    def get_window_position(self) -> str | None:
+        """Get saved window position."""
+        return self.get_ui_preference('window_position')
+
+    def set_window_position(self, position: str):
+        """Save window position."""
+        self.set_ui_preference('window_position', position)
+
     def get_left_panel_width(self) -> int | None:
         """Get saved left panel width."""
         width_str = self.get_ui_preference('left_panel_width')
@@ -246,7 +254,7 @@ class MusicDatabase:
         return self.db_cursor.fetchall()
 
     def find_file_by_metadata(
-        self, title: str, artist: Optional[str] = None, album: Optional[str] = None, track_num: Optional[str] = None
+        self, title: str, artist: str | None = None, album: str | None = None, track_num: str | None = None
     ) -> str | None:
         """Find a file in the library based on its metadata."""
         # First try exact match
@@ -284,7 +292,7 @@ class MusicDatabase:
 
         return result[0] if result else None
 
-    def find_file_in_queue(self, title: str, artist: Optional[str] = None) -> str | None:
+    def find_file_in_queue(self, title: str, artist: str | None = None) -> str | None:
         """Find a file in the queue based on its metadata."""
         query = '''
             SELECT q.filepath, l.title, l.artist, l.album, l.track_number
@@ -300,7 +308,7 @@ class MusicDatabase:
         return result[0] if result else None
 
     def remove_from_queue(
-        self, title: str, artist: Optional[str] = None, album: Optional[str] = None, track_num: Optional[str] = None
+        self, title: str, artist: str | None = None, album: str | None = None, track_num: str | None = None
     ):
         """Remove a song from the queue based on its metadata."""
         self.db_cursor.execute(
@@ -353,7 +361,7 @@ class MusicDatabase:
             return {'title': result[0], 'artist': result[1], 'album': result[2], 'track_number': result[3], 'date': result[4]}
         return {}
 
-    def find_song_by_title_artist(self, title: str, artist: Optional[str] = None) -> tuple[str, str, str, str, str] | None:
+    def find_song_by_title_artist(self, title: str, artist: str | None = None) -> tuple[str, str, str, str, str] | None:
         """Find a song in the library by title and artist.
 
         Returns:
@@ -395,7 +403,7 @@ class MusicDatabase:
 
         return result
 
-    def is_duplicate(self, metadata: dict[str, Any], filepath: Optional[str] = None) -> bool:
+    def is_duplicate(self, metadata: dict[str, Any], filepath: str | None = None) -> bool:
         """Check if a track with the same metadata already exists in the library.
 
         Returns:

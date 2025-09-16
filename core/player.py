@@ -100,12 +100,15 @@ class MusicPlayer:
 
         log_message(message_type="component_init", component="database", message="Database and managers initialized")
 
-        # Load window size before creating UI components to prevent visible resize
+        # Load window size and position before creating UI components to prevent visible resize
         saved_size = self.db.get_window_size()
         if saved_size:
             width, height = saved_size
             self.window.geometry(f"{width}x{height}")
             self.window.update()
+
+        # Load saved window position
+        self.load_window_position()
 
         # Create main container
         self.main_container = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
@@ -887,8 +890,10 @@ class MusicPlayer:
             if self._window_save_timer:
                 self.window.after_cancel(self._window_save_timer)
 
-            # Save after 500ms of no resize events
-            self._window_save_timer = self.window.after(500, lambda: self.save_window_size(event.width, event.height))
+            # Save both size and position after 500ms of no resize events
+            self._window_save_timer = self.window.after(
+                500, lambda: (self.save_window_size(event.width, event.height), self.save_window_position())
+            )
 
     def on_paned_resize(self, event):
         """Handle paned window resize (left panel width changes)."""
@@ -911,6 +916,31 @@ class MusicPlayer:
             if width > 100 and height > 100:
                 self.db.set_window_size(width, height)
 
+    def save_window_position(self):
+        """Save window position to database."""
+        if hasattr(self, 'db') and hasattr(self, 'window'):
+            # Don't save position if window is maximized, minimized, or iconified
+            state = self.window.wm_state()
+            if state in ('zoomed', 'iconic', 'withdrawn'):
+                return
+
+            # Get current window position
+            position = self.window.winfo_geometry()
+            if position:
+                self.db.set_window_position(position)
+
+    def load_window_position(self):
+        """Load and apply saved window position."""
+        if hasattr(self, 'db') and hasattr(self, 'window'):
+            saved_position = self.db.get_window_position()
+            if saved_position:
+                try:
+                    self.window.geometry(saved_position)
+                    self.window.update()
+                except Exception:
+                    # If position is invalid, ignore it
+                    pass
+
     def on_window_close(self):
         """Handle window close event - save final UI state."""
         # Save current column widths before closing
@@ -923,7 +953,7 @@ class MusicPlayer:
                 except Exception:
                     pass
 
-        # Save final window size (only if window is not minimized/iconified)
+        # Save final window size and position (only if window is not minimized/iconified)
         if hasattr(self, 'window'):
             # Check if window is iconified (minimized)
             if self.window.wm_state() != 'iconic':
@@ -938,6 +968,9 @@ class MusicPlayer:
                             self.db.set_window_size(int(width), int(height))
                     except ValueError:
                         pass
+
+                # Save final window position
+                self.save_window_position()
 
         # Close the window
         self.window.destroy()
