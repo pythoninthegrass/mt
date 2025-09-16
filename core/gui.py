@@ -214,16 +214,24 @@ class ProgressBar:
 
     def setup_volume_control(self):
         """Create and setup custom volume control slider."""
+        # Wait for canvas to be ready and get current dimensions
+        self.canvas.update_idletasks()
+        canvas_width = self.canvas.winfo_width()
+
         # Calculate positions with proper spacing
         progress_end_x = self.canvas.coords(self.line)[2]  # End of progress line
-
-        # Calculate volume position accounting for utility controls width
-        canvas_width = self.canvas.winfo_width()
         utility_controls_width = self.controls.utility_width  # Width reserved for loop and add buttons
-        available_space = canvas_width - utility_controls_width - progress_end_x - 40  # 40 for padding
 
-        # Position volume control with proper spacing, ensuring it doesn't overlap with utility controls
-        volume_x_start = progress_end_x + 40  # Add padding after progress line
+        # Position volume control relative to loop button position (similar to utility controls)
+        loop_button_x = canvas_width - 120  # Same positioning as utility controls
+        volume_end_x = loop_button_x - 60   # Fixed spacing before loop button
+
+        # Calculate volume start position
+        volume_x_start = progress_end_x + 45  # Fixed spacing after progress bar
+
+        # Calculate available space for volume slider
+        available_space = volume_end_x - volume_x_start
+        volume_slider_length = max(80, min(120, available_space - 30))  # 30 for volume icon, constrain between 80-120px
 
         # Create volume control
         self.volume_control = VolumeControl(
@@ -234,7 +242,7 @@ class ProgressBar:
             THEME_CONFIG,
             {'volume_change': self.callbacks['volume_change']},
         )
-        self.volume_control.setup_volume_control(volume_x_start, PROGRESS_BAR['volume_slider_length'])
+        self.volume_control.setup_volume_control(volume_x_start, volume_slider_length)
 
         # Add properties for backwards compatibility
         self.volume_circle = self.volume_control.volume_circle
@@ -265,9 +273,16 @@ class ProgressBar:
         canvas_width = event.width
         utility_controls_width = self.controls.utility_width  # Width reserved for loop and add buttons
 
-        # Ensure volume control doesn't overlap with utility controls
-        max_volume_x = canvas_width - utility_controls_width - PROGRESS_BAR['volume_control_width'] - 20  # 20 for padding
-        volume_x_start = min(progress_end_x + 40, max_volume_x)  # Add padding but don't exceed max position
+        # Position volume control relative to loop button position (similar to utility controls)
+        loop_button_x = canvas_width - 120  # Same positioning as utility controls
+        volume_end_x = loop_button_x - 60   # Fixed spacing before loop button
+
+        # Calculate volume start position
+        volume_x_start = progress_end_x + 45  # Fixed spacing after progress bar
+
+        # Calculate available space for volume slider
+        available_space = volume_end_x - volume_x_start
+        volume_slider_length = max(80, min(120, available_space - 30))  # 30 for volume icon, constrain between 80-120px
 
         # Update volume control positions
         if hasattr(self, 'volume_control'):
@@ -358,8 +373,8 @@ class QueueView:
     def load_column_preferences(self):
         """Load saved column widths from database."""
         try:
-            from core.db import MusicDatabase, DB_TABLES
             from config import DB_NAME
+            from core.db import DB_TABLES, MusicDatabase
 
             db = MusicDatabase(DB_NAME, DB_TABLES)
             saved_widths = db.get_queue_column_widths()
