@@ -201,6 +201,7 @@ dev = [
     { name = "pyclean" },
     { name = "ruff" },
     { name = "tkreload" },
+    { name = "ziggy-pydust" },
 ]
 test = [
     { name = "pytest" },
@@ -227,6 +228,7 @@ requires-dist = [
     { name = "tkreload", marker = "extra == 'dev'", specifier = ">=1.0.4" },
     { name = "watchdog", specifier = ">=6.0.0" },
     { name = "ziggy-pydust", specifier = ">=0.25.1" },
+    { name = "ziggy-pydust", marker = "extra == 'dev'", specifier = ">=0.25.1" },
 ]
 provides-extras = ["dev", "test"]
 

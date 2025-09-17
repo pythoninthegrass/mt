@@ -1,21 +1,5 @@
 # TODO
 
-* Miscellaneous
-  * Suppress python-vlc output in favor of eliot logging
-* UX
-  * performance
-    * faster directory traversal (i.e., zig)
-    * sqlite vs. ~~duckdb~~
-      * terso
-    * network caching / buffer / prefetch
-* UI
-  * better, modern styling
-    * check out [basecoatui](https://basecoatui.com/)
-    * use font awesome (fas) icons
-* Testing
-  * unit tests
-  * integration tests
-  * e2e tests
 * Features
   * shuffle
   * search
@@ -38,6 +22,24 @@
   * lyrics
     * see fas
   * now playing (queue)
+* UX
+  * performance
+    * faster directory traversal (i.e., zig)
+      * Aside from scanning, add file paths to db
+      * mutagen tag reading might need to be optimized for large libraries as well
+    * sqlite vs. ~~duckdb~~
+      * terso
+    * network caching / buffer / prefetch
+* Miscellaneous
+  * Suppress python-vlc output in favor of eliot logging
+* UI
+  * better, modern styling
+    * check out [basecoatui](https://basecoatui.com/)
+    * use font awesome (fas) icons
+* Testing
+  * unit tests
+  * integration tests
+  * e2e tests
 * Build
   * task runners
   * package for macos and linux

@@ -322,6 +322,13 @@ Temporary Items
 .nx/cache
 .nx/workspace-data
 
+# zig
+.zig-cache/
+zig-out/
+*.o
+pydust.build.zig
+src/pydust.build.zig
+
 # INCLUDE
 !**/.gitkeep
 !**/*.example

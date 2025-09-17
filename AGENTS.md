@@ -119,6 +119,27 @@ The application follows a modular architecture with clear separation of concerns
 - **python-decouple**: Environment variable configuration
 - **eliot/eliot-tree**: Structured logging system
 - **watchdog**: File system monitoring for development tools
+- **ziggy-pydust**: Zig extension module framework for Python
+
+### Dependency Management
+
+**ALWAYS use `uv` for Python dependency management. NEVER install packages at the system level with `pip`.**
+
+```bash
+# Install dependencies
+uv sync --frozen
+
+# Add new dependencies
+uv add package-name
+
+# Add development dependencies
+uv add --dev package-name
+
+# Update dependencies
+uv lock --upgrade
+```
+
+All dependencies should be managed through `uv` to ensure proper virtual environment isolation and reproducible builds.
 
 ## Important Implementation Notes
 
@@ -149,3 +170,78 @@ The application follows a modular architecture with clear separation of concerns
 - Error reporting and file operation logging
 - Available through `eliot` and `eliot-tree` dependencies
 - Gracefully degrades when eliot is not available
+
+### Zig Module Development
+
+The project uses Zig for high-performance native extensions via ziggy-pydust. Zig modules are located in the `src/` directory and provide performance-critical functionality like music file scanning.
+
+#### Building Zig Modules
+
+```bash
+# Build all Zig modules
+uv run python build.py
+
+# Or build via hatch (used during package installation)
+hatch build
+
+# Clean build artifacts
+rm -rf src/.zig-cache src/zig-out core/*.so
+```
+
+#### Zig Development Workflow
+
+```bash
+# Install/update Zig (if needed)
+# On macOS with mise:
+mise install zig@0.14.0
+
+# Check Zig version
+zig version
+
+# Build in debug mode
+cd src && zig build
+
+# Build with optimizations
+cd src && zig build -Doptimize=ReleaseSafe
+
+# Run tests
+cd src && zig build test
+```
+
+#### Zig Module Structure
+
+- `src/build.zig`: Main build configuration
+- `src/scan.zig`: Music file scanning module
+- `core/_scan.so`: Generated Python extension (created during build)
+
+#### Troubleshooting Zig Builds
+
+**Common Issues:**
+
+1. **Zig Version Compatibility**: Ensure Zig 0.14.x is installed
+   ```bash
+   zig version  # Should show 0.14.x
+   ```
+
+2. **Python Path Issues**: Build script uses virtual environment Python
+   ```bash
+   uv run python build.py  # Uses correct Python executable
+   ```
+
+3. **Missing Dependencies**: Ensure ziggy-pydust is installed
+   ```bash
+   uv sync
+   uv run python -c "import pydust; print('OK')"
+   ```
+
+4. **Build Cache Issues**: Clear cache if builds fail
+   ```bash
+   rm -rf src/.zig-cache
+   uv run python build.py
+   ```
+
+**Build Configuration:**
+
+- Uses `self_managed = true` in `pyproject.toml` for custom build.zig
+- Python extensions are built to `core/` directory
+- Release-safe optimization for production builds
