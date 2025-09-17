@@ -245,3 +245,54 @@ cd src && zig build test
 - Uses `self_managed = true` in `pyproject.toml` for custom build.zig
 - Python extensions are built to `core/` directory
 - Release-safe optimization for production builds
+
+<!-- BACKLOG.MD GUIDELINES START -->
+
+# ⚠️ CRITICAL: NEVER EDIT TASK FILES DIRECTLY
+
+**ALL task operations MUST use the Backlog.md CLI commands**
+
+- ✅ **DO**: Use `backlog task edit` and other CLI commands
+- ✅ **DO**: Use `backlog task create` to create new tasks
+- ✅ **DO**: Use `backlog task edit <id> --check-ac <index>` to mark acceptance criteria
+- ❌ **DON'T**: Edit markdown files directly
+- ❌ **DON'T**: Manually change checkboxes in files
+- ❌ **DON'T**: Add or modify text in task files without using CLI
+
+**Why?** Direct file editing breaks metadata synchronization, Git tracking, and task relationships.
+
+## Essential CLI Commands
+
+### Task Management
+```bash
+backlog task create "Title" -d "Description" --ac "Criterion 1" --ac "Criterion 2"
+backlog task list --plain                    # List all tasks
+backlog task 42 --plain                      # View specific task
+backlog task edit 42 -s "In Progress" -a @myself  # Start working
+backlog task edit 42 --check-ac 1            # Mark AC complete
+backlog task edit 42 --notes "Implementation complete"  # Add notes
+backlog task edit 42 -s Done                 # Mark as done
+backlog task archive 42                      # Archive task
+```
+
+### Key Principles
+- **Always use `--plain` flag** for AI-friendly output when viewing/listing
+- **Never bypass the CLI** - It handles Git, metadata, file naming, and relationships
+- **Tasks live in `backlog/tasks/`** as `task-<id> - <title>.md` files
+- **Use CLI for both reading and writing** - `backlog task create`, `backlog task edit`, etc.
+
+### Quick Reference: DO vs DON'T
+
+| Action       | ✅ DO                                | ❌ DON'T                          |
+|--------------|-------------------------------------|----------------------------------|
+| View task    | `backlog task 42 --plain`           | Open and read .md file directly  |
+| List tasks   | `backlog task list --plain`         | Browse backlog/tasks folder      |
+| Check AC     | `backlog task edit 42 --check-ac 1` | Change `- [ ]` to `- [x]` in file|
+| Add notes    | `backlog task edit 42 --notes "..."`| Type notes into .md file         |
+| Change status| `backlog task edit 42 -s Done`      | Edit status in frontmatter       |
+
+**🎯 Golden Rule: If you want to change ANYTHING in a task, use the `backlog task edit` command.**
+
+Full help available: `backlog --help`
+
+<!-- BACKLOG.MD GUIDELINES END -->
