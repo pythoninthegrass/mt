@@ -445,6 +445,16 @@ class MusicDatabase:
             query_parts.append('track_number = ?')
             params.append(metadata['track_number'])
 
+        # Include date to differentiate between different releases/remasters
+        if metadata.get('date'):
+            query_parts.append('LOWER(COALESCE(date, "")) = LOWER(?)')
+            params.append(metadata['date'])
+
+        # Include album_artist to differentiate compilations vs original releases
+        if metadata.get('album_artist'):
+            query_parts.append('LOWER(COALESCE(album_artist, "")) = LOWER(?)')
+            params.append(metadata['album_artist'])
+
         if metadata.get('duration'):
             # Allow 1 second tolerance for duration comparison
             query_parts.append('ABS(duration - ?) < 1')
