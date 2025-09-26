@@ -54,6 +54,10 @@ class MusicDatabase:
         if self.db_cursor.fetchone()[0] == 0:
             self.set_loop_enabled(True)  # Set default loop state
 
+        self.db_cursor.execute("SELECT COUNT(*) FROM settings WHERE key = 'shuffle_enabled'")
+        if self.db_cursor.fetchone()[0] == 0:
+            self.set_shuffle_enabled(False)  # Set default shuffle state
+
         self.db_conn.commit()
 
     def close(self):
@@ -71,6 +75,18 @@ class MusicDatabase:
         """Set loop state in settings."""
         value = '1' if enabled else '0'
         self.db_cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('loop_enabled', ?)", (value,))
+        self.db_conn.commit()
+
+    def get_shuffle_enabled(self) -> bool:
+        """Get shuffle state from settings."""
+        self.db_cursor.execute("SELECT value FROM settings WHERE key = 'shuffle_enabled'")
+        result = self.db_cursor.fetchone()
+        return bool(int(result[0])) if result else False
+
+    def set_shuffle_enabled(self, enabled: bool):
+        """Set shuffle state in settings."""
+        value = '1' if enabled else '0'
+        self.db_cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('shuffle_enabled', ?)", (value,))
         self.db_conn.commit()
 
     def get_ui_preference(self, key: str, default: str = '') -> str:
@@ -307,9 +323,7 @@ class MusicDatabase:
         result = self.db_cursor.fetchone()
         return result[0] if result else None
 
-    def remove_from_queue(
-        self, title: str, artist: str | None = None, album: str | None = None, track_num: str | None = None
-    ):
+    def remove_from_queue(self, title: str, artist: str | None = None, album: str | None = None, track_num: str | None = None):
         """Remove a song from the queue based on its metadata."""
         self.db_cursor.execute(
             '''
@@ -444,6 +458,16 @@ class MusicDatabase:
         if metadata.get('track_number'):
             query_parts.append('track_number = ?')
             params.append(metadata['track_number'])
+
+        # Include date to differentiate between different releases/remasters
+        if metadata.get('date'):
+            query_parts.append('LOWER(COALESCE(date, "")) = LOWER(?)')
+            params.append(metadata['date'])
+
+        # Include album_artist to differentiate compilations vs original releases
+        if metadata.get('album_artist'):
+            query_parts.append('LOWER(COALESCE(album_artist, "")) = LOWER(?)')
+            params.append(metadata['album_artist'])
 
         if metadata.get('duration'):
             # Allow 1 second tolerance for duration comparison

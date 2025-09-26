@@ -20,13 +20,15 @@ from tkinter import ttk
 
 
 class PlayerControls:
-    def __init__(self, canvas, command_callbacks, initial_loop_enabled=True):
+    def __init__(self, canvas, command_callbacks, initial_loop_enabled=True, initial_shuffle_enabled=False):
         self.canvas = canvas
         self.callbacks = command_callbacks
         self.add_button = None
         self.loop_button = None
+        self.shuffle_button = None
         self.play_button = None
         self.loop_enabled = initial_loop_enabled
+        self.shuffle_enabled = initial_shuffle_enabled
         self.setup_playback_controls()
         self.setup_utility_controls()
 
@@ -102,15 +104,39 @@ class PlayerControls:
             lambda e: self.loop_button.configure(fg=COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled']),
         )
 
-        # Force update loop button color after creation
-        self.update_loop_button_color(self.loop_enabled)
+        # Shuffle button (to the left of loop button)
+        self.shuffle_button = tk.Label(
+            self.canvas,
+            text=BUTTON_SYMBOLS['shuffle'],
+            font=BUTTON_STYLE['font'],
+            fg=THEME_CONFIG['colors']['fg'],  # Start with default color
+            bg=THEME_CONFIG['colors']['bg'],
+        )
+        self.shuffle_button.place(x=canvas_width - 180, y=y_position)
+        self.shuffle_button.bind('<Button-1>', lambda e: self.callbacks['shuffle']())
+        self.shuffle_button.bind('<Enter>', lambda e: self.shuffle_button.configure(fg=THEME_CONFIG['colors']['primary']))
+        self.shuffle_button.bind(
+            '<Leave>',
+            lambda e: self.shuffle_button.configure(
+                fg=COLORS['shuffle_enabled'] if self.shuffle_enabled else COLORS['shuffle_disabled']
+            ),
+        )
 
-        # Store the width for progress bar calculations
-        self.utility_width = 120
+        # Force update button colors after creation
+        self.update_loop_button_color(self.loop_enabled)
+        self.update_shuffle_button_color(self.shuffle_enabled)
+
+        # Ensure buttons are on top of canvas elements
+        self.shuffle_button.lift()
+        self.loop_button.lift()
+        self.add_button.lift()
+
+        # Store the width for progress bar calculations (increased to accommodate shuffle button)
+        self.utility_width = 180
 
     def _on_canvas_resize(self, event):
         """Recenter the buttons vertically and reposition all controls when canvas is resized."""
-        if not all([self.add_button, self.loop_button, self.play_button]):
+        if not all([self.add_button, self.loop_button, self.shuffle_button, self.play_button]):
             return
 
         # Calculate new y position (centered vertically)
@@ -128,11 +154,15 @@ class PlayerControls:
         loop_x = canvas_width - 120
         self.loop_button.place(x=loop_x, y=new_y)
 
+        # Shuffle button to the left of loop button
+        shuffle_x = canvas_width - 180
+        self.shuffle_button.place(x=shuffle_x, y=new_y)
+
         # Playback controls are positioned from the left, maintaining relative spacing
-        # Find playback control buttons (they are tk.Label widgets that are not add_button or loop_button)
+        # Find playback control buttons (they are tk.Label widgets that are not utility buttons)
         playback_buttons = []
         for child in self.canvas.winfo_children():
-            if isinstance(child, tk.Label) and child not in [self.add_button, self.loop_button]:
+            if isinstance(child, tk.Label) and child not in [self.add_button, self.loop_button, self.shuffle_button]:
                 playback_buttons.append(child)
 
         # Position playback controls with the same spacing as initial setup
@@ -150,13 +180,19 @@ class PlayerControls:
         self.loop_enabled = loop_enabled  # Update the internal state
         self.loop_button.configure(fg=COLORS['loop_enabled'] if loop_enabled else COLORS['loop_disabled'])
 
+    def update_shuffle_button_color(self, shuffle_enabled):
+        """Update shuffle button color based on shuffle state."""
+        self.shuffle_enabled = shuffle_enabled  # Update the internal state
+        self.shuffle_button.configure(fg=COLORS['shuffle_enabled'] if shuffle_enabled else COLORS['shuffle_disabled'])
+
 
 class ProgressBar:
-    def __init__(self, window, progress_frame, callbacks, initial_loop_enabled=True):
+    def __init__(self, window, progress_frame, callbacks, initial_loop_enabled=True, initial_shuffle_enabled=False):
         self.window = window
         self.progress_frame = progress_frame
         self.callbacks = callbacks
         self.initial_loop_enabled = initial_loop_enabled
+        self.initial_shuffle_enabled = initial_shuffle_enabled
         self.setup_progress_bar()
         self.setup_volume_control()
 
@@ -170,8 +206,13 @@ class ProgressBar:
         )
         self.canvas.pack(fill=tk.X)
 
-        # Create controls with initial loop state
-        self.controls = PlayerControls(self.canvas, self.callbacks, initial_loop_enabled=self.initial_loop_enabled)
+        # Create controls with initial loop and shuffle state
+        self.controls = PlayerControls(
+            self.canvas,
+            self.callbacks,
+            initial_loop_enabled=self.initial_loop_enabled,
+            initial_shuffle_enabled=self.initial_shuffle_enabled,
+        )
         self.controls_width = self.controls.controls_width
 
         # Create progress bar control
@@ -222,9 +263,9 @@ class ProgressBar:
         progress_end_x = self.canvas.coords(self.line)[2]  # End of progress line
         utility_controls_width = self.controls.utility_width  # Width reserved for loop and add buttons
 
-        # Position volume control relative to loop button position (similar to utility controls)
-        loop_button_x = canvas_width - 120  # Same positioning as utility controls
-        volume_end_x = loop_button_x - 60   # Fixed spacing before loop button
+        # Position volume control relative to shuffle button position (leftmost utility control)
+        shuffle_button_x = canvas_width - 180  # Same positioning as utility controls
+        volume_end_x = shuffle_button_x - 60  # Fixed spacing before shuffle button
 
         # Calculate volume start position
         volume_x_start = progress_end_x + 45  # Fixed spacing after progress bar
@@ -273,9 +314,9 @@ class ProgressBar:
         canvas_width = event.width
         utility_controls_width = self.controls.utility_width  # Width reserved for loop and add buttons
 
-        # Position volume control relative to loop button position (similar to utility controls)
-        loop_button_x = canvas_width - 120  # Same positioning as utility controls
-        volume_end_x = loop_button_x - 60   # Fixed spacing before loop button
+        # Position volume control relative to shuffle button position (leftmost utility control)
+        shuffle_button_x = canvas_width - 180  # Same positioning as utility controls
+        volume_end_x = shuffle_button_x - 60  # Fixed spacing before shuffle button
 
         # Calculate volume start position
         volume_x_start = progress_end_x + 45  # Fixed spacing after progress bar

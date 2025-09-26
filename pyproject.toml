@@ -17,6 +17,7 @@ dependencies = [
     "tk>=0.1.0",
     "tkinterdnd2>=0.4.2",
     "watchdog>=6.0.0",
+    "ziggy-pydust>=0.25.1",
 ]
 
 [project.scripts]
@@ -27,6 +28,7 @@ dev = [
     "pyclean>=3.1.0",
     "ruff>=0.9.6",
     "tkreload>=1.0.4",
+    "ziggy-pydust>=0.25.1",
 ]
 
 test = [
@@ -36,13 +38,22 @@ test = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "ziggy-pydust==0.25.1"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build]
+script = "build.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app", "core", "utils"]
+artifacts = ["core/*.so"]
 include = [
     "*.py",
     "static/",
     "themes.json",
 ]
+
+# Configure ziggy-pydust to use our own build.zig
+# It will still codegen pydust.build.zig
+[tool.pydust]
+self_managed = true

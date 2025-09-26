@@ -1,12 +1,13 @@
 {
   "recommendations": [
-    "aaron-bond.better-comments",
     "charliermarsh.ruff",
     "EditorConfig.EditorConfig",
+    "edwinhuish.better-comments-next",
     "elagil.pre-commit-helper",
     "ms-azuretools.vscode-docker",
     "ms-python.debugpy",
     "ms-python.python",
-    "ms-vsliveshare.vsliveshare"
+    "ms-vsliveshare.vsliveshare",
+    "ziglang.vscode-zig",
   ]
 }

@@ -155,6 +155,7 @@ class MusicPlayer:
                 'play': self.play_pause,
                 'next': self.player_core.next_song,
                 'loop': self.player_core.toggle_loop,
+                'shuffle': self.player_core.toggle_shuffle,
                 'add': self.add_files_to_library,
                 'start_drag': self.start_drag,
                 'drag': self.drag,
@@ -164,6 +165,7 @@ class MusicPlayer:
                 'volume_change': self.volume_change,
             },
             initial_loop_enabled=self.player_core.loop_enabled,
+            initial_shuffle_enabled=self.player_core.shuffle_enabled,
         )
 
         # Connect progress bar to player core

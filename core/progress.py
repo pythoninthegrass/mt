@@ -33,7 +33,7 @@ class ProgressControl:
 
         # Create time labels - moved to the left to make room for volume control
         self.time_text = self.canvas.create_text(
-            self.canvas.winfo_width() - 260,  # Position before volume control
+            self.canvas.winfo_width() - 380,  # Position before volume control and utility buttons
             self.config['time_label_y'],
             text="00:00 / 00:00",
             fill=self.config['colors']['fg'],
@@ -44,7 +44,7 @@ class ProgressControl:
         self.line = self.canvas.create_line(
             self.controls_width,
             self.bar_y,
-            self.canvas.winfo_width() - 260,  # Make shorter to accommodate volume control
+            self.canvas.winfo_width() - 380,  # Make shorter to accommodate volume control and utility buttons
             self.bar_y,
             fill=self.config['progress_bg'],  # Use dark background color
             width=self.config['line_width'] + 2,  # Slightly wider for the background
@@ -106,7 +106,7 @@ class ProgressControl:
             self.line,
             self.controls_width,
             self.bar_y,
-            width - 260,  # Make shorter to accommodate volume control
+            width - 380,  # Make shorter to accommodate volume control and utility buttons
             self.bar_y,
         )
 
@@ -130,7 +130,7 @@ class ProgressControl:
         # Update time label position
         self.canvas.coords(
             self.time_text,
-            width - 260,
+            width - 380,
             self.config['time_label_y'],
         )
 
@@ -144,7 +144,7 @@ class ProgressControl:
                     current_ratio = (current_coords[2] - self.controls_width) / total_width_before
 
                     # Apply ratio to new width
-                    new_total_width = width - 260 - self.controls_width
+                    new_total_width = width - 380 - self.controls_width
                     new_x = self.controls_width + (new_total_width * current_ratio)
 
                     # Update foreground line
@@ -200,7 +200,7 @@ class ProgressControl:
         # This is the width between controls_width and the time display
         # We need to account for the volume control position
         width = self.canvas.winfo_width()
-        max_progress_width = width - self.controls_width - 260  # 260 is space for time display and volume
+        max_progress_width = width - self.controls_width - 380  # 380 is space for time display, volume, and utility buttons
 
         # Calculate the x position based on the ratio
         x = self.controls_width + (max_progress_width * ratio)
