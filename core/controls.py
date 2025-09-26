@@ -19,6 +19,7 @@ class PlayerCore:
         self.current_time = 0
         self.was_playing = False
         self.loop_enabled = self.db.get_loop_enabled()
+        self.shuffle_enabled = self.queue_manager.is_shuffle_enabled()
         self.progress_bar = None
         self.window = None
 
@@ -110,6 +111,12 @@ class PlayerCore:
         self.db.set_loop_enabled(self.loop_enabled)
         if self.progress_bar and hasattr(self.progress_bar, 'controls'):
             self.progress_bar.controls.update_loop_button_color(self.loop_enabled)
+
+    def toggle_shuffle(self) -> None:
+        """Toggle shuffle mode."""
+        self.shuffle_enabled = self.queue_manager.toggle_shuffle()
+        if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+            self.progress_bar.controls.update_shuffle_button_color(self.shuffle_enabled)
 
     def get_current_time(self) -> int:
         """Get current playback time in milliseconds."""
@@ -259,11 +266,14 @@ class PlayerCore:
             current_index = children.index(current_selection[0])
             print(f"Current index: {current_index}")  # Debug log
             # If loop is disabled and on the last song, then stop playback
-            if not self.loop_enabled and current_index == len(children) - 1:
+            if not self.loop_enabled and current_index == len(children) - 1 and not self.shuffle_enabled:
                 print("Last song and loop disabled")  # Debug log
                 return None
-            # Otherwise, move to next song (or first if at end)
-            next_index = (current_index + 1) % len(children)
+            
+            # Use QueueManager to get next track index (handles shuffle)
+            next_index = self.queue_manager.get_next_track_index(current_index, len(children))
+            if next_index is None:
+                return None
             print(f"Next index: {next_index}")  # Debug log
 
         next_item = children[next_index]
@@ -293,8 +303,10 @@ class PlayerCore:
         else:
             current_index = children.index(current_selection[0])
             print(f"Current index: {current_index}")  # Debug log
-            # Move to previous song (or last if at beginning)
-            prev_index = (current_index - 1) % len(children)
+            # Use QueueManager to get previous track index (handles shuffle)
+            prev_index = self.queue_manager.get_previous_track_index(current_index, len(children))
+            if prev_index is None:
+                return None
             print(f"Previous index: {prev_index}")  # Debug log
 
         prev_item = children[prev_index]

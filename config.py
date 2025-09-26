@@ -76,6 +76,7 @@ BUTTON_SYMBOLS = {
     'next': '⏭',
     'add': '+',
     'loop': '⟳',
+    'shuffle': '⤮',
     'volume': '🔊',
 }
 
@@ -128,6 +129,8 @@ LISTBOX_CONFIG = {
 COLORS = {
     'loop_enabled': THEME_CONFIG['colors']['primary'],
     'loop_disabled': THEME_CONFIG['colors']['secondary'],
+    'shuffle_enabled': THEME_CONFIG['colors']['primary'],
+    'shuffle_disabled': THEME_CONFIG['colors']['secondary'],
     'alternate_row_colors': [
         THEME_CONFIG['colors']['bg'],
         THEME_CONFIG['colors'].get('row_alt', THEME_CONFIG['colors']['selectbg']),
