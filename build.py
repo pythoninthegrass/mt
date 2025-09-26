@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build script for ziggy-pydust modules."""
 
+import os
 import subprocess
 import sys
-import os
 
 
 def build():
