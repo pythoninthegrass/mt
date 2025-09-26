@@ -1,7 +1,7 @@
 # TODO
 
 * Features
-  * shuffle
+  * ~~shuffle~~
   * search
     * search form
     * dynamic fuzzy search by artist
