@@ -49,6 +49,7 @@ The theming system integrates across multiple layers:
 Each theme defines a comprehensive color palette:
 
 #### Core Colors
+
 - **`primary`**: Accent color for active states, highlights, and branding
 - **`secondary`**: Muted color for inactive states and subtle elements
 - **`bg`**: Main background color for panels and containers
@@ -57,12 +58,14 @@ Each theme defines a comprehensive color palette:
 - **`light`**: Lighter shade for highlights and emphasis
 
 #### Interactive States
+
 - **`selectbg`**: Background color for selected items
 - **`selectfg`**: Text color for selected items
 - **`active`**: Color for active/hover states
 - **`border`**: Color for borders and separators
 
 #### Specialized Colors
+
 - **`inputbg`/`inputfg`**: Form input field colors
 - **`row_alt`**: Alternating row background in lists/trees
 - **`progress_bg`**: Progress bar background
@@ -71,6 +74,7 @@ Each theme defines a comprehensive color palette:
 ### Built-in Themes
 
 #### Midnight Theme
+
 ```json
 {
   "midnight": {
@@ -87,6 +91,7 @@ Each theme defines a comprehensive color palette:
 ```
 
 #### Spotify Theme
+
 ```json
 {
   "spotify": {
@@ -103,6 +108,7 @@ Each theme defines a comprehensive color palette:
 ```
 
 #### Metro Teal Theme
+
 ```json
 {
   "metro-teal": {

@@ -38,12 +38,14 @@ class LibraryView:
 ```
 
 **Features**:
+
 - **Tree Structure**: ttk.Treeview with expandable sections
 - **Dynamic Content**: Sections for Artists, Albums, Genres, Recently Added
 - **Minimum Width Calculation**: Auto-sizing based on content
 - **Selection Callbacks**: Event-driven communication with main application
 
 **Sections**:
+
 - All Music
 - Recently Added 
 - Recently Played
@@ -66,6 +68,7 @@ class QueueView:
 ```
 
 **Features**:
+
 - **Multi-Column Display**: Track number, title, artist, album, year
 - **Drag-and-Drop Support**: TkinterDnD2 integration for reordering
 - **Extended Selection**: Multiple track selection with Cmd/Ctrl+A
@@ -74,6 +77,7 @@ class QueueView:
 - **Alternating Row Colors**: Visual distinction with theme integration
 
 **Column Management**:
+
 - **Dynamic Resizing**: User-adjustable column widths
 - **Preference Persistence**: Column widths saved to database
 - **Minimum Width Constraints**: Prevents columns from becoming unusable
@@ -84,6 +88,7 @@ class QueueView:
 **Purpose**: Transport controls embedded in progress canvas
 
 **Design Philosophy**:
+
 - **Canvas-based**: Direct drawing on tk.Canvas for precise positioning
 - **Event-driven**: Callback-based communication pattern
 - **Responsive Layout**: Dynamic positioning based on window size
@@ -92,11 +97,13 @@ class QueueView:
 **Control Groups**:
 
 #### Playback Controls (Left Side)
+
 - **Previous Track**: `◀◀` symbol with click handler
 - **Play/Pause Toggle**: `▶` / `⏸` dynamic symbol switching  
 - **Next Track**: `▶▶` symbol with click handler
 
 #### Utility Controls (Right Side)
+
 - **Loop Toggle**: `↻` symbol with active state coloring
 - **Shuffle Toggle**: `🔀` symbol with active state indication
 - **Add Files**: `+` symbol for library addition
@@ -118,6 +125,7 @@ def setup_playback_controls(self):
 **Purpose**: Custom progress visualization and seeking control
 
 **Architecture**:
+
 - **Canvas-based Rendering**: Precise control over visual elements
 - **Interactive Elements**: Click-to-seek and drag-to-scrub
 - **Multi-component**: Progress line, position circle, time display
@@ -126,21 +134,25 @@ def setup_playback_controls(self):
 **Visual Elements**:
 
 #### Progress Line
+
 - **Background Line**: Full track duration representation
 - **Progress Line**: Current position indicator
 - **Interactive Hitbox**: Larger clickable area for user interaction
 
 #### Position Circle
+
 - **Visual Indicator**: Current playback position marker
 - **Drag Handle**: Mouse interaction for scrubbing
 - **Hover Effects**: Visual feedback during interaction
 
 #### Time Display
+
 - **Current/Total Time**: "MM:SS / MM:SS" format
 - **Dynamic Updates**: Real-time progress reflection
 - **Font Consistency**: Theme-integrated typography
 
 #### Track Information
+
 - **Current Track Details**: Artist - Title display
 - **Dynamic Content**: Updates with queue changes
 - **Layout Aware**: Positioned to avoid control overlap
@@ -164,12 +176,14 @@ def start_drag(self, event):
 **Separation of Concerns**: Dedicated component for progress visualization
 
 **Responsibilities**:
+
 - **Visual Rendering**: Canvas drawing operations
 - **Interaction Handling**: Mouse events and position calculation
 - **State Management**: Drag state and position tracking
 - **Layout Management**: Responsive positioning and sizing
 
 **Key Methods**:
+
 - `draw_progress_line()`: Renders background and progress lines
 - `update_progress()`: Updates position based on playback state
 - `handle_mouse_events()`: Processes user interaction
@@ -182,12 +196,14 @@ def start_drag(self, event):
 **Purpose**: Audio level control with visual feedback
 
 **Components**:
+
 - **Volume Icon**: Speaker symbol with visual state indication
 - **Volume Slider**: Horizontal line with draggable control
 - **Volume Circle**: Position indicator and drag handle
 - **Background/Foreground Lines**: Visual progress representation
 
 **Features**:
+
 - **Interactive Slider**: Click and drag volume adjustment
 - **Visual Feedback**: Icon changes based on volume level (mute, low, high)
 - **Precise Control**: Fine-grained volume adjustment
@@ -242,6 +258,7 @@ self.queue.dnd_bind('<<Drop>>', self.callbacks['handle_drop'])
 ```
 
 **Supported Operations**:
+
 - **File Drops**: Add audio files to queue or library
 - **Queue Reordering**: Drag tracks within queue for reordering
 - **Directory Drops**: Recursive audio file discovery and addition
@@ -253,6 +270,7 @@ self.queue.dnd_bind('<<Drop>>', self.callbacks['handle_drop'])
 **Horizontal Split**: Library (left) and Queue (right) panels
 
 **Advantages**:
+
 - **User Resizable**: Draggable splitter between panels
 - **Proportional Scaling**: Weight-based expansion behavior
 - **Preference Persistence**: Splitter position saved and restored
@@ -269,6 +287,7 @@ self.main_container.add(self.right_panel, weight=1)  # Expandable
 **Dynamic Sizing**: Canvas responds to window width changes
 
 **Element Positioning**:
+
 - **Controls**: Fixed positions relative to canvas edges
 - **Progress Line**: Dynamic width based on available space
 - **Volume Control**: Positioned between progress and controls
@@ -290,6 +309,7 @@ def on_resize(self, event=None):
 **Database Storage**: SQLite storage of user interface preferences
 
 **Persisted Settings**:
+
 - **Window Size and Position**: Geometry restoration
 - **Panel Split Ratio**: PanedWindow sash position  
 - **Column Widths**: QueueView column sizing
@@ -325,6 +345,7 @@ callbacks = {
 **ttk.Style Integration**: Consistent theming across components
 
 **Theme Application**:
+
 - **Colors**: Centralized color scheme from `themes.json`
 - **Fonts**: Typography consistency across all text elements
 - **Widget Styles**: Custom ttk style definitions
@@ -350,6 +371,7 @@ button = tk.Label(
 **Component Failure Isolation**: Individual component failures don't crash application
 
 **Error Recovery**:
+
 - **Preference Loading**: Fallback to defaults on corruption
 - **Column Sizing**: Minimum width enforcement
 - **Event Handling**: Exception isolation in callbacks
@@ -369,6 +391,7 @@ self.window.after(0, lambda: self.update_progress_display(position))
 ### Keyboard Support
 
 **Navigation Shortcuts**:
+
 - **Cmd/Ctrl+A**: Select all queue items
 - **Delete/Backspace**: Remove selected queue items
 - **Space**: Play/pause toggle (via media keys)

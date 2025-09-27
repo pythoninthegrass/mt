@@ -45,6 +45,7 @@ class PlayerCore:
 ### VLC Instance Management
 
 #### Instance Creation
+
 ```python
 # Create VLC instance with default configuration
 self.player = vlc.Instance()
@@ -52,6 +53,7 @@ self.media_player = self.player.media_player_new()
 ```
 
 **Benefits of VLC Instance**:
+
 - **Format Support**: Comprehensive audio codec support (MP3, FLAC, M4A, OGG, etc.)
 - **Cross-Platform**: Consistent behavior across macOS, Linux, Windows
 - **Performance**: Optimized C/C++ audio processing core
@@ -68,6 +70,7 @@ self.media_player.event_manager().event_attach(
 ```
 
 **Supported Events**:
+
 - `MediaPlayerEndReached`: Track completion handling
 - `MediaPlayerTimeChanged`: Progress updates (future implementation)
 - `MediaPlayerPositionChanged`: Playback position tracking
@@ -98,6 +101,7 @@ def play_pause(self) -> None:
 ```
 
 **State Management Features**:
+
 - **Resume Capability**: Maintains playback position during pause
 - **UI Synchronization**: Updates progress bar and control buttons
 - **Error Recovery**: Handles missing media gracefully
@@ -106,6 +110,7 @@ def play_pause(self) -> None:
 ### Track Navigation
 
 #### Next Song Logic
+
 ```python
 def next_song(self) -> None:
     """Advanced next-track logic with loop and shuffle support."""
@@ -120,6 +125,7 @@ def next_song(self) -> None:
 ```
 
 #### Previous Song Logic
+
 ```python  
 def previous_song(self) -> None:
     """Previous track with queue integration."""
@@ -129,6 +135,7 @@ def previous_song(self) -> None:
 ```
 
 **Navigation Features**:
+
 - **Loop Mode Support**: Continuous playback or stop-at-end behavior
 - **Shuffle Integration**: Randomized track selection via QueueManager
 - **Queue Synchronization**: Visual selection updates in queue view
@@ -161,6 +168,7 @@ def _play_file(self, filepath: str) -> None:
 ```
 
 **Implementation Details**:
+
 - **File Validation**: Existence check before playback attempt
 - **Volume Persistence**: Maintains user-set volume across tracks
 - **UI Coordination**: Updates queue selection and track information
@@ -183,6 +191,7 @@ def get_volume(self) -> int:
 ```
 
 **Volume Features**:
+
 - **Range Validation**: 0-100% volume enforcement
 - **Hardware Integration**: System volume control compatibility
 - **UI Synchronization**: Real-time volume slider updates
@@ -210,6 +219,7 @@ def get_duration(self) -> int:
 ```
 
 **Seeking Features**:
+
 - **Precision Control**: Millisecond-accurate seeking
 - **Progress Integration**: Click-to-seek and drag-to-scrub support
 - **Boundary Enforcement**: Valid time range validation
@@ -277,6 +287,7 @@ def process_commands(self):
 ```
 
 **Supported Media Keys**:
+
 - **F7**: Previous track
 - **F8**: Play/pause toggle
 - **F9**: Next track
@@ -319,6 +330,7 @@ def _update_track_info(self) -> None:
 ```
 
 **Integration Features**:
+
 - **Visual Feedback**: Highlighted current track in queue
 - **Metadata Display**: Real-time track information in progress bar
 - **Auto-scrolling**: Queue view follows playback position
@@ -339,6 +351,7 @@ def _on_track_end(self, event):
 ```
 
 **Callback Features**:
+
 - **Automatic Progression**: Seamless track-to-track playback  
 - **Loop Behavior**: Respect user loop preferences
 - **Playlist Boundaries**: Proper handling of playlist end
@@ -396,6 +409,7 @@ def set_volume(self, volume: int) -> None:
 ```
 
 **Media Loading Failures**:
+
 - **File Format Validation**: Supported format checking before playback
 - **Corruption Detection**: Graceful handling of corrupted audio files
 - **Network Resource Handling**: Future support for streaming URLs
@@ -406,11 +420,13 @@ def set_volume(self, volume: int) -> None:
 ### Resource Management
 
 **Memory Efficiency**:
+
 - **Single VLC Instance**: Reuse instance across all tracks
 - **Media Object Cleanup**: Proper disposal of media objects
 - **Event Handler Management**: Efficient callback registration/removal
 
 **Startup Optimization**:
+
 - **Lazy Loading**: VLC initialization only when needed
 - **Volume Restoration**: Efficient volume setting after media changes
 - **UI Synchronization**: Minimal UI updates during track changes
@@ -418,6 +434,7 @@ def set_volume(self, volume: int) -> None:
 ### Audio Quality
 
 **VLC Configuration**:
+
 - **Default Audio Output**: System default audio device
 - **Sample Rate**: Native audio format support
 - **Buffer Management**: Optimal buffering for smooth playback
@@ -428,6 +445,7 @@ def set_volume(self, volume: int) -> None:
 ### macOS Specific Features
 
 **System Integration**:
+
 - **Audio Session**: Integration with macOS audio session management
 - **Media Keys**: Native hardware media key support
 - **Dock Integration**: Playback controls in application dock menu (future)
@@ -436,6 +454,7 @@ def set_volume(self, volume: int) -> None:
 ### Cross-Platform Compatibility
 
 **VLC Advantages**:
+
 - **Uniform API**: Consistent behavior across platforms
 - **Codec Support**: No additional codec installation required
 - **Performance**: Optimized audio processing on all platforms

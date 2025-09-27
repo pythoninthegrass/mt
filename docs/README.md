@@ -15,6 +15,7 @@ This directory contains comprehensive documentation for the MT music player proj
 ## Quick Start
 
 For immediate understanding of the codebase:
+
 1. Start with [Python Architecture](python-architecture.md) for overall system design
 2. Review [Current Status](status.md) for what's implemented and what's planned
 3. Check [VLC Integration](vlc-integration.md) for audio playback details
@@ -22,6 +23,7 @@ For immediate understanding of the codebase:
 ## Development Context
 
 This documentation is generated from analysis of:
+
 - Source code in `core/`, `src/`, `utils/` directories
 - Configuration files (`config.py`, `themes.json`, `pyproject.toml`)
 - Task management (`backlog/`, `TODO.md`)

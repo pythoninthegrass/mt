@@ -27,6 +27,7 @@ React/Vue Frontend → FastAPI Backend → Database → Audio Service
 ### Framework Selection: FastAPI vs Flask
 
 #### FastAPI Advantages (Recommended)
+
 - **Automatic API Documentation**: Built-in OpenAPI/Swagger integration
 - **Type Safety**: Full Python type hint support with validation
 - **Performance**: ASGI-based asynchronous request handling
@@ -234,6 +235,7 @@ class QueueService:
 **Solution Options**:
 
 1. **Server-Side Audio Streaming** (Recommended)
+
 ```python
 from fastapi.responses import StreamingResponse
 import aiofiles
@@ -265,6 +267,7 @@ async def stream_audio(track_id: int, range: Optional[str] = Header(None)):
 ```
 
 2. **Client-Side Web Audio API**
+
 ```javascript
 // Frontend audio player implementation
 class WebAudioPlayer {
@@ -397,6 +400,7 @@ const playerSlice = createSlice({
 **Component Migration Examples**:
 
 1. **Library View Component**:
+
 ```javascript
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
@@ -433,6 +437,7 @@ function LibraryView() {
 ```
 
 2. **Queue View Component**:
+
 ```javascript
 import React from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
@@ -510,6 +515,7 @@ class WebSocketService {
 ### Direct Migrations
 
 #### Core Features (1:1 Migration)
+
 - **Track Library**: Database-driven with search and filtering
 - **Queue Management**: Drag-and-drop reordering with persistence
 - **Playback Controls**: Play, pause, next, previous, seek, volume
@@ -517,6 +523,7 @@ class WebSocketService {
 - **Settings**: User preferences with database storage
 
 #### Enhanced Web Features
+
 - **Multi-User Support**: User authentication and separate libraries
 - **Real-Time Sync**: Multiple device synchronization via WebSockets
 - **Social Features**: Playlist sharing, collaborative playlists
@@ -526,6 +533,7 @@ class WebSocketService {
 ### Web-Specific Challenges
 
 #### Browser Limitations
+
 - **File System Access**: Limited local file system integration
 - **Audio Format Support**: Browser codec dependencies
 - **Performance**: JavaScript vs native performance for large libraries
@@ -534,6 +542,7 @@ class WebSocketService {
 #### Solutions and Workarounds
 
 1. **File Upload Interface**:
+
 ```javascript
 // Replace drag-and-drop directory scanning with file upload
 function FileUploader() {
@@ -563,6 +572,7 @@ function FileUploader() {
 ```
 
 2. **Progressive Loading**:
+
 ```javascript
 // Handle large libraries with pagination and virtual scrolling
 import { FixedSizeList as VirtualList } from 'react-window';
@@ -655,6 +665,7 @@ volumes:
 ## Migration Timeline
 
 ### Phase 1: Backend Foundation (4-6 weeks)
+
 1. **FastAPI Setup**: Basic application structure and routing
 2. **Database Migration**: PostgreSQL schema and data migration tools
 3. **Authentication**: User management and JWT-based authentication
@@ -662,6 +673,7 @@ volumes:
 5. **Audio Streaming**: Basic audio file serving with range support
 
 ### Phase 2: Frontend Development (6-8 weeks)
+
 1. **React Application Setup**: Component architecture and routing
 2. **State Management**: Redux store configuration
 3. **Core Components**: Library view, queue view, player controls
@@ -669,6 +681,7 @@ volumes:
 5. **Responsive Design**: Mobile and desktop layouts
 
 ### Phase 3: Feature Parity (4-6 weeks)
+
 1. **Search Implementation**: Full-text search across library
 2. **Playlist Management**: User playlist creation and management
 3. **Queue Operations**: Drag-and-drop reordering and queue management
@@ -676,6 +689,7 @@ volumes:
 5. **Theme System**: CSS-based theming similar to current JSON themes
 
 ### Phase 4: Testing and Polish (2-4 weeks)
+
 1. **End-to-End Testing**: Full application workflow testing
 2. **Performance Optimization**: Large library handling and optimization
 3. **Bug Fixes**: Issue resolution and stability improvements
@@ -683,6 +697,7 @@ volumes:
 5. **Deployment**: Production deployment and monitoring setup
 
 ### Phase 5: Enhanced Features (Ongoing)
+
 1. **Multi-User Features**: User management and sharing capabilities
 2. **Social Integration**: Last.fm integration and social features
 3. **Analytics**: Advanced listening statistics and recommendations
@@ -722,12 +737,14 @@ volumes:
 ## Success Metrics
 
 ### Technical Metrics
+
 - **API Response Time**: < 200ms for typical requests
 - **Page Load Time**: < 2 seconds for library views
 - **Audio Streaming Latency**: < 1 second startup time
 - **Concurrent Users**: Support for 100+ concurrent users per server
 
 ### User Experience Metrics
+
 - **Feature Parity**: 100% of core desktop features available in web version
 - **Mobile Responsiveness**: Full functionality on mobile devices
 - **Browser Compatibility**: Support for Chrome, Firefox, Safari, Edge

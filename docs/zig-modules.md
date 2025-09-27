@@ -30,22 +30,26 @@ src/
 The core scanning functionality provides these Python-callable functions:
 
 #### `scan_music_directory(root_path: str) -> int`
+
 - **Purpose**: High-performance recursive directory scanning
 - **Implementation**: Native Zig directory walker with audio file filtering
 - **Performance**: Significantly faster than Python `os.walk()` for large directories
 - **Error Handling**: Graceful handling of permission errors and inaccessible directories
 
 #### `count_audio_files(root_path: str) -> int`
+
 - **Purpose**: Fast audio file counting without metadata extraction
 - **Use Case**: Quick library size estimation and progress indication
 - **Optimization**: Minimal memory allocation, early termination support
 
 #### `is_audio_file(filename: str) -> bool`
+
 - **Purpose**: Audio file extension validation
 - **Implementation**: Case-insensitive extension matching
 - **Extensions**: Comprehensive list of supported audio formats
 
 #### `benchmark_directory(root_path: str, iterations: int) -> float`
+
 - **Purpose**: Performance benchmarking against Python implementations
 - **Output**: Average scanning time in milliseconds
 - **Use Case**: Development profiling and optimization validation
