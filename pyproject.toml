@@ -9,13 +9,16 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
     "eliot-tree>=24.0.0",
     "eliot>=1.17.5",
+    "fastapi>=0.117.1",
     "mutagen>=1.47.0",
     'pyobjc-framework-Cocoa; platform_system == "Darwin"',
     'pyobjc-framework-Quartz; sys_platform == "darwin"',
     "python-decouple>=3.8",
     "python-vlc>=3.0.21203",
+    "pywebview>=6.0",
     "tk>=0.1.0",
     "tkinterdnd2>=0.4.2",
+    "uvicorn>=0.37.0",
     "watchdog>=6.0.0",
     "ziggy-pydust>=0.25.1",
 ]
