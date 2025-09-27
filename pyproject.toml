@@ -7,19 +7,28 @@ authors = [
 ]
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    "aiosqlite>=0.21.0",
+    "alembic>=1.16.5",
+    "asyncpg>=0.30.0",
     "eliot-tree>=24.0.0",
     "eliot>=1.17.5",
     "fastapi>=0.117.1",
+    "greenlet>=3.2.4",
     "mutagen>=1.47.0",
+    "pydantic-settings>=2.11.0",
     'pyobjc-framework-Cocoa; platform_system == "Darwin"',
     'pyobjc-framework-Quartz; sys_platform == "darwin"',
     "python-decouple>=3.8",
+    "python-multipart>=0.0.20",
     "python-vlc>=3.0.21203",
     "pywebview>=6.0",
+    "redis>=6.4.0",
+    "sqlalchemy>=2.0.43",
     "tk>=0.1.0",
     "tkinterdnd2>=0.4.2",
     "uvicorn>=0.37.0",
     "watchdog>=6.0.0",
+    "websockets>=15.0.1",
     "ziggy-pydust>=0.25.1",
 ]
 
