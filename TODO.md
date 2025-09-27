@@ -1,7 +1,6 @@
 # TODO
 
 * Features
-  * ~~shuffle~~
   * search
     * search form
     * dynamic fuzzy search by artist
@@ -23,6 +22,12 @@
     * see fas
   * now playing (queue)
 * UX
+  * Standardize utility button sizes
+    * loop, shuffle, add
+  * Combine loop buttons
+    * Loop one track (1)
+    * Loop all
+    * Off
   * performance
     * faster directory traversal (i.e., zig)
       * Aside from scanning, add file paths to db
