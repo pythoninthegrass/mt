@@ -1,0 +1,145 @@
+{% extends "base/base.html" %}
+
+{% block title %}Library - mt music player{% endblock %}
+
+{% block content %}
+<div class="h-full flex flex-col">
+    <!-- Library Header -->
+    <div class="p-6 border-b border-gray-800">
+        <div class="flex items-center justify-between mb-4">
+            <h1 class="text-2xl font-bold">Music Library</h1>
+            
+            <!-- View Toggle -->
+            <div class="flex items-center space-x-2">
+                <div class="flex bg-gray-800 rounded-lg p-1">
+                    <button hx-get="/library/songs?view=grid"
+                            hx-target="#library-content"
+                            hx-push-url="true"
+                            class="px-3 py-1 rounded text-sm transition-colors {{ 'bg-gray-700' if view == 'grid' else 'hover:bg-gray-700' }}">
+                        <i class="bi bi-grid-3x3-gap"></i> Grid
+                    </button>
+                    <button hx-get="/library/songs?view=list"
+                            hx-target="#library-content"
+                            hx-push-url="true"
+                            class="px-3 py-1 rounded text-sm transition-colors {{ 'bg-gray-700' if view == 'list' else 'hover:bg-gray-700' }}">
+                        <i class="bi bi-list"></i> List
+                    </button>
+                </div>
+                
+                <!-- Sort Dropdown -->
+                <div x-data="{ open: false }" class="relative">
+                    <button @click="open = !open"
+                            class="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm flex items-center space-x-1">
+                        <i class="bi bi-sort-down"></i>
+                        <span>Sort</span>
+                        <i class="bi bi-chevron-down text-xs"></i>
+                    </button>
+                    <div x-show="open"
+                         @click.away="open = false"
+                         x-transition
+                         class="absolute right-0 mt-2 w-48 bg-gray-900 rounded-lg shadow-xl border border-gray-800 py-1 z-10">
+                        <button hx-get="/library/songs?sort=title"
+                                hx-target="#library-content"
+                                hx-push-url="true"
+                                class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm">
+                            Title
+                        </button>
+                        <button hx-get="/library/songs?sort=artist"
+                                hx-target="#library-content"
+                                hx-push-url="true"
+                                class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm">
+                            Artist
+                        </button>
+                        <button hx-get="/library/songs?sort=album"
+                                hx-target="#library-content"
+                                hx-push-url="true"
+                                class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm">
+                            Album
+                        </button>
+                        <button hx-get="/library/songs?sort=date_added"
+                                hx-target="#library-content"
+                                hx-push-url="true"
+                                class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm">
+                            Date Added
+                        </button>
+                        <button hx-get="/library/songs?sort=play_count"
+                                hx-target="#library-content"
+                                hx-push-url="true"
+                                class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm">
+                            Play Count
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filter Button -->
+                <button hx-get="/library/filters"
+                        hx-target="#modal-container"
+                        class="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm">
+                    <i class="bi bi-funnel"></i> Filter
+                </button>
+            </div>
+        </div>
+        
+        <!-- Quick Stats -->
+        <div class="flex items-center space-x-6 text-sm text-gray-400">
+            <span>{{ total_tracks }} tracks</span>
+            <span>{{ total_albums }} albums</span>
+            <span>{{ total_artists }} artists</span>
+            <span>{{ total_duration|format_duration }} total</span>
+        </div>
+    </div>
+    
+    <!-- Library Content -->
+    <div id="library-content" 
+         class="flex-1 overflow-y-auto p-6"
+         hx-get="/api/library/tracks"
+         hx-trigger="load"
+         hx-indicator="#library-loading">
+        
+        <!-- Loading Indicator -->
+        <div id="library-loading" class="htmx-indicator flex items-center justify-center h-full">
+            <div class="text-center">
+                <div class="animate-spin h-8 w-8 border-3 border-blue-500 rounded-full border-t-transparent mx-auto"></div>
+                <p class="mt-4 text-gray-400">Loading library...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    <div class="p-4 border-t border-gray-800 flex items-center justify-between">
+        <div class="text-sm text-gray-400">
+            Showing {{ start }}-{{ end }} of {{ total_tracks }} tracks
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            <button hx-get="/library/songs?page={{ prev_page }}"
+                    hx-target="#library-content"
+                    hx-push-url="true"
+                    {% if not has_prev %}disabled{% endif %}
+                    class="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="bi bi-chevron-left"></i> Previous
+            </button>
+            
+            <!-- Page Numbers -->
+            <div class="flex items-center space-x-1">
+                {% for page_num in page_numbers %}
+                    <button hx-get="/library/songs?page={{ page_num }}"
+                            hx-target="#library-content"
+                            hx-push-url="true"
+                            class="w-8 h-8 rounded text-sm {{ 'bg-blue-600' if page_num == current_page else 'bg-gray-800 hover:bg-gray-700' }}">
+                        {{ page_num }}
+                    </button>
+                {% endfor %}
+            </div>
+            
+            <button hx-get="/library/songs?page={{ next_page }}"
+                    hx-target="#library-content"
+                    hx-push-url="true"
+                    {% if not has_next %}disabled{% endif %}
+                    class="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

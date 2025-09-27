@@ -1,0 +1,192 @@
+<div class="h-20 px-4 flex items-center justify-between"
+     x-data="{ 
+         playing: false,
+         currentTime: 0,
+         duration: 0,
+         repeat: 'off',
+         shuffle: false
+     }">
+    
+    <!-- Left: Track Info -->
+    <div class="w-80 flex items-center space-x-3">
+        <div id="current-track-info"
+             hx-get="/api/player/current"
+             hx-trigger="load, track-changed from:body"
+             hx-swap="innerHTML"
+             class="flex items-center space-x-3">
+            <!-- Placeholder -->
+            <div class="w-12 h-12 bg-gray-800 rounded"></div>
+            <div>
+                <div class="h-4 bg-gray-800 rounded w-32 mb-1"></div>
+                <div class="h-3 bg-gray-800 rounded w-24"></div>
+            </div>
+        </div>
+        
+        <!-- Favorite/Actions -->
+        <div class="flex items-center space-x-1 ml-auto">
+            <button hx-post="/api/player/current/favorite"
+                    hx-swap="none"
+                    class="p-1 rounded hover:bg-gray-800 transition-colors">
+                <i class="bi bi-heart text-gray-400 hover:text-red-400"></i>
+            </button>
+            <button hx-get="/api/player/current/details"
+                    hx-target="#modal-container"
+                    class="p-1 rounded hover:bg-gray-800 transition-colors">
+                <i class="bi bi-info-circle text-gray-400 hover:text-gray-100"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Center: Playback Controls -->
+    <div class="flex-1 max-w-2xl">
+        <!-- Control Buttons -->
+        <div class="flex items-center justify-center space-x-4 mb-2">
+            <!-- Shuffle -->
+            <button @click="shuffle = !shuffle"
+                    hx-post="/api/player/shuffle"
+                    hx-vals='js:{"enabled": shuffle}'
+                    hx-swap="none"
+                    class="p-1 rounded hover:bg-gray-800 transition-colors"
+                    :class="shuffle ? 'text-blue-400' : 'text-gray-400'">
+                <i class="bi bi-shuffle"></i>
+            </button>
+            
+            <!-- Previous -->
+            <button hx-post="/api/player/previous"
+                    hx-swap="none"
+                    class="p-2 rounded hover:bg-gray-800 transition-colors">
+                <i class="bi bi-skip-start-fill text-xl"></i>
+            </button>
+            
+            <!-- Play/Pause -->
+            <button @click="playing = !playing"
+                    hx-post="/api/player/toggle"
+                    hx-swap="none"
+                    hx-trigger="click"
+                    class="p-3 bg-blue-600 hover:bg-blue-700 rounded-full transition-colors">
+                <i class="bi text-2xl text-white"
+                   :class="playing ? 'bi-pause-fill' : 'bi-play-fill'"></i>
+            </button>
+            
+            <!-- Next -->
+            <button hx-post="/api/player/next"
+                    hx-swap="none"
+                    class="p-2 rounded hover:bg-gray-800 transition-colors">
+                <i class="bi bi-skip-end-fill text-xl"></i>
+            </button>
+            
+            <!-- Repeat -->
+            <button @click="repeat = repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off'"
+                    hx-post="/api/player/repeat"
+                    hx-vals='js:{"mode": repeat}'
+                    hx-swap="none"
+                    class="p-1 rounded hover:bg-gray-800 transition-colors relative"
+                    :class="repeat !== 'off' ? 'text-blue-400' : 'text-gray-400'">
+                <i class="bi" :class="repeat === 'one' ? 'bi-repeat-1' : 'bi-repeat'"></i>
+                <span x-show="repeat === 'all'" 
+                      class="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full"></span>
+            </button>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="flex items-center space-x-3">
+            <!-- Current Time -->
+            <span class="text-xs text-gray-400 w-10 text-right"
+                  id="current-time"
+                  hx-get="/api/player/time"
+                  hx-trigger="every 1s"
+                  hx-swap="innerHTML">
+                0:00
+            </span>
+            
+            <!-- Progress Slider -->
+            <div class="flex-1 relative group">
+                <input type="range" 
+                       min="0" 
+                       max="100" 
+                       value="0"
+                       id="progress-bar"
+                       class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer
+                              [&::-webkit-slider-thumb]:appearance-none
+                              [&::-webkit-slider-thumb]:w-3
+                              [&::-webkit-slider-thumb]:h-3
+                              [&::-webkit-slider-thumb]:bg-blue-500
+                              [&::-webkit-slider-thumb]:rounded-full
+                              [&::-webkit-slider-thumb]:cursor-pointer
+                              [&::-webkit-slider-thumb]:opacity-0
+                              group-hover:[&::-webkit-slider-thumb]:opacity-100
+                              [&::-webkit-slider-thumb]:transition-opacity"
+                       @input="htmx.ajax('POST', '/api/player/seek', {values: {position: $event.target.value}})"
+                       hx-get="/api/player/progress"
+                       hx-trigger="every 1s"
+                       hx-swap="outerHTML">
+                <!-- Progress fill -->
+                <div class="absolute top-0 left-0 h-1 bg-blue-500 rounded-lg pointer-events-none"
+                     style="width: 0%"></div>
+            </div>
+            
+            <!-- Duration -->
+            <span class="text-xs text-gray-400 w-10"
+                  id="duration"
+                  hx-get="/api/player/duration"
+                  hx-trigger="track-changed from:body"
+                  hx-swap="innerHTML">
+                0:00
+            </span>
+        </div>
+    </div>
+    
+    <!-- Right: Volume and Extra Controls -->
+    <div class="w-80 flex items-center justify-end space-x-4">
+        <!-- Queue Toggle -->
+        <button hx-get="/api/queue/toggle-view"
+                hx-swap="none"
+                class="p-1 rounded hover:bg-gray-800 transition-colors">
+            <i class="bi bi-list-ul text-gray-400 hover:text-gray-100"></i>
+        </button>
+        
+        <!-- Lyrics -->
+        <button hx-get="/api/player/lyrics"
+                hx-target="#modal-container"
+                class="p-1 rounded hover:bg-gray-800 transition-colors">
+            <i class="bi bi-file-text text-gray-400 hover:text-gray-100"></i>
+        </button>
+        
+        <!-- Volume -->
+        <div class="flex items-center space-x-2">
+            <button @click="volumeMuted = !volumeMuted; volume = volumeMuted ? 0 : volume"
+                    hx-post="/api/player/mute"
+                    hx-vals='js:{"muted": volumeMuted}'
+                    hx-swap="none"
+                    class="p-1 rounded hover:bg-gray-800 transition-colors">
+                <i class="bi text-gray-400 hover:text-gray-100"
+                   :class="volumeMuted || volume == 0 ? 'bi-volume-mute' : volume < 50 ? 'bi-volume-down' : 'bi-volume-up'"></i>
+            </button>
+            
+            <div class="w-24 relative group">
+                <input type="range" 
+                       min="0" 
+                       max="100" 
+                       x-model="volume"
+                       @input="localStorage.setItem('volume', volume); htmx.ajax('POST', '/api/player/volume', {values: {volume: volume}})"
+                       class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer
+                              [&::-webkit-slider-thumb]:appearance-none
+                              [&::-webkit-slider-thumb]:w-3
+                              [&::-webkit-slider-thumb]:h-3
+                              [&::-webkit-slider-thumb]:bg-white
+                              [&::-webkit-slider-thumb]:rounded-full
+                              [&::-webkit-slider-thumb]:cursor-pointer">
+                <!-- Volume fill -->
+                <div class="absolute top-0 left-0 h-1 bg-white rounded-lg pointer-events-none"
+                     :style="`width: ${volume}%`"></div>
+            </div>
+        </div>
+        
+        <!-- Fullscreen/Mini Player -->
+        <button hx-get="/api/player/fullscreen"
+                hx-target="body"
+                class="p-1 rounded hover:bg-gray-800 transition-colors">
+            <i class="bi bi-arrows-fullscreen text-gray-400 hover:text-gray-100"></i>
+        </button>
+    </div>
+</div>
