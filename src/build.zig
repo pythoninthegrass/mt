@@ -18,4 +18,12 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
+    _ = pydust.addPythonModule(.{
+        .name = "core._scan_enhanced",
+        .root_source_file = b.path("scan_enhanced.zig"),
+        .limited_api = true,
+        .target = target,
+        .optimize = optimize,
+    });
 }
