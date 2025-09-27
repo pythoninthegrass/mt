@@ -30,6 +30,7 @@ dependencies = [
     "watchdog>=6.0.0",
     "websockets>=15.0.1",
     "ziggy-pydust>=0.25.1",
+    "ziglang==0.14.0",
 ]
 
 [project.scripts]

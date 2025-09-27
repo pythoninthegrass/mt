@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% block description %}mt music player - A modern music player for large collections{% endblock %}">
+    <title>{% block title %}mt music player{% endblock %}</title>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10" 
+            integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" 
+            crossorigin="anonymous"></script>
+    
+    <!-- HTMX Extensions -->
+    <script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+    
+    <!-- Alpine.js for reactive UI components -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+    
+    <!-- Inter font for modern UI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/main.css') }}">
+    {% block styles %}{% endblock %}
+    
+    <!-- HTMX Configuration -->
+    <meta name="htmx-config" content='{"defaultSwapStyle":"innerHTML","defaultSwapDelay":0,"defaultSettleDelay":20}'>
+</head>
+<body class="bg-gray-950 text-gray-100 font-inter antialiased" 
+      x-data="{ 
+          sidebarOpen: true, 
+          theme: localStorage.getItem('theme') || 'dark',
+          volumeMuted: false,
+          volume: localStorage.getItem('volume') || 70
+      }">
+    
+    <!-- Main Application Container -->
+    <div id="app" class="flex flex-col h-screen overflow-hidden">
+        
+        <!-- Top Navigation Bar -->
+        <header class="bg-gray-900 border-b border-gray-800 flex-shrink-0">
+            {% include 'components/navbar.html' %}
+        </header>
+        
+        <!-- Main Content Area -->
+        <div class="flex flex-1 overflow-hidden">
+            
+            <!-- Left Sidebar - Library/Navigation -->
+            <aside x-show="sidebarOpen" 
+                   x-transition:enter="transition ease-out duration-200"
+                   x-transition:enter-start="-translate-x-full"
+                   x-transition:enter-end="translate-x-0"
+                   x-transition:leave="transition ease-in duration-150"
+                   x-transition:leave-start="translate-x-0"
+                   x-transition:leave-end="-translate-x-full"
+                   class="w-64 bg-gray-900 border-r border-gray-800 flex-shrink-0">
+                {% block sidebar %}
+                    {% include 'components/sidebar.html' %}
+                {% endblock %}
+            </aside>
+            
+            <!-- Center Panel - Main Content -->
+            <main class="flex-1 flex flex-col overflow-hidden bg-gray-950">
+                <div id="main-content" class="flex-1 overflow-y-auto">
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+            
+            <!-- Right Panel - Queue/Playlist -->
+            <aside class="w-80 bg-gray-900 border-l border-gray-800 flex-shrink-0">
+                {% block queue %}
+                    {% include 'components/queue.html' %}
+                {% endblock %}
+            </aside>
+        </div>
+        
+        <!-- Bottom Player Controls -->
+        <footer class="bg-gray-900 border-t border-gray-800 flex-shrink-0">
+            {% include 'components/player-controls.html' %}
+        </footer>
+    </div>
+    
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" 
+         class="fixed top-4 right-4 z-50 space-y-2"
+         x-data="{ toasts: [] }">
+    </div>
+    
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+    
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', path='/js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+    
+    <!-- HTMX Event Handlers -->
+    <script>
+        // HTMX loading states
+        document.body.addEventListener('htmx:beforeRequest', function(evt) {
+            // Add loading indicator
+            if (evt.detail.target.id === 'main-content') {
+                evt.detail.target.classList.add('opacity-50');
+            }
+        });
+        
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            // Remove loading indicator
+            if (evt.detail.target.id === 'main-content') {
+                evt.detail.target.classList.remove('opacity-50');
+            }
+        });
+        
+        // HTMX error handling
+        document.body.addEventListener('htmx:responseError', function(evt) {
+            console.error('HTMX request failed:', evt.detail);
+            showToast('Request failed. Please try again.', 'error');
+        });
+        
+        // Toast notification function
+        function showToast(message, type = 'info') {
+            const event = new CustomEvent('show-toast', {
+                detail: { message, type }
+            });
+            window.dispatchEvent(event);
+        }
+    </script>
+</body>
+</html>
