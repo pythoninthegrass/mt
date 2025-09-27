@@ -1,0 +1,168 @@
+version: "3"
+
+set: ['e', 'u', 'pipefail']
+shopt: ['globstar']
+
+env:
+
+vars:
+  VAGRANT_CMD:
+    sh: |
+      if [[ -n "{{.CLI_ARGS}}" ]]; then
+        case "{{.CLI_ARGS}}" in
+          "macos")
+            echo "export VAGRANT_VAGRANTFILE=Vagrantfile.macos VAGRANT_DOTFILE_PATH=.vagrant_macos"
+            ;;
+          "fedora")
+            echo "export VAGRANT_VAGRANTFILE=Vagrantfile.fedora VAGRANT_DOTFILE_PATH=.vagrant_fedora"
+            ;;
+          "ubuntu")
+            echo "export VAGRANT_VAGRANTFILE=Vagrantfile.ubuntu VAGRANT_DOTFILE_PATH=.vagrant_ubuntu"
+            ;;
+          *)
+            echo "echo 'Invalid argument. Use macos, fedora, or ubuntu.' >&2; exit 1"
+            ;;
+        esac
+      else
+        echo "echo 'No Vagrantfile specified. Using default.' >&2"
+      fi
+
+tasks:
+  _validate:
+    internal: true
+    desc: "Internal task to validate the Vagrantfile"
+    cmds:
+      - |
+        {{.VAGRANT_CMD}}
+        vagrant validate
+    dir: "{{.ROOT_DIR}}/vagrant"
+
+  _run:
+    internal: true
+    desc: "Internal task to run Vagrant commands"
+    cmds:
+      - |
+        {{.VAGRANT_CMD}}
+        vagrant {{.VAGRANT_ACTION}}
+    dir: "{{.ROOT_DIR}}/vagrant"
+
+  plugin:
+    desc: "Install the vagrant plugin"
+    cmds:
+      - vagrant plugin install vagrant-tart
+    run: once
+    silent: true
+
+  validate:
+    desc: "Validate the Vagrantfile"
+    summary: |
+      Validate the Vagrantfile. Specify the Vagrantfile to use:
+        - macos
+        - fedora
+        - ubuntu
+
+      Example:
+        task vagrant:validate -- macos
+    cmds:
+      - task: _validate
+
+  up:
+    desc: "Start the project with vagrant"
+    summary: |
+      Start the project with vagrant
+
+      Instead of the default "Vagrantfile", choose from the following:
+        - macos
+        - fedora
+        - ubuntu
+
+      Example:
+        task vagrant:up -- macos
+    cmds:
+      - task: _run
+        vars: { VAGRANT_ACTION: "up" }
+
+  destroy:
+    desc: "Destroy the vagrant machine"
+    summary: |
+      Destroy the vagrant machine. Specify the Vagrantfile to use:
+        - macos
+        - fedora
+        - ubuntu
+
+      Example:
+        task vagrant:destroy -- macos
+    cmds:
+      - task: _run
+        vars: { VAGRANT_ACTION: "destroy -f" }
+
+  suspend:
+    desc: "Suspend the vagrant machine"
+    summary: |
+      Suspend the vagrant machine. Specify the Vagrantfile to use:
+        - macos
+        - fedora
+        - ubuntu
+
+      Example:
+        task vagrant:suspend -- macos
+    cmds:
+      - task: _run
+        vars: { VAGRANT_ACTION: "suspend" }
+
+  resume:
+    desc: "Resume the vagrant machine"
+    summary: |
+      Resume the vagrant machine. Specify the Vagrantfile to use:
+        - macos
+        - fedora
+        - ubuntu
+
+      Example:
+        task vagrant:resume -- macos
+    cmds:
+      - task: _run
+        vars: { VAGRANT_ACTION: "resume" }
+
+  halt:
+    desc: "Halt the vagrant machine"
+    summary: |
+      Halt the vagrant machine. Specify the Vagrantfile to use:
+        - macos
+        - fedora
+        - ubuntu
+
+      Example:
+        task vagrant:halt -- macos
+    cmds:
+      - task: _run
+        vars: { VAGRANT_ACTION: "halt" }
+
+  ssh:
+    desc: "SSH into the vagrant machine"
+    summary: |
+      SSH into the vagrant machine. Specify the Vagrantfile to use:
+        - macos
+        - fedora
+        - ubuntu
+
+      Example:
+        task vagrant:ssh -- macos
+    cmds:
+      - task: _run
+        vars: { VAGRANT_ACTION: "ssh" }
+    ignore_error: true
+
+  reload:
+    desc: "Reload the vagrant machine"
+    summary: |
+      Reload the vagrant machine. Specify the Vagrantfile to use:
+        - macos
+        - fedora
+        - ubuntu
+
+      Example:
+        task vagrant:reload -- macos
+    cmds:
+      - task: _run
+        vars: { VAGRANT_ACTION: "reload" }

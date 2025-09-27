@@ -1,9 +1,11 @@
 ---
 id: task-031
 title: Implement native file system integration
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2025-09-27 20:51'
+updated_date: '2025-09-27 21:50'
 labels:
   - migration
   - pywebview

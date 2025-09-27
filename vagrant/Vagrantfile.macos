@@ -1,0 +1,22 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.provider "tart" do |tart|
+    tart.image = "ghcr.io/cirruslabs/macos-sonoma-base:latest"                  # required
+    tart.name = "sonoma"                                                        # required
+    tart.gui = true
+    tart.cpus = 2
+    tart.memory = 4096                                                          # 4GB is required for macOS
+    tart.disk = 50
+    tart.display = "1024x768"
+    tart.suspendable = false                                                    # not supported when shared folders are enabled
+    tart.vnc = false
+  end
+
+  config.vm.synced_folder ".", "/vagrant", disabled: true                       # disable default synced folder
+  config.vm.synced_folder ".", "/media/shares", disabled: false
+
+  config.ssh.username = "admin"
+  config.ssh.password = "admin"
+end
