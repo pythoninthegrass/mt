@@ -21,6 +21,7 @@ dependencies = [
     "uvicorn>=0.37.0",
     "watchdog>=6.0.0",
     "ziggy-pydust>=0.25.1",
+    "ziglang==0.14.0",
 ]
 
 [project.scripts]

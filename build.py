@@ -12,9 +12,10 @@ def build():
     os.chdir("src")
 
     # Run zig build with ziggy-pydust
+    zig_exe = os.path.join(os.path.dirname(__file__), ".venv/lib/python3.11/site-packages/ziglang/zig")
     try:
         result = subprocess.run(
-            ["zig", "build", "install", f"-Dpython-exe={sys.executable}", "-Doptimize=ReleaseSafe"],
+            [zig_exe, "build", "install", f"-Dpython-exe={sys.executable}", "-Doptimize=ReleaseSafe"],
             check=True,
             capture_output=True,
             text=True,
