@@ -1,0 +1,120 @@
+<nav class="h-14 px-4 flex items-center justify-between">
+    <!-- Left Section - Logo and Navigation Toggle -->
+    <div class="flex items-center space-x-4">
+        <!-- Sidebar Toggle -->
+        <button @click="sidebarOpen = !sidebarOpen" 
+                class="p-2 rounded hover:bg-gray-800 transition-colors">
+            <i class="bi" :class="sidebarOpen ? 'bi-layout-sidebar' : 'bi-layout-sidebar-inset'"></i>
+        </button>
+        
+        <!-- Application Logo/Title -->
+        <div class="flex items-center space-x-2">
+            <img src="{{ url_for('static', path='/images/logo.svg') }}" 
+                 alt="mt" 
+                 class="h-8 w-8"
+                 onerror="this.style.display='none'">
+            <span class="text-xl font-semibold text-gray-100">mt</span>
+        </div>
+        
+        <!-- Navigation Links -->
+        <nav class="hidden lg:flex items-center space-x-1 ml-8">
+            <a href="/" 
+               hx-get="/"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="px-3 py-2 rounded hover:bg-gray-800 transition-colors">
+                Library
+            </a>
+            <a href="/playlists" 
+               hx-get="/playlists"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="px-3 py-2 rounded hover:bg-gray-800 transition-colors">
+                Playlists
+            </a>
+            <a href="/search" 
+               hx-get="/search"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="px-3 py-2 rounded hover:bg-gray-800 transition-colors">
+                Search
+            </a>
+        </nav>
+    </div>
+    
+    <!-- Center Section - Search Bar -->
+    <div class="flex-1 max-w-2xl mx-4 hidden md:block">
+        <div class="relative">
+            <input type="search" 
+                   name="q"
+                   placeholder="Search music..."
+                   class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 pl-10 
+                          text-gray-100 placeholder-gray-400
+                          focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                   hx-get="/api/search"
+                   hx-trigger="keyup changed delay:500ms"
+                   hx-target="#search-results"
+                   hx-indicator="#search-spinner">
+            <i class="bi bi-search absolute left-3 top-2.5 text-gray-400"></i>
+            <div id="search-spinner" class="htmx-indicator absolute right-3 top-3">
+                <div class="animate-spin h-4 w-4 border-2 border-gray-400 rounded-full border-t-transparent"></div>
+            </div>
+        </div>
+        <!-- Search Results Dropdown -->
+        <div id="search-results" 
+             class="absolute top-full mt-2 w-full bg-gray-900 rounded-lg shadow-xl border border-gray-800 z-50 hidden">
+        </div>
+    </div>
+    
+    <!-- Right Section - User Menu and Settings -->
+    <div class="flex items-center space-x-2">
+        <!-- Theme Toggle -->
+        <button @click="theme = theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('theme', theme)"
+                class="p-2 rounded hover:bg-gray-800 transition-colors"
+                title="Toggle theme">
+            <i class="bi" :class="theme === 'dark' ? 'bi-moon-fill' : 'bi-sun-fill'"></i>
+        </button>
+        
+        <!-- Settings -->
+        <button hx-get="/settings"
+                hx-target="#modal-container"
+                hx-swap="innerHTML"
+                class="p-2 rounded hover:bg-gray-800 transition-colors"
+                title="Settings">
+            <i class="bi bi-gear"></i>
+        </button>
+        
+        <!-- User Menu -->
+        <div x-data="{ open: false }" class="relative">
+            <button @click="open = !open"
+                    class="flex items-center space-x-2 p-2 rounded hover:bg-gray-800 transition-colors">
+                <div class="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full"></div>
+                <i class="bi bi-chevron-down text-xs"></i>
+            </button>
+            
+            <!-- Dropdown Menu -->
+            <div x-show="open" 
+                 @click.away="open = false"
+                 x-transition
+                 class="absolute right-0 mt-2 w-48 bg-gray-900 rounded-lg shadow-xl border border-gray-800 py-1 z-50">
+                <a href="/profile" 
+                   hx-get="/profile"
+                   hx-target="#main-content"
+                   class="block px-4 py-2 hover:bg-gray-800 transition-colors">
+                    <i class="bi bi-person mr-2"></i>Profile
+                </a>
+                <a href="/preferences" 
+                   hx-get="/preferences"
+                   hx-target="#main-content"
+                   class="block px-4 py-2 hover:bg-gray-800 transition-colors">
+                    <i class="bi bi-sliders mr-2"></i>Preferences
+                </a>
+                <hr class="my-1 border-gray-800">
+                <button hx-post="/logout"
+                        class="w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-red-400">
+                    <i class="bi bi-box-arrow-right mr-2"></i>Logout
+                </button>
+            </div>
+        </div>
+    </div>
+</nav>

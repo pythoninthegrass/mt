@@ -1,0 +1,110 @@
+<div class="h-full flex flex-col">
+    <!-- Queue Header -->
+    <div class="p-4 border-b border-gray-800">
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold">Queue</h2>
+            <div class="flex items-center space-x-2">
+                <!-- Queue Actions -->
+                <button hx-post="/api/queue/clear"
+                        hx-confirm="Clear the entire queue?"
+                        class="p-1 rounded hover:bg-gray-800 transition-colors"
+                        title="Clear queue">
+                    <i class="bi bi-trash text-gray-400 hover:text-red-400"></i>
+                </button>
+                <button hx-post="/api/queue/shuffle"
+                        class="p-1 rounded hover:bg-gray-800 transition-colors"
+                        title="Shuffle queue">
+                    <i class="bi bi-shuffle text-gray-400 hover:text-gray-100"></i>
+                </button>
+                <button hx-post="/api/queue/save"
+                        hx-target="#modal-container"
+                        class="p-1 rounded hover:bg-gray-800 transition-colors"
+                        title="Save as playlist">
+                    <i class="bi bi-save text-gray-400 hover:text-gray-100"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Queue Stats -->
+        <div class="mt-2 flex items-center space-x-4 text-xs text-gray-400">
+            <span id="queue-count"
+                  hx-get="/api/queue/count"
+                  hx-trigger="load, queue-updated from:body"
+                  hx-swap="innerHTML">
+                0 tracks
+            </span>
+            <span id="queue-duration"
+                  hx-get="/api/queue/duration"
+                  hx-trigger="load, queue-updated from:body"
+                  hx-swap="innerHTML">
+                0:00
+            </span>
+        </div>
+    </div>
+    
+    <!-- Now Playing -->
+    <div id="now-playing" 
+         class="p-4 border-b border-gray-800 bg-gray-800/50"
+         hx-get="/api/queue/now-playing"
+         hx-trigger="load, track-changed from:body"
+         hx-swap="innerHTML">
+        <!-- Now Playing Placeholder -->
+        <div class="flex items-center space-x-3">
+            <div class="w-12 h-12 bg-gray-700 rounded"></div>
+            <div class="flex-1">
+                <div class="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
+                <div class="h-3 bg-gray-700 rounded w-1/2"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Queue List -->
+    <div class="flex-1 overflow-hidden">
+        <div id="queue-list" 
+             class="h-full overflow-y-auto"
+             hx-get="/api/queue/tracks"
+             hx-trigger="load, queue-updated from:body"
+             hx-swap="innerHTML"
+             x-data="{ 
+                 draggedItem: null,
+                 dragOverItem: null
+             }"
+             @dragover.prevent
+             @drop.prevent="
+                 if (draggedItem && dragOverItem && draggedItem !== dragOverItem) {
+                     htmx.ajax('POST', '/api/queue/reorder', {
+                         values: {
+                             from: draggedItem,
+                             to: dragOverItem
+                         }
+                     });
+                 }
+                 draggedItem = null;
+                 dragOverItem = null;
+             ">
+            <!-- Loading State -->
+            <div class="p-4 text-center">
+                <p class="text-gray-500">Queue is empty</p>
+                <p class="text-xs text-gray-600 mt-1">Add tracks to start playing</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Queue Controls -->
+    <div class="p-4 border-t border-gray-800">
+        <div class="grid grid-cols-2 gap-2">
+            <button class="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded transition-colors text-sm"
+                    hx-get="/api/queue/history"
+                    hx-target="#main-content">
+                <i class="bi bi-clock-history mr-1"></i>
+                History
+            </button>
+            <button class="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded transition-colors text-sm"
+                    hx-get="/api/queue/suggestions"
+                    hx-target="#modal-container">
+                <i class="bi bi-lightbulb mr-1"></i>
+                Suggest
+            </button>
+        </div>
+    </div>
+</div>
