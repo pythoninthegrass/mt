@@ -1,15 +1,17 @@
 ---
 id: task-028
 title: Build player controls with Alpine.js
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2025-09-27 20:50'
+updated_date: '2025-09-27 23:11'
 labels:
   - migration
   - alpine
   - player
   - controls
 dependencies: []
+ordinal: 4000
 ---
 
 ## Description

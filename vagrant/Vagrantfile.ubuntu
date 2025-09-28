@@ -1,0 +1,35 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+SSH_USER = "admin"
+SSH_PASS = "admin"
+SHARED_FOLDER = "/home/#{SSH_USER}/git/mt"
+
+Vagrant.configure("2") do |config|
+  config.vm.provider "tart" do |tart|
+    tart.image = "ghcr.io/cirruslabs/ubuntu:latest"                             # required
+    tart.name = "ubuntu"                                                        # required
+    tart.gui = true
+    tart.cpus = 2
+    tart.memory = 3072
+    tart.disk = 32
+    tart.display = "1366x768"
+    tart.suspendable = false                                                    # not supported when shared folders are enabled
+    tart.vnc = false
+  end
+
+  config.vm.synced_folder ".", "/vagrant", disabled: true                       # disable default synced folder
+  config.vm.synced_folder ".", SHARED_FOLDER, disabled: false
+
+  config.ssh.username = SSH_USER
+  config.ssh.password = SSH_PASS
+
+  config.vm.provision "shell", inline: <<-SHELL
+    apt-get update
+    apt-get install -y curl git unzip wget
+    git clone -b dev https://github.com/pythoninthegrass/openbox-setup.git /tmp/openbox-setup
+    cd /tmp/openbox-setup
+    ./install.sh
+    systemctl set-default graphical.target
+  SHELL
+end

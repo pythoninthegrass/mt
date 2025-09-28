@@ -1,15 +1,17 @@
 ---
 id: task-032
 title: Add keyboard shortcuts and media key support
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2025-09-27 20:51'
+updated_date: '2025-09-27 23:10'
 labels:
   - migration
   - keyboard
   - mediakeys
   - shortcuts
 dependencies: []
+ordinal: 5000
 ---
 
 ## Description

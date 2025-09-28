@@ -1,0 +1,289 @@
+<!-- MusicBee-style Player Controls -->
+<div class="flex items-center justify-between text-gray-300">
+    <!-- Left Side - Track Info -->
+    <div class="flex items-center space-x-3 w-1/3">
+        <!-- Album Art Placeholder -->
+        <div class="w-12 h-12 bg-gray-800 rounded border border-gray-600 flex items-center justify-center flex-shrink-0">
+            <i class="bi bi-music-note text-gray-500"></i>
+        </div>
+        
+        <!-- Track Details -->
+        <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium text-white truncate" id="current-track-title">
+                No track selected
+            </div>
+            <div class="text-xs text-gray-400 truncate" id="current-track-artist">
+                
+            </div>
+        </div>
+    </div>
+    
+    <!-- Center - Player Controls -->
+    <div class="flex flex-col items-center space-y-2 w-1/3">
+        <!-- Control Buttons -->
+        <div class="flex items-center space-x-4">
+            <!-- Shuffle -->
+            <button class="text-gray-400 hover:text-white transition-colors" 
+                    id="shuffle-btn"
+                    title="Shuffle">
+                <i class="bi bi-shuffle text-lg"></i>
+            </button>
+            
+            <!-- Previous -->
+            <button class="text-gray-400 hover:text-white transition-colors" 
+                    id="prev-btn"
+                    title="Previous">
+                <i class="bi bi-skip-backward-fill text-xl"></i>
+            </button>
+            
+            <!-- Play/Pause -->
+            <button class="bg-white text-black rounded-full w-10 h-10 flex items-center justify-center hover:bg-gray-200 transition-colors" 
+                    id="play-pause-btn"
+                    title="Play">
+                <i class="bi bi-play-fill text-xl ml-1"></i>
+            </button>
+            
+            <!-- Next -->
+            <button class="text-gray-400 hover:text-white transition-colors" 
+                    id="next-btn"
+                    title="Next">
+                <i class="bi bi-skip-forward-fill text-xl"></i>
+            </button>
+            
+            <!-- Loop/Repeat -->
+            <button class="text-gray-400 hover:text-white transition-colors" 
+                    id="loop-btn"
+                    title="Repeat">
+                <i class="bi bi-arrow-repeat text-lg"></i>
+            </button>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="flex items-center space-x-2 w-full max-w-md">
+            <!-- Current Time -->
+            <span class="text-xs text-gray-400 tabular-nums" id="current-time">0:00</span>
+            
+            <!-- Progress Slider -->
+            <div class="flex-1 relative">
+                <input type="range" 
+                       class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                       id="progress-slider"
+                       min="0" 
+                       max="100" 
+                       value="0"
+                       title="Seek">
+            </div>
+            
+            <!-- Total Duration -->
+            <span class="text-xs text-gray-400 tabular-nums" id="total-duration">0:00</span>
+        </div>
+    </div>
+    
+    <!-- Right Side - Volume & Additional Controls -->
+    <div class="flex items-center space-x-3 justify-end w-1/3">
+        <!-- Queue -->
+        <button class="text-gray-400 hover:text-white transition-colors" 
+                title="Show Queue">
+            <i class="bi bi-list-ul text-lg"></i>
+        </button>
+        
+        <!-- Volume Control -->
+        <div class="flex items-center space-x-2">
+            <button class="text-gray-400 hover:text-white transition-colors" 
+                    id="volume-btn"
+                    title="Mute/Unmute">
+                <i class="bi bi-volume-up text-lg"></i>
+            </button>
+            
+            <div class="w-20">
+                <input type="range" 
+                       class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                       id="volume-slider"
+                       min="0" 
+                       max="100" 
+                       value="70"
+                       title="Volume">
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Custom slider styling */
+.slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    border: none;
+}
+
+.slider::-webkit-slider-thumb:hover {
+    background: #e5e7eb;
+}
+
+.slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    border: none;
+}
+
+.slider::-moz-range-thumb:hover {
+    background: #e5e7eb;
+}
+
+/* Progress slider specific styling */
+#progress-slider::-webkit-slider-thumb {
+    background: #00bcd4;
+}
+
+#progress-slider::-webkit-slider-thumb:hover {
+    background: #00acc1;
+}
+
+#progress-slider::-moz-range-thumb {
+    background: #00bcd4;
+}
+
+#progress-slider::-moz-range-thumb:hover {
+    background: #00acc1;
+}
+</style>
+
+<script>
+// Player controls functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const playPauseBtn = document.getElementById('play-pause-btn');
+    const shuffleBtn = document.getElementById('shuffle-btn');
+    const loopBtn = document.getElementById('loop-btn');
+    const volumeBtn = document.getElementById('volume-btn');
+    const volumeSlider = document.getElementById('volume-slider');
+    const progressSlider = document.getElementById('progress-slider');
+    
+    let isPlaying = false;
+    let isShuffled = false;
+    let loopMode = 'none'; // none, all, one
+    let isMuted = false;
+    let savedVolume = 70;
+    
+    // Play/Pause toggle
+    playPauseBtn.addEventListener('click', function() {
+        isPlaying = !isPlaying;
+        const icon = this.querySelector('i');
+        
+        if (isPlaying) {
+            icon.className = 'bi bi-pause-fill text-xl';
+            this.title = 'Pause';
+        } else {
+            icon.className = 'bi bi-play-fill text-xl ml-1';
+            this.title = 'Play';
+        }
+    });
+    
+    // Shuffle toggle
+    shuffleBtn.addEventListener('click', function() {
+        isShuffled = !isShuffled;
+        this.classList.toggle('text-cyan-500', isShuffled);
+        this.classList.toggle('text-gray-400', !isShuffled);
+    });
+    
+    // Loop mode cycling
+    loopBtn.addEventListener('click', function() {
+        const icon = this.querySelector('i');
+        
+        switch (loopMode) {
+            case 'none':
+                loopMode = 'all';
+                this.classList.add('text-cyan-500');
+                this.classList.remove('text-gray-400');
+                this.title = 'Repeat All';
+                break;
+            case 'all':
+                loopMode = 'one';
+                icon.className = 'bi bi-arrow-repeat text-lg';
+                this.title = 'Repeat One';
+                // Add a small "1" indicator (you might want to use a different icon)
+                break;
+            case 'one':
+                loopMode = 'none';
+                this.classList.remove('text-cyan-500');
+                this.classList.add('text-gray-400');
+                icon.className = 'bi bi-arrow-repeat text-lg';
+                this.title = 'Repeat';
+                break;
+        }
+    });
+    
+    // Volume controls
+    volumeBtn.addEventListener('click', function() {
+        isMuted = !isMuted;
+        const icon = this.querySelector('i');
+        
+        if (isMuted) {
+            savedVolume = volumeSlider.value;
+            volumeSlider.value = 0;
+            icon.className = 'bi bi-volume-mute text-lg';
+            this.title = 'Unmute';
+        } else {
+            volumeSlider.value = savedVolume;
+            icon.className = savedVolume > 50 ? 'bi bi-volume-up text-lg' : 'bi bi-volume-down text-lg';
+            this.title = 'Mute';
+        }
+    });
+    
+    // Volume slider
+    volumeSlider.addEventListener('input', function() {
+        const volume = this.value;
+        const icon = volumeBtn.querySelector('i');
+        
+        if (volume == 0) {
+            icon.className = 'bi bi-volume-mute text-lg';
+            isMuted = true;
+        } else {
+            icon.className = volume > 50 ? 'bi bi-volume-up text-lg' : 'bi bi-volume-down text-lg';
+            isMuted = false;
+        }
+        
+        // Store volume in localStorage
+        localStorage.setItem('volume', volume);
+    });
+    
+    // Progress slider seeking
+    progressSlider.addEventListener('input', function() {
+        // TODO: Implement actual seeking when player is integrated
+        console.log('Seeking to:', this.value + '%');
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(event) {
+        // Prevent shortcuts when typing in input fields
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        switch (event.code) {
+            case 'Space':
+                event.preventDefault();
+                playPauseBtn.click();
+                break;
+            case 'ArrowLeft':
+                if (event.shiftKey) {
+                    event.preventDefault();
+                    document.getElementById('prev-btn').click();
+                }
+                break;
+            case 'ArrowRight':
+                if (event.shiftKey) {
+                    event.preventDefault();
+                    document.getElementById('next-btn').click();
+                }
+                break;
+        }
+    });
+});
+</script>

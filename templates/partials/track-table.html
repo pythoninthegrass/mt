@@ -1,0 +1,227 @@
+<!-- MusicBee-style Track Table Component -->
+<div class="flex-1 overflow-hidden flex flex-col bg-gray-900">
+
+    <!-- MusicBee-style Table Header -->
+    <div class="border-b border-gray-700 bg-gray-800 px-2 py-1">
+        <div class="flex text-xs font-medium text-gray-300">
+            <div class="w-8 text-center">#</div>
+            <div class="w-4"></div>
+            <div class="flex-1 min-w-0 cursor-pointer hover:text-white"
+                 hx-get="/api/v1/library/tracks-table"
+                 hx-target="#track-table-body"
+                 hx-include="[name='search']"
+                 hx-vals='{"sort": "title"}'
+                 name="sort">Title</div>
+            <div class="w-48 cursor-pointer hover:text-white pl-2"
+                 hx-get="/api/v1/library/tracks-table"
+                 hx-target="#track-table-body"
+                 hx-include="[name='search']"
+                 hx-vals='{"sort": "artist"}'
+                 name="sort">Artist</div>
+            <div class="w-48 cursor-pointer hover:text-white pl-2"
+                 hx-get="/api/v1/library/tracks-table"
+                 hx-target="#track-table-body"
+                 hx-include="[name='search']"
+                 hx-vals='{"sort": "album"}'
+                 name="sort">Album</div>
+            <div class="w-16 cursor-pointer hover:text-white pl-2"
+                 hx-get="/api/v1/library/tracks-table"
+                 hx-target="#track-table-body"
+                 hx-include="[name='search']"
+                 hx-vals='{"sort": "year"}'
+                 name="sort">Year</div>
+            <div class="w-24 cursor-pointer hover:text-white pl-2"
+                 hx-get="/api/v1/library/tracks-table"
+                 hx-target="#track-table-body"
+                 hx-include="[name='search']"
+                 hx-vals='{"sort": "genre"}'
+                 name="sort">Genre</div>
+            <div class="w-20 cursor-pointer hover:text-white pl-2"
+                 hx-get="/api/v1/library/tracks-table"
+                 hx-target="#track-table-body"
+                 hx-include="[name='search']"
+                 hx-vals='{"sort": "rating"}'
+                 name="sort">Rating</div>
+            <div class="w-16 text-right cursor-pointer hover:text-white"
+                 hx-get="/api/v1/library/tracks-table"
+                 hx-target="#track-table-body"
+                 hx-include="[name='search']"
+                 hx-vals='{"sort": "duration"}'
+                 name="sort">Time</div>
+        </div>
+    </div>
+
+    <!-- Table Body -->
+    <div id="track-table-body"
+         class="flex-1 overflow-y-auto"
+         hx-get="/api/v1/library/tracks-table"
+         hx-trigger="load"
+         hx-target="this"
+         hx-swap="innerHTML">
+        <!-- Track rows will be loaded here -->
+    </div>
+
+    <!-- Loading indicator for infinite scroll -->
+    <div id="infinite-scroll-indicator"
+         class="p-4 text-center text-gray-400"
+         hx-get="/api/v1/library/tracks"
+         hx-target="#track-table-body"
+         hx-swap="beforeend"
+         hx-trigger="intersect once"
+         hx-include="[name='search'],[name='sort']"
+         hx-vals='{"skip": "{{ tracks|length if tracks else 0 }}"}'
+         style="display: none;">
+        <i class="bi bi-arrow-repeat animate-spin"></i>
+        Loading more tracks...
+    </div>
+</div>
+
+<!-- Context Menu -->
+<div id="track-context-menu"
+     class="fixed bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-1 z-50 hidden"
+     style="min-width: 200px;">
+    <button class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm flex items-center"
+            hx-post="/api/v1/player/play/{{ track_id }}"
+            hx-swap="none">
+        <i class="bi bi-play-fill mr-2"></i>Play
+    </button>
+    <button class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm flex items-center"
+            hx-post="/api/v1/queue/add/{{ track_id }}"
+            hx-swap="none">
+        <i class="bi bi-plus-lg mr-2"></i>Add to Queue
+    </button>
+    <button class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm flex items-center"
+            hx-get="/api/v1/playlists/add-modal/{{ track_id }}"
+            hx-target="#modal-container">
+        <i class="bi bi-plus-square mr-2"></i>Add to Playlist
+    </button>
+    <hr class="my-1 border-gray-700">
+    <button class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm flex items-center"
+            hx-get="/api/v1/track/{{ track_id }}/details"
+            hx-target="#modal-container">
+        <i class="bi bi-info-circle mr-2"></i>Details
+    </button>
+    <button class="w-full text-left px-3 py-2 hover:bg-gray-800 text-sm flex items-center text-red-400"
+            hx-delete="/api/v1/library/tracks/{{ track_id }}"
+            hx-confirm="Remove this track from library?">
+        <i class="bi bi-trash mr-2"></i>Remove from Library
+    </button>
+</div>
+
+<script>
+let selectedTracks = new Set();
+let lastSelectedIndex = -1;
+let contextMenuTrackId = null;
+
+// Handle track row clicks for multi-select
+function handleTrackClick(event, trackId) {
+    const row = event.currentTarget;
+    const trackIndex = Array.from(row.parentElement.children).indexOf(row);
+
+    if (event.ctrlKey || event.metaKey) {
+        // Ctrl/Cmd click - toggle selection
+        toggleTrackSelection(trackId, row);
+    } else if (event.shiftKey && lastSelectedIndex !== -1) {
+        // Shift click - range selection
+        selectTrackRange(lastSelectedIndex, trackIndex);
+    } else {
+        // Regular click - single selection
+        clearSelection();
+        selectTrack(trackId, row);
+        lastSelectedIndex = trackIndex;
+    }
+}
+
+// Toggle track selection
+function toggleTrackSelection(trackId, row) {
+    if (selectedTracks.has(trackId)) {
+        deselectTrack(trackId, row);
+    } else {
+        selectTrack(trackId, row);
+    }
+}
+
+// Select a single track
+function selectTrack(trackId, row) {
+    selectedTracks.add(trackId);
+    row.classList.add('bg-blue-900', 'border-blue-500');
+    lastSelectedIndex = Array.from(row.parentElement.children).indexOf(row);
+}
+
+// Deselect a track
+function deselectTrack(trackId, row) {
+    selectedTracks.delete(trackId);
+    row.classList.remove('bg-blue-900', 'border-blue-500');
+}
+
+// Clear all selections
+function clearSelection() {
+    document.querySelectorAll('.track-row').forEach(row => {
+        row.classList.remove('bg-blue-900', 'border-blue-500');
+    });
+    selectedTracks.clear();
+    lastSelectedIndex = -1;
+}
+
+// Select a range of tracks
+function selectTrackRange(startIndex, endIndex) {
+    const rows = document.querySelectorAll('.track-row');
+    const [min, max] = [Math.min(startIndex, endIndex), Math.max(startIndex, endIndex)];
+
+    clearSelection();
+
+    for (let i = min; i <= max; i++) {
+        const row = rows[i];
+        const trackId = parseInt(row.dataset.trackId);
+        selectTrack(trackId, row);
+    }
+}
+
+// Show context menu
+function showContextMenu(event, trackId) {
+    event.preventDefault();
+
+    const menu = document.getElementById('track-context-menu');
+    contextMenuTrackId = trackId;
+
+    // Update menu links with track ID
+    menu.innerHTML = menu.innerHTML.replace(/\{\{ track_id \}\}/g, trackId);
+
+    // Position menu
+    menu.style.left = event.pageX + 'px';
+    menu.style.top = event.pageY + 'px';
+    menu.classList.remove('hidden');
+
+    // Hide menu when clicking elsewhere
+    document.addEventListener('click', hideContextMenu, { once: true });
+}
+
+// Hide context menu
+function hideContextMenu() {
+    document.getElementById('track-context-menu').classList.add('hidden');
+}
+
+// Clear selection when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.track-row')) {
+        clearSelection();
+    }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        clearSelection();
+        hideContextMenu();
+    }
+
+    // Select all (Ctrl+A)
+    if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
+        event.preventDefault();
+        document.querySelectorAll('.track-row').forEach(row => {
+            const trackId = parseInt(row.dataset.trackId);
+            selectTrack(trackId, row);
+        });
+    }
+});
+</script>

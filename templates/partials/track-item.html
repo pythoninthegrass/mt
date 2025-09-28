@@ -1,0 +1,103 @@
+<!-- Single Track Item Partial - Used in lists and queue -->
+<div class="group flex items-center p-2 hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+     draggable="true"
+     @dragstart="draggedItem = '{{ track.id }}'"
+     @dragenter="dragOverItem = '{{ track.id }}'"
+     data-track-id="{{ track.id }}">
+    
+    <!-- Track Number/Play Icon -->
+    <div class="w-8 text-center text-[var(--text-muted)] group-hover:hidden">
+        {{ track.position|default(loop.index) }}
+    </div>
+    <button class="w-8 hidden group-hover:block"
+            hx-post="/api/player/play/{{ track.id }}"
+            hx-swap="none">
+        <i class="bi bi-play-fill text-[var(--text-muted)] hover:text-[var(--text-primary)]"></i>
+    </button>
+    
+    <!-- Album Art -->
+    <div class="w-10 h-10 mr-3 bg-[var(--bg-tertiary)] rounded overflow-hidden flex-shrink-0">
+        {% if track.album_art %}
+            <img src="{{ track.album_art }}" 
+                 alt="{{ track.album }}"
+                 class="w-full h-full object-cover">
+        {% else %}
+            <div class="w-full h-full flex items-center justify-center">
+                <i class="bi bi-music-note text-[var(--text-muted)]"></i>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Track Info -->
+    <div class="flex-1 min-w-0">
+        <div class="flex items-center">
+            <span class="text-sm font-medium truncate">{{ track.title }}</span>
+            {% if track.is_playing %}
+                <div class="ml-2 flex items-center space-x-1">
+                    <div class="w-1 h-3 bg-[var(--accent-primary)] rounded-full animate-pulse"></div>
+                    <div class="w-1 h-3 bg-[var(--accent-primary)] rounded-full animate-pulse" style="animation-delay: 0.2s"></div>
+                    <div class="w-1 h-3 bg-[var(--accent-primary)] rounded-full animate-pulse" style="animation-delay: 0.4s"></div>
+                </div>
+            {% endif %}
+        </div>
+        <div class="text-xs text-[var(--text-muted)] truncate">
+            {{ track.artist }}
+            {% if track.album %}
+                • {{ track.album }}
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Track Actions -->
+    <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button hx-post="/api/queue/add/{{ track.id }}"
+                hx-swap="none"
+                class="p-1 rounded hover:bg-[var(--bg-selected)]"
+                title="Add to queue">
+            <i class="bi bi-plus-lg text-xs"></i>
+        </button>
+        <button hx-post="/api/favorites/toggle/{{ track.id }}"
+                hx-swap="none"
+                class="p-1 rounded hover:bg-[var(--bg-selected)]"
+                title="Favorite">
+            <i class="bi {{ 'bi-heart-fill text-red-400' if track.is_favorite else 'bi-heart' }} text-xs"></i>
+        </button>
+        <div x-data="{ open: false }" class="relative">
+            <button @click="open = !open"
+                    class="p-1 rounded hover:bg-[var(--bg-selected)]">
+                <i class="bi bi-three-dots text-xs"></i>
+            </button>
+            <div x-show="open"
+                 @click.away="open = false"
+                 x-transition
+                 class="absolute right-0 mt-1 w-48 bg-[var(--bg-secondary)] rounded shadow-lg border border-[var(--border-primary)] py-1 z-50">
+                <button hx-get="/api/track/{{ track.id }}/details"
+                        hx-target="#modal-container"
+                        class="w-full text-left px-3 py-1 hover:bg-[var(--bg-tertiary)] text-sm">
+                    <i class="bi bi-info-circle mr-2"></i>Details
+                </button>
+                <button hx-get="/api/playlists/add-modal/{{ track.id }}"
+                        hx-target="#modal-container"
+                        class="w-full text-left px-3 py-1 hover:bg-[var(--bg-tertiary)] text-sm">
+                    <i class="bi bi-plus-square mr-2"></i>Add to Playlist
+                </button>
+                <button hx-post="/api/radio/from-track/{{ track.id }}"
+                        hx-swap="none"
+                        class="w-full text-left px-3 py-1 hover:bg-[var(--bg-tertiary)] text-sm">
+                    <i class="bi bi-broadcast mr-2"></i>Start Radio
+                </button>
+                <hr class="my-1 border-[var(--border-primary)]">
+                <button hx-delete="/api/library/track/{{ track.id }}"
+                        hx-confirm="Remove this track from library?"
+                        class="w-full text-left px-3 py-1 hover:bg-[var(--bg-tertiary)] text-sm text-red-400">
+                    <i class="bi bi-trash mr-2"></i>Remove
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Duration -->
+    <div class="w-12 text-right text-xs text-[var(--text-muted)]">
+        {{ track.duration|format_duration }}
+    </div>
+</div>

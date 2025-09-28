@@ -1,0 +1,420 @@
+/* MT Music Player Layout Fixes */
+/* Based on analysis of the codebase structure and common pywebview layout issues */
+
+/* === CRITICAL LAYOUT FIXES === */
+
+/* Fix main application container to prevent overflow issues */
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Fix main content area layout */
+.main-content-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0; /* Important for flex children to shrink */
+}
+
+/* === SIDEBAR FIXES === */
+
+/* Fix left sidebar positioning and responsiveness */
+aside:first-of-type {
+    width: 16rem; /* 256px - fixed width for consistency */
+    flex-shrink: 0;
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border-primary);
+    overflow-y: auto;
+    height: 100%;
+}
+
+/* Alpine.js sidebar transition improvements */
+aside[x-show="sidebarOpen"] {
+    transition: transform 0.3s ease-in-out;
+}
+
+/* Fix sidebar sections to prevent overflow */
+aside .sidebar-section {
+    flex-shrink: 0;
+}
+
+aside .playlist-section {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+aside #playlist-list {
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* === MAIN CONTENT FIXES === */
+
+/* Fix main content area */
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: var(--bg-primary);
+    min-width: 0; /* Prevent flex item from growing beyond container */
+}
+
+#main-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+}
+
+/* Fix library page layout */
+.library-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.library-header {
+    flex-shrink: 0;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-primary);
+    background-color: var(--bg-secondary);
+}
+
+/* === TRACK TABLE FIXES === */
+
+/* Fix track table container */
+.track-table-container {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.track-table-header {
+    flex-shrink: 0;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
+    padding: 0.5rem 1rem;
+}
+
+#track-table-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Fix track row layout */
+.track-row {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr 1fr auto;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    align-items: center;
+    border-bottom: 1px solid var(--border-primary);
+    transition: background-color 0.15s ease;
+}
+
+.track-row:hover {
+    background-color: var(--bg-tertiary);
+}
+
+/* === QUEUE PANEL FIXES === */
+
+/* Fix right queue panel */
+aside:last-of-type {
+    width: 20rem; /* 320px - fixed width */
+    flex-shrink: 0;
+    background-color: var(--bg-secondary);
+    border-left: 1px solid var(--border-primary);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.queue-header {
+    flex-shrink: 0;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+#now-playing {
+    flex-shrink: 0;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-primary);
+    background-color: var(--playing-bg);
+}
+
+#queue-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.queue-controls {
+    flex-shrink: 0;
+    padding: 1rem;
+    border-top: 1px solid var(--border-primary);
+}
+
+/* === PLAYER CONTROLS FIXES === */
+
+/* Fix bottom player controls */
+footer {
+    height: 5rem; /* 80px - fixed height */
+    flex-shrink: 0;
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border-primary);
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    gap: 1rem;
+}
+
+.player-track-info {
+    width: 20rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.player-controls-center {
+    flex: 1;
+    max-width: 32rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.player-controls-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.player-progress {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.player-volume-section {
+    width: 20rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+/* === RESPONSIVE FIXES === */
+
+/* Tablet and smaller screens */
+@media (max-width: 1024px) {
+    aside:first-of-type {
+        width: 14rem;
+    }
+    
+    aside:last-of-type {
+        width: 18rem;
+    }
+    
+    .player-track-info,
+    .player-volume-section {
+        width: 16rem;
+    }
+}
+
+/* Mobile screens */
+@media (max-width: 768px) {
+    aside:first-of-type {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        z-index: 1000;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    aside:first-of-type[x-show="true"] {
+        transform: translateX(0);
+    }
+    
+    aside:last-of-type {
+        display: none; /* Hide queue panel on mobile */
+    }
+    
+    main {
+        width: 100%;
+    }
+    
+    /* Simplify player controls for mobile */
+    footer {
+        flex-direction: column;
+        height: auto;
+        padding: 0.75rem;
+    }
+    
+    .player-track-info,
+    .player-volume-section {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .player-controls-center {
+        width: 100%;
+        max-width: none;
+    }
+}
+
+/* === SCROLLBAR IMPROVEMENTS === */
+
+/* Custom scrollbars for better visual consistency */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* Apply custom scrollbar to scrollable areas */
+#main-content,
+#track-table-body,
+#queue-list,
+aside .playlist-list {
+    @extend .custom-scrollbar;
+}
+
+/* === HTMX LOADING IMPROVEMENTS === */
+
+/* Better loading states */
+.htmx-request {
+    position: relative;
+}
+
+.htmx-request::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.htmx-indicator {
+    color: var(--accent-primary);
+    font-size: 1.2em;
+}
+
+/* === ALPINE.JS TRANSITION IMPROVEMENTS === */
+
+/* Better sidebar transitions */
+[x-transition] {
+    transition-property: opacity, transform;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+}
+
+[x-transition\:enter] {
+    opacity: 0;
+    transform: translateX(-100%);
+}
+
+[x-transition\:enter-end] {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+[x-transition\:leave] {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+[x-transition\:leave-end] {
+    opacity: 0;
+    transform: translateX(-100%);
+}
+
+/* === DRAG AND DROP IMPROVEMENTS === */
+
+/* Visual feedback for drag and drop */
+[ondragover] {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.drag-over {
+    background-color: var(--bg-selected) !important;
+    border: 2px dashed var(--accent-primary) !important;
+}
+
+/* === ACCESSIBILITY IMPROVEMENTS === */
+
+/* Focus styles for keyboard navigation */
+button:focus,
+input:focus,
+select:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* Better contrast for text */
+.text-primary {
+    color: var(--text-primary);
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+/* === PRINT STYLES === */
+
+@media print {
+    aside,
+    footer {
+        display: none !important;
+    }
+    
+    main {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+    
+    #main-content {
+        overflow: visible !important;
+        height: auto !important;
+    }
+}

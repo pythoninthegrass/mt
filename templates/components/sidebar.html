@@ -1,0 +1,84 @@
+<div class="h-full flex flex-col text-sm">
+    <!-- MusicBee-style Tree Navigation -->
+    <div class="flex-1 overflow-y-auto">
+        <!-- Library Root -->
+        <div class="py-1 px-2" x-data="{ expanded: true }">
+            <div class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer" @click="expanded = !expanded">
+                <i class="bi bi-chevron-down w-3 h-3 mr-1 text-gray-400 transition-transform" :class="{ 'rotate-180': !expanded }"></i>
+                <i class="bi bi-collection mr-2 text-gray-400"></i>
+                <span class="text-gray-300">Library</span>
+            </div>
+            
+            <div x-show="expanded" class="ml-4">
+                <!-- Music -->
+                <div class="py-1" x-data="{ expanded: true }">
+                    <div class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer" @click="expanded = !expanded">
+                        <i class="bi bi-chevron-down w-3 h-3 mr-1 text-gray-400 transition-transform" :class="{ 'rotate-180': !expanded }"></i>
+                        <i class="bi bi-music-note-beamed mr-2 text-gray-400"></i>
+                        <span class="text-gray-300">Music</span>
+                    </div>
+                    
+                    <div x-show="expanded" class="ml-4 space-y-1">
+                        <a href="/library" class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer text-gray-300 hover:text-white">
+                            <i class="bi bi-music-note mr-2 text-gray-400"></i>
+                            <span>Tracks</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Search Results -->
+                <div class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer">
+                    <i class="bi bi-chevron-right w-3 h-3 mr-1 text-gray-400"></i>
+                    <i class="bi bi-search mr-2 text-gray-400"></i>
+                    <span class="text-gray-300">Search Results</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Playlists -->
+        <div class="py-1 px-2" x-data="{ expanded: true }">
+            <div class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer" @click="expanded = !expanded">
+                <i class="bi bi-chevron-down w-3 h-3 mr-1 text-gray-400 transition-transform" :class="{ 'rotate-180': !expanded }"></i>
+                <i class="bi bi-collection-play mr-2 text-gray-400"></i>
+                <span class="text-gray-300">Playlists</span>
+            </div>
+            
+            <div x-show="expanded" class="ml-4 space-y-1">
+                <!-- Auto Playlists -->
+                <div class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer">
+                    <i class="bi bi-chevron-right w-3 h-3 mr-1 text-gray-400"></i>
+                    <i class="bi bi-gear mr-2 text-gray-400"></i>
+                    <span class="text-gray-300">Auto (1)</span>
+                </div>
+                
+                <!-- Recently Added -->
+                <div class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer">
+                    <i class="bi bi-chevron-right w-3 h-3 mr-1 text-gray-400"></i>
+                    <i class="bi bi-clock-history mr-2 text-gray-400"></i>
+                    <span class="text-gray-300">Recently Added</span>
+                </div>
+                
+                <!-- Recently Played -->
+                <div class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer">
+                    <i class="bi bi-chevron-right w-3 h-3 mr-1 text-gray-400"></i>
+                    <i class="bi bi-play-circle mr-2 text-gray-400"></i>
+                    <span class="text-gray-300">Recently Played</span>
+                </div>
+                
+                <!-- Top 25 Most Played -->
+                <div class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer">
+                    <i class="bi bi-chevron-right w-3 h-3 mr-1 text-gray-400"></i>
+                    <i class="bi bi-trophy mr-2 text-gray-400"></i>
+                    <span class="text-gray-300">Top 25 Most Played</span>
+                </div>
+                
+                <!-- Now Playing -->
+                <div class="flex items-center py-1 px-1 hover:bg-gray-700 cursor-pointer">
+                    <i class="bi bi-chevron-right w-3 h-3 mr-1 text-gray-400"></i>
+                    <i class="bi bi-music-player mr-2 text-gray-400"></i>
+                    <span class="text-gray-300">Now Playing</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

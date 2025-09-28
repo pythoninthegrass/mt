@@ -1,0 +1,133 @@
+{% extends "base/base.html" %}
+
+{% block title %}Library - mt music player{% endblock %}
+
+{% block content %}
+<!-- MusicBee-style Library View -->
+<div class="h-full flex flex-col bg-gray-900">
+    <!-- Compact track table - no extra headers or padding -->
+    <div class="flex-1 overflow-hidden"
+          ondragover="handleDragOver(event)"
+          ondragleave="handleDragLeave(event)"
+          ondrop="handleFileDrop(event)">
+        {% include "partials/track-table.html" %}
+    </div>
+</div>
+
+<script>
+    let dragCounter = 0;
+
+    function handleDragOver(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Add visual feedback
+        event.currentTarget.classList.add('bg-blue-900', 'border-blue-500');
+        event.currentTarget.style.border = '2px dashed #3b82f6';
+    }
+
+    function handleDragLeave(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        dragCounter--;
+        if (dragCounter === 0) {
+            // Remove visual feedback
+            event.currentTarget.classList.remove('bg-blue-900', 'border-blue-500');
+            event.currentTarget.style.border = '';
+        }
+    }
+
+    function handleFileDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Reset drag counter and visual feedback
+        dragCounter = 0;
+        event.currentTarget.classList.remove('bg-blue-900', 'border-blue-500');
+        event.currentTarget.style.border = '';
+
+        // PyWebView handles the actual file processing automatically
+        // Just show a toast to indicate files are being processed
+        showToast('Processing dropped files...', 'info');
+
+        // The Python handler will process the files and update the library
+        // Refresh the library content after a short delay
+        setTimeout(() => {
+            htmx.trigger('#library-content', 'refresh');
+        }, 1000);
+    }
+
+    // Initialize drag counter for nested elements
+    document.addEventListener('dragenter', function(event) {
+        dragCounter++;
+    });
+
+    document.addEventListener('dragleave', function(event) {
+        dragCounter--;
+    });
+
+    // Scan library functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const scanButton = document.getElementById('scan-button');
+        const scanStatus = document.getElementById('scan-status');
+
+        if (scanButton) {
+            scanButton.addEventListener('click', async function() {
+                try {
+                    // Check if FileSystemAPI is available
+                    if (!window.FileSystemAPI || !window.FileSystemAPI.isAvailable()) {
+                        showToast('File system access not available', 'error');
+                        return;
+                    }
+
+                    // Show loading state
+                    scanButton.disabled = true;
+                    scanButton.innerHTML = '<i class="bi bi-arrow-repeat animate-spin"></i><span>Opening Dialog...</span>';
+                    scanStatus.classList.remove('hidden');
+
+                    // Open directory dialog
+                    const selectedPath = await window.FileSystemAPI.openDirectoryDialog('Select Music Directory');
+
+                    if (selectedPath) {
+                        // Update status
+                        scanStatus.innerHTML = '<i class="bi bi-arrow-repeat animate-spin"></i><span>Scanning directory...</span>';
+
+                        // Call scan API with selected path
+                        const response = await fetch('/api/v1/library/scan', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: new URLSearchParams({
+                                path: selectedPath
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (response.ok) {
+                            showToast(`Scan initiated for: ${selectedPath}`, 'success');
+                            // Refresh library content
+                            htmx.trigger('#library-content', 'refresh');
+                        } else {
+                            showToast(`Scan failed: ${result.detail || 'Unknown error'}`, 'error');
+                        }
+                    } else {
+                        showToast('No directory selected', 'info');
+                    }
+
+                } catch (error) {
+                    console.error('Scan error:', error);
+                    showToast('Error during scan operation', 'error');
+                } finally {
+                    // Reset button state
+                    scanButton.disabled = false;
+                    scanButton.innerHTML = '<i class="bi bi-folder-plus"></i><span>Scan Library</span>';
+                    scanStatus.classList.add('hidden');
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,15 +1,17 @@
 ---
 id: task-029
 title: Implement queue management with drag-and-drop
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2025-09-27 20:50'
+updated_date: '2025-09-27 23:11'
 labels:
   - migration
   - htmx
   - queue
   - dragdrop
 dependencies: []
+ordinal: 3500
 ---
 
 ## Description
