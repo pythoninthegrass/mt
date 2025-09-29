@@ -32,6 +32,7 @@ from core.gui import (
     ProgressBar,
     QueueView,
     SearchBar,
+    StatusBar,
 )
 from core.library import LibraryManager
 from core.logging import log_error, log_file_operation, log_player_action, player_logger
@@ -155,6 +156,9 @@ class MusicPlayer:
             padx=10,
             pady=(0, 20),
         )
+
+        # Create status bar just above the progress bar
+        self.status_bar = StatusBar(self.window, self.library_manager)
 
         # Setup progress bar with callbacks
         self.progress_bar = ProgressBar(

@@ -347,6 +347,55 @@ class MusicDatabase:
         self.db_cursor.execute(query, (search_term, search_term, search_term))
         return self.db_cursor.fetchall()
 
+    def get_library_statistics(self) -> dict[str, Any]:
+        """Get comprehensive library statistics including file count, size, and total duration."""
+        import os
+        from typing import Any
+        
+        stats = {
+            'file_count': 0,
+            'total_size_bytes': 0,
+            'total_duration_seconds': 0
+        }
+        
+        try:
+            # Get file count
+            count_query = "SELECT COUNT(*) FROM library"
+            self.db_cursor.execute(count_query)
+            stats['file_count'] = self.db_cursor.fetchone()[0]
+            
+            # Get all file paths and durations to calculate size and total duration
+            files_query = "SELECT filepath, duration FROM library"
+            self.db_cursor.execute(files_query)
+            files = self.db_cursor.fetchall()
+            
+            total_size = 0
+            total_duration = 0.0
+            
+            for filepath, duration in files:
+                # Calculate file size
+                try:
+                    if os.path.exists(filepath):
+                        file_size = os.path.getsize(filepath)
+                        total_size += file_size
+                except (OSError, TypeError):
+                    # Skip files that can't be accessed or don't exist
+                    continue
+                
+                # Add duration (handle None values)
+                if duration and isinstance(duration, (int, float)):
+                    total_duration += float(duration)
+            
+            stats['total_size_bytes'] = total_size
+            stats['total_duration_seconds'] = int(total_duration)
+            
+        except Exception as e:
+            print(f"Error calculating library statistics: {e}")
+            # Return empty stats on error
+            pass
+        
+        return stats
+
     def remove_from_queue(self, title: str, artist: str | None = None, album: str | None = None, track_num: str | None = None):
         """Remove a song from the queue based on its metadata."""
         self.db_cursor.execute(

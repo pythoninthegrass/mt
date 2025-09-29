@@ -135,6 +135,7 @@ COLORS = {
         THEME_CONFIG['colors']['bg'],
         THEME_CONFIG['colors'].get('row_alt', THEME_CONFIG['colors']['selectbg']),
     ],
+    'status_bar_bg': '#1f1f1f',  # Status bar background color
 }
 
 # File System

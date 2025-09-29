@@ -112,6 +112,10 @@ class LibraryManager:
         """Search library items by text across artist, title, and album."""
         return self.db.search_library(search_text)
 
+    def get_library_statistics(self) -> dict[str, Any]:
+        """Get comprehensive library statistics including file count, size, and total duration."""
+        return self.db.get_library_statistics()
+
     def _process_audio_file(self, file_path: str) -> None:
         """Process a single audio file and add it to the library."""
         path_obj = Path(file_path)

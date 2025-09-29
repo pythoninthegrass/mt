@@ -644,6 +644,93 @@ class SearchBar:
         self.search_entry.focus_set()
 
 
+class StatusBar:
+    def __init__(self, parent, library_manager):
+        self.parent = parent
+        self.library_manager = library_manager
+        self.setup_status_bar()
+
+    def setup_status_bar(self):
+        """Create status bar spanning entire bottom pane."""
+        from config import COLORS
+        
+        # Create status frame container - continuous bar across full width
+        self.status_frame = ctk.CTkFrame(
+            self.parent,
+            height=30,
+            corner_radius=0,
+            fg_color=COLORS['status_bar_bg'],  # #1f1f1f
+            border_width=0
+        )
+        self.status_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=0, pady=0)
+        self.status_frame.pack_propagate(False)
+
+        # Status label with library statistics - right-justified
+        self.status_label = ctk.CTkLabel(
+            self.status_frame,
+            text="Loading library statistics...",
+            font=("SF Pro Display", 11),
+            text_color="#CCCCCC",  # Light gray text
+            anchor="e"  # Right-aligned text
+        )
+        self.status_label.pack(side=tk.RIGHT, padx=10, pady=5)
+
+        # Initial statistics load
+        self.update_statistics()
+
+    def format_file_size(self, size_bytes):
+        """Convert bytes to human readable format (GB)."""
+        if size_bytes == 0:
+            return "0.0 GB"
+        
+        gb_size = size_bytes / (1024 ** 3)
+        return f"{gb_size:.1f} GB"
+
+    def format_duration(self, total_seconds):
+        """Convert total seconds to NNd hh:mm format."""
+        if total_seconds <= 0:
+            return "0d 00:00"
+        
+        days = int(total_seconds // 86400)  # 86400 seconds in a day
+        remaining_seconds = total_seconds % 86400
+        hours = int(remaining_seconds // 3600)
+        minutes = int((remaining_seconds % 3600) // 60)
+        
+        return f"{days}d {hours:02d}:{minutes:02d}"
+
+    def format_file_count(self, count):
+        """Format file count with commas for readability."""
+        return f"{count:,}"
+
+    def get_library_statistics(self):
+        """Get comprehensive library statistics."""
+        stats = self.library_manager.get_library_statistics()
+        return {
+            'file_count': stats.get('file_count', 0),
+            'total_size_bytes': stats.get('total_size_bytes', 0),
+            'total_duration_seconds': stats.get('total_duration_seconds', 0)
+        }
+
+    def update_statistics(self):
+        """Update the status bar with current library statistics."""
+        try:
+            stats = self.get_library_statistics()
+            
+            file_count_str = self.format_file_count(stats['file_count'])
+            size_str = self.format_file_size(stats['total_size_bytes'])
+            duration_str = self.format_duration(stats['total_duration_seconds'])
+            
+            status_text = f"{file_count_str} files, {size_str}, {duration_str}"
+            self.status_label.configure(text=status_text)
+            
+        except Exception as e:
+            self.status_label.configure(text="Unable to load library statistics")
+
+    def refresh_statistics(self):
+        """Manually refresh the statistics (useful after library scan)."""
+        self.update_statistics()
+
+
 class MusicPlayer:
     def __init__(self, window: tk.Tk, theme_manager):
         self.window = window
