@@ -77,7 +77,7 @@ BUTTON_SYMBOLS = {
     'add': '+',
     'loop': '⟳',
     'shuffle': '⤮',
-    'volume': '🔊',
+    'volume': '🔈',  # Unicode speaker symbol (U+1F508)
 }
 
 # Theme Configuration
@@ -94,18 +94,18 @@ with open(THEME_CONFIG_FILE) as f:
 PROGRESS_BAR = {
     'frame_height': 80,
     'canvas_height': 70,
-    'bar_y': 50,
+    'bar_y': 45,  # Moved up slightly to better match MusicBee
     'circle_radius': 6,
     'line_color': THEME_CONFIG['colors']['secondary'],
     'line_width': 2,
     'circle_fill': THEME_CONFIG['colors']['primary'],
     'circle_active_fill': THEME_CONFIG['colors']['active'],
-    'time_label_y': 30,
-    'track_info_y': 30,
+    'time_label_y': 25,  # Moved up to match progress bar adjustment
+    'track_info_y': 25,  # Moved up to match progress bar adjustment
     'track_info_x': None,
     'frame_padding': (0, 20),
     'frame_side_padding': 10,
-    'controls_y': 50,
+    'controls_y': 45,  # Moved up to match progress bar adjustment
     'button_spacing': 2,
     'progress_bg': THEME_CONFIG['colors'].get('progress_bg', '#404040'),
     'volume_control_width': 110,  # Width of volume control (icon + slider)

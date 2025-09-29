@@ -148,13 +148,13 @@ class MusicPlayer:
         self.player_core = PlayerCore(self.db, self.queue_manager, self.queue_view.queue)
         self.player_core.window = self.window  # Set window reference for thread-safe callbacks
 
-        # Create frame for progress bar
-        self.progress_frame = ttk.Frame(self.window, height=80)
+        # Create frame for progress bar with black background
+        self.progress_frame = tk.Frame(self.window, height=80, bg="#000000")
         self.progress_frame.pack(
             side=tk.BOTTOM,
             fill=tk.X,
-            padx=10,
-            pady=(0, 20),
+            padx=0,  # Remove padding to eliminate grey outline
+            pady=0,  # Remove padding to eliminate grey outline
         )
 
         # Create status bar just above the progress bar

@@ -39,7 +39,7 @@ class PlayerControls:
     def setup_playback_controls(self):
         # Create playback controls directly on canvas
         x_position = 10
-        y_position = PROGRESS_BAR['controls_y'] - 25
+        y_position = PROGRESS_BAR['controls_y'] - 30  # Moved up more to match MusicBee
 
         for action, symbol in [
             ('previous', BUTTON_SYMBOLS['prev']),
@@ -51,7 +51,7 @@ class PlayerControls:
                 text=symbol,
                 font=BUTTON_STYLE['font'],
                 fg=THEME_CONFIG['colors']['fg'],
-                bg=THEME_CONFIG['colors']['bg'],
+                bg="#000000",  # Pure black background like MusicBee
             )
             button.place(x=x_position, y=y_position)
 
@@ -70,7 +70,7 @@ class PlayerControls:
 
     def setup_utility_controls(self):
         # Create utility controls directly on canvas
-        y_position = PROGRESS_BAR['controls_y'] - 25
+        y_position = PROGRESS_BAR['controls_y'] - 30  # Moved up more to match MusicBee
 
         # Wait for canvas to be ready
         self.canvas.update_idletasks()
@@ -82,7 +82,10 @@ class PlayerControls:
             text=BUTTON_SYMBOLS['add'],
             font=BUTTON_STYLE['font'],
             fg=THEME_CONFIG['colors']['fg'],
-            bg=THEME_CONFIG['colors']['bg'],
+            bg="#000000",  # Pure black background like MusicBee
+            anchor="center",  # Center the text for consistent alignment
+            width=2,  # Fixed width for consistent button sizing
+            height=1  # Fixed height for consistent button sizing
         )
         self.add_button.place(x=canvas_width - 60, y=y_position)
         self.add_button.bind('<Button-1>', lambda e: self.callbacks['add']())
@@ -95,7 +98,10 @@ class PlayerControls:
             text=BUTTON_SYMBOLS['loop'],
             font=BUTTON_STYLE['font'],
             fg=THEME_CONFIG['colors']['fg'],  # Start with default color
-            bg=THEME_CONFIG['colors']['bg'],
+            bg="#000000",  # Pure black background like MusicBee
+            anchor="center",  # Center the text for consistent alignment
+            width=2,  # Fixed width for consistent button sizing
+            height=1  # Fixed height for consistent button sizing
         )
         self.loop_button.place(x=canvas_width - 120, y=y_position)
         self.loop_button.bind('<Button-1>', lambda e: self.callbacks['loop']())
@@ -111,7 +117,10 @@ class PlayerControls:
             text=BUTTON_SYMBOLS['shuffle'],
             font=BUTTON_STYLE['font'],
             fg=THEME_CONFIG['colors']['fg'],  # Start with default color
-            bg=THEME_CONFIG['colors']['bg'],
+            bg="#000000",  # Pure black background like MusicBee
+            anchor="center",  # Center the text for consistent alignment
+            width=2,  # Fixed width for consistent button sizing
+            height=1  # Fixed height for consistent button sizing
         )
         self.shuffle_button.place(x=canvas_width - 180, y=y_position)
         self.shuffle_button.bind('<Button-1>', lambda e: self.callbacks['shuffle']())
@@ -202,7 +211,7 @@ class ProgressBar:
         self.canvas = tk.Canvas(
             self.progress_frame,
             height=PROGRESS_BAR['canvas_height'],
-            background=THEME_CONFIG['colors']['bg'],
+            background="#000000",  # Pure black like search bar
             highlightthickness=0,
         )
         self.canvas.pack(fill=tk.X)
