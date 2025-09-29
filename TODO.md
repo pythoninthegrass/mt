@@ -1,8 +1,16 @@
 # TODO
 
+* Fix
+  * Manual jumping across track progress isn't precise
+    * e.g., click 1:00 mark, it goes to 0:40 instead
+    * First click works, subsequent don't
+      * Possible vlc regression with time tracking being manipulated during playback
+  * Shuffle order not being random and looping through a subset of avaiable tracks
+  * Cyan highlight of playing track
+    * Currently same grey as manual track selection
 * Features
   * search
-    * search form
+    * ~~search form~~
     * dynamic fuzzy search by artist
   * repeat (1, all)
   * arrow keys
