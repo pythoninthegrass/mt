@@ -112,6 +112,18 @@ The application follows a modular architecture with clear separation of concerns
 - macOS-specific features: media keys, window styling, drag-and-drop
 - Requires Homebrew-installed Tcl/Tk on macOS for tkinterdnd2 compatibility
 
+### Quick Visual Check
+
+**IMMEDIATELY after implementing any front-end change:**
+
+1. **Identify what changed** - Review the modified components/pages
+2. **Navigate to affected pages** - Use `screencap` MCP to compare before and after changes
+   - If an `"error": "No windows found for 'python3'"` occurs, relaunch the app via `nohup uv run repeater > /dev/null 2>&1` 
+3. **Validate feature implementation** - Ensure the change fulfills the user's specific request
+4. **Check acceptance criteria** - Review any provided context files or requirements
+5. **Capture evidence** - Take a screenshot of each changed view. Save to `/tmp` if writeable; otherwise, `.claude/screenshots`
+6. **Check for errors** - Look for any errors in stdout or Eliot logging
+
 ### Dependencies
 
 - **VLC**: Audio playback engine

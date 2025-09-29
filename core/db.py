@@ -323,6 +323,30 @@ class MusicDatabase:
         result = self.db_cursor.fetchone()
         return result[0] if result else None
 
+    def search_library(self, search_text):
+        """Search library items by text across artist, title, and album."""
+        search_term = f'%{search_text}%'
+        query = '''
+            SELECT filepath, artist, title, album, track_number, date
+            FROM library 
+            WHERE artist LIKE ? OR title LIKE ? OR album LIKE ?
+            ORDER BY artist, album, CAST(track_number AS INTEGER)
+        '''
+        self.db_cursor.execute(query, (search_term, search_term, search_term))
+        return self.db_cursor.fetchall()
+
+    def search_queue(self, search_text):
+        """Search queue items by text across artist, title, and album."""
+        search_term = f'%{search_text}%'
+        query = '''
+            SELECT filepath, artist, title, album, track_number, date
+            FROM queue 
+            WHERE artist LIKE ? OR title LIKE ? OR album LIKE ?
+            ORDER BY id
+        '''
+        self.db_cursor.execute(query, (search_term, search_term, search_term))
+        return self.db_cursor.fetchall()
+
     def remove_from_queue(self, title: str, artist: str | None = None, album: str | None = None, track_num: str | None = None):
         """Remove a song from the queue based on its metadata."""
         self.db_cursor.execute(

@@ -46,6 +46,10 @@ class QueueManager:
         """Find a file in the queue based on its metadata."""
         return self.db.find_file_in_queue(title, artist)
 
+    def search_queue(self, search_text):
+        """Search queue items by text across artist, title, and album."""
+        return self.db.search_queue(search_text)
+
     def process_dropped_files(self, paths: list[str | Path]) -> None:
         """Process dropped files and add them to the queue."""
         for path in paths:
@@ -105,7 +109,9 @@ class QueueManager:
                 random.shuffle(self._shuffled_order)
                 self._shuffle_generated = True
                 self._current_shuffle_pos = 0
-                print(f"Generated new shuffle order: {self._shuffled_order[:10]}... (total: {len(self._shuffled_order)})")  # Debug
+                print(
+                    f"Generated new shuffle order: {self._shuffled_order[:10]}... (total: {len(self._shuffled_order)})"
+                )  # Debug
 
             # In shuffle mode, we need to find where we are in the sequence
             try:
@@ -115,11 +121,13 @@ class QueueManager:
             except (ValueError, IndexError):
                 # If current index not found, use current position or random start
                 pass
-            
+
             # Move to next position in shuffle sequence
             self._current_shuffle_pos = (self._current_shuffle_pos + 1) % len(self._shuffled_order)
             next_track = self._shuffled_order[self._current_shuffle_pos]
-            print(f"Shuffle: current_index={current_index}, shuffle_pos={self._current_shuffle_pos}, next_track={next_track}")  # Debug
+            print(
+                f"Shuffle: current_index={current_index}, shuffle_pos={self._current_shuffle_pos}, next_track={next_track}"
+            )  # Debug
             return next_track
         else:
             # In normal mode, just go to next track
@@ -147,11 +155,13 @@ class QueueManager:
             except (ValueError, IndexError):
                 # If current index not found, use current position
                 pass
-            
+
             # Move to previous position in shuffle sequence
             self._current_shuffle_pos = (self._current_shuffle_pos - 1) % len(self._shuffled_order)
             prev_track = self._shuffled_order[self._current_shuffle_pos]
-            print(f"Shuffle previous: current_index={current_index}, shuffle_pos={self._current_shuffle_pos}, prev_track={prev_track}")  # Debug
+            print(
+                f"Shuffle previous: current_index={current_index}, shuffle_pos={self._current_shuffle_pos}, prev_track={prev_track}"
+            )  # Debug
             return prev_track
         else:
             # In normal mode, just go to previous track

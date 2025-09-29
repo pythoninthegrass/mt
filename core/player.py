@@ -31,6 +31,7 @@ from core.gui import (
     PlayerControls,
     ProgressBar,
     QueueView,
+    SearchBar,
 )
 from core.library import LibraryManager
 from core.logging import log_error, log_file_operation, log_player_action, player_logger
@@ -110,7 +111,16 @@ class MusicPlayer:
         # Load saved window position
         self.load_window_position()
 
-        # Create main container
+        # Create search bar at the very top of the window (spans full width)
+        self.search_bar = SearchBar(
+            self.window,
+            {
+                'search': self.perform_search,
+                'clear_search': self.clear_search,
+            },
+        )
+
+        # Create main container below the search bar
         self.main_container = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
         self.main_container.pack(expand=True, fill=tk.BOTH)
 
@@ -122,7 +132,7 @@ class MusicPlayer:
         self.right_panel = ttk.Frame(self.main_container)
         self.main_container.add(self.right_panel, weight=1)  # weight=1 means it will expand
 
-        # Setup views with callbacks first
+        # Setup views with callbacks (without search bar since it's now at window level)
         self.setup_views()
 
         # Set minimum width for left panel based on library view content
@@ -198,7 +208,7 @@ class MusicPlayer:
             },
         )
 
-        # Setup queue view
+        # Setup queue view (search bar is now at window level)
         self.queue_view = QueueView(
             self.right_panel,
             {
@@ -536,6 +546,67 @@ class MusicPlayer:
         """Handle song selection in queue view."""
         # This method can be used to update UI or track the currently selected song
         pass
+
+    def perform_search(self, search_text):
+        """Handle search functionality."""
+        from eliot import log_message
+
+        log_message(message_type="search_action", search_text=search_text, message="Performing search")
+
+        # Get current section from library view
+        selected_item = self.library_view.library_tree.selection()
+        if not selected_item:
+            return
+
+        tags = self.library_view.library_tree.item(selected_item[0])['tags']
+        if not tags:
+            return
+
+        tag = tags[0]
+
+        # Clear current view
+        for item in self.queue_view.queue.get_children():
+            self.queue_view.queue.delete(item)
+
+        if tag == 'music':
+            # Search in library
+            if search_text:
+                rows = self.library_manager.search_library(search_text)
+            else:
+                rows = self.library_manager.get_library_items()
+        elif tag == 'now_playing':
+            # Search in queue
+            if search_text:
+                rows = self.queue_manager.search_queue(search_text)
+            else:
+                rows = self.queue_manager.get_queue_items()
+        else:
+            return
+
+        if rows:
+            self._populate_queue_view(rows)
+            self.refresh_colors()
+
+    def clear_search(self):
+        """Clear search and reload current view."""
+        from eliot import log_message
+
+        log_message(message_type="search_action", message="Clearing search")
+
+        # Reset search bar
+        if hasattr(self, 'search_bar'):
+            self.search_bar.search_var.set("")
+
+        # Reload current section without search filter
+        selected_item = self.library_view.library_tree.selection()
+        if selected_item:
+            tags = self.library_view.library_tree.item(selected_item[0])['tags']
+            if tags:
+                tag = tags[0]
+                if tag == 'music':
+                    self.load_library()
+                elif tag == 'now_playing':
+                    self.load_queue()
 
     def refresh_colors(self):
         """Update the background colors of all items in the queue view."""

@@ -108,6 +108,10 @@ class LibraryManager:
         """Find a file in the library based on its metadata."""
         return self.db.find_file_by_metadata(title, artist, album, track_num)
 
+    def search_library(self, search_text):
+        """Search library items by text across artist, title, and album."""
+        return self.db.search_library(search_text)
+
     def _process_audio_file(self, file_path: str) -> None:
         """Process a single audio file and add it to the library."""
         path_obj = Path(file_path)

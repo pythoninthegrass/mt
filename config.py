@@ -47,19 +47,19 @@ def _validate_window_size(size_str):
     cleaned = re.sub(r'[^0-9x]', '', size_str)
     # Ensure it has exactly one 'x' and valid dimensions
     if 'x' not in cleaned or cleaned.count('x') != 1:
-        return "1280x720"  # fallback to default
+        return "1366x768"  # fallback to default
     width, height = cleaned.split('x')
     # Ensure both parts are numeric and reasonable
     try:
         w, h = int(width), int(height)
         if w < 100 or h < 100 or w > 7680 or h > 4320:  # reasonable bounds
-            return "1280x720"
+            return "1366x768"
         return f"{w}x{h}"
     except ValueError:
-        return "1280x720"
+        return "1366x768"
 
 
-WINDOW_SIZE = _validate_window_size(config('MT_WINDOW_SIZE', default="1280x720"))
+WINDOW_SIZE = _validate_window_size(config('MT_WINDOW_SIZE', default="1366x768"))
 WINDOW_TITLE = config('MT_WINDOW_TITLE', default="mt")
 
 # Button Configuration

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import customtkinter as ctk
 import eliot
 import os
 import tkinter as tk
@@ -16,9 +17,13 @@ def main():
         try:
             log_message(message_type="application_init", message="Starting mt music player")
 
-            # Create custom theme style
+            # Set CustomTkinter appearance mode and theme
+            ctk.set_appearance_mode("dark")  # "dark" or "light"
+            ctk.set_default_color_theme("blue")  # "blue", "dark-blue", "green"
+
+            # Create custom theme style with CustomTkinter
             root = TkinterDnD.Tk()
-            log_message(message_type="ui_init", component="main_window", message="Created main Tkinter window")
+            log_message(message_type="ui_init", component="main_window", message="Created main CustomTkinter window")
 
             # Set application icon
             icon = tk.PhotoImage(file='mt.png')

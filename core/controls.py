@@ -269,7 +269,7 @@ class PlayerCore:
             if not self.loop_enabled and current_index == len(children) - 1 and not self.shuffle_enabled:
                 print("Last song and loop disabled")  # Debug log
                 return None
-            
+
             # Use QueueManager to get next track index (handles shuffle)
             next_index = self.queue_manager.get_next_track_index(current_index, len(children))
             if next_index is None:

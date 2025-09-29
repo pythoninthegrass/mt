@@ -1,3 +1,4 @@
+import customtkinter as ctk
 import json
 import os
 import tkinter as tk
@@ -553,6 +554,94 @@ class QueueView:
         if self._column_check_timer:
             self.queue.after_cancel(self._column_check_timer)
             self._column_check_timer = None
+
+
+class SearchBar:
+    def __init__(self, parent, callbacks):
+        self.parent = parent
+        self.callbacks = callbacks
+        self.search_var = tk.StringVar()
+        self.search_timer = None
+        self.setup_search_bar()
+
+    def setup_search_bar(self):
+        # Create search frame container - continuous black bar across full width
+        self.search_frame = ctk.CTkFrame(
+            self.parent,
+            height=40,
+            corner_radius=0,
+            fg_color="#000000",  # Pure black like MusicBee
+            border_width=0
+        )
+        self.search_frame.pack(fill=tk.X, padx=0, pady=0)
+        self.search_frame.pack_propagate(False)
+
+        # Create inner frame right-justified but expanded left to Album column
+        self.inner_frame = ctk.CTkFrame(self.search_frame, fg_color="transparent")
+        self.inner_frame.pack(side=tk.RIGHT, padx=10, pady=5)
+
+        # Search icon label - using Unicode magnifying glass instead of emoji
+        self.search_icon = ctk.CTkLabel(
+            self.inner_frame,
+            text="⌕",  # Unicode magnifying glass (U+2315)
+            width=20,
+            font=("SF Pro Display", 30),
+            text_color="#CCCCCC"  # Light gray for visibility on black
+        )
+        self.search_icon.pack(side=tk.LEFT, padx=(0, 5))
+
+        # Search entry widget with dark styling to match black bar
+        self.search_entry = ctk.CTkEntry(
+            self.inner_frame,
+            placeholder_text="Search library...",
+            width=400,  # Expanded width so magnifying glass aligns with Album column
+            height=28,
+            corner_radius=6,
+            font=("SF Pro Display", 12),
+            textvariable=self.search_var,
+            fg_color="#2B2B2B",  # Dark gray background
+            border_color="#404040",  # Subtle border
+            placeholder_text_color="#999999"  # Gray placeholder
+        )
+        self.search_entry.pack(side=tk.LEFT)
+
+        # Bind events for real-time search
+        self.search_var.trace('w', self.on_search_change)
+        self.search_entry.bind('<Return>', self.on_search_submit)
+        self.search_entry.bind('<Escape>', self.clear_search)
+        self.search_entry.bind('<Control-f>', lambda e: self.search_entry.focus_set())
+
+    def on_search_change(self, *args):
+        """Handle search text changes with debouncing."""
+        if self.search_timer:
+            self.parent.after_cancel(self.search_timer)
+
+        # Debounce search by 300ms
+        self.search_timer = self.parent.after(300, self.perform_search)
+
+    def perform_search(self):
+        """Execute the actual search."""
+        search_text = self.search_var.get().strip()
+        if hasattr(self.callbacks, 'search') or 'search' in self.callbacks:
+            self.callbacks['search'](search_text)
+
+    def on_search_submit(self, event):
+        """Handle Enter key press."""
+        self.perform_search()
+
+    def clear_search(self, event=None):
+        """Clear search and reset filters."""
+        self.search_var.set("")
+        if hasattr(self.callbacks, 'clear_search') or 'clear_search' in self.callbacks:
+            self.callbacks['clear_search']()
+
+    def get_search_text(self):
+        """Get current search text."""
+        return self.search_var.get().strip()
+
+    def set_focus(self):
+        """Set focus to search entry."""
+        self.search_entry.focus_set()
 
 
 class MusicPlayer:
