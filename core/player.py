@@ -34,6 +34,7 @@ from core.gui import (
     SearchBar,
     StatusBar,
 )
+from core.stoplight import StoplightButtons
 from core.library import LibraryManager
 from core.logging import log_error, log_file_operation, log_player_action, player_logger
 from core.progress import ProgressControl
@@ -75,6 +76,9 @@ class MusicPlayer:
 
         # Configure macOS specific appearance
         if sys.platform == 'darwin':
+            # Remove title bar for seamless black appearance
+            self.window.wm_attributes('-fullscreen', False)
+            self.window.overrideredirect(True)
             # Set document style with dark appearance
             self.window.tk.call('::tk::unsupported::MacWindowStyle', 'style', self.window._w, 'document')
             self.window.tk.call('::tk::unsupported::MacWindowStyle', 'appearance', self.window._w, 'dark')
@@ -112,7 +116,7 @@ class MusicPlayer:
         # Load saved window position
         self.load_window_position()
 
-        # Create search bar at the very top of the window (spans full width)
+        # Create search bar with integrated stoplight buttons (spans full width)
         self.search_bar = SearchBar(
             self.window,
             {
@@ -201,6 +205,9 @@ class MusicPlayer:
 
         # Save preferences on window close
         self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
+        
+        # Make the close method available to stoplight buttons via search bar
+        self.window.on_window_close = self.on_window_close
 
     def setup_views(self):
         """Setup library and queue views with their callbacks."""

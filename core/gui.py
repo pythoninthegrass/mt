@@ -585,6 +585,14 @@ class SearchBar:
         self.search_frame.pack(fill=tk.X, padx=0, pady=0)
         self.search_frame.pack_propagate(False)
 
+        # Add stoplight buttons on the left side (only on macOS)
+        import sys
+        if sys.platform == 'darwin':
+            from core.stoplight import StoplightButtons
+            # Get the window reference from the parent
+            window = self.parent
+            self.stoplight_buttons = StoplightButtons(window, self.search_frame, integrated=True)
+        
         # Create inner frame right-justified but expanded left to Album column
         self.inner_frame = ctk.CTkFrame(self.search_frame, fg_color="transparent")
         self.inner_frame.pack(side=tk.RIGHT, padx=10, pady=5)
@@ -619,6 +627,11 @@ class SearchBar:
         self.search_entry.bind('<Return>', self.on_search_submit)
         self.search_entry.bind('<Escape>', self.clear_search)
         self.search_entry.bind('<Control-f>', lambda e: self.search_entry.focus_set())
+        
+        # Make the search frame draggable for window movement on macOS
+        import sys
+        if sys.platform == 'darwin':
+            self.make_search_frame_draggable()
 
     def on_search_change(self, *args):
         """Handle search text changes with debouncing."""
@@ -651,6 +664,57 @@ class SearchBar:
     def set_focus(self):
         """Set focus to search entry."""
         self.search_entry.focus_set()
+
+    def make_search_frame_draggable(self):
+        """Make the search frame draggable to move the window and double-clickable to maximize."""
+        def start_drag(event):
+            # Get the window from the parent hierarchy
+            widget = event.widget
+            while widget:
+                if hasattr(widget, 'winfo_toplevel'):
+                    window = widget.winfo_toplevel()
+                    break
+                widget = widget.master
+            else:
+                return
+            
+            # Store drag start positions
+            self.drag_start_x = event.x_root
+            self.drag_start_y = event.y_root
+            self.window_start_x = window.winfo_x()
+            self.window_start_y = window.winfo_y()
+            self.dragging_window = window
+
+        def drag_window(event):
+            if hasattr(self, 'dragging_window') and self.dragging_window:
+                # Calculate new window position
+                delta_x = event.x_root - self.drag_start_x
+                delta_y = event.y_root - self.drag_start_y
+                new_x = self.window_start_x + delta_x
+                new_y = self.window_start_y + delta_y
+                self.dragging_window.geometry(f"+{new_x}+{new_y}")
+
+        def stop_drag(event):
+            # Clear drag state
+            if hasattr(self, 'dragging_window'):
+                self.dragging_window = None
+
+        def double_click_maximize(event):
+            # Get the stoplight buttons instance to trigger maximize
+            if hasattr(self, 'stoplight_buttons') and self.stoplight_buttons:
+                self.stoplight_buttons.toggle_maximize()
+
+        # Bind drag events to the search frame and inner frame (but not the search entry)
+        self.search_frame.bind("<Button-1>", start_drag)
+        self.search_frame.bind("<B1-Motion>", drag_window)
+        self.search_frame.bind("<ButtonRelease-1>", stop_drag)
+        self.search_frame.bind("<Double-Button-1>", double_click_maximize)
+        
+        # Also bind to the icon so it's draggable and double-clickable
+        self.search_icon.bind("<Button-1>", start_drag)
+        self.search_icon.bind("<B1-Motion>", drag_window)
+        self.search_icon.bind("<ButtonRelease-1>", stop_drag)
+        self.search_icon.bind("<Double-Button-1>", double_click_maximize)
 
 
 class StatusBar:
