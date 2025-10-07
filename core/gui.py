@@ -85,7 +85,7 @@ class PlayerControls:
             bg="#000000",  # Pure black background like MusicBee
             anchor="center",  # Center the text for consistent alignment
             width=2,  # Fixed width for consistent button sizing
-            height=1  # Fixed height for consistent button sizing
+            height=1,  # Fixed height for consistent button sizing
         )
         self.add_button.place(x=canvas_width - 60, y=y_position)
         self.add_button.bind('<Button-1>', lambda e: self.callbacks['add']())
@@ -101,7 +101,7 @@ class PlayerControls:
             bg="#000000",  # Pure black background like MusicBee
             anchor="center",  # Center the text for consistent alignment
             width=2,  # Fixed width for consistent button sizing
-            height=1  # Fixed height for consistent button sizing
+            height=1,  # Fixed height for consistent button sizing
         )
         self.loop_button.place(x=canvas_width - 120, y=y_position)
         self.loop_button.bind('<Button-1>', lambda e: self.callbacks['loop']())
@@ -120,7 +120,7 @@ class PlayerControls:
             bg="#000000",  # Pure black background like MusicBee
             anchor="center",  # Center the text for consistent alignment
             width=2,  # Fixed width for consistent button sizing
-            height=1  # Fixed height for consistent button sizing
+            height=1,  # Fixed height for consistent button sizing
         )
         self.shuffle_button.place(x=canvas_width - 180, y=y_position)
         self.shuffle_button.bind('<Button-1>', lambda e: self.callbacks['shuffle']())
@@ -543,15 +543,37 @@ class QueueView:
 
     def check_column_changes(self):
         """Check if column widths have changed and save if needed."""
-        current_widths = self.get_column_widths()
-        # Check if any column width has changed
-        if current_widths != self._last_column_widths:
-            self._last_column_widths = current_widths
-            # Save column widths if callback is available
-            if 'save_column_widths' in self.callbacks:
-                self.callbacks['save_column_widths'](current_widths)
-        # Schedule next check
-        self.schedule_column_check()
+        from core.logging import controls_logger, log_player_action
+        from eliot import start_action
+
+        with start_action(controls_logger, "column_width_check"):
+            current_widths = self.get_column_widths()
+            # Check if any column width has changed
+            if current_widths != self._last_column_widths:
+                old_widths = self._last_column_widths.copy()
+                self._last_column_widths = current_widths
+
+                # Calculate changes for logging
+                changed_columns = {}
+                for col_name in current_widths:
+                    if col_name in old_widths and current_widths[col_name] != old_widths[col_name]:
+                        changed_columns[col_name] = {'old_width': old_widths[col_name], 'new_width': current_widths[col_name]}
+
+                log_player_action(
+                    "column_width_change",
+                    trigger_source="user_resize",
+                    old_widths=old_widths,
+                    new_widths=current_widths,
+                    changed_columns=changed_columns,
+                    column_count=len(current_widths),
+                    description=f"Column widths changed for {len(changed_columns)} columns",
+                )
+
+                # Save column widths if callback is available
+                if 'save_column_widths' in self.callbacks:
+                    self.callbacks['save_column_widths'](current_widths)
+            # Schedule next check
+            self.schedule_column_check()
 
     def on_column_resize(self, event=None):
         """Handle column resize events (fallback method)."""
@@ -580,19 +602,21 @@ class SearchBar:
             height=40,
             corner_radius=0,
             fg_color="#000000",  # Pure black like MusicBee
-            border_width=0
+            border_width=0,
         )
         self.search_frame.pack(fill=tk.X, padx=0, pady=0)
         self.search_frame.pack_propagate(False)
 
         # Add stoplight buttons on the left side (only on macOS)
         import sys
+
         if sys.platform == 'darwin':
             from core.stoplight import StoplightButtons
+
             # Get the window reference from the parent
             window = self.parent
             self.stoplight_buttons = StoplightButtons(window, self.search_frame, integrated=True)
-        
+
         # Create inner frame right-justified but expanded left to Album column
         self.inner_frame = ctk.CTkFrame(self.search_frame, fg_color="transparent")
         self.inner_frame.pack(side=tk.RIGHT, padx=10, pady=5)
@@ -603,7 +627,7 @@ class SearchBar:
             text="⌕",  # Unicode magnifying glass (U+2315)
             width=20,
             font=("SF Pro Display", 30),
-            text_color="#CCCCCC"  # Light gray for visibility on black
+            text_color="#CCCCCC",  # Light gray for visibility on black
         )
         self.search_icon.pack(side=tk.LEFT, padx=(0, 5))
 
@@ -618,7 +642,7 @@ class SearchBar:
             textvariable=self.search_var,
             fg_color="#2B2B2B",  # Dark gray background
             border_color="#404040",  # Subtle border
-            placeholder_text_color="#999999"  # Gray placeholder
+            placeholder_text_color="#999999",  # Gray placeholder
         )
         self.search_entry.pack(side=tk.LEFT)
 
@@ -627,9 +651,10 @@ class SearchBar:
         self.search_entry.bind('<Return>', self.on_search_submit)
         self.search_entry.bind('<Escape>', self.clear_search)
         self.search_entry.bind('<Control-f>', lambda e: self.search_entry.focus_set())
-        
+
         # Make the search frame draggable for window movement on macOS
         import sys
+
         if sys.platform == 'darwin':
             self.make_search_frame_draggable()
 
@@ -667,6 +692,7 @@ class SearchBar:
 
     def make_search_frame_draggable(self):
         """Make the search frame draggable to move the window and double-clickable to maximize."""
+
         def start_drag(event):
             # Get the window from the parent hierarchy
             widget = event.widget
@@ -677,7 +703,7 @@ class SearchBar:
                 widget = widget.master
             else:
                 return
-            
+
             # Store drag start positions
             self.drag_start_x = event.x_root
             self.drag_start_y = event.y_root
@@ -709,7 +735,7 @@ class SearchBar:
         self.search_frame.bind("<B1-Motion>", drag_window)
         self.search_frame.bind("<ButtonRelease-1>", stop_drag)
         self.search_frame.bind("<Double-Button-1>", double_click_maximize)
-        
+
         # Also bind to the icon so it's draggable and double-clickable
         self.search_icon.bind("<Button-1>", start_drag)
         self.search_icon.bind("<B1-Motion>", drag_window)
@@ -726,14 +752,14 @@ class StatusBar:
     def setup_status_bar(self):
         """Create status bar spanning entire bottom pane."""
         from config import COLORS
-        
+
         # Create status frame container - continuous bar across full width
         self.status_frame = ctk.CTkFrame(
             self.parent,
             height=30,
             corner_radius=0,
             fg_color=COLORS['status_bar_bg'],  # #1f1f1f
-            border_width=0
+            border_width=0,
         )
         self.status_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=0, pady=0)
         self.status_frame.pack_propagate(False)
@@ -744,7 +770,7 @@ class StatusBar:
             text="Loading library statistics...",
             font=("SF Pro Display", 11),
             text_color="#CCCCCC",  # Light gray text
-            anchor="e"  # Right-aligned text
+            anchor="e",  # Right-aligned text
         )
         self.status_label.pack(side=tk.RIGHT, padx=10, pady=5)
 
@@ -755,20 +781,20 @@ class StatusBar:
         """Convert bytes to human readable format (GB)."""
         if size_bytes == 0:
             return "0.0 GB"
-        
-        gb_size = size_bytes / (1024 ** 3)
+
+        gb_size = size_bytes / (1024**3)
         return f"{gb_size:.1f} GB"
 
     def format_duration(self, total_seconds):
         """Convert total seconds to NNd hh:mm format."""
         if total_seconds <= 0:
             return "0d 00:00"
-        
+
         days = int(total_seconds // 86400)  # 86400 seconds in a day
         remaining_seconds = total_seconds % 86400
         hours = int(remaining_seconds // 3600)
         minutes = int((remaining_seconds % 3600) // 60)
-        
+
         return f"{days}d {hours:02d}:{minutes:02d}"
 
     def format_file_count(self, count):
@@ -781,21 +807,21 @@ class StatusBar:
         return {
             'file_count': stats.get('file_count', 0),
             'total_size_bytes': stats.get('total_size_bytes', 0),
-            'total_duration_seconds': stats.get('total_duration_seconds', 0)
+            'total_duration_seconds': stats.get('total_duration_seconds', 0),
         }
 
     def update_statistics(self):
         """Update the status bar with current library statistics."""
         try:
             stats = self.get_library_statistics()
-            
+
             file_count_str = self.format_file_count(stats['file_count'])
             size_str = self.format_file_size(stats['total_size_bytes'])
             duration_str = self.format_duration(stats['total_duration_seconds'])
-            
+
             status_text = f"{file_count_str} files, {size_str}, {duration_str}"
             self.status_label.configure(text=status_text)
-            
+
         except Exception as e:
             self.status_label.configure(text="Unable to load library statistics")
 

@@ -1134,17 +1134,59 @@ class MusicPlayer:
 
     def on_paned_resize(self, event):
         """Handle paned window resize (left panel width changes)."""
-        if hasattr(self, 'db'):
-            # Get current sash position
-            sash_pos = self.main_container.sashpos(0)
-            if sash_pos > 0:
-                self.db.set_left_panel_width(sash_pos)
+        from core.logging import controls_logger, log_player_action
+        from eliot import start_action
+
+        with start_action(controls_logger, "panel_resize"):
+            if hasattr(self, 'db'):
+                # Get current sash position
+                sash_pos = self.main_container.sashpos(0)
+                if sash_pos > 0:
+                    # Get existing panel width for comparison
+                    existing_width = self.db.get_left_panel_width() or 0
+                    window_geometry = self.window.geometry()
+
+                    log_player_action(
+                        "panel_resize",
+                        trigger_source="user_drag",
+                        old_panel_width=existing_width,
+                        new_panel_width=sash_pos,
+                        width_change=sash_pos - existing_width,
+                        window_geometry=window_geometry,
+                        panel_type="left_library_panel",
+                        description=f"Left panel resized from {existing_width}px to {sash_pos}px",
+                    )
+
+                    self.db.set_left_panel_width(sash_pos)
 
     def save_column_widths(self, widths):
         """Save queue column widths."""
-        if hasattr(self, 'db'):
-            for col_name, width in widths.items():
-                self.db.set_queue_column_width(col_name, width)
+        from core.logging import controls_logger, log_player_action
+        from eliot import start_action
+
+        with start_action(controls_logger, "save_column_preferences"):
+            if hasattr(self, 'db'):
+                # Get existing widths for comparison
+                existing_widths = self.db.get_queue_column_widths() or {}
+
+                # Calculate what's actually being persisted
+                persisted_changes = {}
+                for col_name, width in widths.items():
+                    old_width = existing_widths.get(col_name, 0)
+                    if width != old_width:
+                        persisted_changes[col_name] = {'old_width': old_width, 'new_width': width}
+                        self.db.set_queue_column_width(col_name, width)
+
+                log_player_action(
+                    "column_preferences_saved",
+                    trigger_source="periodic_check",
+                    widths_saved=widths,
+                    existing_widths=existing_widths,
+                    persisted_changes=persisted_changes,
+                    columns_changed=len(persisted_changes),
+                    total_columns=len(widths),
+                    description=f"Column preferences persisted for {len(persisted_changes)} changed columns",
+                )
 
     def save_window_size(self, width, height):
         """Save window size to database."""
