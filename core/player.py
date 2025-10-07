@@ -205,7 +205,7 @@ class MusicPlayer:
 
         # Save preferences on window close
         self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
-        
+
         # Make the close method available to stoplight buttons via search bar
         self.window.on_window_close = self.on_window_close
 
@@ -519,7 +519,7 @@ class MusicPlayer:
     def play_selected(self, event=None):
         """Play the selected track."""
         from eliot import log_message, start_action
-        
+
         with start_action(player_logger, "play_selected_action"):
             selected_items = self.queue_view.queue.selection()
             if not selected_items:
@@ -541,12 +541,14 @@ class MusicPlayer:
                 self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
                 # Refresh colors to highlight the playing track
                 self.refresh_colors()
-                
+
                 # Log playback state change like play/pause does
                 if not was_playing:
                     log_message(message_type="playback_state", state="started", message="Playback started from library selection")
                 else:
-                    log_message(message_type="playback_state", state="track_changed", message="Track changed from library selection")
+                    log_message(
+                        message_type="playback_state", state="track_changed", message="Track changed from library selection"
+                    )
 
         return "break"
 
@@ -952,13 +954,32 @@ class MusicPlayer:
 
     def volume_change(self, volume):
         """Handle volume slider changes."""
-        print(f"MusicPlayer: Setting volume to {volume}")  # Debug log
-        if hasattr(self, 'player_core') and self.player_core:
-            try:
-                result = self.player_core.set_volume(int(volume))
-                print(f"Volume change result: {result}")  # Debug result
-            except Exception as e:
-                print(f"Error setting volume: {e}")
+        with start_action(player_logger, "volume_change"):
+            # Get current volume before change
+            old_volume = None
+            if hasattr(self, 'player_core') and self.player_core:
+                try:
+                    old_volume = self.player_core.get_volume()
+                except Exception:
+                    old_volume = 0
+
+            new_volume = int(volume)
+
+            log_player_action(
+                "volume_change",
+                trigger_source="gui",
+                old_volume=old_volume,
+                new_volume=new_volume,
+                volume_percentage=f"{new_volume}%",
+                description=f"Volume changed from {old_volume}% to {new_volume}%",
+            )
+
+            if hasattr(self, 'player_core') and self.player_core:
+                try:
+                    result = self.player_core.set_volume(new_volume)
+                    log_player_action("volume_change_success", trigger_source="gui", final_volume=new_volume, result=result)
+                except Exception as e:
+                    log_player_action("volume_change_error", trigger_source="gui", attempted_volume=new_volume, error=str(e))
 
     def on_window_configure(self, event):
         """Handle window resize/configure events."""
