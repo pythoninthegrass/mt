@@ -66,24 +66,51 @@ class PlayerCore:
 
     def next_song(self) -> None:
         """Play the next song in the queue."""
-        print("next_song called")  # Debug log
-        if not self.loop_enabled and self._is_last_song():
-            print("Last song and loop disabled, stopping")  # Debug log
-            self.stop()
-            return
+        with start_action(controls_logger, "next_song"):
+            # Get current track info for logging
+            current_track_info = self._get_current_track_info()
 
-        filepath = self._get_next_filepath()
-        print(f"Next filepath: {filepath}")  # Debug log
-        if filepath:
-            self._play_file(filepath)
+            log_player_action(
+                "next_song", trigger_source="gui", current_track=current_track_info, queue_has_loop=self.loop_enabled
+            )
+
+            if not self.loop_enabled and self._is_last_song():
+                log_player_action(
+                    "next_song_stopped",
+                    trigger_source="gui",
+                    reason="last_song_and_loop_disabled",
+                    current_track=current_track_info,
+                )
+                self.stop()
+                return
+
+            filepath = self._get_next_filepath()
+
+            # Get target track info after navigation
+            target_track_info = self._get_current_track_info()
+
+            log_player_action("next_song_selected", trigger_source="gui", target_track=target_track_info, filepath=filepath)
+
+            if filepath:
+                self._play_file(filepath)
 
     def previous_song(self) -> None:
         """Play the previous song in the queue."""
-        print("previous_song called")  # Debug log
-        filepath = self._get_previous_filepath()
-        print(f"Previous filepath: {filepath}")  # Debug log
-        if filepath:
-            self._play_file(filepath)
+        with start_action(controls_logger, "previous_song"):
+            # Get current track info for logging
+            current_track_info = self._get_current_track_info()
+
+            log_player_action("previous_song", trigger_source="gui", current_track=current_track_info)
+
+            filepath = self._get_previous_filepath()
+
+            # Get target track info after navigation
+            target_track_info = self._get_current_track_info()
+
+            log_player_action("previous_song_selected", trigger_source="gui", target_track=target_track_info, filepath=filepath)
+
+            if filepath:
+                self._play_file(filepath)
 
     def seek(self, position: float) -> None:
         """Seek to a position in the current track (0.0 to 1.0)."""
@@ -333,6 +360,30 @@ class PlayerCore:
 
         current_index = children.index(current_selection[0])
         return current_index == len(children) - 1
+
+    def _get_current_track_info(self) -> dict[str, any]:
+        """Get current track information for logging."""
+        current_selection = self.queue_view.selection()
+        if not current_selection:
+            return {"track": "none", "index": -1}
+
+        current_item = current_selection[0]
+        children = self.queue_view.get_children()
+        current_index = children.index(current_item) if current_item in children else -1
+
+        values = self.queue_view.item(current_item).get('values', [])
+        if len(values) >= 4:
+            track_num, title, artist, album = values[0:4]
+            return {
+                "track_num": track_num,
+                "title": title,
+                "artist": artist,
+                "album": album,
+                "queue_index": current_index,
+                "queue_position": f"{current_index + 1}/{len(children)}",
+            }
+        else:
+            return {"track": "unknown", "index": current_index}
 
     def _on_track_end(self, event):
         """Handle end of track event by scheduling the next action in the main thread."""
