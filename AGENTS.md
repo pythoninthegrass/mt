@@ -185,6 +185,65 @@ All dependencies should be managed through `uv` to ensure proper virtual environ
 - Gracefully degrades when eliot is not available
 - ALWAYS couple functions and classes with Eliot logging (i.e., create/update methods with logging)
 
+#### Logging Implementation Patterns
+
+The codebase uses comprehensive structured logging for all user interactions and system events:
+
+1. **Core Logging Module** (`core/logging.py`):
+   - `log_player_action()`: Helper function for consistent player action logging
+   - Separate loggers for different subsystems (player, controls, library, queue, media_keys)
+   - Graceful fallback when Eliot is not available
+
+2. **Common Logging Patterns**:
+   ```python
+   from core.logging import player_logger, log_player_action
+   from eliot import start_action
+   
+   def some_action(self):
+       with start_action(player_logger, "action_name"):
+           # Capture before state
+           old_state = self.get_current_state()
+           
+           # Perform action
+           result = self.do_something()
+           
+           # Log with comprehensive metadata
+           log_player_action(
+               "action_name",
+               trigger_source="gui",  # or "keyboard", "media_key", "drag_drop", etc.
+               old_state=old_state,
+               new_state=result,
+               description="Human-readable description"
+           )
+   ```
+
+3. **Trigger Sources**:
+   - `"gui"`: User interface interactions (buttons, sliders, menus)
+   - `"keyboard"`: Keyboard shortcuts
+   - `"media_key"`: System media keys (play/pause, next/prev)
+   - `"drag_drop"`: File drag-and-drop operations
+   - `"user_resize"`: UI element resizing
+   - `"periodic_check"`: Automatic system checks
+   - `"automatic"`: System-initiated actions
+
+4. **Instrumented Actions** (as of latest implementation):
+   - **Playback Control**: play/pause, next/previous track, stop, seek operations
+   - **Volume Control**: Volume changes with before/after values
+   - **Loop/Shuffle**: Toggle states with mode tracking
+   - **Track Management**: Track deletion with queue position and metadata
+   - **File Operations**: Drag-and-drop with file analysis
+   - **UI Navigation**: Library section switches with content counts
+   - **Window Management**: Close, minimize, maximize with geometry tracking
+   - **UI Preferences**: Column width changes, panel resizing
+   - **Media Keys**: All media key interactions with key identification
+
+5. **Logging Best Practices**:
+   - Always capture before/after states when applicable
+   - Include relevant metadata (file paths, track info, UI state)
+   - Use descriptive action names and human-readable descriptions
+   - Differentiate trigger sources for better analysis
+   - Log both successful operations and failures/errors
+
 ### Zig Module Development
 
 The project uses Zig for high-performance native extensions via ziggy-pydust. Zig modules are located in the `src/` directory and provide performance-critical functionality like music file scanning.
