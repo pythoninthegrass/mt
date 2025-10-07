@@ -60,4 +60,5 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging(log_level="INFO", log_file="logs/mt.log")
     main()

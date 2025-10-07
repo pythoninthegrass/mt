@@ -518,22 +518,35 @@ class MusicPlayer:
 
     def play_selected(self, event=None):
         """Play the selected track."""
-        selected_items = self.queue_view.queue.selection()
-        if not selected_items:
-            return "break"
+        from eliot import start_action, log_message
+        
+        with start_action(player_logger, "play_selected_action"):
+            selected_items = self.queue_view.queue.selection()
+            if not selected_items:
+                return "break"
 
-        item_values = self.queue_view.queue.item(selected_items[0])['values']
-        if not item_values:
-            return "break"
+            item_values = self.queue_view.queue.item(selected_items[0])['values']
+            if not item_values:
+                return "break"
 
-        track_num, title, artist, album, year = item_values
-        filepath = self.library_manager.find_file_by_metadata(title, artist, album, track_num)
+            track_num, title, artist, album, year = item_values
+            filepath = self.library_manager.find_file_by_metadata(title, artist, album, track_num)
 
-        if filepath and os.path.exists(filepath):
-            self.player_core._play_file(filepath)
-            self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
-            # Refresh colors to highlight the playing track
-            self.refresh_colors()
+            # Log the double-click action with track details
+            log_player_action("play_selected", title=title, artist=artist, album=album, filepath=filepath)
+
+            if filepath and os.path.exists(filepath):
+                was_playing = self.player_core.is_playing
+                self.player_core._play_file(filepath)
+                self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
+                # Refresh colors to highlight the playing track
+                self.refresh_colors()
+                
+                # Log playback state change like play/pause does
+                if not was_playing:
+                    log_message(message_type="playback_state", state="started", message="Playback started from library selection")
+                else:
+                    log_message(message_type="playback_state", state="track_changed", message="Track changed from library selection")
 
         return "break"
 
