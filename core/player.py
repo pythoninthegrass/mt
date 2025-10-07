@@ -554,19 +554,60 @@ class MusicPlayer:
 
     def handle_delete(self, event):
         """Handle delete key press."""
-        selected_items = self.queue_view.queue.selection()
-        if not selected_items:
-            return
+        with start_action(player_logger, "track_delete"):
+            selected_items = self.queue_view.queue.selection()
+            if not selected_items:
+                log_player_action("track_delete_no_selection", trigger_source="keyboard", reason="no_items_selected")
+                return
 
-        for item in selected_items:
-            values = self.queue_view.queue.item(item)['values']
-            if values:
-                track_num, title, artist, album, year = values
-                self.queue_manager.remove_from_queue(title, artist, album, track_num)
-                self.queue_view.queue.delete(item)
+            deleted_tracks = []
 
-        self.refresh_colors()
-        return "break"
+            for item in selected_items:
+                values = self.queue_view.queue.item(item)['values']
+                if values:
+                    track_num, title, artist, album, year = values
+
+                    # Get queue position before deletion
+                    children = self.queue_view.queue.get_children()
+                    queue_position = children.index(item) if item in children else -1
+
+                    # Get file path for the track
+                    filepath = None
+                    if hasattr(self, 'library_manager') and self.library_manager:
+                        filepath = self.library_manager.find_file_by_metadata(title, artist, album, track_num)
+
+                    track_info = {
+                        "track_num": track_num,
+                        "title": title,
+                        "artist": artist,
+                        "album": album,
+                        "year": year,
+                        "queue_position": queue_position,
+                        "filepath": filepath,
+                    }
+                    deleted_tracks.append(track_info)
+
+                    log_player_action(
+                        "track_delete",
+                        trigger_source="keyboard",
+                        track_info=track_info,
+                        description=f"Deleted track: {title} by {artist}",
+                    )
+
+                    self.queue_manager.remove_from_queue(title, artist, album, track_num)
+                    self.queue_view.queue.delete(item)
+
+            # Log summary of deletion operation
+            log_player_action(
+                "track_delete_summary",
+                trigger_source="keyboard",
+                deleted_count=len(deleted_tracks),
+                tracks_deleted=deleted_tracks,
+                description=f"Deleted {len(deleted_tracks)} track(s) from queue",
+            )
+
+            self.refresh_colors()
+            return "break"
 
     def on_song_select(self, event):
         """Handle song selection in queue view."""
