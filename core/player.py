@@ -477,44 +477,92 @@ class MusicPlayer:
 
     def handle_drop(self, event):
         """Handle drag and drop of files."""
-        # On macOS, paths are separated by spaces and wrapped in curly braces
-        # Example: "{/path/to/first file.mp3} {/path/to/second file.mp3}"
-        raw_data = event.data.strip()
-        paths = []
+        with start_action(player_logger, "file_drop"):
+            # On macOS, paths are separated by spaces and wrapped in curly braces
+            # Example: "{/path/to/first file.mp3} {/path/to/second file.mp3}"
+            raw_data = event.data.strip()
+            paths = []
 
-        # Extract paths between curly braces
-        current = 0
-        while current < len(raw_data):
-            if raw_data[current] == '{':
-                end = raw_data.find('}', current)
-                if end != -1:
-                    # Extract path without braces and handle quotes
-                    path = raw_data[current + 1 : end].strip().strip('"')
-                    if path:  # Only add non-empty paths
-                        paths.append(path)
-                    current = end + 1
+            # Extract paths between curly braces
+            current = 0
+            while current < len(raw_data):
+                if raw_data[current] == '{':
+                    end = raw_data.find('}', current)
+                    if end != -1:
+                        # Extract path without braces and handle quotes
+                        path = raw_data[current + 1 : end].strip().strip('"')
+                        if path:  # Only add non-empty paths
+                            paths.append(path)
+                        current = end + 1
+                    else:
+                        break
                 else:
-                    break
+                    current += 1
+
+            if not paths:  # Fallback for non-macOS or different format
+                paths = [p.strip('{}').strip('"') for p in event.data.split() if p.strip()]
+
+            # Analyze dropped files
+            file_types = {}
+            valid_paths = []
+            for path in paths:
+                if os.path.exists(path):
+                    valid_paths.append(path)
+                    ext = os.path.splitext(path)[1].lower()
+                    file_types[ext] = file_types.get(ext, 0) + 1
+
+            # Get current view to determine destination
+            selected_item = self.library_view.library_tree.selection()
+            destination = "unknown"
+            success = False
+
+            if selected_item:
+                tags = self.library_view.library_tree.item(selected_item[0])['tags']
+                if tags:
+                    destination = tags[0]
+
+                    log_player_action(
+                        "file_drop",
+                        trigger_source="drag_drop",
+                        destination=destination,
+                        total_files=len(paths),
+                        valid_files=len(valid_paths),
+                        file_types=file_types,
+                        file_paths=valid_paths[:10],  # Log first 10 paths to avoid huge logs
+                        raw_data_length=len(raw_data),
+                        description=f"Dropped {len(paths)} files to {destination} section",
+                    )
+
+                    try:
+                        if tags[0] == 'music':
+                            self.library_manager.add_files_to_library(valid_paths)
+                            self.load_library()
+                            success = True
+                        elif tags[0] == 'now_playing':
+                            self.library_manager.add_files_to_library(valid_paths)
+                            self.queue_manager.process_dropped_files(valid_paths)
+                            self.load_queue()
+                            success = True
+
+                        log_player_action(
+                            "file_drop_success",
+                            trigger_source="drag_drop",
+                            destination=destination,
+                            processed_files=len(valid_paths),
+                            description=f"Successfully processed {len(valid_paths)} files",
+                        )
+                    except Exception as e:
+                        log_player_action(
+                            "file_drop_error",
+                            trigger_source="drag_drop",
+                            destination=destination,
+                            error=str(e),
+                            attempted_files=len(valid_paths),
+                        )
             else:
-                current += 1
-
-        if not paths:  # Fallback for non-macOS or different format
-            paths = [p.strip('{}').strip('"') for p in event.data.split() if p.strip()]
-
-        print("Parsed paths:", paths)  # Debug output
-
-        # Get current view to determine where to add files
-        selected_item = self.library_view.library_tree.selection()
-        if selected_item:
-            tags = self.library_view.library_tree.item(selected_item[0])['tags']
-            if tags:
-                if tags[0] == 'music':
-                    self.library_manager.add_files_to_library(paths)
-                    self.load_library()
-                elif tags[0] == 'now_playing':
-                    self.library_manager.add_files_to_library(paths)
-                    self.queue_manager.process_dropped_files(paths)
-                    self.load_queue()
+                log_player_action(
+                    "file_drop_no_destination", trigger_source="drag_drop", total_files=len(paths), reason="no_section_selected"
+                )
 
     def play_selected(self, event=None):
         """Play the selected track."""
