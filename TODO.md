@@ -51,6 +51,8 @@
     * network caching / buffer / prefetch
 * Miscellaneous
   * Suppress python-vlc output in favor of eliot logging
+  * Rotate logs after 5 days
+  * Parameterize log_level, log_file, and stdout vs. file
 * Testing
   * unit tests
   * integration tests
