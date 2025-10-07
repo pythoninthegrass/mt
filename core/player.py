@@ -865,7 +865,7 @@ class MusicPlayer:
                 self.progress_bar.progress_control.update_time_display(current_time, total_time)
 
                 # Seek to position in player (actual media update)
-                self.player_core.seek(ratio)
+                self.player_core.seek(ratio, "progress_bar", "drag")
 
                 # Now that everything is updated, mark dragging as finished
                 self.progress_bar.dragging = False
@@ -938,7 +938,7 @@ class MusicPlayer:
             self.progress_bar.progress_control.update_time_display(current_time, total_time)
 
             # Now seek in the player
-            self.player_core.seek(ratio)
+            self.player_core.seek(ratio, "progress_bar", "click")
 
     def on_resize(self, event):
         """Handle window resize."""

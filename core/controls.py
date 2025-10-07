@@ -112,11 +112,38 @@ class PlayerCore:
             if filepath:
                 self._play_file(filepath)
 
-    def seek(self, position: float) -> None:
+    def seek(self, position: float, source: str = "progress_bar", interaction_type: str = "click") -> None:
         """Seek to a position in the current track (0.0 to 1.0)."""
-        if self.media_player.get_length() > 0:
-            new_time = int(self.media_player.get_length() * position)
-            self.media_player.set_time(new_time)
+        with start_action(controls_logger, "seek_operation"):
+            if self.media_player.get_length() > 0:
+                # Get current time before seeking
+                old_time = self.media_player.get_time()
+                new_time = int(self.media_player.get_length() * position)
+                duration = self.media_player.get_length()
+
+                # Get current track info
+                current_track_info = self._get_current_track_info()
+
+                log_player_action(
+                    "seek_operation",
+                    trigger_source=source,
+                    interaction_type=interaction_type,
+                    old_position=old_time,
+                    new_position=new_time,
+                    seek_percentage=f"{position:.1%}",
+                    duration=duration,
+                    current_track=current_track_info,
+                    description=f"Seeked to {position:.1%} via {interaction_type} on {source}",
+                )
+
+                self.media_player.set_time(new_time)
+            else:
+                log_player_action(
+                    "seek_operation_failed",
+                    trigger_source=source,
+                    reason="no_duration",
+                    current_track=self._get_current_track_info(),
+                )
 
     def stop(self, reason: str = "user_initiated") -> None:
         """Stop playback."""
