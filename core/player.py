@@ -324,21 +324,51 @@ class MusicPlayer:
 
     def on_section_select(self, event):
         """Handle library section selection."""
-        selected_item = self.library_view.library_tree.selection()[0]
-        tags = self.library_view.library_tree.item(selected_item)['tags']
+        with start_action(player_logger, "section_switch"):
+            selected_item = self.library_view.library_tree.selection()[0]
+            tags = self.library_view.library_tree.item(selected_item)['tags']
 
-        if not tags:
-            return
+            if not tags:
+                log_player_action("section_switch_no_tags", trigger_source="gui", reason="no_tags_found")
+                return
 
-        tag = tags[0]
-        # Clear current view
-        for item in self.queue_view.queue.get_children():
-            self.queue_view.queue.delete(item)
+            # Get previous view state
+            previous_children_count = len(self.queue_view.queue.get_children())
 
-        if tag == 'music':
-            self.load_library()
-        elif tag == 'now_playing':
-            self.load_queue()
+            new_section = tags[0]
+
+            log_player_action(
+                "section_switch",
+                trigger_source="gui",
+                new_section=new_section,
+                previous_item_count=previous_children_count,
+                description=f"Switched to {new_section} section",
+            )
+
+            # Clear current view
+            for item in self.queue_view.queue.get_children():
+                self.queue_view.queue.delete(item)
+
+            if new_section == 'music':
+                self.load_library()
+                new_count = len(self.queue_view.queue.get_children())
+                log_player_action(
+                    "section_switch_complete",
+                    trigger_source="gui",
+                    section="music",
+                    loaded_items=new_count,
+                    description=f"Loaded {new_count} library items",
+                )
+            elif new_section == 'now_playing':
+                self.load_queue()
+                new_count = len(self.queue_view.queue.get_children())
+                log_player_action(
+                    "section_switch_complete",
+                    trigger_source="gui",
+                    section="now_playing",
+                    loaded_items=new_count,
+                    description=f"Loaded {new_count} queue items",
+                )
 
     def load_library(self):
         """Load and display library items."""
