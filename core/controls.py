@@ -134,16 +134,40 @@ class PlayerCore:
 
     def toggle_loop(self) -> None:
         """Toggle loop mode."""
-        self.loop_enabled = not self.loop_enabled
-        self.db.set_loop_enabled(self.loop_enabled)
-        if self.progress_bar and hasattr(self.progress_bar, 'controls'):
-            self.progress_bar.controls.update_loop_button_color(self.loop_enabled)
+        with start_action(controls_logger, "toggle_loop"):
+            old_state = self.loop_enabled
+            new_state = not old_state
+
+            log_player_action(
+                "toggle_loop",
+                trigger_source="gui",
+                old_state=old_state,
+                new_state=new_state,
+                description=f"Loop mode {'enabled' if new_state else 'disabled'}",
+            )
+
+            self.loop_enabled = new_state
+            self.db.set_loop_enabled(self.loop_enabled)
+            if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                self.progress_bar.controls.update_loop_button_color(self.loop_enabled)
 
     def toggle_shuffle(self) -> None:
         """Toggle shuffle mode."""
-        self.shuffle_enabled = self.queue_manager.toggle_shuffle()
-        if self.progress_bar and hasattr(self.progress_bar, 'controls'):
-            self.progress_bar.controls.update_shuffle_button_color(self.shuffle_enabled)
+        with start_action(controls_logger, "toggle_shuffle"):
+            old_state = self.shuffle_enabled
+            new_state = self.queue_manager.toggle_shuffle()
+
+            log_player_action(
+                "toggle_shuffle",
+                trigger_source="gui",
+                old_state=old_state,
+                new_state=new_state,
+                description=f"Shuffle mode {'enabled' if new_state else 'disabled'}",
+            )
+
+            self.shuffle_enabled = new_state
+            if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                self.progress_bar.controls.update_shuffle_button_color(self.shuffle_enabled)
 
     def get_current_time(self) -> int:
         """Get current playback time in milliseconds."""
