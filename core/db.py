@@ -349,7 +349,6 @@ class MusicDatabase:
 
     def get_library_statistics(self) -> dict[str, Any]:
         """Get comprehensive library statistics including file count, size, and total duration."""
-        import os
         from typing import Any
         
         stats = {
