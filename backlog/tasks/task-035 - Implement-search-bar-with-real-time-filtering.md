@@ -28,6 +28,7 @@ Successfully implemented search functionality with CustomTkinter CTkEntry widget
 Successfully implemented search functionality with CustomTkinter CTkEntry widget. Added SearchBar class to core/gui.py with real-time filtering, debounced search (300ms), and keyboard shortcuts (Enter, Escape, Ctrl+F). Integrated search callbacks into MusicPlayer with perform_search() and clear_search() methods. Added search_library() and search_queue() methods to LibraryManager and QueueManager. Implemented database search methods with LIKE queries across artist, title, and album fields. Search bar positioned at top-right of interface matching MusicBee design.
 
 VISUAL IMPROVEMENTS:
+
 - Made top bar continuous and pure black (#000000) like MusicBee interface
 - Replaced emoji magnifying glass with Unicode equivalent (⌕ U+2315) 
 - Enhanced search entry styling with dark theme colors
