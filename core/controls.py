@@ -81,7 +81,7 @@ class PlayerCore:
                     reason="last_song_and_loop_disabled",
                     current_track=current_track_info,
                 )
-                self.stop()
+                self.stop("end_of_queue")
                 return
 
             filepath = self._get_next_filepath()
@@ -118,19 +118,32 @@ class PlayerCore:
             new_time = int(self.media_player.get_length() * position)
             self.media_player.set_time(new_time)
 
-    def stop(self) -> None:
+    def stop(self, reason: str = "user_initiated") -> None:
         """Stop playback."""
-        self.media_player.stop()
-        self.is_playing = False
-        self.current_time = 0
+        with start_action(controls_logger, "stop_playback"):
+            # Get current track info before stopping
+            current_track_info = self._get_current_track_info()
 
-        # Hide playback elements in progress bar
-        if self.progress_bar:
-            self.progress_bar.clear_track_info()
-            if hasattr(self.progress_bar, 'progress_control'):
-                self.progress_bar.progress_control.hide_playback_elements()
-            if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'play_button'):
-                self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['play'])
+            log_player_action(
+                "stop_playback",
+                trigger_source="gui" if reason == "user_initiated" else "automatic",
+                stop_reason=reason,
+                current_track=current_track_info,
+                was_playing=self.is_playing,
+                description=f"Playback stopped: {reason.replace('_', ' ')}",
+            )
+
+            self.media_player.stop()
+            self.is_playing = False
+            self.current_time = 0
+
+            # Hide playback elements in progress bar
+            if self.progress_bar:
+                self.progress_bar.clear_track_info()
+                if hasattr(self.progress_bar, 'progress_control'):
+                    self.progress_bar.progress_control.hide_playback_elements()
+                if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'play_button'):
+                    self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['play'])
 
     def toggle_loop(self) -> None:
         """Toggle loop mode."""
@@ -423,7 +436,7 @@ class PlayerCore:
         else:
             # If loop is disabled and we're at the last track, stop playback
             if self._is_last_song():
-                self.stop()
+                self.stop("end_of_track")
             else:
                 self.next_song()
 
