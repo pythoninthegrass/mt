@@ -34,11 +34,11 @@ from core.gui import (
     SearchBar,
     StatusBar,
 )
-from core.stoplight import StoplightButtons
 from core.library import LibraryManager
 from core.logging import log_error, log_file_operation, log_player_action, player_logger
 from core.progress import ProgressControl
 from core.queue import QueueManager
+from core.stoplight import StoplightButtons
 from core.theme import setup_theme
 from core.volume import VolumeControl
 from eliot import start_action
@@ -518,7 +518,7 @@ class MusicPlayer:
 
     def play_selected(self, event=None):
         """Play the selected track."""
-        from eliot import start_action, log_message
+        from eliot import log_message, start_action
         
         with start_action(player_logger, "play_selected_action"):
             selected_items = self.queue_view.queue.selection()

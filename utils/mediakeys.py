@@ -2,6 +2,8 @@ import objc
 import Quartz
 import queue
 import sys
+from core.logging import controls_logger, log_player_action
+from eliot import start_action
 from Foundation import NSObject
 
 # NSEvent.h
@@ -97,12 +99,17 @@ class MediaKeyController:
         try:
             while True:  # Process all pending commands
                 command = self.command_queue.get_nowait()
-                if command == 'play_pause':
-                    self.player.play_pause()
-                elif command == 'next_song':
-                    self.player.player_core.next_song()
-                elif command == 'previous_song':
-                    self.player.player_core.previous_song()
+
+                with start_action(controls_logger, "execute_media_key_command"):
+                    if command == 'play_pause':
+                        log_player_action("play_pause", trigger_source="media_key", command_executed=True)
+                        self.player.play_pause()
+                    elif command == 'next_song':
+                        log_player_action("next_song", trigger_source="media_key", command_executed=True)
+                        self.player.player_core.next_song()
+                    elif command == 'previous_song':
+                        log_player_action("previous_song", trigger_source="media_key", command_executed=True)
+                        self.player.player_core.previous_song()
         except queue.Empty:
             pass  # No more commands to process
         finally:
@@ -120,22 +127,36 @@ class MediaKeyController:
             print("Player not set, cannot handle media keys")
             return
 
-        try:
-            print(f"Handling media key: {key_code}")  # Debug log
-            if key_code == NX_KEYTYPE_PLAY:  # Play/Pause (F8)
-                print("Queueing play_pause command")  # Debug log
-                self.command_queue.put('play_pause')
-            elif key_code == NX_KEYTYPE_FAST:  # Next Track (F9)
-                print("Queueing next_song command")  # Debug log
-                self.command_queue.put('next_song')
-            elif key_code == NX_KEYTYPE_REWIND:  # Previous Track (F7)
-                print("Queueing previous_song command")  # Debug log
-                self.command_queue.put('previous_song')
-        except Exception as e:
-            print(f"Error handling media key: {e}")
-            import traceback
+        # Map key codes to human-readable names and actions
+        key_map = {
+            NX_KEYTYPE_PLAY: ("play_pause", "play_pause"),
+            NX_KEYTYPE_FAST: ("next", "next_song"),
+            NX_KEYTYPE_REWIND: ("previous", "previous_song"),
+        }
 
-            traceback.print_exc()  # Print full stack trace for debugging
+        if key_code not in key_map:
+            print(f"Unknown media key code: {key_code}")
+            return
+
+        key_name, action = key_map[key_code]
+
+        with start_action(controls_logger, "media_key_press"):
+            try:
+                log_player_action(
+                    action,
+                    trigger_source="media_key",
+                    key_type=key_name,
+                    key_code=key_code,
+                    message=f"Media key pressed: {key_name}",
+                )
+
+                print(f"Queueing {action} command")  # Debug log
+                self.command_queue.put(action)
+            except Exception as e:
+                print(f"Error handling media key: {e}")
+                import traceback
+
+                traceback.print_exc()  # Print full stack trace for debugging  # Print full stack trace for debugging
 
     def post_media_key(self, command):
         """Post a media key event to the system."""
