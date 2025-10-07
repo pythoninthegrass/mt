@@ -13,6 +13,7 @@
     * ~~search form~~
     * dynamic fuzzy search by artist
   * repeat (1, all)
+  * adjustable fade
   * arrow keys
     * playhead navigation
   * dynamic queue order
@@ -29,6 +30,11 @@
   * lyrics
     * see fas
   * now playing (queue)
+* UI
+  * Add genre and time columns
+  * better, modern styling
+    * check out [basecoatui](https://basecoatui.com/)
+    * use font awesome (fas) icons
 * UX
   * Standardize utility button sizes
     * loop, shuffle, add
@@ -45,10 +51,6 @@
     * network caching / buffer / prefetch
 * Miscellaneous
   * Suppress python-vlc output in favor of eliot logging
-* UI
-  * better, modern styling
-    * check out [basecoatui](https://basecoatui.com/)
-    * use font awesome (fas) icons
 * Testing
   * unit tests
   * integration tests

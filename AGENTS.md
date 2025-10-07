@@ -67,7 +67,7 @@ The application follows a modular architecture with clear separation of concerns
 1. **Player Engine** (`core/player.py`): Central MusicPlayer class that orchestrates all components
    - Manages VLC media player instance
    - Handles file loading and playback control
-   - Coordinates between GUI, database, and playback systems
+   - Coordinates between GUI, database (`./mt.db`), and playback systems
 
 2. **GUI Components** (`core/gui.py`): 
    - MainFrame: Primary interface with left panel (library) and right panel (queue)
@@ -183,6 +183,7 @@ All dependencies should be managed through `uv` to ensure proper virtual environ
 - Error reporting and file operation logging
 - Available through `eliot` and `eliot-tree` dependencies
 - Gracefully degrades when eliot is not available
+- ALWAYS couple functions and classes with Eliot logging (i.e., create/update methods with logging)
 
 ### Zig Module Development
 
@@ -277,6 +278,7 @@ cd src && zig build test
 ## Essential CLI Commands
 
 ### Task Management
+
 ```bash
 backlog task create "Title" -d "Description" --ac "Criterion 1" --ac "Criterion 2"
 backlog task list --plain                    # List all tasks
@@ -289,6 +291,7 @@ backlog task archive 42                      # Archive task
 ```
 
 ### Key Principles
+
 - **Always use `--plain` flag** for AI-friendly output when viewing/listing
 - **Never bypass the CLI** - It handles Git, metadata, file naming, and relationships
 - **Tasks live in `backlog/tasks/`** as `task-<id> - <title>.md` files
