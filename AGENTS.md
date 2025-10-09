@@ -120,6 +120,7 @@ The application follows a modular architecture with clear separation of concerns
 2. **Navigate to affected pages** - Use `screencap` MCP to compare before and after changes
    - If an `"error": "No windows found for 'python3'"` occurs, relaunch the app via `nohup uv run repeater > /dev/null 2>&1` 
    - When pkill raises a non-zero exit code, assume that the app has been manually quit and restart it
+   - Skip screencap calls if the front-end change isn't _visible_ (e.g., typing produces a bell sound)
 3. **Validate feature implementation** - Ensure the change fulfills the user's specific request
 4. **Check acceptance criteria** - Review any provided context files or requirements
 5. **Capture evidence** - Take a screenshot of each changed view. Save to `/tmp` if writeable; otherwise, `.claude/screenshots`
