@@ -35,6 +35,15 @@ DB_TABLES = {
             value TEXT
         )
     ''',
+    'favorites': '''
+        CREATE TABLE IF NOT EXISTS favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            track_id INTEGER NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (track_id) REFERENCES library(id),
+            UNIQUE(track_id)
+        )
+    ''',
 }
 
 
@@ -557,3 +566,132 @@ class MusicDatabase:
         self.db_cursor.execute(query, params)
         count = self.db_cursor.fetchone()[0]
         return count > 0
+
+    def add_favorite(self, filepath: str) -> bool:
+        """Add a track to favorites by its filepath.
+
+        Args:
+            filepath: Path to the track file
+
+        Returns:
+            bool: True if added successfully, False if track not in library or already favorited
+        """
+        try:
+            # Get track_id from library
+            self.db_cursor.execute('SELECT id FROM library WHERE filepath = ?', (filepath,))
+            result = self.db_cursor.fetchone()
+
+            if not result:
+                return False
+
+            track_id = result[0]
+
+            # Insert into favorites (UNIQUE constraint prevents duplicates)
+            self.db_cursor.execute(
+                'INSERT INTO favorites (track_id) VALUES (?)',
+                (track_id,)
+            )
+            self.db_conn.commit()
+
+            try:
+                from eliot import log_message
+                log_message(message_type="favorite_added", filepath=filepath, track_id=track_id)
+            except ImportError:
+                pass
+
+            return True
+
+        except sqlite3.IntegrityError:
+            # Already favorited
+            return False
+        except Exception as e:
+            try:
+                from core.logging import log_error
+                log_error(e, "Failed to add favorite", filepath=filepath)
+            except ImportError:
+                pass
+            return False
+
+    def remove_favorite(self, filepath: str) -> bool:
+        """Remove a track from favorites by its filepath.
+
+        Args:
+            filepath: Path to the track file
+
+        Returns:
+            bool: True if removed successfully, False if not found
+        """
+        try:
+            # Get track_id from library
+            self.db_cursor.execute('SELECT id FROM library WHERE filepath = ?', (filepath,))
+            result = self.db_cursor.fetchone()
+
+            if not result:
+                return False
+
+            track_id = result[0]
+
+            # Remove from favorites
+            self.db_cursor.execute('DELETE FROM favorites WHERE track_id = ?', (track_id,))
+            affected_rows = self.db_cursor.rowcount
+            self.db_conn.commit()
+
+            try:
+                from eliot import log_message
+                log_message(message_type="favorite_removed", filepath=filepath, track_id=track_id)
+            except ImportError:
+                pass
+
+            return affected_rows > 0
+
+        except Exception as e:
+            try:
+                from core.logging import log_error
+                log_error(e, "Failed to remove favorite", filepath=filepath)
+            except ImportError:
+                pass
+            return False
+
+    def is_favorite(self, filepath: str) -> bool:
+        """Check if a track is in favorites.
+
+        Args:
+            filepath: Path to the track file
+
+        Returns:
+            bool: True if track is favorited, False otherwise
+        """
+        try:
+            query = '''
+                SELECT COUNT(*) FROM favorites f
+                JOIN library l ON f.track_id = l.id
+                WHERE l.filepath = ?
+            '''
+            self.db_cursor.execute(query, (filepath,))
+            count = self.db_cursor.fetchone()[0]
+            return count > 0
+        except Exception:
+            return False
+
+    def get_liked_songs(self) -> list[tuple]:
+        """Get all favorited tracks with their metadata, ordered by favorite timestamp (FIFO).
+
+        Returns:
+            list[tuple]: List of (filepath, artist, title, album, track_number, date) tuples
+        """
+        try:
+            query = '''
+                SELECT l.filepath, l.artist, l.title, l.album, l.track_number, l.date
+                FROM favorites f
+                JOIN library l ON f.track_id = l.id
+                ORDER BY f.timestamp ASC
+            '''
+            self.db_cursor.execute(query)
+            return self.db_cursor.fetchall()
+        except Exception as e:
+            try:
+                from core.logging import log_error
+                log_error(e, "Failed to get liked songs")
+            except ImportError:
+                pass
+            return []

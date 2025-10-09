@@ -22,6 +22,7 @@ class PlayerCore:
         self.shuffle_enabled = self.queue_manager.is_shuffle_enabled()
         self.progress_bar = None
         self.window = None
+        self.favorites_manager = None
 
         # Set up end of track event handler
         self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
@@ -266,6 +267,11 @@ class PlayerCore:
         # Update play button to pause symbol since we're now playing
         if self.progress_bar and hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
             self.progress_bar.controls.update_play_button(True)
+        
+        # Update favorite button icon based on track's favorite status
+        if self.favorites_manager and self.progress_bar and hasattr(self.progress_bar, 'controls'):
+            is_favorite = self.favorites_manager.is_favorite(filepath)
+            self.progress_bar.controls.update_favorite_button(is_favorite)
 
     def _select_item_by_filepath(self, filepath: str) -> None:
         """Find and select the item in the queue view that corresponds to the given filepath."""

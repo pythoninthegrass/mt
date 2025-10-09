@@ -29,9 +29,11 @@ class PlayerControls:
         self.add_button = None
         self.loop_button = None
         self.shuffle_button = None
+        self.favorite_button = None
         self.play_button = None
         self.loop_enabled = initial_loop_enabled
         self.shuffle_enabled = initial_shuffle_enabled
+        self.favorite_enabled = False
 
         # Icon sizes - playback controls are larger than utility controls
         self.playback_icon_size = (35, 35)
@@ -114,7 +116,7 @@ class PlayerControls:
         self.add_button.bind('<Enter>', lambda e: self.add_button.configure(image=self.icon_images['add_hover']))
         self.add_button.bind('<Leave>', lambda e: self.add_button.configure(image=self.icon_images['add_normal']))
 
-        # Loop button (to the left of add button)
+        # Loop button (to the left of add button) - 54px spacing (reduced by 10% from 60px)
         loop_normal = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=0.7)
         loop_enabled_icon = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['loop_enabled'])
         loop_disabled_icon = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=0.5)
@@ -129,7 +131,7 @@ class PlayerControls:
             image=loop_enabled_icon if self.loop_enabled else loop_disabled_icon,
             bg="#000000",  # Pure black background like MusicBee
         )
-        self.loop_button.place(x=canvas_width - 120, y=y_position)
+        self.loop_button.place(x=canvas_width - 114, y=y_position)
         self.loop_button.bind('<Button-1>', lambda e: self.callbacks['loop']())
         self.loop_button.bind('<Enter>', lambda e: self.loop_button.configure(image=self.icon_images['loop_hover']))
         self.loop_button.bind(
@@ -137,7 +139,7 @@ class PlayerControls:
             lambda e: self.loop_button.configure(image=self.icon_images['loop_enabled'] if self.loop_enabled else self.icon_images['loop_disabled']),
         )
 
-        # Shuffle button (to the left of loop button)
+        # Shuffle button (to the left of loop button) - 54px spacing
         shuffle_normal = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=0.7)
         shuffle_enabled_icon = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['shuffle_enabled'])
         shuffle_disabled_icon = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=0.5)
@@ -152,7 +154,7 @@ class PlayerControls:
             image=shuffle_enabled_icon if self.shuffle_enabled else shuffle_disabled_icon,
             bg="#000000",  # Pure black background like MusicBee
         )
-        self.shuffle_button.place(x=canvas_width - 180, y=y_position)
+        self.shuffle_button.place(x=canvas_width - 168, y=y_position)
         self.shuffle_button.bind('<Button-1>', lambda e: self.callbacks['shuffle']())
         self.shuffle_button.bind('<Enter>', lambda e: self.shuffle_button.configure(image=self.icon_images['shuffle_hover']))
         self.shuffle_button.bind(
@@ -162,17 +164,42 @@ class PlayerControls:
             ),
         )
 
+        # Favorite button (to the left of shuffle button) - 54px spacing
+        favorite_normal = load_icon(BUTTON_SYMBOLS['favorite_border'], size=self.utility_icon_size, opacity=0.7)
+        favorite_filled = load_icon(BUTTON_SYMBOLS['favorite'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['loop_enabled'])
+        favorite_hover = load_icon(BUTTON_SYMBOLS['favorite_border'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
+        favorite_filled_hover = load_icon(BUTTON_SYMBOLS['favorite'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
+        self.icon_images['favorite_normal'] = favorite_normal
+        self.icon_images['favorite_filled'] = favorite_filled
+        self.icon_images['favorite_hover'] = favorite_hover
+        self.icon_images['favorite_filled_hover'] = favorite_filled_hover
+
+        self.favorite_button = tk.Label(
+            self.canvas,
+            image=favorite_normal,
+            bg="#000000",  # Pure black background like MusicBee
+        )
+        self.favorite_button.place(x=canvas_width - 222, y=y_position)
+        self.favorite_button.bind('<Button-1>', lambda e: self.callbacks.get('favorite', lambda: None)())
+        self.favorite_button.bind('<Enter>', lambda e: self.favorite_button.configure(
+            image=self.icon_images['favorite_filled_hover'] if self.favorite_enabled else self.icon_images['favorite_hover']
+        ))
+        self.favorite_button.bind('<Leave>', lambda e: self.favorite_button.configure(
+            image=self.icon_images['favorite_filled'] if self.favorite_enabled else self.icon_images['favorite_normal']
+        ))
+
         # Ensure buttons are on top of canvas elements
+        self.favorite_button.lift()
         self.shuffle_button.lift()
         self.loop_button.lift()
         self.add_button.lift()
 
-        # Store the width for progress bar calculations (increased to accommodate shuffle button)
-        self.utility_width = 180
+        # Store the width for progress bar calculations
+        self.utility_width = 222
 
     def _on_canvas_resize(self, event):
         """Recenter the buttons vertically and reposition all controls when canvas is resized."""
-        if not all([self.add_button, self.loop_button, self.shuffle_button, self.play_button]):
+        if not all([self.add_button, self.loop_button, self.shuffle_button, self.favorite_button, self.play_button]):
             return
 
         # Calculate new y position (centered vertically - use larger playback icon size for consistency)
@@ -181,24 +208,28 @@ class PlayerControls:
         # Calculate positions relative to canvas width
         canvas_width = event.width
 
-        # Utility controls are positioned from the right
-        # Add button at right edge minus padding
+        # Utility controls are positioned from the right with 54px spacing (reduced by 10%)
+        # Add button at right edge minus padding (unchanged)
         add_x = canvas_width - 60
         self.add_button.place(x=add_x, y=new_y)
 
-        # Loop button to the left of add button
-        loop_x = canvas_width - 120
+        # Loop button to the left of add button - 54px spacing
+        loop_x = canvas_width - 114
         self.loop_button.place(x=loop_x, y=new_y)
 
-        # Shuffle button to the left of loop button
-        shuffle_x = canvas_width - 180
+        # Shuffle button to the left of loop button - 54px spacing
+        shuffle_x = canvas_width - 168
         self.shuffle_button.place(x=shuffle_x, y=new_y)
+
+        # Favorite button to the left of shuffle button - 54px spacing
+        favorite_x = canvas_width - 222
+        self.favorite_button.place(x=favorite_x, y=new_y)
 
         # Playback controls are positioned from the left, maintaining relative spacing
         # Find playback control buttons (they are tk.Label widgets that are not utility buttons)
         playback_buttons = []
         for child in self.canvas.winfo_children():
-            if isinstance(child, tk.Label) and child not in [self.add_button, self.loop_button, self.shuffle_button]:
+            if isinstance(child, tk.Label) and child not in [self.add_button, self.loop_button, self.shuffle_button, self.favorite_button]:
                 playback_buttons.append(child)
 
         # Position playback controls with the same spacing as initial setup
@@ -209,7 +240,7 @@ class PlayerControls:
             x_position += button.winfo_reqwidth() + 5
 
         # Update controls width for progress bar calculations
-        self.controls_width = x_position + 15  # Same as initial setup
+        self.controls_width = x_position + 15  # Same as initial setup  # Same as initial setup
 
     def update_loop_button_color(self, loop_enabled):
         """Update loop button icon based on loop state."""
@@ -220,6 +251,14 @@ class PlayerControls:
         """Update shuffle button icon based on shuffle state."""
         self.shuffle_enabled = shuffle_enabled  # Update the internal state
         self.shuffle_button.configure(image=self.icon_images['shuffle_enabled'] if shuffle_enabled else self.icon_images['shuffle_disabled'])
+
+    def update_favorite_button(self, is_favorite):
+        """Update favorite button icon based on favorite state."""
+        self.favorite_enabled = is_favorite
+        if is_favorite:
+            self.favorite_button.configure(image=self.icon_images['favorite_filled'])
+        else:
+            self.favorite_button.configure(image=self.icon_images['favorite_normal'])
 
     def update_play_button(self, is_playing):
         """Update play button to show play or pause state."""
@@ -416,6 +455,7 @@ class LibraryView:
 
         # Playlists section
         playlists_id = self.library_tree.insert('', 'end', text='Playlists', open=True)
+        self.library_tree.insert(playlists_id, 'end', text='Liked Songs', tags=('liked_songs',))
         self.library_tree.insert(playlists_id, 'end', text='Recently Added', tags=('recent_added',))
         self.library_tree.insert(playlists_id, 'end', text='Recently Played', tags=('recent_played',))
         self.library_tree.insert(playlists_id, 'end', text='Top 25 Most Played', tags=('top_played',))
@@ -432,6 +472,7 @@ class LibraryView:
             'Music',
             'Now Playing',
             'Playlists',
+            'Liked Songs',
             'Recently Added',
             'Recently Played',
             'Top 25 Most Played',

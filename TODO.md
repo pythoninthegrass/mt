@@ -1,7 +1,8 @@
 # TODO
 
 * Fix
-  * Grey background on volume icon
+  * ~~Reduce horizontal padding between utility controls~~
+  * ~~Grey background on volume icon~~
   * Manual jumping across track progress isn't precise
     * e.g., click 1:00 mark, it goes to 0:40 instead
     * First click works, subsequent don't
@@ -59,7 +60,7 @@
   * unit tests
   * integration tests
   * e2e tests
-    * [askui]()
+    * [askui](https://docs.askui.com/01-tutorials/tutorials-overview)
 * Build
   * task runners
   * package for macos and linux

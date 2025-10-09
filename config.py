@@ -78,6 +78,8 @@ BUTTON_SYMBOLS = {
     'loop': 'static/repeat.png',
     'shuffle': 'static/shuffle.png',
     'volume': 'static/volume_up.png',
+    'favorite': 'static/favorite.png',
+    'favorite_border': 'static/favorite_border.png',
 }
 
 # Theme Configuration

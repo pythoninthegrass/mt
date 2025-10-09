@@ -25,6 +25,7 @@ from config import (
 from contextlib import suppress
 from core.controls import PlayerCore
 from core.db import DB_TABLES, MusicDatabase
+from core.favorites import FavoritesManager
 from core.gui import (
     BUTTON_SYMBOLS,
     LibraryView,
@@ -103,6 +104,7 @@ class MusicPlayer:
         self.db = MusicDatabase(DB_NAME, DB_TABLES)
         self.queue_manager = QueueManager(self.db)
         self.library_manager = LibraryManager(self.db)
+        self.favorites_manager = FavoritesManager(self.db)
 
         log_message(message_type="component_init", component="database", message="Database and managers initialized")
 
@@ -151,6 +153,7 @@ class MusicPlayer:
         # Initialize player core after views are set up
         self.player_core = PlayerCore(self.db, self.queue_manager, self.queue_view.queue)
         self.player_core.window = self.window  # Set window reference for thread-safe callbacks
+        self.player_core.favorites_manager = self.favorites_manager  # Set favorites manager reference
 
         # Create frame for progress bar with black background
         self.progress_frame = tk.Frame(self.window, height=80, bg="#000000")
@@ -175,6 +178,7 @@ class MusicPlayer:
                 'loop': self.player_core.toggle_loop,
                 'shuffle': self.player_core.toggle_shuffle,
                 'add': self.add_files_to_library,
+                'favorite': self.toggle_favorite,
                 'start_drag': self.start_drag,
                 'drag': self.drag,
                 'end_drag': self.end_drag,
@@ -188,6 +192,9 @@ class MusicPlayer:
 
         # Connect progress bar to player core
         self.player_core.progress_bar = self.progress_bar
+
+        # Setup favorites callback to refresh view when favorites change
+        self.favorites_manager.set_on_favorites_changed_callback(self.on_favorites_changed)
 
         # Start progress update
         self.update_progress()
@@ -320,6 +327,53 @@ class MusicPlayer:
             log_message(message_type="playback_state", state="paused", message="Playback paused")
             pass
 
+    def toggle_favorite(self):
+        """Toggle favorite status for currently playing track."""
+        # Only allow favoriting if a track is actually playing (not just selected)
+        if not self.player_core.media_player.get_media():
+            # No track is loaded
+            return
+        
+        # Check if player is actually playing or paused (but has media loaded)
+        if not self.player_core.is_playing and self.player_core.media_player.get_state() not in [3, 4]:
+            # Track is not playing or paused (states 3=Playing, 4=Paused)
+            return
+
+        # Get the currently playing file path directly from VLC
+        media = self.player_core.media_player.get_media()
+        if not media:
+            return
+        
+        filepath = media.get_mrl()
+        # Remove 'file://' prefix if present
+        if filepath.startswith('file://'):
+            filepath = filepath[7:]
+        
+        # URL decode the filepath
+        import urllib.parse
+        filepath = urllib.parse.unquote(filepath)
+
+        if not filepath or not os.path.exists(filepath):
+            return
+
+        # Toggle favorite status
+        is_favorite = self.favorites_manager.toggle_favorite(filepath)
+
+        # Update button icon
+        if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+            self.progress_bar.controls.update_favorite_button(is_favorite)
+
+    def on_favorites_changed(self):
+        """Callback when favorites list changes - refresh view if showing liked songs."""
+        selected_item = self.library_view.library_tree.selection()
+        if not selected_item:
+            return
+
+        tags = self.library_view.library_tree.item(selected_item[0])['tags']
+        if tags and tags[0] == 'liked_songs':
+            # Refresh the liked songs view
+            self.load_liked_songs()
+
     def on_section_select(self, event):
         """Handle library section selection."""
         with start_action(player_logger, "section_switch"):
@@ -367,6 +421,16 @@ class MusicPlayer:
                     loaded_items=new_count,
                     description=f"Loaded {new_count} queue items",
                 )
+            elif new_section == 'liked_songs':
+                self.load_liked_songs()
+                new_count = len(self.queue_view.queue.get_children())
+                log_player_action(
+                    "section_switch_complete",
+                    trigger_source="gui",
+                    section="liked_songs",
+                    loaded_items=new_count,
+                    description=f"Loaded {new_count} liked songs",
+                )
 
     def load_library(self):
         """Load and display library items."""
@@ -389,6 +453,22 @@ class MusicPlayer:
 
         self._populate_queue_view(rows)
         self.refresh_colors()
+
+    def load_liked_songs(self):
+        """Load and display liked songs."""
+        # Clear current view
+        for item in self.queue_view.queue.get_children():
+            self.queue_view.queue.delete(item)
+
+        rows = self.favorites_manager.get_liked_songs()
+        for filepath, artist, title, album, track_num, date in rows:
+            formatted_track = self._format_track_number(track_num)
+            year = self._extract_year(date)
+            self.queue_view.queue.insert(
+                '',
+                'end',
+                values=(formatted_track, title or '', artist or '', album or '', year or ''),
+            )
 
     def _populate_queue_view(self, rows):
         """Populate queue view with rows of data."""
@@ -615,6 +695,11 @@ class MusicPlayer:
                 was_playing = self.player_core.is_playing
                 self.player_core._play_file(filepath)
                 self.progress_bar.controls.update_play_button(True)
+                
+                # Update favorite button icon based on track's favorite status
+                is_favorite = self.favorites_manager.is_favorite(filepath)
+                self.progress_bar.controls.update_favorite_button(is_favorite)
+                
                 # Refresh colors to highlight the playing track
                 self.refresh_colors()
 
