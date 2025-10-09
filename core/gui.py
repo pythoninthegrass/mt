@@ -510,17 +510,20 @@ class QueueView:
     def __init__(self, parent, callbacks):
         self.parent = parent
         self.callbacks = callbacks
+        self.current_view = 'music'  # Default view
         self.setup_queue_view()
         self.setup_type_to_jump()
 
-    def load_column_preferences(self):
-        """Load saved column widths from database."""
+    def load_column_preferences(self, view: str = None):
+        """Load saved column widths from database for a specific view."""
+        if view is None:
+            view = self.current_view
         try:
             from config import DB_NAME
             from core.db import DB_TABLES, MusicDatabase
 
             db = MusicDatabase(DB_NAME, DB_TABLES)
-            saved_widths = db.get_queue_column_widths()
+            saved_widths = db.get_queue_column_widths(view)
             db.close()
             return saved_widths
         except Exception:
@@ -589,6 +592,20 @@ class QueueView:
 
         # Bind to Map event to apply saved preferences when widget becomes visible
         self.queue.bind('<Map>', self._on_treeview_mapped)
+
+    def set_track_column_header(self, text: str):
+        """Update the track column header text."""
+        self.queue.heading('track', text=text)
+
+    def set_current_view(self, view: str):
+        """Set the current view and load its column preferences."""
+        self.current_view = view
+        saved_widths = self.load_column_preferences(view)
+        if saved_widths:
+            for col_name, width in saved_widths.items():
+                with contextlib.suppress(Exception):
+                    self.queue.column(col_name, width=width)
+            self._last_column_widths = self.get_column_widths()
 
     def _on_treeview_mapped(self, event=None):
         # Apply saved preferences if available

@@ -431,12 +431,28 @@ class MusicPlayer:
                     loaded_items=new_count,
                     description=f"Loaded {new_count} liked songs",
                 )
+            elif new_section == 'top_played':
+                self.load_top_25_most_played()
+                new_count = len(self.queue_view.queue.get_children())
+                log_player_action(
+                    "section_switch_complete",
+                    trigger_source="gui",
+                    section="top_played",
+                    loaded_items=new_count,
+                    description=f"Loaded {new_count} top played tracks",
+                )
 
     def load_library(self):
         """Load and display library items."""
         # Clear current view
         for item in self.queue_view.queue.get_children():
             self.queue_view.queue.delete(item)
+
+        # Reset column header to "#"
+        self.queue_view.set_track_column_header('#')
+
+        # Set current view and restore column widths
+        self.queue_view.set_current_view('music')
 
         rows = self.library_manager.get_library_items()
         if not rows:
@@ -447,6 +463,12 @@ class MusicPlayer:
 
     def load_queue(self):
         """Load and display queue items."""
+        # Reset column header to "#"
+        self.queue_view.set_track_column_header('#')
+
+        # Set current view and restore column widths
+        self.queue_view.set_current_view('now_playing')
+
         rows = self.queue_manager.get_queue_items()
         if not rows:
             return
@@ -460,6 +482,12 @@ class MusicPlayer:
         for item in self.queue_view.queue.get_children():
             self.queue_view.queue.delete(item)
 
+        # Reset column header to "#"
+        self.queue_view.set_track_column_header('#')
+
+        # Set current view and restore column widths
+        self.queue_view.set_current_view('liked_songs')
+
         rows = self.favorites_manager.get_liked_songs()
         for filepath, artist, title, album, track_num, date in rows:
             formatted_track = self._format_track_number(track_num)
@@ -469,6 +497,32 @@ class MusicPlayer:
                 'end',
                 values=(formatted_track, title or '', artist or '', album or '', year or ''),
             )
+
+    def load_top_25_most_played(self):
+        """Load and display top 25 most played tracks."""
+        # Clear current view
+        for item in self.queue_view.queue.get_children():
+            self.queue_view.queue.delete(item)
+
+        # Change column header to "Play Count"
+        self.queue_view.set_track_column_header('Play Count')
+
+        # Set current view and restore column widths
+        self.queue_view.set_current_view('top_played')
+
+        rows = self.library_manager.get_top_25_most_played()
+        if not rows:
+            return
+
+        # Format with play count instead of track number
+        for filepath, artist, title, album, play_count, date in rows:
+            year = self._extract_year(date)
+            self.queue_view.queue.insert(
+                '',
+                'end',
+                values=(str(play_count), title or '', artist or '', album or '', year or ''),
+            )
+        self.refresh_colors()
 
     def _populate_queue_view(self, rows):
         """Populate queue view with rows of data."""
@@ -1243,14 +1297,17 @@ class MusicPlayer:
                     self.db.set_left_panel_width(sash_pos)
 
     def save_column_widths(self, widths):
-        """Save queue column widths."""
+        """Save queue column widths for the current view."""
         from core.logging import controls_logger, log_player_action
         from eliot import start_action
 
         with start_action(controls_logger, "save_column_preferences"):
-            if hasattr(self, 'db'):
+            if hasattr(self, 'db') and hasattr(self, 'queue_view'):
+                # Get current view name
+                current_view = self.queue_view.current_view
+
                 # Get existing widths for comparison
-                existing_widths = self.db.get_queue_column_widths() or {}
+                existing_widths = self.db.get_queue_column_widths(current_view) or {}
 
                 # Calculate what's actually being persisted
                 persisted_changes = {}
@@ -1258,17 +1315,18 @@ class MusicPlayer:
                     old_width = existing_widths.get(col_name, 0)
                     if width != old_width:
                         persisted_changes[col_name] = {'old_width': old_width, 'new_width': width}
-                        self.db.set_queue_column_width(col_name, width)
+                        self.db.set_queue_column_width(col_name, width, current_view)
 
                 log_player_action(
                     "column_preferences_saved",
                     trigger_source="periodic_check",
+                    view=current_view,
                     widths_saved=widths,
                     existing_widths=existing_widths,
                     persisted_changes=persisted_changes,
                     columns_changed=len(persisted_changes),
                     total_columns=len(widths),
-                    description=f"Column preferences persisted for {len(persisted_changes)} changed columns",
+                    description=f"Column preferences persisted for {len(persisted_changes)} changed columns in {current_view} view",
                 )
 
     def save_window_size(self, width, height):

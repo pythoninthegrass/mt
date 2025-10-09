@@ -116,6 +116,10 @@ class LibraryManager:
         """Get comprehensive library statistics including file count, size, and total duration."""
         return self.db.get_library_statistics()
 
+    def get_top_25_most_played(self) -> list[tuple]:
+        """Get top 25 most played tracks with their metadata."""
+        return self.db.get_top_25_most_played()
+
     def _process_audio_file(self, file_path: str) -> None:
         """Process a single audio file and add it to the library."""
         path_obj = Path(file_path)

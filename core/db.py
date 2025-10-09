@@ -141,21 +141,22 @@ class MusicDatabase:
         """Save left panel width."""
         self.set_ui_preference('left_panel_width', str(width))
 
-    def get_queue_column_widths(self) -> dict[str, int]:
-        """Get saved queue column widths."""
+    def get_queue_column_widths(self, view: str = 'default') -> dict[str, int]:
+        """Get saved queue column widths for a specific view."""
         widths = {}
-        self.db_cursor.execute("SELECT key, value FROM settings WHERE key LIKE 'queue_col_%'")
+        prefix = f'queue_col_{view}_'
+        self.db_cursor.execute("SELECT key, value FROM settings WHERE key LIKE ?", (f'{prefix}%',))
         for key, value in self.db_cursor.fetchall():
-            col_name = key.replace('queue_col_', '')
+            col_name = key.replace(prefix, '')
             try:
                 widths[col_name] = int(value)
             except ValueError:
                 pass
         return widths
 
-    def set_queue_column_width(self, column: str, width: int):
-        """Save queue column width."""
-        self.set_ui_preference(f'queue_col_{column}', str(width))
+    def set_queue_column_width(self, column: str, width: int, view: str = 'default'):
+        """Save queue column width for a specific view."""
+        self.set_ui_preference(f'queue_col_{view}_{column}', str(width))
 
     def get_existing_files(self) -> set:
         """Get set of all files currently in library."""
@@ -692,6 +693,30 @@ class MusicDatabase:
             try:
                 from core.logging import log_error
                 log_error(e, "Failed to get liked songs")
+            except ImportError:
+                pass
+            return []
+
+    def get_top_25_most_played(self) -> list[tuple]:
+        """Get top 25 most played tracks with their metadata, ordered by play count (descending).
+
+        Returns:
+            list[tuple]: List of (filepath, artist, title, album, play_count, date) tuples
+        """
+        try:
+            query = '''
+                SELECT filepath, artist, title, album, play_count, date
+                FROM library
+                WHERE play_count > 0
+                ORDER BY play_count DESC, last_played DESC
+                LIMIT 25
+            '''
+            self.db_cursor.execute(query)
+            return self.db_cursor.fetchall()
+        except Exception as e:
+            try:
+                from core.logging import log_error
+                log_error(e, "Failed to get top 25 most played")
             except ImportError:
                 pass
             return []
