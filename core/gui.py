@@ -1,3 +1,4 @@
+import contextlib
 import customtkinter as ctk
 import json
 import os
@@ -270,8 +271,8 @@ class ProgressBar:
         canvas_width = self.canvas.winfo_width()
 
         # Calculate positions with proper spacing
-        progress_end_x = self.canvas.coords(self.line)[2]  # End of progress line
-        utility_controls_width = self.controls.utility_width  # Width reserved for loop and add buttons
+        progress_end_x = self.canvas.coords(self.line)[2]       # End of progress line
+        utility_controls_width = self.controls.utility_width    # Width reserved for loop and add buttons
 
         # Position volume control relative to shuffle button position (leftmost utility control)
         shuffle_button_x = canvas_width - 180  # Same positioning as utility controls
@@ -420,6 +421,7 @@ class QueueView:
         self.parent = parent
         self.callbacks = callbacks
         self.setup_queue_view()
+        self.setup_type_to_jump()
 
     def load_column_preferences(self):
         """Load saved column widths from database."""
@@ -475,10 +477,8 @@ class QueueView:
         saved_widths = self.load_column_preferences()
         if saved_widths:
             for col_name, width in saved_widths.items():
-                try:
+                with contextlib.suppress(Exception):
                     self.queue.column(col_name, width=width)
-                except Exception:
-                    pass
 
         self.queue.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
         self.scrollbar.config(command=self.queue.yview)
@@ -501,15 +501,13 @@ class QueueView:
         self.queue.bind('<Map>', self._on_treeview_mapped)
 
     def _on_treeview_mapped(self, event=None):
-        """Called when the Treeview becomes visible."""
         # Apply saved preferences if available
         if hasattr(self, '_pending_column_widths') and self._pending_column_widths:
             for col_name, width in self._pending_column_widths.items():
-                try:
+                with contextlib.suppress(Exception):
                     self.queue.column(col_name, width=width)
-                except Exception:
-                    pass
             self._last_column_widths = self.get_column_widths()
+            self._pending_column_widths = None
             self._pending_column_widths = None
 
     def start_column_check(self):
@@ -525,16 +523,116 @@ class QueueView:
         self.queue.selection_set(self.queue.get_children())
         return "break"  # Prevent default handling
 
+    def setup_type_to_jump(self):
+        """Setup type-to-jump functionality for quick navigation by artist name."""
+        self._type_buffer = ""
+        self._type_timer = None
+        self._type_timeout = 1000  # 1.0 seconds between keypresses
+
+        # Bind all alphanumeric keys for type-to-jump
+        self.queue.bind('<KeyPress>', self.on_key_press_jump)  # Tcl variable might not exist
+
+    def on_key_press_jump(self, event):
+        """Handle keypress for type-to-jump navigation."""
+        from core.logging import library_logger, log_player_action
+        from eliot import start_action
+
+        # Ignore modifier keys and special keys - let them use default behavior
+        if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R',
+                            'Alt_L', 'Alt_R', 'Meta_L', 'Meta_R', 'Super_L', 'Super_R',
+                            'Up', 'Down', 'Left', 'Right', 'Return', 'Escape',
+                            'Tab', 'BackSpace', 'Delete', 'Home', 'End',
+                            'Page_Up', 'Page_Down'):
+            return None  # Let default behavior handle these keys
+
+        # Ignore if modifiers are pressed (Ctrl, Alt, Command)
+        if event.state & 0x4:   # Control
+            return None
+        if event.state & 0x8:   # Alt
+            return None
+        if event.state & 0x10:  # Command (macOS)
+            return None
+
+        # Only handle single character input
+        if len(event.char) != 1 or not event.char.isprintable():
+            return "break"
+
+        # Cancel previous timer
+        if self._type_timer:
+            self.queue.after_cancel(self._type_timer)
+
+        # Add character to buffer
+        self._type_buffer += event.char.lower()
+
+        with start_action(library_logger, "type_to_jump"):
+            # Find matching item
+            self._jump_to_artist(self._type_buffer)
+
+            # Reset buffer after timeout
+            self._type_timer = self.queue.after(
+                self._type_timeout,
+                self._reset_type_buffer
+            )
+
+        return "break"  # Prevent default handling
+
+    def _jump_to_artist(self, search_text: str):
+        """Jump to first artist matching the typed text."""
+        from core.logging import library_logger, log_player_action
+
+        if not search_text:
+            return
+
+        # Get all items in the queue/library view
+        items = self.queue.get_children()
+        if not items:
+            return
+
+        # Search for matching artist
+        for item_id in items:
+            item_values = self.queue.item(item_id)['values']
+            if len(item_values) < 3:  # Need at least track, title, artist
+                continue
+
+            artist = str(item_values[2]).lower()  # Artist is column index 2
+
+            if artist.startswith(search_text):
+                # Select and scroll to the item
+                self.queue.selection_set(item_id)
+                self.queue.see(item_id)
+                self.queue.focus(item_id)
+
+                log_player_action(
+                    "type_to_jump",
+                    trigger_source="keyboard",
+                    search_text=search_text,
+                    matched_artist=artist,
+                    buffer_length=len(search_text),
+                    description=f"Jumped to artist '{artist}' via type-to-jump",
+                )
+                return
+
+        # No match found
+        log_player_action(
+            "type_to_jump_no_match",
+            trigger_source="keyboard",
+            search_text=search_text,
+            buffer_length=len(search_text),
+            total_items=len(items),
+            description=f"No artist found starting with '{search_text}'",
+        )
+
+    def _reset_type_buffer(self):
+        """Reset the type buffer after timeout."""
+        self._type_buffer = ""
+
     def get_column_widths(self):
         """Get current column widths."""
         widths = {}
         for col in ['track', 'title', 'artist', 'album', 'year']:
-            try:
+            with contextlib.suppress(Exception):
                 widths[col] = self.queue.column(col, 'width')
-            except Exception:
-                pass
         return widths
-
     def schedule_column_check(self):
         """Schedule periodic check for column width changes."""
         if self._column_check_timer:

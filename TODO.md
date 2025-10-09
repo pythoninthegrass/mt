@@ -9,9 +9,9 @@
   * Cyan highlight of playing track
     * Currently same grey as manual track selection
 * Features
-  * search
+  * ~~search~~
     * ~~search form~~
-    * dynamic fuzzy search by artist
+    * ~~dynamic fuzzy search by artist~~
   * repeat (1, all)
   * adjustable fade
   * arrow keys
@@ -31,6 +31,7 @@
     * see fas
   * now playing (queue)
 * UI
+  * Shrink stoplight buttons to match system styling
   * Add genre and time columns
   * better, modern styling
     * check out [basecoatui](https://basecoatui.com/)
