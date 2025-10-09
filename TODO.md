@@ -1,28 +1,53 @@
 # TODO
 
 * Fix
-  * Shuffle is not truly random; especially pronounced on small libraries
-  * ~~faves, shuffle, loop, and add utility controls need to be shifted vertically by 10-15%~~
-  * Type to jump should ignore common prefixes (The (La's), ...)
+  * Changing window size via maximize (button, top bar) resizes columns
+  * Stats don't immediately update when adding/subtracting tracks
+    * Only when restarting the app
+  * Type to jump should ignore common prefixes (The (La's), Le, A)
+  * Shuffle order not being random and looping through a subset of avaiable tracks
   * Manual jumping across track progress isn't precise
     * e.g., click 1:00 mark, it goes to 0:40 instead
     * First click works, subsequent don't
       * Possible vlc regression with time tracking being manipulated during playback
-  * Shuffle order not being random and looping through a subset of avaiable tracks
   * Cyan highlight of playing track
     * Currently same grey as manual track selection
+  * Menu bar name/PID
+    * python3 > `mt`
 * Features
-  * Inline metadata editing
-  * repeat (1, all)
+  * Queue
+    * Next
+      * Cmd-D
+      * Right click > Queue next
+    * Dynamic queue order
+  * Inline metadata editing (mutagen)
+  * Settings Menu
+    * cf. TyCal
+    * Cog / Cmd-,
+      * General
+      * Appearance
+      * Shortcuts
+      * Now Playing
+      * Library
+      * Advanced
+        * App Info
+          * Version
+          * Build
+          * OS (macOS version/build)
+        * Maintenance
+          * Reset all settings
+          * Capture logs as zip on desktop
+  * Repeat (1, all)
+  * iTunes genius-style feature
   * adjustable fade
   * arrow keys
     * playhead navigation
-  * dynamic queue order
   * playlists
     * recently added
     * recently played
-    * top 25 most played
+    * ~~top 25 most played~~
   * last.fm scrobbling
+  * Lyrics + CC/Wiki artist background
   * mobile remote control
   * Cross-platform
     * linux
@@ -32,17 +57,12 @@
     * see fas
   * now playing (queue)
 * UI
-  * Generate a diagram of the frontend and add to llm instructions
-  * ~~Change color of bar to #272931 with stats to a different shade of grey~~
-    * ~~Rename to status bar internally~~
-  * Snap columns w/double click based on total width of int/str
-  * ~~Shrink stoplight buttons to match system styling~~
   * Add genre and time columns
-  * better, modern styling
-    * ~~check out [basecoatui](https://basecoatui.com/)~~
-    * ~~use font awesome (fas) icons~~
+  * Light/Dark theme
+  * Generate a diagram of the frontend and add to llm instructions
+  * Snap columns w/double click based on total width of int/str
 * UX
-  * Standardize utility button sizes
+  * ~~Standardize utility button sizes~~
     * loop, shuffle, add
   * Combine loop buttons
     * Loop one track (1)
@@ -56,6 +76,7 @@
     * sqlite vs. ~~duckdb~~
       * terso
     * network caching / buffer / prefetch
+  * Check for updates on startup
 * Miscellaneous
   * Suppress python-vlc output in favor of eliot logging
   * Rotate logs after 5 days
@@ -69,8 +90,7 @@
   * task runners
   * package for macos and linux
     * tkinter initially
-    * tauri once migrated to web app
+    * ~~tauri once migrated to web app~~
   * windows (eventually)
 * CI/CD
-  * ~~pre-commit hooks~~
   * codesigning
