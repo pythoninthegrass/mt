@@ -958,22 +958,22 @@ class StatusBar:
         """Create status bar spanning entire bottom pane."""
         from config import COLORS
 
-        # Create status frame container - continuous bar across full width
-        self.status_frame = ctk.CTkFrame(
+        # Create status bar container - continuous bar across full width
+        self.status_bar = ctk.CTkFrame(
             self.parent,
-            height=30,
+            height=20,
             corner_radius=0,
-            fg_color=COLORS['status_bar_bg'],  # #1f1f1f
+            fg_color=COLORS['status_bar_bg'],  # #272931
             border_width=0,
         )
-        self.status_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=0, pady=0)
-        self.status_frame.pack_propagate(False)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=0, pady=0)
+        self.status_bar.pack_propagate(False)
 
         # Status label with library statistics - right-justified
         self.status_label = ctk.CTkLabel(
-            self.status_frame,
+            self.status_bar,
             text="Loading library statistics...",
-            font=("SF Pro Display", 11),
+            font=("SF Pro Display", 12),
             text_color="#CCCCCC",  # Light gray text
             anchor="e",  # Right-aligned text
         )
@@ -1024,7 +1024,7 @@ class StatusBar:
             size_str = self.format_file_size(stats['total_size_bytes'])
             duration_str = self.format_duration(stats['total_duration_seconds'])
 
-            status_text = f"{file_count_str} files, {size_str}, {duration_str}"
+            status_text = f"{file_count_str} files{'':<5}{size_str}{'':<5}{duration_str}"
             self.status_label.configure(text=status_text)
 
         except Exception as e:
