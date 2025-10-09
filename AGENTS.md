@@ -6,6 +6,14 @@ This file provides guidance to LLMs when working with code in this repository.
 
 mt is a desktop music player designed for large music collections, built with Python and Tkinter. It uses VLC for audio playback and supports drag-and-drop functionality.
 
+## MCP Servers
+
+ALWAYS use these MCP servers:
+
+- serena: when editing and searching for files
+- context7: when looking up library context outside the source code
+- screencap: for screenshots of front-end changes
+
 ## Common Development Commands
 
 ### Running the Application
@@ -15,10 +23,7 @@ mt is a desktop music player designed for large music collections, built with Py
 uv run main.py
 
 # Run main with auto-reload
-uv run tkreload main.py
-
-# Alternative auto-reload with repeater utility
-uv run python utils/repeater.py
+uv run repeater
 ```
 
 ### Development Workflow
