@@ -1,7 +1,8 @@
 # TODO
 
 * Fix
-  * faves, shuffle, loop, and add utility controls need to be shifted vertically by 10-15%
+  * Shuffle is not truly random; especially pronounced on small libraries
+  * ~~faves, shuffle, loop, and add utility controls need to be shifted vertically by 10-15%~~
   * Type to jump should ignore common prefixes (The (La's), ...)
   * Manual jumping across track progress isn't precise
     * e.g., click 1:00 mark, it goes to 0:40 instead
@@ -11,6 +12,7 @@
   * Cyan highlight of playing track
     * Currently same grey as manual track selection
 * Features
+  * Inline metadata editing
   * repeat (1, all)
   * adjustable fade
   * arrow keys
@@ -31,10 +33,10 @@
   * now playing (queue)
 * UI
   * Generate a diagram of the frontend and add to llm instructions
-  * Change color of bar to #272931 with stats to a different shade of grey
-    * Rename to status bar internally
+  * ~~Change color of bar to #272931 with stats to a different shade of grey~~
+    * ~~Rename to status bar internally~~
   * Snap columns w/double click based on total width of int/str
-  * Shrink stoplight buttons to match system styling
+  * ~~Shrink stoplight buttons to match system styling~~
   * Add genre and time columns
   * better, modern styling
     * ~~check out [basecoatui](https://basecoatui.com/)~~
@@ -49,6 +51,7 @@
   * performance
     * faster directory traversal (i.e., zig)
       * Aside from scanning, add file paths to db
+      * Log the amount of time it takes to add files to the library
       * mutagen tag reading might need to be optimized for large libraries as well
     * sqlite vs. ~~duckdb~~
       * terso
