@@ -91,7 +91,9 @@ class PlayerControls:
         canvas_height = self.canvas.winfo_height()
 
         # Calculate vertical center of canvas (accounting for icon height)
-        y_position = (canvas_height - self.utility_icon_size[1]) // 2
+        # Then shift down by 1%
+        y_center = (canvas_height - self.utility_icon_size[1]) // 2
+        y_position = int(y_center + (canvas_height * 0.01))
 
         try:
             # Load icons for utility controls
@@ -203,7 +205,9 @@ class PlayerControls:
             return
 
         # Calculate new y position (centered vertically - use larger playback icon size for consistency)
-        new_y = (event.height - self.playback_icon_size[1]) // 2
+        # Then shift down by 1%
+        y_center = (event.height - self.playback_icon_size[1]) // 2
+        new_y = int(y_center + (event.height * 0.01))
 
         # Calculate positions relative to canvas width
         canvas_width = event.width
@@ -240,7 +244,7 @@ class PlayerControls:
             x_position += button.winfo_reqwidth() + 5
 
         # Update controls width for progress bar calculations
-        self.controls_width = x_position + 15  # Same as initial setup  # Same as initial setup
+        self.controls_width = x_position + 15  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup
 
     def update_loop_button_color(self, loop_enabled):
         """Update loop button icon based on loop state."""
