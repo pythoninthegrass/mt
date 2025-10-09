@@ -19,6 +19,7 @@ from core.volume import VolumeControl
 from decouple import config
 from pathlib import Path
 from tkinter import ttk
+from utils.icons import load_icon
 
 
 class PlayerControls:
@@ -31,6 +32,14 @@ class PlayerControls:
         self.play_button = None
         self.loop_enabled = initial_loop_enabled
         self.shuffle_enabled = initial_shuffle_enabled
+
+        # Icon sizes - playback controls are larger than utility controls
+        self.playback_icon_size = (35, 35)
+        self.utility_icon_size = (23, 23)
+
+        # Store icon references to prevent garbage collection
+        self.icon_images = {}
+
         self.setup_playback_controls()
         self.setup_utility_controls()
 
@@ -39,8 +48,11 @@ class PlayerControls:
 
     def setup_playback_controls(self):
         # Create playback controls directly on canvas
-        x_position = 10
-        y_position = PROGRESS_BAR['controls_y'] - 30  # Moved up more to match MusicBee
+        x_position = 25
+        # Calculate vertical center of canvas (accounting for button height)
+        self.canvas.update_idletasks()
+        canvas_height = self.canvas.winfo_height()
+        y_position = (canvas_height - self.playback_icon_size[1]) // 2
 
         for action, symbol in [
             ('previous', BUTTON_SYMBOLS['prev']),
@@ -50,92 +62,105 @@ class PlayerControls:
             button = tk.Label(
                 self.canvas,
                 text=symbol,
-                font=BUTTON_STYLE['font'],
-                fg=THEME_CONFIG['colors']['fg'],
-                bg="#000000",  # Pure black background like MusicBee
+                fg='#CCCCCC',  # Light gray for normal state
+                bg="#000000",  # Pure black background
+                font=('TkDefaultFont', 28)
             )
             button.place(x=x_position, y=y_position)
 
             # Bind click and hover events
             button.bind('<Button-1>', lambda e, a=action: self.callbacks[a]())
             button.bind('<Enter>', lambda e, b=button: b.configure(fg=THEME_CONFIG['colors']['primary']))
-            button.bind('<Leave>', lambda e, b=button: b.configure(fg=THEME_CONFIG['colors']['fg']))
+            button.bind('<Leave>', lambda e, b=button: b.configure(fg='#CCCCCC'))
 
             if action == 'play':
                 self.play_button = button
 
-            x_position += button.winfo_reqwidth() + 5  # Add spacing between buttons
+            x_position += self.playback_icon_size[0] + 10  # Add spacing between buttons
 
         # Store the width for progress bar calculations
         self.controls_width = x_position + 15
 
     def setup_utility_controls(self):
         # Create utility controls directly on canvas
-        y_position = PROGRESS_BAR['controls_y'] - 30  # Moved up more to match MusicBee
-
         # Wait for canvas to be ready
         self.canvas.update_idletasks()
         canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
 
-        # Add button (rightmost)
+        # Calculate vertical center of canvas (accounting for icon height)
+        y_position = (canvas_height - self.utility_icon_size[1]) // 2
+
+        try:
+            # Load icons for utility controls
+            # Add button (rightmost)
+            add_normal = load_icon(BUTTON_SYMBOLS['add'], size=self.utility_icon_size, opacity=0.7)
+            add_hover = load_icon(BUTTON_SYMBOLS['add'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
+            self.icon_images['add_normal'] = add_normal
+            self.icon_images['add_hover'] = add_hover
+        except Exception as e:
+            print(f"Error loading add button icons: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+
         self.add_button = tk.Label(
             self.canvas,
-            text=BUTTON_SYMBOLS['add'],
-            font=BUTTON_STYLE['font'],
-            fg=THEME_CONFIG['colors']['fg'],
+            image=add_normal,
             bg="#000000",  # Pure black background like MusicBee
-            anchor="center",  # Center the text for consistent alignment
-            width=2,  # Fixed width for consistent button sizing
-            height=1,  # Fixed height for consistent button sizing
         )
         self.add_button.place(x=canvas_width - 60, y=y_position)
         self.add_button.bind('<Button-1>', lambda e: self.callbacks['add']())
-        self.add_button.bind('<Enter>', lambda e: self.add_button.configure(fg=THEME_CONFIG['colors']['primary']))
-        self.add_button.bind('<Leave>', lambda e: self.add_button.configure(fg=THEME_CONFIG['colors']['fg']))
+        self.add_button.bind('<Enter>', lambda e: self.add_button.configure(image=self.icon_images['add_hover']))
+        self.add_button.bind('<Leave>', lambda e: self.add_button.configure(image=self.icon_images['add_normal']))
 
         # Loop button (to the left of add button)
+        loop_normal = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=0.7)
+        loop_enabled_icon = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['loop_enabled'])
+        loop_disabled_icon = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=0.5)
+        loop_hover = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
+        self.icon_images['loop_normal'] = loop_normal
+        self.icon_images['loop_enabled'] = loop_enabled_icon
+        self.icon_images['loop_disabled'] = loop_disabled_icon
+        self.icon_images['loop_hover'] = loop_hover
+
         self.loop_button = tk.Label(
             self.canvas,
-            text=BUTTON_SYMBOLS['loop'],
-            font=BUTTON_STYLE['font'],
-            fg=THEME_CONFIG['colors']['fg'],  # Start with default color
+            image=loop_enabled_icon if self.loop_enabled else loop_disabled_icon,
             bg="#000000",  # Pure black background like MusicBee
-            anchor="center",  # Center the text for consistent alignment
-            width=2,  # Fixed width for consistent button sizing
-            height=1,  # Fixed height for consistent button sizing
         )
         self.loop_button.place(x=canvas_width - 120, y=y_position)
         self.loop_button.bind('<Button-1>', lambda e: self.callbacks['loop']())
-        self.loop_button.bind('<Enter>', lambda e: self.loop_button.configure(fg=THEME_CONFIG['colors']['primary']))
+        self.loop_button.bind('<Enter>', lambda e: self.loop_button.configure(image=self.icon_images['loop_hover']))
         self.loop_button.bind(
             '<Leave>',
-            lambda e: self.loop_button.configure(fg=COLORS['loop_enabled'] if self.loop_enabled else COLORS['loop_disabled']),
+            lambda e: self.loop_button.configure(image=self.icon_images['loop_enabled'] if self.loop_enabled else self.icon_images['loop_disabled']),
         )
 
         # Shuffle button (to the left of loop button)
+        shuffle_normal = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=0.7)
+        shuffle_enabled_icon = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['shuffle_enabled'])
+        shuffle_disabled_icon = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=0.5)
+        shuffle_hover = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
+        self.icon_images['shuffle_normal'] = shuffle_normal
+        self.icon_images['shuffle_enabled'] = shuffle_enabled_icon
+        self.icon_images['shuffle_disabled'] = shuffle_disabled_icon
+        self.icon_images['shuffle_hover'] = shuffle_hover
+
         self.shuffle_button = tk.Label(
             self.canvas,
-            text=BUTTON_SYMBOLS['shuffle'],
-            font=BUTTON_STYLE['font'],
-            fg=THEME_CONFIG['colors']['fg'],  # Start with default color
+            image=shuffle_enabled_icon if self.shuffle_enabled else shuffle_disabled_icon,
             bg="#000000",  # Pure black background like MusicBee
-            anchor="center",  # Center the text for consistent alignment
-            width=2,  # Fixed width for consistent button sizing
-            height=1,  # Fixed height for consistent button sizing
         )
         self.shuffle_button.place(x=canvas_width - 180, y=y_position)
         self.shuffle_button.bind('<Button-1>', lambda e: self.callbacks['shuffle']())
-        self.shuffle_button.bind('<Enter>', lambda e: self.shuffle_button.configure(fg=THEME_CONFIG['colors']['primary']))
+        self.shuffle_button.bind('<Enter>', lambda e: self.shuffle_button.configure(image=self.icon_images['shuffle_hover']))
         self.shuffle_button.bind(
             '<Leave>',
             lambda e: self.shuffle_button.configure(
-                fg=COLORS['shuffle_enabled'] if self.shuffle_enabled else COLORS['shuffle_disabled']
+                image=self.icon_images['shuffle_enabled'] if self.shuffle_enabled else self.icon_images['shuffle_disabled']
             ),
         )
-
-        # Force update button colors after creation
-        self.update_loop_button_color(self.loop_enabled)
-        self.update_shuffle_button_color(self.shuffle_enabled)
 
         # Ensure buttons are on top of canvas elements
         self.shuffle_button.lift()
@@ -150,8 +175,8 @@ class PlayerControls:
         if not all([self.add_button, self.loop_button, self.shuffle_button, self.play_button]):
             return
 
-        # Calculate new y position (centered vertically)
-        new_y = (event.height - 25) // 2  # 25 is approximate button height
+        # Calculate new y position (centered vertically - use larger playback icon size for consistency)
+        new_y = (event.height - self.playback_icon_size[1]) // 2
 
         # Calculate positions relative to canvas width
         canvas_width = event.width
@@ -187,14 +212,29 @@ class PlayerControls:
         self.controls_width = x_position + 15  # Same as initial setup
 
     def update_loop_button_color(self, loop_enabled):
-        """Update loop button color based on loop state."""
+        """Update loop button icon based on loop state."""
         self.loop_enabled = loop_enabled  # Update the internal state
-        self.loop_button.configure(fg=COLORS['loop_enabled'] if loop_enabled else COLORS['loop_disabled'])
+        self.loop_button.configure(image=self.icon_images['loop_enabled'] if loop_enabled else self.icon_images['loop_disabled'])
 
     def update_shuffle_button_color(self, shuffle_enabled):
-        """Update shuffle button color based on shuffle state."""
+        """Update shuffle button icon based on shuffle state."""
         self.shuffle_enabled = shuffle_enabled  # Update the internal state
-        self.shuffle_button.configure(fg=COLORS['shuffle_enabled'] if shuffle_enabled else COLORS['shuffle_disabled'])
+        self.shuffle_button.configure(image=self.icon_images['shuffle_enabled'] if shuffle_enabled else self.icon_images['shuffle_disabled'])
+
+    def update_play_button(self, is_playing):
+        """Update play button to show play or pause state."""
+        if is_playing:
+            # When playing, show pause symbol
+            self.play_button.configure(
+                text=BUTTON_SYMBOLS['pause'],
+                fg='#FFFFFF'  # Bright white when active/playing
+            )
+        else:
+            # When paused/stopped, show play symbol
+            self.play_button.configure(
+                text=BUTTON_SYMBOLS['play'],
+                fg='#CCCCCC'  # Light gray when paused
+            )
 
 
 class ProgressBar:
@@ -269,6 +309,7 @@ class ProgressBar:
         # Wait for canvas to be ready and get current dimensions
         self.canvas.update_idletasks()
         canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
 
         # Calculate positions with proper spacing
         progress_end_x = self.canvas.coords(self.line)[2]       # End of progress line
@@ -285,10 +326,14 @@ class ProgressBar:
         available_space = volume_end_x - volume_x_start
         volume_slider_length = max(80, min(120, available_space - 30))  # 30 for volume icon, constrain between 80-120px
 
+        # Calculate centered y position to match utility controls, lowered by 15%
+        # Utility controls are centered at (canvas_height - utility_icon_size[1]) // 2 + utility_icon_size[1] // 2
+        volume_bar_y = int(canvas_height // 2 * 1.10)  # Center of canvas, lowered by 10%
+
         # Create volume control
         self.volume_control = VolumeControl(
             self.canvas,
-            self.bar_y,
+            volume_bar_y,
             self.circle_radius,
             BUTTON_SYMBOLS,
             THEME_CONFIG,
@@ -323,6 +368,7 @@ class ProgressBar:
         # Calculate positions for volume control, accounting for utility controls
         progress_end_x = self.canvas.coords(self.line)[2]
         canvas_width = event.width
+        canvas_height = event.height
         utility_controls_width = self.controls.utility_width  # Width reserved for loop and add buttons
 
         # Position volume control relative to shuffle button position (leftmost utility control)
@@ -336,8 +382,11 @@ class ProgressBar:
         available_space = volume_end_x - volume_x_start
         volume_slider_length = max(80, min(120, available_space - 30))  # 30 for volume icon, constrain between 80-120px
 
-        # Update volume control positions
+        # Update volume control positions with centered y position
         if hasattr(self, 'volume_control'):
+            # Update the bar_y to keep it centered
+            volume_bar_y = canvas_height // 2
+            self.volume_control.bar_y = volume_bar_y
             self.volume_control.update_positions(volume_x_start)
 
     def update_track_info(self, title=None, artist=None):

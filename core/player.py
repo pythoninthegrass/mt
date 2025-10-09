@@ -304,9 +304,7 @@ class MusicPlayer:
         self.player_core.play_pause()
 
         # Update play button appearance
-        self.progress_bar.controls.play_button.configure(
-            text=BUTTON_SYMBOLS['pause'] if self.player_core.is_playing else BUTTON_SYMBOLS['play']
-        )
+        self.progress_bar.controls.update_play_button(self.player_core.is_playing)
 
         # Show playback elements if we started playing, hide if we stopped
         if not was_playing and self.player_core.is_playing:
@@ -616,7 +614,7 @@ class MusicPlayer:
             if filepath and os.path.exists(filepath):
                 was_playing = self.player_core.is_playing
                 self.player_core._play_file(filepath)
-                self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
+                self.progress_bar.controls.update_play_button(True)
                 # Refresh colors to highlight the playing track
                 self.refresh_colors()
 
@@ -862,7 +860,7 @@ class MusicPlayer:
         self.player_core.was_playing = self.player_core.is_playing
         if self.player_core.is_playing:
             self.player_core.media_player.pause()
-            self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['play'])
+            self.progress_bar.controls.update_play_button(False)
             self.player_core.is_playing = False
 
     def drag(self, event):
@@ -951,7 +949,7 @@ class MusicPlayer:
                 # Resume playback if it was playing before
                 if self.player_core.was_playing:
                     self.player_core.media_player.play()
-                    self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
+                    self.progress_bar.controls.update_play_button(True)
                     self.player_core.is_playing = True
             else:
                 # If no media is loaded, just mark dragging as finished

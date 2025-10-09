@@ -169,8 +169,8 @@ class PlayerCore:
                 self.progress_bar.clear_track_info()
                 if hasattr(self.progress_bar, 'progress_control'):
                     self.progress_bar.progress_control.hide_playback_elements()
-                if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'play_button'):
-                    self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['play'])
+                if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
+                    self.progress_bar.controls.update_play_button(False)
 
     def toggle_loop(self) -> None:
         """Toggle loop mode."""
@@ -264,8 +264,8 @@ class PlayerCore:
             self.progress_bar.progress_control.show_playback_elements()
 
         # Update play button to pause symbol since we're now playing
-        if self.progress_bar and hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'play_button'):
-            self.progress_bar.controls.play_button.configure(text=BUTTON_SYMBOLS['pause'])
+        if self.progress_bar and hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
+            self.progress_bar.controls.update_play_button(True)
 
     def _select_item_by_filepath(self, filepath: str) -> None:
         """Find and select the item in the queue view that corresponds to the given filepath."""

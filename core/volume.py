@@ -1,4 +1,5 @@
 import tkinter as tk
+from utils.icons import load_icon
 
 
 class VolumeControl:
@@ -45,15 +46,28 @@ class VolumeControl:
         # Calculate initial volume position with padding
         volume_position = self.volume_slider_start + ((self.volume_slider_end - self.volume_slider_start) * 0.8)
 
-        # Create volume icon
-        self.volume_icon = tk.Label(
-            self.canvas,
-            text=self.button_symbols['volume'],
-            font=('TkDefaultFont', 12),
-            bg=self.theme_config['colors']['bg'],
-            fg=self.theme_config['colors']['primary'],
-        )
-        self.volume_icon.place(x=volume_x_start - 25, y=self.bar_y - 10)  # Position icon to the left of slider
+        try:
+            # Create volume icon using PNG image (15% larger than base 16px)
+            volume_icon_image = load_icon(
+                self.button_symbols['volume'],
+                size=(18, 18),
+                opacity=1.0,
+                tint_color=self.theme_config['colors']['primary']
+            )
+            # Store reference to prevent garbage collection
+            self.volume_icon_image = volume_icon_image
+
+            self.volume_icon = tk.Label(
+                self.canvas,
+                image=volume_icon_image,
+                bg='#000000',  # Pure black to match control pane
+            )
+            self.volume_icon.place(x=volume_x_start - 25, y=self.bar_y - 11)  # Position icon aligned with volume circle
+        except Exception as e:
+            print(f"Error loading volume icon: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
         # Create volume slider background line
         self.volume_line_bg = self.canvas.create_line(

@@ -68,16 +68,16 @@ BUTTON_STYLE = {
     'font': ('TkDefaultFont', 30),
 }
 
-# Button Symbols
+# Button Icons
 BUTTON_SYMBOLS = {
     'play': '▶',
     'pause': '⏸',
     'prev': '⏮',
     'next': '⏭',
-    'add': '+',
-    'loop': '⟳',
-    'shuffle': '⤮',
-    'volume': '🔈',  # Unicode speaker symbol (U+1F508)
+    'add': 'static/add.png',
+    'loop': 'static/repeat.png',
+    'shuffle': 'static/shuffle.png',
+    'volume': 'static/volume_up.png',
 }
 
 # Theme Configuration

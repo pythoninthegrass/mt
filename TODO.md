@@ -1,6 +1,7 @@
 # TODO
 
 * Fix
+  * Grey background on volume icon
   * Manual jumping across track progress isn't precise
     * e.g., click 1:00 mark, it goes to 0:40 instead
     * First click works, subsequent don't
@@ -34,8 +35,8 @@
   * Shrink stoplight buttons to match system styling
   * Add genre and time columns
   * better, modern styling
-    * check out [basecoatui](https://basecoatui.com/)
-    * use font awesome (fas) icons
+    * ~~check out [basecoatui](https://basecoatui.com/)~~
+    * ~~use font awesome (fas) icons~~
 * UX
   * Standardize utility button sizes
     * loop, shuffle, add
@@ -58,6 +59,7 @@
   * unit tests
   * integration tests
   * e2e tests
+    * [askui]()
 * Build
   * task runners
   * package for macos and linux
