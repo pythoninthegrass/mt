@@ -26,6 +26,7 @@ import signal
 import subprocess
 import sys
 import time
+from decouple import config
 from pathlib import Path
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -85,10 +86,30 @@ class ReloadEventHandler(FileSystemEventHandler):
         self.process = None
         self.start_app()
 
+    def setup_macos_environment(self):
+        """Setup TCL/TK environment variables for macOS."""
+        env = os.environ.copy()
+
+        if sys.platform == 'darwin':
+            # Get TCL/TK paths from environment or use Homebrew defaults
+            tcl_library = config('TCL_LIBRARY', default='/opt/homebrew/opt/tcl-tk/lib/tcl8.6')
+            tk_library = config('TK_LIBRARY', default='/opt/homebrew/opt/tcl-tk/lib/tk8.6')
+            tcl_tk_bin = config('TCL_TK_BIN', default='/opt/homebrew/opt/tcl-tk/bin')
+
+            # Set TCL/TK environment variables
+            env['TCL_LIBRARY'] = tcl_library
+            env['TK_LIBRARY'] = tk_library
+
+            # Prepend TCL/TK bin to PATH
+            env['PATH'] = f"{tcl_tk_bin}:{env.get('PATH', '')}"
+
+        return env
+
     def start_app(self):
         """Start the Tkinter application."""
         print(f"Starting {self.main_file}...")
-        self.process = subprocess.Popen([sys.executable, str(self.main_file)])
+        env = self.setup_macos_environment()
+        self.process = subprocess.Popen([sys.executable, str(self.main_file)], env=env)
 
     def should_reload(self, file_path):
         """Check if the changed file should trigger a reload."""
