@@ -46,10 +46,10 @@ class StoplightButtons:
             self.stoplight_frame.pack_propagate(False)
 
         # Create canvas for circular buttons with proper macOS positioning
-        button_size = 14  # Slightly larger for better visibility
+        button_size = 12  # Match system stoplight button size
         button_spacing = 8  # Tighter spacing like macOS
         left_margin = 12  # Margin from edge
-        top_margin = 13  # Centered in 40px height frame (40-14)/2 = 13
+        top_margin = 14  # Centered in 40px height frame (40-12)/2 = 14
 
         self.canvas = tk.Canvas(
             self.stoplight_frame,
@@ -105,10 +105,10 @@ class StoplightButtons:
     def handle_click(self, event):
         """Handle clicks on the canvas to determine which button was clicked."""
         x, y = event.x, event.y
-        button_size = 14
+        button_size = 12
         button_spacing = 8
         left_margin = 12
-        top_margin = 13  # Updated to match setup
+        top_margin = 14  # Updated to match setup
 
         # Check close button
         if left_margin <= x <= left_margin + button_size and top_margin <= y <= top_margin + button_size:
@@ -131,10 +131,10 @@ class StoplightButtons:
     def handle_motion(self, event):
         """Handle mouse motion for hover effects."""
         x, y = event.x, event.y
-        button_size = 14
+        button_size = 12
         button_spacing = 8
         left_margin = 12
-        top_margin = 13  # Updated to match setup
+        top_margin = 14  # Updated to match setup
 
         # Reset all buttons to normal color first
         self.canvas.itemconfig(self.close_circle, fill=self.colors['close']['normal'])
@@ -176,10 +176,10 @@ class StoplightButtons:
         def start_drag(event):
             # Only start drag if not clicking on a button
             x, y = event.x, event.y
-            button_size = 14
+            button_size = 12
             button_spacing = 8
             left_margin = 12
-            top_margin = 13
+            top_margin = 14
 
             # Check if click is on any button area
             button_areas = [
