@@ -432,6 +432,47 @@ class MusicDatabase:
         )
         self.db_conn.commit()
 
+    def delete_from_library(self, filepath: str) -> bool:
+        """Delete a track from the library by its filepath.
+        
+        Args:
+            filepath: The absolute path to the file to remove from library
+            
+        Returns:
+            bool: True if deleted successfully, False otherwise
+        """
+        try:
+            from eliot import log_message
+            
+            # Delete from library
+            self.db_cursor.execute('DELETE FROM library WHERE filepath = ?', (filepath,))
+            
+            # Also delete from favorites if it exists
+            self.db_cursor.execute('''
+                DELETE FROM favorites 
+                WHERE track_id IN (SELECT id FROM library WHERE filepath = ?)
+            ''', (filepath,))
+            
+            # Commit the changes
+            self.db_conn.commit()
+            
+            log_message(
+                message_type="library_delete",
+                filepath=filepath,
+                message="Track deleted from library"
+            )
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error deleting from library: {e}")
+            try:
+                from core.logging import log_error, library_logger
+                log_error(library_logger, e, filepath=filepath)
+            except ImportError:
+                pass
+            return False
+
     def update_play_count(self, filepath: str):
         """Increment play count for a song."""
         query = """

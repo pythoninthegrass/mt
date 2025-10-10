@@ -605,6 +605,8 @@ class MusicPlayer:
                                 selected_paths.append(path_obj)
                         if selected_paths:
                             self.library_manager.add_files_to_library(selected_paths)
+                            # Update statistics immediately
+                            self.status_bar.update_statistics()
                             # Refresh view if needed
                             selected_item = self.library_view.library_tree.selection()
                             if selected_item:
@@ -630,6 +632,8 @@ class MusicPlayer:
             selected_paths = [Path(p) for p in paths]
             if selected_paths:
                 self.library_manager.add_files_to_library(selected_paths)
+                # Update statistics immediately
+                self.status_bar.update_statistics()
                 # Refresh view if needed
                 selected_item = self.library_view.library_tree.selection()
                 if selected_item:
@@ -698,10 +702,14 @@ class MusicPlayer:
                     try:
                         if tags[0] == 'music':
                             self.library_manager.add_files_to_library(valid_paths)
+                            # Update statistics immediately
+                            self.status_bar.update_statistics()
                             self.load_library()
                             success = True
                         elif tags[0] == 'now_playing':
                             self.library_manager.add_files_to_library(valid_paths)
+                            # Update statistics immediately
+                            self.status_bar.update_statistics()
                             self.queue_manager.process_dropped_files(valid_paths)
                             self.load_queue()
                             success = True
@@ -768,7 +776,7 @@ class MusicPlayer:
         return "break"
 
     def handle_delete(self, event):
-        """Handle delete key press."""
+        """Handle delete key press - deletes from library or queue based on current view."""
         with start_action(player_logger, "track_delete"):
             selected_items = self.queue_view.queue.selection()
             if not selected_items:
@@ -776,15 +784,21 @@ class MusicPlayer:
                 return
 
             deleted_tracks = []
+            current_view = self.queue_view.current_view
+            
+            # Determine if we're deleting from library or queue
+            is_queue_view = (current_view == 'now_playing')
 
             for item in selected_items:
                 values = self.queue_view.queue.item(item)['values']
                 if values:
                     track_num, title, artist, album, year = values
 
-                    # Get queue position before deletion
-                    children = self.queue_view.queue.get_children()
-                    queue_position = children.index(item) if item in children else -1
+                    # Get queue position before deletion (for queue view only)
+                    queue_position = -1
+                    if is_queue_view:
+                        children = self.queue_view.queue.get_children()
+                        queue_position = children.index(item) if item in children else -1
 
                     # Get file path for the track
                     filepath = None
@@ -799,17 +813,34 @@ class MusicPlayer:
                         "year": year,
                         "queue_position": queue_position,
                         "filepath": filepath,
+                        "view": current_view,
                     }
                     deleted_tracks.append(track_info)
 
-                    log_player_action(
-                        "track_delete",
-                        trigger_source="keyboard",
-                        track_info=track_info,
-                        description=f"Deleted track: {title} by {artist}",
-                    )
-
-                    self.queue_manager.remove_from_queue(title, artist, album, track_num)
+                    if is_queue_view:
+                        # Delete from queue only
+                        log_player_action(
+                            "track_delete_from_queue",
+                            trigger_source="keyboard",
+                            track_info=track_info,
+                            description=f"Deleted track from queue: {title} by {artist}",
+                        )
+                        self.queue_manager.remove_from_queue(title, artist, album, track_num)
+                    else:
+                        # Delete from library (and favorites if present)
+                        log_player_action(
+                            "track_delete_from_library",
+                            trigger_source="keyboard",
+                            track_info=track_info,
+                            description=f"Deleted track from library: {title} by {artist}",
+                        )
+                        if filepath:
+                            success = self.library_manager.delete_from_library(filepath)
+                            if success:
+                                # Also remove from queue if it exists
+                                self.queue_manager.remove_from_queue(title, artist, album, track_num)
+                        
+                    # Remove from UI
                     self.queue_view.queue.delete(item)
 
             # Log summary of deletion operation
@@ -818,8 +849,13 @@ class MusicPlayer:
                 trigger_source="keyboard",
                 deleted_count=len(deleted_tracks),
                 tracks_deleted=deleted_tracks,
-                description=f"Deleted {len(deleted_tracks)} track(s) from queue",
+                view=current_view,
+                description=f"Deleted {len(deleted_tracks)} track(s) from {current_view}",
             )
+            
+            # Update statistics if deleting from library
+            if not is_queue_view and hasattr(self, 'status_bar'):
+                self.status_bar.update_statistics()
 
             self.refresh_colors()
             return "break"

@@ -120,6 +120,17 @@ class LibraryManager:
         """Get top 25 most played tracks with their metadata."""
         return self.db.get_top_25_most_played()
 
+    def delete_from_library(self, filepath: str) -> bool:
+        """Delete a track from the library.
+        
+        Args:
+            filepath: The absolute path to the file to remove from library
+            
+        Returns:
+            bool: True if deleted successfully, False otherwise
+        """
+        return self.db.delete_from_library(filepath)
+
     def _process_audio_file(self, file_path: str) -> None:
         """Process a single audio file and add it to the library."""
         path_obj = Path(file_path)
