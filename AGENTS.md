@@ -170,7 +170,8 @@ All dependencies should be managed through `uv` to ensure proper virtual environ
 
 4. **Testing**: Use pytest exclusively (no unittest module) with full type annotations
 
-5. **Code Style**: Maintained by Ruff with specific configuration in pyproject.toml
+5. **Code Style**: Maintained by Ruff with specific configuration in ruff.toml
+    - Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
 
 ## Development Tools
 
