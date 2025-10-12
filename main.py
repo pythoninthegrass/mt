@@ -4,6 +4,7 @@ import customtkinter as ctk
 import eliot
 import os
 import tkinter as tk
+from config import APP_NAME, configure_macos
 from core.logging import app_logger, log_error, setup_logging
 from core.player import MusicPlayer
 from core.theme import setup_theme
@@ -13,6 +14,9 @@ from tkinterdnd2 import TkinterDnD
 
 
 def main():
+    # Set macOS process name BEFORE any GUI initialization
+    configure_macos()
+
     with start_action(app_logger, "application_startup"):
         try:
             log_message(message_type="application_init", message="Starting mt music player")
@@ -22,13 +26,21 @@ def main():
             ctk.set_default_color_theme("blue")  # "blue", "dark-blue", "green"
 
             # Create custom theme style with CustomTkinter
-            root = TkinterDnD.Tk()
+            root = TkinterDnD.Tk(className=APP_NAME)
+
+            # Configure macOS-specific window properties
+            configure_macos(root)
+
             log_message(message_type="ui_init", component="main_window", message="Created main CustomTkinter window")
 
             # Set application icon
             icon = tk.PhotoImage(file='mt.png')
             root.wm_iconphoto(False, icon)
             log_message(message_type="ui_init", component="icon", message="Set application icon")
+
+            # Set application name
+            root.wm_title(APP_NAME)
+            log_message(message_type="ui_init", component="title", message=f"Set application title: {APP_NAME}")
 
             # Setup theme and styles
             setup_theme(root)

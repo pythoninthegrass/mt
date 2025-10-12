@@ -37,6 +37,23 @@ AUDIO_EXTENSIONS = {
     '.wv',
 }
 
+def get_version():
+    """Get version from pyproject.toml"""
+    import tomllib
+
+    toml_load = tomllib.load
+    open_mode = 'rb'
+
+    pyproject_path = Path(__file__).parent / "pyproject.toml"
+    if pyproject_path.exists():
+        with open(pyproject_path, open_mode) as f:
+            data = toml_load(f)
+            return data.get("project", {}).get("version", "unknown")
+    return "unknown"
+
+
+__version__ = get_version()
+
 
 # Window Configuration
 def _validate_window_size(size_str):
@@ -61,6 +78,71 @@ def _validate_window_size(size_str):
 
 WINDOW_SIZE = _validate_window_size(config('MT_WINDOW_SIZE', default="1366x768"))
 WINDOW_TITLE = config('MT_WINDOW_TITLE', default="mt")
+
+# App Configuration
+APP_NAME = config('MT_APP_NAME', default="mt")
+
+
+def configure_macos(root=None):
+    """Configure macOS-specific app properties.
+
+    Call once before window creation (root=None) to set process name,
+    then again after window creation (with root) to configure window properties.
+
+    Args:
+        root: Optional Tk root window instance. If None, only sets process name.
+    """
+    import datetime
+    import platform
+    import sys
+
+    if platform.system() != "Darwin":
+        return
+
+    try:
+        # Phase 1: Pre-window setup (when root=None)
+        if root is None:
+            from Foundation import NSProcessInfo
+
+            # Set the process name - this affects both menu bar and dock
+            process_info = NSProcessInfo.processInfo()
+            process_info.setProcessName_(APP_NAME)
+
+            # Also modify sys.argv[0] to change what the system reports as the executable
+            sys.argv[0] = APP_NAME
+            return
+
+        # Phase 2: Post-window setup (when root is provided)
+        # Set the window class for macOS
+        root.tk.call('::tk::unsupported::MacWindowStyle', 'style', root._w, 'document')
+
+        # Update NSApplication after Tk init
+        from AppKit import NSApplication, NSBundle
+
+        app = NSApplication.sharedApplication()
+
+        # Update bundle info dictionary
+        bundle = NSBundle.mainBundle()
+        if bundle:
+            info = bundle.infoDictionary()
+            if info is not None:
+                info['CFBundleName'] = APP_NAME
+                info['CFBundleDisplayName'] = APP_NAME
+                info['CFBundleExecutable'] = APP_NAME
+                info['CFBundleIdentifier'] = f'com.mt.{APP_NAME}'
+                info['CFBundleVersion'] = __version__
+                info['CFBundleShortVersionString'] = __version__
+                info['NSHumanReadableCopyright'] = f"© {datetime.datetime.now().year} pythoninthegrass"
+
+        # Set activation policy to make it a proper app
+        app.setActivationPolicy_(0)  # NSApplicationActivationPolicyRegular
+
+        # Force app to activate
+        app.activateIgnoringOtherApps_(True)
+
+    except Exception as e:
+        print(f"macOS configuration error: {e}")
+
 
 # Button Configuration
 BUTTON_STYLE = {

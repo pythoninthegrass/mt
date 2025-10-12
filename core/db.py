@@ -467,7 +467,7 @@ class MusicDatabase:
         except Exception as e:
             print(f"Error deleting from library: {e}")
             try:
-                from core.logging import log_error, library_logger
+                from core.logging import library_logger, log_error
                 log_error(library_logger, e, filepath=filepath)
             except ImportError:
                 pass

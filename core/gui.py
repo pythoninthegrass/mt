@@ -893,7 +893,7 @@ class QueueView:
                 # Save current (unmaximized) column widths before maximizing
                 if not hasattr(self, '_unmaximized_column_widths'):
                     self._unmaximized_column_widths = {}
-                
+
                 self._unmaximized_column_widths = self.get_column_widths()
 
                 log_player_action(
@@ -909,10 +909,8 @@ class QueueView:
                 # Restore unmaximized column widths immediately
                 if hasattr(self, '_unmaximized_column_widths') and self._unmaximized_column_widths:
                     for col_name, width in self._unmaximized_column_widths.items():
-                        try:
+                        with contextlib.suppress(Exception):
                             self.queue.column(col_name, width=width)
-                        except Exception:
-                            pass
 
                     log_player_action(
                         "column_widths_restored_from_maximize",
@@ -928,14 +926,14 @@ class QueueView:
         """Check if window has actually resized before applying maximized widths."""
         if not hasattr(self, '_pending_maximize') or not self._pending_maximize:
             return
-            
+
         # Force update to get current geometry
         self.queue.update()
         viewport_width = self.queue.winfo_width()
-        
+
         # Get saved unmaximized width for comparison
         old_width = self._unmaximized_column_widths.get('title', 0)
-        
+
         # Only apply if viewport has grown significantly (at least 200px wider)
         # This ensures window has actually maximized
         if viewport_width > 1000:  # Reasonable minimum for maximized state
@@ -952,27 +950,27 @@ class QueueView:
         try:
             # Get screen width to calculate maximized viewport
             screen_width = self.queue.winfo_screenwidth()
-            
+
             # Estimate viewport width for maximized window
             # Account for left panel (library view) and margins
             estimated_viewport_width = screen_width - 250  # Approximate left panel + margins
-            
+
             # Calculate dynamic widths based on maximized size
             # Pin first column (#/track) to left edge with fixed width
             track_width = 50
-            
+
             # Pin last column (year) to right edge with fixed width
             year_width = 80
-            
+
             # Calculate remaining width for middle columns
             # Account for some padding/margins
             remaining_width = estimated_viewport_width - track_width - year_width - 40
-            
+
             # Distribute remaining width: Title gets 33%, Artist and Album split the rest
             title_width = int(remaining_width * 0.33)
             artist_width = int(remaining_width * 0.33)
             album_width = remaining_width - title_width - artist_width
-            
+
             # Apply the calculated widths
             new_widths = {
                 'track': track_width,
@@ -981,12 +979,10 @@ class QueueView:
                 'album': album_width,
                 'year': year_width,
             }
-            
+
             for col_name, width in new_widths.items():
-                try:
+                with contextlib.suppress(Exception):
                     self.queue.column(col_name, width=width)
-                except Exception:
-                    pass
 
             log_player_action(
                 "column_widths_maximized",
