@@ -476,9 +476,14 @@ class MusicPlayer:
         # Set current view and restore column widths
         self.queue_view.set_current_view('now_playing')
 
-        # Clear current view
+        # Initialize filepath mapping if needed
+        if not hasattr(self, '_item_filepath_map'):
+            self._item_filepath_map = {}
+
+        # Clear current view and mapping
         for item in self.queue_view.queue.get_children():
             self.queue_view.queue.delete(item)
+        self._item_filepath_map.clear()
 
         # Load tracks based on playback context (what view we're playing from)
         if self.playback_context == 'music':
@@ -489,23 +494,30 @@ class MusicPlayer:
         elif self.playback_context == 'liked_songs':
             # Playing from liked songs - show liked songs
             rows = self.favorites_manager.get_liked_songs()
-            for i, (_filepath, artist, title, album, track_num, date) in enumerate(rows):
+            for i, (filepath, artist, title, album, track_num, date) in enumerate(rows):
                 formatted_track = self._format_track_number(track_num)
                 year = self._extract_year(date)
                 row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-                self.queue_view.queue.insert(
-                    '', 'end', values=('', title or '', artist or '', album or '', year or ''), tags=(row_tag,)
+                # Store the actual track number for matching, will be replaced by indicator in refresh_colors
+                item_id = self.queue_view.queue.insert(
+                    '', 'end', values=(formatted_track, title or '', artist or '', album or '', year or ''), tags=(row_tag,)
                 )
+                # Store filepath mapping
+                self._item_filepath_map[item_id] = filepath
         elif self.playback_context == 'top_played':
             # Playing from top 25 - show top 25
             rows = self.library_manager.get_top_25_most_played()
             if rows:
-                for i, (_filepath, artist, title, album, _play_count, date) in enumerate(rows):
+                for i, (filepath, artist, title, album, _play_count, date) in enumerate(rows):
+                    # For top_played, track_number isn't available, so we pass empty string
+                    # This view shows play count in the first column instead
                     year = self._extract_year(date)
                     row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-                    self.queue_view.queue.insert(
+                    item_id = self.queue_view.queue.insert(
                         '', 'end', values=('', title or '', artist or '', album or '', year or ''), tags=(row_tag,)
                     )
+                    # Store filepath mapping
+                    self._item_filepath_map[item_id] = filepath
         else:
             # Fallback: use queue table (legacy behavior)
             rows = self.queue_manager.get_queue_items()
@@ -516,9 +528,14 @@ class MusicPlayer:
 
     def load_liked_songs(self):
         """Load and display liked songs."""
-        # Clear current view
+        # Initialize filepath mapping if needed
+        if not hasattr(self, '_item_filepath_map'):
+            self._item_filepath_map = {}
+
+        # Clear current view and mapping
         for item in self.queue_view.queue.get_children():
             self.queue_view.queue.delete(item)
+        self._item_filepath_map.clear()
 
         # Reset column header to "#"
         self.queue_view.set_track_column_header('#')
@@ -527,20 +544,29 @@ class MusicPlayer:
         self.queue_view.set_current_view('liked_songs')
 
         rows = self.favorites_manager.get_liked_songs()
-        for _filepath, artist, title, album, track_num, date in rows:
+        for i, (filepath, artist, title, album, track_num, date) in enumerate(rows):
             formatted_track = self._format_track_number(track_num)
             year = self._extract_year(date)
-            self.queue_view.queue.insert(
+            row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
+            item_id = self.queue_view.queue.insert(
                 '',
                 'end',
                 values=(formatted_track, title or '', artist or '', album or '', year or ''),
+                tags=(row_tag,)
             )
+            # Store filepath mapping
+            self._item_filepath_map[item_id] = filepath
 
     def load_top_25_most_played(self):
         """Load and display top 25 most played tracks."""
-        # Clear current view
+        # Initialize filepath mapping if needed
+        if not hasattr(self, '_item_filepath_map'):
+            self._item_filepath_map = {}
+            
+        # Clear current view and mapping
         for item in self.queue_view.queue.get_children():
             self.queue_view.queue.delete(item)
+        self._item_filepath_map.clear()
 
         # Change column header to "Play Count"
         self.queue_view.set_track_column_header('Play Count')
@@ -553,24 +579,33 @@ class MusicPlayer:
             return
 
         # Format with play count instead of track number
-        for _filepath, artist, title, album, play_count, date in rows:
+        for i, (filepath, artist, title, album, play_count, date) in enumerate(rows):
             year = self._extract_year(date)
-            self.queue_view.queue.insert(
+            row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
+            item_id = self.queue_view.queue.insert(
                 '',
                 'end',
                 values=(str(play_count), title or '', artist or '', album or '', year or ''),
+                tags=(row_tag,)
             )
+            # Store filepath mapping
+            self._item_filepath_map[item_id] = filepath
         self.refresh_colors()
 
     def _populate_queue_view(self, rows):
         """Populate queue view with rows of data."""
-        # Check if we're in now_playing view to show indicators instead of track numbers
-        is_now_playing_view = self.queue_view.current_view == 'now_playing'
+        # Keep a mapping of item_id to filepath for later use
+        if not hasattr(self, '_item_filepath_map'):
+            self._item_filepath_map = {}
+        
+        # Clear the mapping for this view
+        self._item_filepath_map.clear()
 
         for i, (filepath, artist, title, album, track_number, date) in enumerate(rows):
             if os.path.exists(filepath):
-                # In now_playing view, start with empty indicator (will be filled by refresh_colors)
-                track_display = '' if is_now_playing_view else self._format_track_number(track_number)
+                # Always store the formatted track number for metadata matching
+                # In now_playing view, it will be replaced visually by refresh_colors
+                formatted_track = self._format_track_number(track_number)
 
                 # Use filename as fallback, but if that's empty too, use "Unknown Title"
                 title = title or os.path.basename(filepath) or 'Unknown Title'
@@ -579,10 +614,14 @@ class MusicPlayer:
 
                 # Apply alternating row tags
                 row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-
+                
+                # Create the item
                 item_id = self.queue_view.queue.insert(
-                    '', 'end', values=(track_display, title, artist, album or '', year), tags=(row_tag,)
+                    '', 'end', values=(formatted_track, title, artist, album or '', year), tags=(row_tag,)
                 )
+                
+                # Store the filepath mapping
+                self._item_filepath_map[item_id] = filepath
 
         # Select first item if any were added
         if self.queue_view.queue.get_children():
@@ -791,7 +830,18 @@ class MusicPlayer:
                 return "break"
 
             track_num, title, artist, album, year = item_values
-            filepath = self.library_manager.find_file_by_metadata(title, artist, album, track_num)
+            
+            # Format track number to ensure it's zero-padded for database matching
+            # Tkinter may strip leading zeros, so we need to reformat
+            if track_num:
+                try:
+                    track_num = f"{int(track_num):02d}"
+                except (ValueError, TypeError):
+                    pass  # Keep original if formatting fails
+            
+            # Use strict matching to ensure we play the exact track that was selected
+            # This prevents fallback to title-only matching which could load wrong versions
+            filepath = self.db.find_file_by_metadata_strict(title, artist, album, track_num)
 
             # Log the double-click action with track details
             log_player_action("play_selected", title=title, artist=artist, album=album, filepath=filepath)
@@ -985,9 +1035,7 @@ class MusicPlayer:
                     current_filepath = current_filepath[7:]
                 # On macOS, decode URL characters
                 import urllib.parse
-
                 current_filepath = urllib.parse.unquote(current_filepath)
-                print(f"Current playing filepath: {current_filepath}")  # Debug log
 
         # Check if we're in now_playing view to update play/pause indicators
         is_now_playing_view = self.queue_view.current_view == 'now_playing'
@@ -997,7 +1045,6 @@ class MusicPlayer:
         # Define playing tag - strong teal highlight
         playing_bg = THEME_CONFIG['colors'].get('playing_bg', '#00343a')
         playing_fg = THEME_CONFIG['colors'].get('playing_fg', '#33eeff')
-        print(f"Playing colors - bg: {playing_bg}, fg: {playing_fg}")  # Debug log
 
         # Configure the tag style for the playing track
         self.queue_view.queue.tag_configure('playing', background=playing_bg, foreground=playing_fg)
@@ -1007,29 +1054,37 @@ class MusicPlayer:
         self.queue_view.queue.tag_configure('oddrow', background=THEME_CONFIG['colors'].get('row_alt', '#242424'))
 
         # Process each row in the queue view
-        playing_item_found = False
         for i, item in enumerate(self.queue_view.queue.get_children()):
             values = self.queue_view.queue.item(item, 'values')
             if not values or len(values) < 3:  # Need at least track, title, artist
                 continue
 
-            # If we have a current filepath, check if this item corresponds to it
-            is_current = False
-            if current_filepath:
+            # Get the stored filepath directly from our mapping
+            item_filepath = self._item_filepath_map.get(item) if hasattr(self, '_item_filepath_map') else None
+            
+            # If no mapping exists, fallback to metadata matching (backwards compatibility)
+            if not item_filepath:
                 track_num, title, artist, album, year = values
-                # Find the filepath for this metadata
-                item_filepath = self.library_manager.find_file_by_metadata(title, artist, album, track_num)
-                # Check if it matches the currently playing file
-                if item_filepath and os.path.normpath(item_filepath) == os.path.normpath(current_filepath):
+                # Format track number only if it's not an indicator
+                track_for_matching = track_num
+                if track_for_matching and track_for_matching not in ['▶', '⏸', '']:
+                    try:
+                        track_for_matching = f"{int(track_for_matching):02d}"
+                    except (ValueError, TypeError):
+                        pass
+                item_filepath = self.db.find_file_by_metadata_strict(title, artist, album, track_for_matching)
+            
+            # Check if this item is the currently playing track
+            is_current = False
+            if current_filepath and item_filepath:
+                if os.path.normpath(item_filepath) == os.path.normpath(current_filepath):
                     is_current = True
-                    playing_item_found = True
-                    print(f"Found playing item: {title} by {artist}")  # Debug log
 
             # Update the first column with play/pause indicator if in now_playing view
             if is_now_playing_view:
-                indicator = ('▶' if is_currently_playing else '⏸') if is_current else ''
-                # Update the first column value
                 track_num, title, artist, album, year = values
+                indicator = ('▶' if is_currently_playing else '⏸') if is_current else ''
+                # Update the first column value with indicator
                 self.queue_view.queue.item(item, values=(indicator, title, artist, album, year))
 
             if is_current:
@@ -1038,10 +1093,7 @@ class MusicPlayer:
             else:
                 # Determine if this is an even or odd row for alternating colors
                 row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-                self.queue_view.queue.item(item, tags=(row_tag,))
-
-        if not playing_item_found and current_filepath:
-            print(f"Warning: Could not find item matching filepath: {current_filepath}")  # Debug log  # Debug log  # Debug log
+                self.queue_view.queue.item(item, tags=(row_tag,))  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log
 
     def update_progress(self):
         """Update progress bar position and time display."""

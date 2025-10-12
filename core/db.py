@@ -306,7 +306,7 @@ class MusicDatabase:
         )
         result = self.db_cursor.fetchone()
 
-        # If no exact match, try matching just the title
+        # If no exact match, try matching just the title (for playback compatibility)
         if not result:
             query = '''
                 SELECT filepath FROM library
@@ -315,6 +315,38 @@ class MusicDatabase:
             '''
             self.db_cursor.execute(query, (title,))
             result = self.db_cursor.fetchone()
+
+        return result[0] if result else None
+
+    def find_file_by_metadata_strict(
+        self, title: str, artist: str | None = None, album: str | None = None, track_num: str | None = None
+    ) -> str | None:
+        """Find a file in the library based on exact metadata match only (no fallback).
+        
+        This is used for highlighting currently playing tracks to avoid false matches
+        when multiple versions of the same song exist.
+        """
+        query = '''
+            SELECT filepath FROM library
+            WHERE (
+                (title = ? OR (title IS NULL AND ? = '')) AND
+                (artist = ? OR (artist IS NULL AND ? = '')) AND
+                (album = ? OR (album IS NULL AND ? = '')) AND
+                (CASE
+                    WHEN ? != '' THEN
+                        CASE
+                            WHEN track_number LIKE '%/%'
+                            THEN printf('%02d', CAST(substr(track_number, 1, instr(track_number, '/') - 1) AS INTEGER)) = ?
+                            ELSE printf('%02d', CAST(track_number AS INTEGER)) = ?
+                        END
+                    ELSE track_number IS NULL
+                END)
+            )
+        '''
+        self.db_cursor.execute(
+            query, (title, title, artist, artist, album, album, track_num or '', track_num or '', track_num or '')
+        )
+        result = self.db_cursor.fetchone()
 
         return result[0] if result else None
 
