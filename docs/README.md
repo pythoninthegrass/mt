@@ -9,6 +9,7 @@ This directory contains comprehensive documentation for the MT music player proj
 - [**GUI Implementation**](tkinter-gui.md) - Tkinter-based user interface design and components
 - [**Theming System**](theming.md) - Theme configuration, styling, and visual customization
 - [**VLC Integration**](vlc-integration.md) - Audio playback engine integration and media controls
+- [**API Server**](api.md) - Programmatic control interface for LLMs and automation
 - [**Current Status**](status.md) - Implementation progress, outstanding tasks, and known issues
 - [**Web Migration Guide**](web-migration.md) - Strategy for porting to FastAPI/Flask web application
 

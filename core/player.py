@@ -220,6 +220,38 @@ class MusicPlayer:
         # Track playback context (which view we're playing from)
         self.playback_context = 'music'  # Default to music library
 
+    def setup_api_server(self):
+        """Initialize and start the API server if enabled."""
+        from api.api import APIServer
+        from config import API_SERVER_ENABLED, API_SERVER_PORT
+        from eliot import log_message
+
+        if not API_SERVER_ENABLED:
+            log_message(message_type="api_server_disabled",
+                       message="API server is disabled in configuration")
+            return
+
+        try:
+            # Create and start the API server
+            self.api_server = APIServer(self, port=API_SERVER_PORT)
+            result = self.api_server.start()
+
+            if result['status'] == 'success':
+                log_message(message_type="api_server_initialized",
+                           port=API_SERVER_PORT,
+                           message="API server successfully started")
+            else:
+                log_message(message_type="api_server_failed",
+                           error=result.get('message', 'Unknown error'),
+                           message="Failed to start API server")
+                self.api_server = None
+
+        except Exception as e:
+            log_message(message_type="api_server_exception",
+                       error=str(e),
+                       message="Exception during API server initialization")
+            self.api_server = None
+
     def setup_views(self):
         """Setup library and queue views with their callbacks."""
         # Setup library view
@@ -562,7 +594,7 @@ class MusicPlayer:
         # Initialize filepath mapping if needed
         if not hasattr(self, '_item_filepath_map'):
             self._item_filepath_map = {}
-            
+
         # Clear current view and mapping
         for item in self.queue_view.queue.get_children():
             self.queue_view.queue.delete(item)
@@ -597,7 +629,7 @@ class MusicPlayer:
         # Keep a mapping of item_id to filepath for later use
         if not hasattr(self, '_item_filepath_map'):
             self._item_filepath_map = {}
-        
+
         # Clear the mapping for this view
         self._item_filepath_map.clear()
 
@@ -614,12 +646,12 @@ class MusicPlayer:
 
                 # Apply alternating row tags
                 row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-                
+
                 # Create the item
                 item_id = self.queue_view.queue.insert(
                     '', 'end', values=(formatted_track, title, artist, album or '', year), tags=(row_tag,)
                 )
-                
+
                 # Store the filepath mapping
                 self._item_filepath_map[item_id] = filepath
 
@@ -830,7 +862,7 @@ class MusicPlayer:
                 return "break"
 
             track_num, title, artist, album, year = item_values
-            
+
             # Format track number to ensure it's zero-padded for database matching
             # Tkinter may strip leading zeros, so we need to reformat
             if track_num:
@@ -838,7 +870,7 @@ class MusicPlayer:
                     track_num = f"{int(track_num):02d}"
                 except (ValueError, TypeError):
                     pass  # Keep original if formatting fails
-            
+
             # Use strict matching to ensure we play the exact track that was selected
             # This prevents fallback to title-only matching which could load wrong versions
             filepath = self.db.find_file_by_metadata_strict(title, artist, album, track_num)
@@ -1061,7 +1093,7 @@ class MusicPlayer:
 
             # Get the stored filepath directly from our mapping
             item_filepath = self._item_filepath_map.get(item) if hasattr(self, '_item_filepath_map') else None
-            
+
             # If no mapping exists, fallback to metadata matching (backwards compatibility)
             if not item_filepath:
                 track_num, title, artist, album, year = values
@@ -1073,7 +1105,7 @@ class MusicPlayer:
                     except (ValueError, TypeError):
                         pass
                 item_filepath = self.db.find_file_by_metadata_strict(title, artist, album, track_for_matching)
-            
+
             # Check if this item is the currently playing track
             is_current = False
             if current_filepath and item_filepath:
@@ -1503,6 +1535,10 @@ class MusicPlayer:
                 except Exception:
                     # If position is invalid, ignore it
                     pass
+
+        # Stop API server if running
+        if hasattr(self, 'api_server') and self.api_server:
+            self.api_server.stop()
 
     def on_window_close(self):
         """Handle window close event - save final UI state."""

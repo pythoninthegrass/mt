@@ -228,3 +228,7 @@ MAX_SCAN_DEPTH = 5
 # Player Configuration
 PROGRESS_UPDATE_INTERVAL = 100  # milliseconds
 DEFAULT_LOOP_ENABLED = True
+
+# API Server Configuration
+API_SERVER_ENABLED = config('MT_API_SERVER_ENABLED', default=False, cast=bool)
+API_SERVER_PORT = config('MT_API_SERVER_PORT', default=5555, cast=int)

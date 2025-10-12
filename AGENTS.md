@@ -11,6 +11,7 @@ mt is a desktop music player designed for large music collections, built with Py
 ALWAYS use these MCP servers:
 
 - serena: when editing and searching for files
+- sequential-thinking: detailed, step-by-step thinking process for problem-solving and analysis.
 - context7: when looking up library context outside the source code
 - screencap: for screenshots of front-end changes
 
@@ -19,11 +20,17 @@ ALWAYS use these MCP servers:
 ### Running the Application
 
 ```bash
-# Standard run 
+# Standard run
 uv run main.py
 
 # Run main with auto-reload
 uv run repeater
+
+# Run with API server enabled (for LLM/automation control)
+MT_API_SERVER_ENABLED=true uv run main.py
+
+# Run with API server on custom port
+MT_API_SERVER_ENABLED=true MT_API_SERVER_PORT=5555 uv run main.py
 ```
 
 ### Development Workflow
@@ -98,6 +105,13 @@ The application follows a modular architecture with clear separation of concerns
    - Volume control (`core/volume.py`): Slider-based volume adjustment
    - Media key support (`utils/mediakeys.py`): macOS-specific media key integration
 
+7. **API Server** (`core/api.py`):
+   - Socket-based API server for programmatic control
+   - JSON command/response protocol with comprehensive error handling
+   - Enables LLM and automation tool integration
+   - Thread-safe command execution on main UI thread
+   - Localhost-only security by default (port 5555)
+
 ### Key Design Patterns
 
 - **Event-Driven Architecture**: Uses tkinter event system and callbacks for UI updates
@@ -110,6 +124,9 @@ The application follows a modular architecture with clear separation of concerns
 - Central configuration in `config.py` with environment variable support via python-decouple
 - Theme configuration loaded from `themes.json`
 - Hot-reload capability during development (MT_RELOAD=true)
+- API server configuration:
+  - `MT_API_SERVER_ENABLED`: Enable/disable API server (default: false)
+  - `MT_API_SERVER_PORT`: Configure API server port (default: 5555)
 
 ### Platform Considerations
 
@@ -171,7 +188,9 @@ All dependencies should be managed through `uv` to ensure proper virtual environ
 4. **Testing**: Use pytest exclusively (no unittest module) with full type annotations
 
 5. **Code Style**: Maintained by Ruff with specific configuration in ruff.toml
-    - Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+    - Additional linter rules:
+      - Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+      - Use ternary operator `indicator = ('▶' if is_currently_playing else '⏸') if is_current else ''` instead of `if`-`else`-block
 
 ## Development Tools
 

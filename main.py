@@ -53,6 +53,9 @@ def main():
             player_instance.setup_components()
             log_message(message_type="player_init", message="Player components setup completed")
 
+            # Setup API server if enabled
+            player_instance.setup_api_server()
+
             log_message(message_type="application_ready", message="Application startup completed, entering main loop")
 
             root.mainloop()
