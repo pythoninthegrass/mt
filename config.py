@@ -7,7 +7,7 @@ from pathlib import Path
 RELOAD = config('MT_RELOAD', default=False, cast=bool)
 
 # Database Configuration
-DB_NAME = 'mt.db'
+DB_NAME = config('DB_NAME', default='mt.db')
 
 # Audio Configuration
 AUDIO_EXTENSIONS = {

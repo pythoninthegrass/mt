@@ -38,6 +38,10 @@ class QueueManager:
         """Remove a song from the queue based on its metadata."""
         self.db.remove_from_queue(title, artist, album, track_num)
 
+    def clear_queue(self) -> None:
+        """Clear all items from the queue."""
+        self.db.clear_queue()
+
     def get_queue_items(self) -> list[tuple]:
         """Get all items in the queue with their metadata."""
         return self.db.get_queue_items()

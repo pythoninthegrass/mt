@@ -5,6 +5,7 @@
 .ruff*
 .serena/
 CLAUDE.md
+static/music
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

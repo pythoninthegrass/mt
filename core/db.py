@@ -464,6 +464,11 @@ class MusicDatabase:
         )
         self.db_conn.commit()
 
+    def clear_queue(self):
+        """Clear all items from the queue."""
+        self.db_cursor.execute('DELETE FROM queue')
+        self.db_conn.commit()
+
     def delete_from_library(self, filepath: str) -> bool:
         """Delete a track from the library by its filepath.
         

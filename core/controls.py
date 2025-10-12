@@ -448,7 +448,8 @@ class PlayerCore:
         values = self.queue_view.item(current_item).get('values', [])
         if len(values) >= 4:
             track_num, title, artist, album = values[0:4]
-            return {
+            
+            track_info = {
                 "track_num": track_num,
                 "title": title,
                 "artist": artist,
@@ -456,6 +457,18 @@ class PlayerCore:
                 "queue_index": current_index,
                 "queue_position": f"{current_index + 1}/{len(children)}",
             }
+            
+            # Get filepath from VLC media player (the actual playing file)
+            media = self.media_player.get_media()
+            if media:
+                mrl = media.get_mrl()
+                # Convert file:// URL to normal path
+                if mrl.startswith('file://'):
+                    from urllib.parse import unquote
+                    filepath = unquote(mrl[7:])  # Remove 'file://' prefix
+                    track_info["filepath"] = filepath
+                
+            return track_info
         else:
             return {"track": "unknown", "index": current_index}
 

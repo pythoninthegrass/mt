@@ -10,5 +10,5 @@ avg_time_sec = avg_time_ms / 1000
 
 total_files = count_audio_files(music_dir)
 
-print(f"Total audio files: {total_files}")                    # Total audio files: 11079
-print(f"Average scan time: {avg_time_sec:.3f} seconds")     # Average scan time: 85.015 seconds
+print(f"Total audio files: {total_files}")  # Total audio files: 11079
+print(f"Average scan time: {avg_time_sec:.3f} seconds")  # Average scan time: 85.015 seconds

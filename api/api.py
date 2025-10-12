@@ -311,11 +311,14 @@ class APIServer:
             return {'status': 'error', 'message': 'No index specified'}
 
         try:
-            # Get queue items
-            queue_items = self.music_player.queue_view.tree.get_children()
+            # Ensure we're showing the queue view
+            self.music_player.load_queue()
+
+            # Get queue items from UI
+            queue_items = self.music_player.queue_view.queue.get_children()
             if 0 <= index < len(queue_items):
                 item = queue_items[index]
-                self.music_player.queue_view.tree.selection_set(item)
+                self.music_player.queue_view.queue.selection_set(item)
                 self.music_player.play_selected()
                 return {'status': 'success'}
             else:
@@ -355,10 +358,12 @@ class APIServer:
             return {'status': 'error', 'message': 'No index specified'}
 
         try:
-            queue_items = list(self.music_player.queue_manager.get_queue())
+            queue_items = list(self.music_player.queue_manager.get_queue_items())
             if 0 <= index < len(queue_items):
-                track_id = queue_items[index][0]
-                self.music_player.queue_manager.remove_from_queue(track_id)
+                # Get track metadata from the queue item
+                # get_queue_items returns: (filepath, artist, title, album, track_number, date)
+                filepath, artist, title, album, track_num, date = queue_items[index][:6]
+                self.music_player.queue_manager.remove_from_queue(title, artist, album, track_num)
                 self.music_player.load_queue()  # Refresh the queue view
                 return {'status': 'success'}
             else:
@@ -401,11 +406,11 @@ class APIServer:
             return {'status': 'error', 'message': 'No index specified'}
 
         try:
-            items = self.music_player.library_view.tree.get_children()
+            items = self.music_player.queue_view.queue.get_children()
             if 0 <= index < len(items):
                 item = items[index]
-                self.music_player.library_view.tree.selection_set(item)
-                self.music_player.library_view.tree.focus(item)
+                self.music_player.queue_view.queue.selection_set(item)
+                self.music_player.queue_view.queue.focus(item)
                 return {'status': 'success'}
             else:
                 return {'status': 'error', 'message': f'Index {index} out of range'}
@@ -419,11 +424,14 @@ class APIServer:
             return {'status': 'error', 'message': 'No index specified'}
 
         try:
-            items = self.music_player.queue_view.tree.get_children()
+            # Ensure we're showing the queue view
+            self.music_player.load_queue()
+
+            items = self.music_player.queue_view.queue.get_children()
             if 0 <= index < len(items):
                 item = items[index]
-                self.music_player.queue_view.tree.selection_set(item)
-                self.music_player.queue_view.tree.focus(item)
+                self.music_player.queue_view.queue.selection_set(item)
+                self.music_player.queue_view.queue.focus(item)
                 return {'status': 'success'}
             else:
                 return {'status': 'error', 'message': f'Index {index} out of range'}
@@ -523,8 +531,8 @@ class APIServer:
     def _handle_search(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle search command."""
         query = command.get('query', '')
-        self.music_player.search_bar.var.set(query)
-        self.music_player.perform_search(None)  # Event parameter not used
+        self.music_player.search_bar.search_var.set(query)
+        self.music_player.perform_search(query)
         return {'status': 'success', 'query': query}
 
     def _handle_clear_search(self, command: dict[str, Any]) -> dict[str, Any]:
@@ -565,7 +573,10 @@ class APIServer:
         """Get current track information."""
         try:
             track_info = self.music_player.player_core._get_current_track_info()
-            if track_info:
+            if track_info and track_info.get('track') != 'none':
+                # Add filepath from current_file if available
+                if hasattr(self.music_player.player_core, 'current_file') and self.music_player.player_core.current_file:
+                    track_info['filepath'] = self.music_player.player_core.current_file
                 return {'status': 'success', 'data': track_info}
             else:
                 return {'status': 'success', 'data': None, 'message': 'No track playing'}
@@ -573,16 +584,19 @@ class APIServer:
             return {'status': 'error', 'message': str(e)}
 
     def _handle_get_queue(self, command: dict[str, Any]) -> dict[str, Any]:
-        """Get current queue."""
+        """Get current queue from database."""
         try:
+            # Query the database queue, not the UI widget (which shows current view)
+            db_queue_items = self.music_player.queue_manager.get_queue_items()
             queue_items = []
-            for item in self.music_player.queue_view.tree.get_children():
-                values = self.music_player.queue_view.tree.item(item, 'values')
+
+            for item in db_queue_items:
+                # item format: (filepath, artist, title, album, track_number, date)
                 queue_items.append({
                     'index': len(queue_items),
-                    'title': values[1] if len(values) > 1 else '',
-                    'artist': values[2] if len(values) > 2 else '',
-                    'album': values[3] if len(values) > 3 else '',
+                    'title': item[2] if len(item) > 2 else '',
+                    'artist': item[1] if len(item) > 1 else '',
+                    'album': item[3] if len(item) > 3 else '',
                 })
 
             return {'status': 'success', 'data': queue_items, 'count': len(queue_items)}
@@ -593,10 +607,11 @@ class APIServer:
         """Get library contents (limited to first 100 items for performance)."""
         try:
             library_items = []
-            items = self.music_player.library_view.tree.get_children()[:100]  # Limit to 100
+            # Library content is displayed in queue_view.queue after load_library() is called
+            items = self.music_player.queue_view.queue.get_children()[:100]  # Limit to 100
 
             for item in items:
-                values = self.music_player.library_view.tree.item(item, 'values')
+                values = self.music_player.queue_view.queue.item(item, 'values')
                 library_items.append({
                     'index': len(library_items),
                     'track': values[0] if len(values) > 0 else '',
@@ -609,7 +624,7 @@ class APIServer:
                 'status': 'success',
                 'data': library_items,
                 'count': len(library_items),
-                'total': len(self.music_player.library_view.tree.get_children())
+                'total': len(self.music_player.queue_view.queue.get_children())
             }
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
