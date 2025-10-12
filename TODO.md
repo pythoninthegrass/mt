@@ -1,9 +1,7 @@
 # TODO
 
 * Fix
-  * ~~Changing window size via maximize (button, top bar) resizes columns~~
-  * Menu bar name/PID
-    * python3 > `mt`
+  * Playback and utility controls move when resizing window
   * Shuffle order not being random and looping through a subset of available tracks
   * Manual jumping across track progress isn't precise
     * e.g., click 1:00 mark, it goes to 0:40 instead
@@ -16,7 +14,6 @@
     * Next
       * Cmd-D
       * Right click > Queue next
-    * Dynamic queue order
   * Inline metadata editing (mutagen)
   * Settings Menu
     * cf. TyCal
@@ -51,7 +48,6 @@
     * windows (maybe)
   * lyrics
     * see fas
-  * now playing (queue)
 * UI
   * Add genre, time columns
   * Light/Dark theme
