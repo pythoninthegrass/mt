@@ -883,6 +883,131 @@ class QueueView:
             self.queue.after_cancel(self._column_check_timer)
             self._column_check_timer = None
 
+    def on_window_state_change(self, is_maximized):
+        """Handle window maximize/unmaximize events to adjust column widths."""
+        from core.logging import controls_logger, log_player_action
+        from eliot import start_action
+
+        with start_action(controls_logger, "column_width_state_change"):
+            if is_maximized:
+                # Save current (unmaximized) column widths before maximizing
+                if not hasattr(self, '_unmaximized_column_widths'):
+                    self._unmaximized_column_widths = {}
+                
+                self._unmaximized_column_widths = self.get_column_widths()
+
+                log_player_action(
+                    "column_widths_saved_for_maximize",
+                    trigger_source="window_maximize",
+                    saved_widths=self._unmaximized_column_widths,
+                    description="Saved unmaximized column widths before applying dynamic widths",
+                )
+
+                # Apply dynamic widths immediately so they animate with window
+                self._apply_maximized_column_widths()
+            else:
+                # Restore unmaximized column widths immediately
+                if hasattr(self, '_unmaximized_column_widths') and self._unmaximized_column_widths:
+                    for col_name, width in self._unmaximized_column_widths.items():
+                        try:
+                            self.queue.column(col_name, width=width)
+                        except Exception:
+                            pass
+
+                    log_player_action(
+                        "column_widths_restored_from_maximize",
+                        trigger_source="window_unmaximize",
+                        restored_widths=self._unmaximized_column_widths,
+                        description="Restored unmaximized column widths",
+                    )
+
+                    # Update last known widths to prevent immediate save
+                    self._last_column_widths = self.get_column_widths()
+
+    def _check_and_apply_maximized_widths(self):
+        """Check if window has actually resized before applying maximized widths."""
+        if not hasattr(self, '_pending_maximize') or not self._pending_maximize:
+            return
+            
+        # Force update to get current geometry
+        self.queue.update()
+        viewport_width = self.queue.winfo_width()
+        
+        # Get saved unmaximized width for comparison
+        old_width = self._unmaximized_column_widths.get('title', 0)
+        
+        # Only apply if viewport has grown significantly (at least 200px wider)
+        # This ensures window has actually maximized
+        if viewport_width > 1000:  # Reasonable minimum for maximized state
+            self._pending_maximize = False
+            self._apply_maximized_column_widths()
+        else:
+            # Retry if window hasn't resized yet
+            self.queue.after(100, self._check_and_apply_maximized_widths)
+
+    def _apply_maximized_column_widths(self):
+        """Apply dynamic column widths for maximized window mode."""
+        from core.logging import log_player_action
+
+        try:
+            # Get screen width to calculate maximized viewport
+            screen_width = self.queue.winfo_screenwidth()
+            
+            # Estimate viewport width for maximized window
+            # Account for left panel (library view) and margins
+            estimated_viewport_width = screen_width - 250  # Approximate left panel + margins
+            
+            # Calculate dynamic widths based on maximized size
+            # Pin first column (#/track) to left edge with fixed width
+            track_width = 50
+            
+            # Pin last column (year) to right edge with fixed width
+            year_width = 80
+            
+            # Calculate remaining width for middle columns
+            # Account for some padding/margins
+            remaining_width = estimated_viewport_width - track_width - year_width - 40
+            
+            # Distribute remaining width: Title gets 33%, Artist and Album split the rest
+            title_width = int(remaining_width * 0.33)
+            artist_width = int(remaining_width * 0.33)
+            album_width = remaining_width - title_width - artist_width
+            
+            # Apply the calculated widths
+            new_widths = {
+                'track': track_width,
+                'title': title_width,
+                'artist': artist_width,
+                'album': album_width,
+                'year': year_width,
+            }
+            
+            for col_name, width in new_widths.items():
+                try:
+                    self.queue.column(col_name, width=width)
+                except Exception:
+                    pass
+
+            log_player_action(
+                "column_widths_maximized",
+                trigger_source="window_maximize",
+                screen_width=screen_width,
+                estimated_viewport_width=estimated_viewport_width,
+                new_widths=new_widths,
+                description=f"Applied dynamic column widths for maximized mode (screen: {screen_width}px)",
+            )
+
+            # Update last known widths to prevent immediate save
+            self._last_column_widths = self.get_column_widths()
+
+        except Exception as e:
+            log_player_action(
+                "column_widths_maximized_error",
+                trigger_source="window_maximize",
+                error=str(e),
+                description="Error applying maximized column widths",
+            )
+
 
 class SearchBar:
     def __init__(self, parent, callbacks):
@@ -912,7 +1037,9 @@ class SearchBar:
 
             # Get the window reference from the parent
             window = self.parent
-            self.stoplight_buttons = StoplightButtons(window, self.search_frame, integrated=True)
+            # Get the window state change callback if provided
+            on_state_change = self.callbacks.get('on_window_state_change', None)
+            self.stoplight_buttons = StoplightButtons(window, self.search_frame, integrated=True, on_state_change=on_state_change)
 
         # Create inner frame right-justified but expanded left to Album column
         self.inner_frame = ctk.CTkFrame(self.search_frame, fg_color="transparent")
@@ -921,7 +1048,7 @@ class SearchBar:
         # Search icon label - using Unicode magnifying glass instead of emoji
         self.search_icon = ctk.CTkLabel(
             self.inner_frame,
-            text="⌕",  # Unicode magnifying glass (U+2315)
+            text="\u2315",  # Unicode magnifying glass (U+2315)
             width=20,
             font=("SF Pro Display", 30),
             text_color="#CCCCCC",  # Light gray for visibility on black

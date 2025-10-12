@@ -124,6 +124,7 @@ class MusicPlayer:
             {
                 'search': self.perform_search,
                 'clear_search': self.clear_search,
+                'on_window_state_change': self.on_window_state_change,
             },
         )
 
@@ -925,6 +926,11 @@ class MusicPlayer:
                     self.load_library()
                 elif tag == 'now_playing':
                     self.load_queue()
+
+    def on_window_state_change(self, is_maximized):
+        """Handle window state changes (maximize/unmaximize) to adjust column widths."""
+        if hasattr(self, 'queue_view'):
+            self.queue_view.on_window_state_change(is_maximized)
 
     def refresh_colors(self):
         """Update the background colors of all items in the queue view."""

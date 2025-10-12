@@ -12,13 +12,14 @@ from tkinter import ttk
 class StoplightButtons:
     """Custom macOS-style stoplight buttons for window control."""
 
-    def __init__(self, parent_window, container, integrated=False):
+    def __init__(self, parent_window, container, integrated=False, on_state_change=None):
         self.window = parent_window
         self.container = container
         self.integrated = integrated
         self.is_maximized = False
         self.is_minimized = False
         self.pre_maximize_geometry = None
+        self.on_state_change = on_state_change  # Callback for window state changes
 
         # macOS stoplight button colors - lighter gray for better visibility
         self.colors = {
@@ -266,6 +267,10 @@ class StoplightButtons:
             old_state = "maximized" if self.is_maximized else "normal"
 
             if self.is_maximized:
+                # Notify callback BEFORE restoring geometry so columns resize first
+                if self.on_state_change:
+                    self.on_state_change(is_maximized=False)
+                
                 # Restore to previous size
                 if self.pre_maximize_geometry:
                     self.window.geometry(self.pre_maximize_geometry)
@@ -282,9 +287,14 @@ class StoplightButtons:
                     new_state=new_state,
                     description="Window restored from maximized state",
                 )
+
             else:
                 # Store current geometry before maximizing
                 self.pre_maximize_geometry = self.window.geometry()
+                
+                # Notify callback BEFORE maximizing so columns resize during animation
+                if self.on_state_change:
+                    self.on_state_change(is_maximized=True)
 
                 # Get screen dimensions
                 screen_width = self.window.winfo_screenwidth()
