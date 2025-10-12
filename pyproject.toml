@@ -18,18 +18,14 @@ dependencies = [
     "python-vlc>=3.0.21203",
     "tk>=0.1.0",
     "tkinterdnd2>=0.4.2",
-    "watchdog>=6.0.0",
     "ziggy-pydust>=0.25.1",
 ]
-
-[project.scripts]
-repeater = "utils.repeater:main"
 
 [project.optional-dependencies]
 dev = [
     "pyclean>=3.1.0",
     "ruff>=0.9.6",
-    "tkreload>=1.0.4",
+    "watchdog>=6.0.0",
     "ziggy-pydust>=0.25.1",
 ]
 
@@ -38,6 +34,9 @@ test = [
     "pytest-asyncio==0.25.2",
     "pytest-cov==6.0.0",
 ]
+
+[project.scripts]
+repeater = "utils.repeater:main"
 
 [build-system]
 requires = ["hatchling", "ziggy-pydust==0.25.1"]
