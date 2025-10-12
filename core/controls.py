@@ -42,6 +42,8 @@ class PlayerCore:
                 self.media_player.play()
                 self.is_playing = True
                 self._update_track_info()
+                # Refresh colors to update play/pause indicator
+                self._refresh_colors_callback()
                 try:
                     from core.logging import controls_logger
                     from eliot import log_message
@@ -57,6 +59,8 @@ class PlayerCore:
             self.current_time = self.media_player.get_time()
             self.media_player.pause()
             self.is_playing = False
+            # Refresh colors to update play/pause indicator
+            self._refresh_colors_callback()
             try:
                 from core.logging import controls_logger
                 from eliot import log_message

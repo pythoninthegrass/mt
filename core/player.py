@@ -217,6 +217,9 @@ class MusicPlayer:
         # Make the close method available to stoplight buttons via search bar
         self.window.on_window_close = self.on_window_close
 
+        # Track playback context (which view we're playing from)
+        self.playback_context = 'music'  # Default to music library
+
     def setup_views(self):
         """Setup library and queue views with their callbacks."""
         # Setup library view
@@ -313,6 +316,9 @@ class MusicPlayer:
 
         # Update play button appearance
         self.progress_bar.controls.update_play_button(self.player_core.is_playing)
+
+        # Refresh colors to update play/pause indicator in Now Playing view
+        self.refresh_colors()
 
         # Show playback elements if we started playing, hide if we stopped
         if not was_playing and self.player_core.is_playing:
@@ -463,18 +469,58 @@ class MusicPlayer:
         self.refresh_colors()
 
     def load_queue(self):
-        """Load and display queue items."""
-        # Reset column header to "#"
-        self.queue_view.set_track_column_header('#')
+        """Load and display queue items - mirrors the current playback context."""
+        # Set column header to "Playing"
+        self.queue_view.set_track_column_header('Playing')
+        
+        # Adjust column width for "Playing" header (needs more space than "#")
+        self.queue_view.queue.column('track', width=80, minwidth=70)
 
         # Set current view and restore column widths
         self.queue_view.set_current_view('now_playing')
 
-        rows = self.queue_manager.get_queue_items()
-        if not rows:
-            return
+        # Clear current view
+        for item in self.queue_view.queue.get_children():
+            self.queue_view.queue.delete(item)
 
-        self._populate_queue_view(rows)
+        # Load tracks based on playback context (what view we're playing from)
+        if self.playback_context == 'music':
+            # Playing from library - show all library tracks
+            rows = self.library_manager.get_library_items()
+            if rows:
+                self._populate_queue_view(rows)
+        elif self.playback_context == 'liked_songs':
+            # Playing from liked songs - show liked songs
+            rows = self.favorites_manager.get_liked_songs()
+            for i, (filepath, artist, title, album, track_num, date) in enumerate(rows):
+                formatted_track = self._format_track_number(track_num)
+                year = self._extract_year(date)
+                row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
+                self.queue_view.queue.insert(
+                    '',
+                    'end',
+                    values=('', title or '', artist or '', album or '', year or ''),
+                    tags=(row_tag,)
+                )
+        elif self.playback_context == 'top_played':
+            # Playing from top 25 - show top 25
+            rows = self.library_manager.get_top_25_most_played()
+            if rows:
+                for i, (filepath, artist, title, album, play_count, date) in enumerate(rows):
+                    year = self._extract_year(date)
+                    row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
+                    self.queue_view.queue.insert(
+                        '',
+                        'end',
+                        values=('', title or '', artist or '', album or '', year or ''),
+                        tags=(row_tag,)
+                    )
+        else:
+            # Fallback: use queue table (legacy behavior)
+            rows = self.queue_manager.get_queue_items()
+            if rows:
+                self._populate_queue_view(rows)
+
         self.refresh_colors()
 
     def load_liked_songs(self):
@@ -527,9 +573,17 @@ class MusicPlayer:
 
     def _populate_queue_view(self, rows):
         """Populate queue view with rows of data."""
+        # Check if we're in now_playing view to show indicators instead of track numbers
+        is_now_playing_view = self.queue_view.current_view == 'now_playing'
+        
         for i, (filepath, artist, title, album, track_number, date) in enumerate(rows):
             if os.path.exists(filepath):
-                track_display = self._format_track_number(track_number)
+                # In now_playing view, start with empty indicator (will be filled by refresh_colors)
+                if is_now_playing_view:
+                    track_display = ''
+                else:
+                    track_display = self._format_track_number(track_number)
+                
                 # Use filename as fallback, but if that's empty too, use "Unknown Title"
                 title = title or os.path.basename(filepath) or 'Unknown Title'
                 artist = artist or 'Unknown Artist'
@@ -755,6 +809,9 @@ class MusicPlayer:
             log_player_action("play_selected", title=title, artist=artist, album=album, filepath=filepath)
 
             if filepath and os.path.exists(filepath):
+                # Track playback context (which view we're playing from)
+                self.playback_context = self.queue_view.current_view
+                
                 was_playing = self.player_core.is_playing
                 self.player_core._play_file(filepath)
                 self.progress_bar.controls.update_play_button(True)
@@ -934,10 +991,10 @@ class MusicPlayer:
 
     def refresh_colors(self):
         """Update the background colors of all items in the queue view."""
-        # Get the currently playing filepath if available
+        # Get the currently playing filepath if available (even if paused)
         current_filepath = None
-        if hasattr(self, 'player_core') and self.player_core.is_playing:
-            # Get the currently playing file path from the media player
+        if hasattr(self, 'player_core'):
+            # Check if there's media loaded (works for both playing and paused)
             media = self.player_core.media_player.get_media()
             if media:
                 current_filepath = media.get_mrl()
@@ -949,6 +1006,10 @@ class MusicPlayer:
 
                 current_filepath = urllib.parse.unquote(current_filepath)
                 print(f"Current playing filepath: {current_filepath}")  # Debug log
+
+        # Check if we're in now_playing view to update play/pause indicators
+        is_now_playing_view = self.queue_view.current_view == 'now_playing'
+        is_currently_playing = hasattr(self, 'player_core') and self.player_core.is_playing
 
         # Configure all the tag styles before applying them
         # Define playing tag - strong teal highlight
@@ -982,6 +1043,17 @@ class MusicPlayer:
                     playing_item_found = True
                     print(f"Found playing item: {title} by {artist}")  # Debug log
 
+            # Update the first column with play/pause indicator if in now_playing view
+            if is_now_playing_view:
+                if is_current:
+                    # Show play or pause indicator based on playback state
+                    indicator = '▶' if is_currently_playing else '⏸'
+                else:
+                    indicator = ''
+                # Update the first column value
+                track_num, title, artist, album, year = values
+                self.queue_view.queue.item(item, values=(indicator, title, artist, album, year))
+
             if is_current:
                 # This is the currently playing track - highlight with teal
                 self.queue_view.queue.item(item, tags=('playing',))
@@ -991,7 +1063,7 @@ class MusicPlayer:
                 self.queue_view.queue.item(item, tags=(row_tag,))
 
         if not playing_item_found and current_filepath:
-            print(f"Warning: Could not find item matching filepath: {current_filepath}")  # Debug log
+            print(f"Warning: Could not find item matching filepath: {current_filepath}")  # Debug log  # Debug log  # Debug log
 
     def update_progress(self):
         """Update progress bar position and time display."""
