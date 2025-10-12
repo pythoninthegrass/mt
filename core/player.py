@@ -866,10 +866,8 @@ class MusicPlayer:
             # Format track number to ensure it's zero-padded for database matching
             # Tkinter may strip leading zeros, so we need to reformat
             if track_num:
-                try:
+                with suppress(ValueError, TypeError):
                     track_num = f"{int(track_num):02d}"
-                except (ValueError, TypeError):
-                    pass  # Keep original if formatting fails
 
             # Use strict matching to ensure we play the exact track that was selected
             # This prevents fallback to title-only matching which could load wrong versions
@@ -1100,17 +1098,14 @@ class MusicPlayer:
                 # Format track number only if it's not an indicator
                 track_for_matching = track_num
                 if track_for_matching and track_for_matching not in ['▶', '⏸', '']:
-                    try:
+                    with suppress(ValueError, TypeError):
                         track_for_matching = f"{int(track_for_matching):02d}"
-                    except (ValueError, TypeError):
-                        pass
                 item_filepath = self.db.find_file_by_metadata_strict(title, artist, album, track_for_matching)
 
             # Check if this item is the currently playing track
             is_current = False
-            if current_filepath and item_filepath:
-                if os.path.normpath(item_filepath) == os.path.normpath(current_filepath):
-                    is_current = True
+            if current_filepath and item_filepath and os.path.normpath(item_filepath) == os.path.normpath(current_filepath):
+                is_current = True
 
             # Update the first column with play/pause indicator if in now_playing view
             if is_now_playing_view:
