@@ -278,19 +278,15 @@ class MusicPlayer:
                     self.window.update_idletasks()
             except Exception as e:
                 # If sashpos fails, try setting frame width
-                try:
+                with suppress(Exception):
                     self.left_panel.configure(width=final_width)
-                except Exception as e2:
-                    pass
 
     def _apply_column_widths(self, saved_column_widths):
         """Apply saved column widths to the queue Treeview."""
         if saved_column_widths and hasattr(self, 'queue_view'):
             for col_name, width in saved_column_widths.items():
-                try:
+                with suppress(Exception):
                     self.queue_view.queue.column(col_name, width=width)
-                except Exception:
-                    pass
             # Update the last known widths so periodic check doesn't save immediately
             if hasattr(self.queue_view, '_last_column_widths'):
                 self.queue_view._last_column_widths = self.queue_view.get_column_widths()
@@ -340,7 +336,7 @@ class MusicPlayer:
         if not self.player_core.media_player.get_media():
             # No track is loaded
             return
-        
+
         # Check if player is actually playing or paused (but has media loaded)
         if not self.player_core.is_playing and self.player_core.media_player.get_state() not in [3, 4]:
             # Track is not playing or paused (states 3=Playing, 4=Paused)
@@ -350,14 +346,15 @@ class MusicPlayer:
         media = self.player_core.media_player.get_media()
         if not media:
             return
-        
+
         filepath = media.get_mrl()
         # Remove 'file://' prefix if present
         if filepath.startswith('file://'):
             filepath = filepath[7:]
-        
+
         # URL decode the filepath
         import urllib.parse
+
         filepath = urllib.parse.unquote(filepath)
 
         if not filepath or not os.path.exists(filepath):
@@ -472,7 +469,7 @@ class MusicPlayer:
         """Load and display queue items - mirrors the current playback context."""
         # Set column header to "Playing"
         self.queue_view.set_track_column_header('Playing')
-        
+
         # Adjust column width for "Playing" header (needs more space than "#")
         self.queue_view.queue.column('track', width=80, minwidth=70)
 
@@ -492,28 +489,22 @@ class MusicPlayer:
         elif self.playback_context == 'liked_songs':
             # Playing from liked songs - show liked songs
             rows = self.favorites_manager.get_liked_songs()
-            for i, (filepath, artist, title, album, track_num, date) in enumerate(rows):
+            for i, (_filepath, artist, title, album, track_num, date) in enumerate(rows):
                 formatted_track = self._format_track_number(track_num)
                 year = self._extract_year(date)
                 row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
                 self.queue_view.queue.insert(
-                    '',
-                    'end',
-                    values=('', title or '', artist or '', album or '', year or ''),
-                    tags=(row_tag,)
+                    '', 'end', values=('', title or '', artist or '', album or '', year or ''), tags=(row_tag,)
                 )
         elif self.playback_context == 'top_played':
             # Playing from top 25 - show top 25
             rows = self.library_manager.get_top_25_most_played()
             if rows:
-                for i, (filepath, artist, title, album, play_count, date) in enumerate(rows):
+                for i, (_filepath, artist, title, album, _play_count, date) in enumerate(rows):
                     year = self._extract_year(date)
                     row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
                     self.queue_view.queue.insert(
-                        '',
-                        'end',
-                        values=('', title or '', artist or '', album or '', year or ''),
-                        tags=(row_tag,)
+                        '', 'end', values=('', title or '', artist or '', album or '', year or ''), tags=(row_tag,)
                     )
         else:
             # Fallback: use queue table (legacy behavior)
@@ -536,7 +527,7 @@ class MusicPlayer:
         self.queue_view.set_current_view('liked_songs')
 
         rows = self.favorites_manager.get_liked_songs()
-        for filepath, artist, title, album, track_num, date in rows:
+        for _filepath, artist, title, album, track_num, date in rows:
             formatted_track = self._format_track_number(track_num)
             year = self._extract_year(date)
             self.queue_view.queue.insert(
@@ -562,7 +553,7 @@ class MusicPlayer:
             return
 
         # Format with play count instead of track number
-        for filepath, artist, title, album, play_count, date in rows:
+        for _filepath, artist, title, album, play_count, date in rows:
             year = self._extract_year(date)
             self.queue_view.queue.insert(
                 '',
@@ -575,15 +566,12 @@ class MusicPlayer:
         """Populate queue view with rows of data."""
         # Check if we're in now_playing view to show indicators instead of track numbers
         is_now_playing_view = self.queue_view.current_view == 'now_playing'
-        
+
         for i, (filepath, artist, title, album, track_number, date) in enumerate(rows):
             if os.path.exists(filepath):
                 # In now_playing view, start with empty indicator (will be filled by refresh_colors)
-                if is_now_playing_view:
-                    track_display = ''
-                else:
-                    track_display = self._format_track_number(track_number)
-                
+                track_display = '' if is_now_playing_view else self._format_track_number(track_number)
+
                 # Use filename as fallback, but if that's empty too, use "Unknown Title"
                 title = title or os.path.basename(filepath) or 'Unknown Title'
                 artist = artist or 'Unknown Artist'
@@ -811,15 +799,15 @@ class MusicPlayer:
             if filepath and os.path.exists(filepath):
                 # Track playback context (which view we're playing from)
                 self.playback_context = self.queue_view.current_view
-                
+
                 was_playing = self.player_core.is_playing
                 self.player_core._play_file(filepath)
                 self.progress_bar.controls.update_play_button(True)
-                
+
                 # Update favorite button icon based on track's favorite status
                 is_favorite = self.favorites_manager.is_favorite(filepath)
                 self.progress_bar.controls.update_favorite_button(is_favorite)
-                
+
                 # Refresh colors to highlight the playing track
                 self.refresh_colors()
 
@@ -843,9 +831,9 @@ class MusicPlayer:
 
             deleted_tracks = []
             current_view = self.queue_view.current_view
-            
+
             # Determine if we're deleting from library or queue
-            is_queue_view = (current_view == 'now_playing')
+            is_queue_view = current_view == 'now_playing'
 
             for item in selected_items:
                 values = self.queue_view.queue.item(item)['values']
@@ -897,7 +885,7 @@ class MusicPlayer:
                             if success:
                                 # Also remove from queue if it exists
                                 self.queue_manager.remove_from_queue(title, artist, album, track_num)
-                        
+
                     # Remove from UI
                     self.queue_view.queue.delete(item)
 
@@ -910,7 +898,7 @@ class MusicPlayer:
                 view=current_view,
                 description=f"Deleted {len(deleted_tracks)} track(s) from {current_view}",
             )
-            
+
             # Update statistics if deleting from library
             if not is_queue_view and hasattr(self, 'status_bar'):
                 self.status_bar.update_statistics()
@@ -946,16 +934,10 @@ class MusicPlayer:
 
         if tag == 'music':
             # Search in library
-            if search_text:
-                rows = self.library_manager.search_library(search_text)
-            else:
-                rows = self.library_manager.get_library_items()
+            rows = self.library_manager.search_library(search_text) if search_text else self.library_manager.get_library_items()
         elif tag == 'now_playing':
             # Search in queue
-            if search_text:
-                rows = self.queue_manager.search_queue(search_text)
-            else:
-                rows = self.queue_manager.get_queue_items()
+            rows = self.queue_manager.search_queue(search_text) if search_text else self.queue_manager.get_queue_items()
         else:
             return
 
@@ -1045,11 +1027,7 @@ class MusicPlayer:
 
             # Update the first column with play/pause indicator if in now_playing view
             if is_now_playing_view:
-                if is_current:
-                    # Show play or pause indicator based on playback state
-                    indicator = '▶' if is_currently_playing else '⏸'
-                else:
-                    indicator = ''
+                indicator = ('▶' if is_currently_playing else '⏸') if is_current else ''
                 # Update the first column value
                 track_num, title, artist, album, year = values
                 self.queue_view.queue.item(item, values=(indicator, title, artist, album, year))
@@ -1445,10 +1423,9 @@ class MusicPlayer:
 
     def save_window_size(self, width, height):
         """Save window size to database."""
-        if hasattr(self, 'db'):
-            # Only save reasonable window sizes
-            if width > 100 and height > 100:
-                self.db.set_window_size(width, height)
+        # Only save reasonable window sizes
+        if hasattr(self, 'db') and width > 100 and height > 100:
+            self.db.set_window_size(width, height)
 
     def save_window_position(self):
         """Save window position to database."""
@@ -1488,23 +1465,22 @@ class MusicPlayer:
                     pass
 
         # Save final window size and position (only if window is not minimized/iconified)
-        if hasattr(self, 'window'):
-            # Check if window is iconified (minimized)
-            if self.window.wm_state() != 'iconic':
-                geometry = self.window.geometry()
-                # Parse geometry string like "1400x800+100+100"
-                if 'x' in geometry:
-                    size_part = geometry.split('+')[0]  # Get "1400x800" part
-                    try:
-                        width, height = size_part.split('x')
-                        # Only save if dimensions are reasonable (not 1x1)
-                        if int(width) > 100 and int(height) > 100:
-                            self.db.set_window_size(int(width), int(height))
-                    except ValueError:
-                        pass
+        # Check if window is iconified (minimized)
+        if hasattr(self, 'window') and self.window.wm_state() != 'iconic':
+            geometry = self.window.geometry()
+            # Parse geometry string like "1400x800+100+100"
+            if 'x' in geometry:
+                size_part = geometry.split('+')[0]  # Get "1400x800" part
+                try:
+                    width, height = size_part.split('x')
+                    # Only save if dimensions are reasonable (not 1x1)
+                    if int(width) > 100 and int(height) > 100:
+                        self.db.set_window_size(int(width), int(height))
+                except ValueError:
+                    pass
 
-                # Save final window position
-                self.save_window_position()
+            # Save final window position
+            self.save_window_position()
 
         # Close the window
         self.window.destroy()
