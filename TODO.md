@@ -2,9 +2,7 @@
 
 * Fix
   * Changing window size via maximize (button, top bar) resizes columns
-  * Stats don't immediately update when adding/subtracting tracks
-    * Only when restarting the app
-  * Type to jump should ignore common prefixes (The (La's), Le, A)
+  * ~~Type to jump should ignore common prefixes (The (La's), Le, A)~~
   * Shuffle order not being random and looping through a subset of avaiable tracks
   * Manual jumping across track progress isn't precise
     * e.g., click 1:00 mark, it goes to 0:40 instead
@@ -45,7 +43,6 @@
   * playlists
     * recently added
     * recently played
-    * ~~top 25 most played~~
   * last.fm scrobbling
   * Lyrics + CC/Wiki artist background
   * mobile remote control
@@ -57,7 +54,7 @@
     * see fas
   * now playing (queue)
 * UI
-  * Add genre and time columns
+  * Add genre, time columns
   * Light/Dark theme
   * Generate a diagram of the frontend and add to llm instructions
   * Snap columns w/double click based on total width of int/str

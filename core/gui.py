@@ -66,7 +66,7 @@ class PlayerControls:
                 text=symbol,
                 fg='#CCCCCC',  # Light gray for normal state
                 bg="#000000",  # Pure black background
-                font=('TkDefaultFont', 28)
+                font=('TkDefaultFont', 28),
             )
             button.place(x=x_position, y=y_position)
 
@@ -99,12 +99,15 @@ class PlayerControls:
             # Load icons for utility controls
             # Add button (rightmost)
             add_normal = load_icon(BUTTON_SYMBOLS['add'], size=self.utility_icon_size, opacity=0.7)
-            add_hover = load_icon(BUTTON_SYMBOLS['add'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
+            add_hover = load_icon(
+                BUTTON_SYMBOLS['add'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary']
+            )
             self.icon_images['add_normal'] = add_normal
             self.icon_images['add_hover'] = add_hover
         except Exception as e:
             print(f"Error loading add button icons: {e}")
             import traceback
+
             traceback.print_exc()
             raise
 
@@ -120,9 +123,13 @@ class PlayerControls:
 
         # Loop button (to the left of add button) - 54px spacing (reduced by 10% from 60px)
         loop_normal = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=0.7)
-        loop_enabled_icon = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['loop_enabled'])
+        loop_enabled_icon = load_icon(
+            BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['loop_enabled']
+        )
         loop_disabled_icon = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=0.5)
-        loop_hover = load_icon(BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
+        loop_hover = load_icon(
+            BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary']
+        )
         self.icon_images['loop_normal'] = loop_normal
         self.icon_images['loop_enabled'] = loop_enabled_icon
         self.icon_images['loop_disabled'] = loop_disabled_icon
@@ -138,14 +145,20 @@ class PlayerControls:
         self.loop_button.bind('<Enter>', lambda e: self.loop_button.configure(image=self.icon_images['loop_hover']))
         self.loop_button.bind(
             '<Leave>',
-            lambda e: self.loop_button.configure(image=self.icon_images['loop_enabled'] if self.loop_enabled else self.icon_images['loop_disabled']),
+            lambda e: self.loop_button.configure(
+                image=self.icon_images['loop_enabled'] if self.loop_enabled else self.icon_images['loop_disabled']
+            ),
         )
 
         # Shuffle button (to the left of loop button) - 54px spacing
         shuffle_normal = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=0.7)
-        shuffle_enabled_icon = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['shuffle_enabled'])
+        shuffle_enabled_icon = load_icon(
+            BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['shuffle_enabled']
+        )
         shuffle_disabled_icon = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=0.5)
-        shuffle_hover = load_icon(BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
+        shuffle_hover = load_icon(
+            BUTTON_SYMBOLS['shuffle'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary']
+        )
         self.icon_images['shuffle_normal'] = shuffle_normal
         self.icon_images['shuffle_enabled'] = shuffle_enabled_icon
         self.icon_images['shuffle_disabled'] = shuffle_disabled_icon
@@ -168,9 +181,18 @@ class PlayerControls:
 
         # Favorite button (to the left of shuffle button) - 54px spacing
         favorite_normal = load_icon(BUTTON_SYMBOLS['favorite_border'], size=self.utility_icon_size, opacity=0.7)
-        favorite_filled = load_icon(BUTTON_SYMBOLS['favorite'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['loop_enabled'])
-        favorite_hover = load_icon(BUTTON_SYMBOLS['favorite_border'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
-        favorite_filled_hover = load_icon(BUTTON_SYMBOLS['favorite'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary'])
+        favorite_filled = load_icon(
+            BUTTON_SYMBOLS['favorite'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['loop_enabled']
+        )
+        favorite_hover = load_icon(
+            BUTTON_SYMBOLS['favorite_border'],
+            size=self.utility_icon_size,
+            opacity=1.0,
+            tint_color=THEME_CONFIG['colors']['primary'],
+        )
+        favorite_filled_hover = load_icon(
+            BUTTON_SYMBOLS['favorite'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary']
+        )
         self.icon_images['favorite_normal'] = favorite_normal
         self.icon_images['favorite_filled'] = favorite_filled
         self.icon_images['favorite_hover'] = favorite_hover
@@ -183,12 +205,18 @@ class PlayerControls:
         )
         self.favorite_button.place(x=canvas_width - 222, y=y_position)
         self.favorite_button.bind('<Button-1>', lambda e: self.callbacks.get('favorite', lambda: None)())
-        self.favorite_button.bind('<Enter>', lambda e: self.favorite_button.configure(
-            image=self.icon_images['favorite_filled_hover'] if self.favorite_enabled else self.icon_images['favorite_hover']
-        ))
-        self.favorite_button.bind('<Leave>', lambda e: self.favorite_button.configure(
-            image=self.icon_images['favorite_filled'] if self.favorite_enabled else self.icon_images['favorite_normal']
-        ))
+        self.favorite_button.bind(
+            '<Enter>',
+            lambda e: self.favorite_button.configure(
+                image=self.icon_images['favorite_filled_hover'] if self.favorite_enabled else self.icon_images['favorite_hover']
+            ),
+        )
+        self.favorite_button.bind(
+            '<Leave>',
+            lambda e: self.favorite_button.configure(
+                image=self.icon_images['favorite_filled'] if self.favorite_enabled else self.icon_images['favorite_normal']
+            ),
+        )
 
         # Ensure buttons are on top of canvas elements
         self.favorite_button.lift()
@@ -233,7 +261,12 @@ class PlayerControls:
         # Find playback control buttons (they are tk.Label widgets that are not utility buttons)
         playback_buttons = []
         for child in self.canvas.winfo_children():
-            if isinstance(child, tk.Label) and child not in [self.add_button, self.loop_button, self.shuffle_button, self.favorite_button]:
+            if isinstance(child, tk.Label) and child not in [
+                self.add_button,
+                self.loop_button,
+                self.shuffle_button,
+                self.favorite_button,
+            ]:
                 playback_buttons.append(child)
 
         # Position playback controls with the same spacing as initial setup
@@ -244,7 +277,9 @@ class PlayerControls:
             x_position += button.winfo_reqwidth() + 5
 
         # Update controls width for progress bar calculations
-        self.controls_width = x_position + 15  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup
+        self.controls_width = (
+            x_position + 15
+        )  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup
 
     def update_loop_button_color(self, loop_enabled):
         """Update loop button icon based on loop state."""
@@ -254,7 +289,9 @@ class PlayerControls:
     def update_shuffle_button_color(self, shuffle_enabled):
         """Update shuffle button icon based on shuffle state."""
         self.shuffle_enabled = shuffle_enabled  # Update the internal state
-        self.shuffle_button.configure(image=self.icon_images['shuffle_enabled'] if shuffle_enabled else self.icon_images['shuffle_disabled'])
+        self.shuffle_button.configure(
+            image=self.icon_images['shuffle_enabled'] if shuffle_enabled else self.icon_images['shuffle_disabled']
+        )
 
     def update_favorite_button(self, is_favorite):
         """Update favorite button icon based on favorite state."""
@@ -270,13 +307,13 @@ class PlayerControls:
             # When playing, show pause symbol
             self.play_button.configure(
                 text=BUTTON_SYMBOLS['pause'],
-                fg='#FFFFFF'  # Bright white when active/playing
+                fg='#FFFFFF',  # Bright white when active/playing
             )
         else:
             # When paused/stopped, show play symbol
             self.play_button.configure(
                 text=BUTTON_SYMBOLS['play'],
-                fg='#CCCCCC'  # Light gray when paused
+                fg='#CCCCCC',  # Light gray when paused
             )
 
 
@@ -355,8 +392,8 @@ class ProgressBar:
         canvas_height = self.canvas.winfo_height()
 
         # Calculate positions with proper spacing
-        progress_end_x = self.canvas.coords(self.line)[2]       # End of progress line
-        utility_controls_width = self.controls.utility_width    # Width reserved for loop and add buttons
+        progress_end_x = self.canvas.coords(self.line)[2]  # End of progress line
+        utility_controls_width = self.controls.utility_width  # Width reserved for loop and add buttons
 
         # Position volume control relative to shuffle button position (leftmost utility control)
         shuffle_button_x = canvas_width - 180  # Same positioning as utility controls
@@ -649,17 +686,37 @@ class QueueView:
         from eliot import start_action
 
         # Ignore modifier keys and special keys - let them use default behavior
-        if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R',
-                            'Alt_L', 'Alt_R', 'Meta_L', 'Meta_R', 'Super_L', 'Super_R',
-                            'Up', 'Down', 'Left', 'Right', 'Return', 'Escape',
-                            'Tab', 'BackSpace', 'Delete', 'Home', 'End',
-                            'Page_Up', 'Page_Down'):
+        if event.keysym in (
+            'Shift_L',
+            'Shift_R',
+            'Control_L',
+            'Control_R',
+            'Alt_L',
+            'Alt_R',
+            'Meta_L',
+            'Meta_R',
+            'Super_L',
+            'Super_R',
+            'Up',
+            'Down',
+            'Left',
+            'Right',
+            'Return',
+            'Escape',
+            'Tab',
+            'BackSpace',
+            'Delete',
+            'Home',
+            'End',
+            'Page_Up',
+            'Page_Down',
+        ):
             return None  # Let default behavior handle these keys
 
         # Ignore if modifiers are pressed (Ctrl, Alt, Command)
-        if event.state & 0x4:   # Control
+        if event.state & 0x4:  # Control
             return None
-        if event.state & 0x8:   # Alt
+        if event.state & 0x8:  # Alt
             return None
         if event.state & 0x10:  # Command (macOS)
             return None
@@ -680,12 +737,37 @@ class QueueView:
             self._jump_to_artist(self._type_buffer)
 
             # Reset buffer after timeout
-            self._type_timer = self.queue.after(
-                self._type_timeout,
-                self._reset_type_buffer
-            )
+            self._type_timer = self.queue.after(self._type_timeout, self._reset_type_buffer)
 
         return "break"  # Prevent default handling
+
+    @staticmethod
+    def _strip_artist_prefix(artist: str) -> str:
+        """Strip common prefixes from artist name for matching.
+
+        Removes prefixes like 'The', 'A', 'Le', 'La' for type-to-jump matching
+        while keeping the original display name unchanged.
+
+        Special handling:
+        - "La's" (with apostrophe) is NOT treated as a prefix (e.g., "The La's")
+        - Only "La " (with space after) is removed
+
+        Args:
+            artist: The artist name to process (should be lowercase for matching)
+
+        Returns:
+            The artist name with common prefixes removed
+        """
+        # Define common prefixes to ignore (already lowercase since we match on lowercase)
+        # Note: Must have space after to avoid matching "La's"
+        prefixes = ['the ', 'a ', 'le ', 'la ']
+
+        # Try each prefix
+        for prefix in prefixes:
+            if artist.startswith(prefix):
+                return artist[len(prefix) :]
+
+        return artist
 
     def _jump_to_artist(self, search_text: str):
         """Jump to first artist matching the typed text."""
@@ -707,7 +789,10 @@ class QueueView:
 
             artist = str(item_values[2]).lower()  # Artist is column index 2
 
-            if artist.startswith(search_text):
+            # Strip common prefixes for matching (e.g., "the beatles" -> "beatles")
+            artist_for_matching = self._strip_artist_prefix(artist)
+
+            if artist_for_matching.startswith(search_text):
                 # Select and scroll to the item
                 self.queue.selection_set(item_id)
                 self.queue.see(item_id)
@@ -718,6 +803,8 @@ class QueueView:
                     trigger_source="keyboard",
                     search_text=search_text,
                     matched_artist=artist,
+                    artist_for_matching=artist_for_matching,
+                    prefix_stripped=artist != artist_for_matching,
                     buffer_length=len(search_text),
                     description=f"Jumped to artist '{artist}' via type-to-jump",
                 )
@@ -744,6 +831,7 @@ class QueueView:
             with contextlib.suppress(Exception):
                 widths[col] = self.queue.column(col, 'width')
         return widths
+
     def schedule_column_check(self):
         """Schedule periodic check for column width changes."""
         if self._column_check_timer:
