@@ -867,6 +867,7 @@ The MT Music Player adopts a clean, focused interface inspired by MusicBee's pro
 ### Component Specifications
 
 #### Left Sidebar (Library Panel)
+
 - **Width**: 250px (resizable between 200-350px)
 - **Sections**:
   - Library
@@ -888,6 +889,7 @@ The MT Music Player adopts a clean, focused interface inspired by MusicBee's pro
   - Music Explorer
 
 #### Main Content Area
+
 - **Features**:
   - Sortable track list table
   - Column headers: #, Title, Artist, Album, Year, Duration
@@ -905,6 +907,7 @@ The MT Music Player adopts a clean, focused interface inspired by MusicBee's pro
   - Inline editing
 
 #### Right Panel (Queue)
+
 - **Width**: 300px (collapsible)
 - **Features**:
   - Current playback queue
@@ -918,6 +921,7 @@ The MT Music Player adopts a clean, focused interface inspired by MusicBee's pro
   - Subtle separators between items
 
 #### Player Controls (Bottom Bar)
+
 - **Height**: 80px
 - **Layout**: Single row with three sections
   1. **Transport Controls** (left):
@@ -957,6 +961,7 @@ The MT Music Player adopts a clean, focused interface inspired by MusicBee's pro
 ### Interaction Patterns
 
 #### Hover States
+
 ```css
 .track-row:hover {
     background-color: var(--bg-tertiary);
@@ -970,6 +975,7 @@ The MT Music Player adopts a clean, focused interface inspired by MusicBee's pro
 ```
 
 #### Active/Playing States
+
 ```css
 .track-row.now-playing {
     background-color: var(--playing-bg);
@@ -983,6 +989,7 @@ The MT Music Player adopts a clean, focused interface inspired by MusicBee's pro
 ```
 
 #### Selection States
+
 ```css
 .track-row.selected {
     background-color: var(--bg-selected);
@@ -2118,16 +2125,19 @@ if __name__ == "__main__":
 ### Platform-Specific Considerations
 
 #### macOS
+
 - Code signing for distribution
 - DMG creation with create-dmg
 - Notarization for Gatekeeper
 
 #### Windows
+
 - NSIS installer creation
 - Windows Defender exclusion
 - Auto-update via Squirrel
 
 #### Linux
+
 - AppImage for universal distribution
 - Flatpak for sandboxed installation
 - Debian/RPM packages for native integration
@@ -2137,6 +2147,7 @@ if __name__ == "__main__":
 ### Features Adopted from MusicBee
 
 ✅ **Included Features**:
+
 - Three-panel layout (Library/Tracks/Queue)
 - Dark theme with cyan accent colors (#00bcd4)
 - Table-based track list with sortable columns
@@ -2154,6 +2165,7 @@ if __name__ == "__main__":
 ### Features Intentionally Excluded
 
 ❌ **Not Included**:
+
 - **Customizable layouts** - Single fixed layout for simplicity
 - **Equalizer** - Focus on playback, not audio processing
 - **Fast navigation (# A B C...)** - Simplified navigation without alphabet jumping
@@ -2172,6 +2184,7 @@ This focused approach maintains MusicBee's proven interface design while elimina
 This PyWebView-based architecture provides the best of both worlds: native desktop application capabilities with modern web technologies. The integration of high-performance Zig modules for library scanning delivers 70-90x faster file discovery compared to pure Python, making it suitable for libraries with hundreds of thousands of tracks. By using HTMX and Alpine.js instead of heavy JavaScript frameworks, we maintain simplicity while delivering a responsive, feature-rich music player that runs entirely locally with full file system access.
 
 Key advantages of this architecture:
+
 - **Performance**: Zig modules provide near-native scanning speeds
 - **Simplicity**: HTMX reduces JavaScript complexity by 90%
 - **Native Integration**: PyWebView enables true desktop features
