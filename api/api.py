@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 # Create API logger
 try:
     from eliot import Logger
+
     api_logger = Logger()
 except ImportError:
     api_logger = None
@@ -42,38 +43,30 @@ class APIServer:
             'stop': self._handle_stop,
             'next': self._handle_next,
             'previous': self._handle_previous,
-
             # Track selection
             'select_track': self._handle_select_track,
             'play_track_at_index': self._handle_play_track_at_index,
-
             # Queue management
             'add_to_queue': self._handle_add_to_queue,
             'clear_queue': self._handle_clear_queue,
             'remove_from_queue': self._handle_remove_from_queue,
-
             # UI navigation
             'switch_view': self._handle_switch_view,
             'select_library_item': self._handle_select_library_item,
             'select_queue_item': self._handle_select_queue_item,
-
             # Slider controls
             'set_volume': self._handle_set_volume,
             'seek': self._handle_seek,
             'seek_to_position': self._handle_seek_to_position,
-
             # Utility controls
             'toggle_loop': self._handle_toggle_loop,
             'toggle_shuffle': self._handle_toggle_shuffle,
             'toggle_favorite': self._handle_toggle_favorite,
-
             # Media key simulation
             'media_key': self._handle_media_key,
-
             # Search
             'search': self._handle_search,
             'clear_search': self._handle_clear_search,
-
             # Info queries
             'get_status': self._handle_get_status,
             'get_current_track': self._handle_get_current_track,
@@ -94,11 +87,7 @@ class APIServer:
                 self.server_socket.listen(5)
 
                 self.running = True
-                self.server_thread = threading.Thread(
-                    target=self._handle_clients,
-                    daemon=True,
-                    name="APIServerThread"
-                )
+                self.server_thread = threading.Thread(target=self._handle_clients, daemon=True, name="APIServerThread")
                 self.server_thread.start()
 
                 log_message(message_type="api_server_started", port=self.port)
@@ -142,11 +131,7 @@ class APIServer:
                     continue
 
                 # Handle client in a separate thread
-                client_thread = threading.Thread(
-                    target=self._handle_client_request,
-                    args=(client_socket, address),
-                    daemon=True
-                )
+                client_thread = threading.Thread(target=self._handle_client_request, args=(client_socket, address), daemon=True)
                 client_thread.start()
 
             except Exception as e:
@@ -178,10 +163,7 @@ class APIServer:
                 return
 
             # Log the received command
-            with start_action(api_logger, "handle_api_command",
-                            action=command.get('action', 'unknown'),
-                            address=str(address)):
-
+            with start_action(api_logger, "handle_api_command", action=command.get('action', 'unknown'), address=str(address)):
                 # Execute command on main thread
                 response = self._execute_command(command)
 
@@ -218,7 +200,7 @@ class APIServer:
             return {
                 'status': 'error',
                 'message': f'Unknown action: {action}',
-                'available_actions': list(self.command_handlers.keys())
+                'available_actions': list(self.command_handlers.keys()),
             }
 
         try:
@@ -230,11 +212,7 @@ class APIServer:
                 try:
                     result.update(handler(command))
                 except Exception as e:
-                    result.update({
-                        'status': 'error',
-                        'message': str(e),
-                        'traceback': traceback.format_exc()
-                    })
+                    result.update({'status': 'error', 'message': str(e), 'traceback': traceback.format_exc()})
                 finally:
                     event.set()
 
@@ -248,11 +226,7 @@ class APIServer:
                 return {'status': 'error', 'message': 'Command execution timed out'}
 
         except Exception as e:
-            return {
-                'status': 'error',
-                'message': str(e),
-                'traceback': traceback.format_exc()
-            }
+            return {'status': 'error', 'message': str(e), 'traceback': traceback.format_exc()}
 
     # === Playback Control Handlers ===
 
@@ -311,18 +285,30 @@ class APIServer:
             return {'status': 'error', 'message': 'No index specified'}
 
         try:
-            # Ensure we're showing the queue view
-            self.music_player.load_queue()
+            # Get queue items from database (source of truth)
+            queue_items = self.music_player.queue_manager.get_queue_items()
 
-            # Get queue items from UI
-            queue_items = self.music_player.queue_view.queue.get_children()
-            if 0 <= index < len(queue_items):
-                item = queue_items[index]
-                self.music_player.queue_view.queue.selection_set(item)
-                self.music_player.play_selected()
-                return {'status': 'success'}
-            else:
+            # Validate index against database queue
+            if not (0 <= index < len(queue_items)):
                 return {'status': 'error', 'message': f'Index {index} out of range'}
+
+            # Get filepath from database queue at specified index
+            filepath = queue_items[index][0]  # First element is filepath
+
+            # Play the file directly
+            self.music_player.player_core._play_file(filepath)
+
+            # Update play button state
+            self.music_player.progress_bar.controls.update_play_button(True)
+
+            # Update favorite button
+            is_favorite = self.music_player.favorites_manager.is_favorite(filepath)
+            self.music_player.progress_bar.controls.update_favorite_button(is_favorite)
+
+            # Set playback context to indicate we're playing from queue
+            self.music_player.playback_context = 'now_playing'
+
+            return {'status': 'success'}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
@@ -396,11 +382,7 @@ class APIServer:
 
         section = view_mapping.get(view.lower())
         if not section:
-            return {
-                'status': 'error',
-                'message': f'Unknown view: {view}',
-                'available_views': list(view_mapping.keys())
-            }
+            return {'status': 'error', 'message': f'Unknown view: {view}', 'available_views': list(view_mapping.keys())}
 
         # Simulate section selection
         self.music_player.on_section_select(section)
@@ -431,9 +413,17 @@ class APIServer:
             return {'status': 'error', 'message': 'No index specified'}
 
         try:
+            # Get queue items from database (source of truth)
+            queue_items = self.music_player.queue_manager.get_queue_items()
+
+            # Validate index against database queue
+            if not (0 <= index < len(queue_items)):
+                return {'status': 'error', 'message': f'Index {index} out of range'}
+
             # Ensure we're showing the queue view
             self.music_player.load_queue()
 
+            # Now get UI items and select the one at the validated index
             items = self.music_player.queue_view.queue.get_children()
             if 0 <= index < len(items):
                 item = items[index]
@@ -441,7 +431,8 @@ class APIServer:
                 self.music_player.queue_view.queue.focus(item)
                 return {'status': 'success'}
             else:
-                return {'status': 'error', 'message': f'Index {index} out of range'}
+                # This shouldn't happen if database and UI are in sync
+                return {'status': 'error', 'message': f'UI index {index} out of range'}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
@@ -517,11 +508,7 @@ class APIServer:
 
         valid_keys = ['play_pause', 'next', 'previous']
         if key not in valid_keys:
-            return {
-                'status': 'error',
-                'message': f'Invalid key: {key}',
-                'valid_keys': valid_keys
-            }
+            return {'status': 'error', 'message': f'Invalid key: {key}', 'valid_keys': valid_keys}
 
         # Simulate media key press
         if key == 'play_pause':
@@ -599,12 +586,14 @@ class APIServer:
 
             for item in db_queue_items:
                 # item format: (filepath, artist, title, album, track_number, date)
-                queue_items.append({
-                    'index': len(queue_items),
-                    'title': item[2] if len(item) > 2 else '',
-                    'artist': item[1] if len(item) > 1 else '',
-                    'album': item[3] if len(item) > 3 else '',
-                })
+                queue_items.append(
+                    {
+                        'index': len(queue_items),
+                        'title': item[2] if len(item) > 2 else '',
+                        'artist': item[1] if len(item) > 1 else '',
+                        'album': item[3] if len(item) > 3 else '',
+                    }
+                )
 
             return {'status': 'success', 'data': queue_items, 'count': len(queue_items)}
         except Exception as e:
@@ -619,19 +608,21 @@ class APIServer:
 
             for item in items:
                 values = self.music_player.queue_view.queue.item(item, 'values')
-                library_items.append({
-                    'index': len(library_items),
-                    'track': values[0] if len(values) > 0 else '',
-                    'title': values[1] if len(values) > 1 else '',
-                    'artist': values[2] if len(values) > 2 else '',
-                    'album': values[3] if len(values) > 3 else '',
-                })
+                library_items.append(
+                    {
+                        'index': len(library_items),
+                        'track': values[0] if len(values) > 0 else '',
+                        'title': values[1] if len(values) > 1 else '',
+                        'artist': values[2] if len(values) > 2 else '',
+                        'album': values[3] if len(values) > 3 else '',
+                    }
+                )
 
             return {
                 'status': 'success',
                 'data': library_items,
                 'count': len(library_items),
-                'total': len(self.music_player.queue_view.queue.get_children())
+                'total': len(self.music_player.queue_view.queue.get_children()),
             }
         except Exception as e:
             return {'status': 'error', 'message': str(e)}

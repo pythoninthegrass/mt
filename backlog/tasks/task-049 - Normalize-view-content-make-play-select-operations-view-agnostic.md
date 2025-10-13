@@ -1,10 +1,10 @@
 ---
 id: task-049
 title: Normalize view content - make play/select operations view-agnostic
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-12 23:28'
-updated_date: '2025-10-12 23:57'
+updated_date: '2025-10-13 01:04'
 labels: []
 dependencies: []
 ---
@@ -15,8 +15,12 @@ Currently, queue_view.queue serves dual purposes: showing actual queue OR showin
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 play_track_at_index uses queue table, not UI children
-- [ ] #2 select_queue_item validates index against queue table
-- [ ] #3 Index validation works regardless of active view
-- [ ] #4 Tests test_play_track_at_index and test_play_invalid_index pass
+- [x] #1 play_track_at_index uses queue table, not UI children
+- [x] #2 select_queue_item validates index against queue table
+- [x] #3 Index validation works regardless of active view
+- [x] #4 Tests test_play_track_at_index and test_play_invalid_index pass
 <!-- AC:END -->
+
+## Implementation Notes
+
+Refactored _handle_play_track_at_index and _handle_select_queue_item in api/api.py to use database queue as source of truth instead of UI widget children count. Both functions now validate index against queue_manager.get_queue_items() before operations. Tests pass successfully.
