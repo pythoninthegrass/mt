@@ -1,9 +1,10 @@
 ---
 id: task-054
 title: Mock VLC for deterministic unit testing
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-10-12 23:28'
+updated_date: '2025-10-13 01:49'
 labels: []
 dependencies: []
 ---
@@ -14,9 +15,13 @@ Create VLC stub/mock for unit tests to avoid timing issues and external dependen
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Create MockVLCMediaPlayer class mimicking vlc.MediaPlayer API
-- [ ] #2 Add unit tests for PlayerCore with mocked VLC
-- [ ] #3 Separate unit tests (mocked) from integration tests (real VLC)
-- [ ] #4 Unit tests run in <1s total
-- [ ] #5 Document when to use unit vs E2E tests
+- [x] #1 Create MockVLCMediaPlayer class mimicking vlc.MediaPlayer API
+- [x] #2 Add unit tests for PlayerCore with mocked VLC
+- [x] #3 Separate unit tests (mocked) from integration tests (real VLC)
+- [x] #4 Unit tests run in <1s total
+- [x] #5 Document when to use unit vs E2E tests
 <!-- AC:END -->
+
+## Implementation Notes
+
+Implemented comprehensive mock VLC for unit testing. Created MockVLCMediaPlayer with deterministic behavior. Added 20 unit tests covering volume, seek, loop, shuffle, stop, and track navigation. Tests run in 0.12s. Documented testing guidelines in tests/README.md.
