@@ -1,4 +1,3 @@
-import os
 import random
 from core.db import MusicDatabase
 from core.logging import log_queue_operation, queue_logger
@@ -61,9 +60,9 @@ class QueueManager:
                 continue
 
             try:
-                normalized_path = str(normalize_path(path))
-                if os.path.exists(normalized_path):
-                    self.db.add_to_queue(normalized_path)
+                normalized_path = normalize_path(path)
+                if Path(normalized_path).exists():
+                    self.db.add_to_queue(str(normalized_path))
             except (OSError, PermissionError) as e:
                 print(f"Error accessing path {path}: {e}")
                 continue
