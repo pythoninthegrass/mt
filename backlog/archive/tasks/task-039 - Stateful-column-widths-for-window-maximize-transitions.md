@@ -27,7 +27,7 @@ Column widths should adapt intelligently when window is maximized/unmaximized. I
 Implemented stateful column widths for window maximize transitions. Key changes:
 
 1. **StoplightButtons** (core/stoplight.py):
-   - Added on_state_change callback parameter to __init__
+   - Added on_state_change callback parameter to **init**
    - Modified toggle_maximize() to notify callback when window state changes
    - Callback is triggered after geometry changes with 100ms delay for maximized state
 

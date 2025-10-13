@@ -28,7 +28,6 @@ Replace current unicode symbol buttons with PNG icon buttons from the custom tki
 - [x] #11 Add any missing dependencies (PIL/Pillow) to pyproject.toml if needed
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
 Successfully replaced unicode buttons with PNG icon buttons from static/. All playback and utility controls now use icons with hover effects. Fixed TCL/TK environment setup in repeater.py and resolved PIL/ImageTk compatibility issue with Homebrew Tcl/Tk using BytesIO workaround.

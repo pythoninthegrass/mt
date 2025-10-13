@@ -21,7 +21,6 @@ Add enhanced queue display showing current playback status
 - [x] #4 Implement queue navigation from now playing view
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
 Implemented Now Playing queue display with play/pause indicators (▶/⏸), track highlighting, and dynamic content that mirrors the playback context (library, liked songs, or top played). The view automatically syncs with whatever source you're playing from.
