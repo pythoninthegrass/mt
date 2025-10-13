@@ -16,6 +16,7 @@ ALWAYS use these MCP servers:
 - context7: when looking up library context outside the source code
   - oaubert/python-vlc
   - itamarst/eliot
+  - hypothesisworks/hypothesis
   - spiraldb/ziggy-pydust
 - screencap: for screenshots of front-end changes
 
@@ -52,12 +53,26 @@ uv run ruff check --fix --respect-gitignore
 # Run formatting
 uv run ruff format --respect-gitignore
 
-# Run tests
-uv run pytest -v
+# Run all tests
+uv run pytest tests/ -v -p no:pydust
 
-# Run without zig/pydust for end-to-end (E2E) tests
-# ! cf. 'error: failed to check cache: 'build.zig' file_hash FileNotFound'
+# Run ONLY unit tests (fast, for development)
+uv run pytest tests/test_unit_*.py -v -p no:pydust
+
+# Run ONLY property-based tests (fast, for invariant validation)
+uv run pytest tests/test_props_*.py -v -p no:pydust
+
+# Run property tests with more examples (thorough)
+uv run pytest tests/test_props_*.py -v --hypothesis-profile=thorough -p no:pydust
+
+# Run property tests with statistics
+uv run pytest tests/test_props_*.py -v --hypothesis-show-statistics -p no:pydust
+
+# Run ONLY E2E tests (slower, for integration validation)
 uv run pytest tests/test_e2e_*.py -v -p no:pydust
+
+# Run unit + property tests (fast development feedback)
+uv run pytest tests/test_unit_*.py tests/test_props_*.py -v -p no:pydust
 
 # Run pre-commit hooks
 pre-commit run --all-files

@@ -13,7 +13,14 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# Hypothesis configuration for property-based testing
+from hypothesis import HealthCheck, settings
 from tests.helpers.api_client import APIClient
+
+# Register Hypothesis profiles
+settings.register_profile("fast", max_examples=50, deadline=None)
+settings.register_profile("thorough", max_examples=1000, deadline=None)
+settings.load_profile("fast")  # Default to fast profile
 
 
 def setup_macos_environment():

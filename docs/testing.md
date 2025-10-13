@@ -76,14 +76,82 @@ def test_play_pause_toggle(api_client, test_music_files, clean_queue):
     assert status['data']['is_playing'] is True
 ```
 
+### Property Tests (Hypothesis)
+
+**File Pattern**: `test_props_*.py`
+**Examples**: `test_props_player_core.py`, `test_props_queue_manager.py`, `test_props_utils.py`
+
+**Characteristics**:
+
+- Use mocked dependencies (like unit tests)
+- Generate hundreds of test cases automatically
+- Discover edge cases through randomized testing
+- Validate invariants and properties that should always hold
+- Run fast (similar to unit tests)
+- Automatically shrink failing examples to minimal cases
+
+**When to Use Property Tests**:
+
+- ✅ Testing invariants (e.g., volume always in [0, 100])
+- ✅ Testing mathematical properties (commutativity, associativity)
+- ✅ Testing round-trip conversions (serialize → deserialize)
+- ✅ Testing idempotent operations (applying twice = applying once)
+- ✅ Testing boundary conditions across many inputs
+- ✅ Complementing unit tests with broader input coverage
+- ✅ Discovering edge cases you haven't thought of
+
+**Example Test Cases**:
+```python
+from hypothesis import given, strategies as st
+
+@given(volume=st.integers(min_value=-1000, max_value=1000))
+def test_volume_clamps_to_valid_range(player_core, volume):
+    """Volume should always clamp to [0, 100] regardless of input."""
+    player_core.set_volume(volume)
+    actual = player_core.get_volume()
+    assert 0 <= actual <= 100
+
+@given(initial_state=st.booleans())
+def test_loop_toggle_idempotent(player_core, initial_state):
+    """Toggling loop twice should return to original state."""
+    player_core.loop_enabled = initial_state
+    player_core.toggle_loop()
+    player_core.toggle_loop()
+    assert player_core.loop_enabled == initial_state
+
+@given(filepaths=st.lists(st.text(min_size=1), min_size=1, max_size=50))
+def test_shuffle_preserves_queue_items(queue_manager, filepaths):
+    """Shuffling should preserve all items, just reorder them."""
+    for filepath in filepaths:
+        queue_manager.add_to_queue(filepath)
+
+    original_items = queue_manager.get_queue_items()
+    queue_manager.toggle_shuffle()
+    shuffled_items = queue_manager.get_shuffled_queue_items()
+
+    assert len(original_items) == len(shuffled_items)
+```
+
 ## Running Tests
 
 ```bash
 # Run ONLY unit tests (fast, for development)
 uv run pytest tests/test_unit_*.py -v -p no:pydust
 
+# Run ONLY property tests (fast, for invariant validation)
+uv run pytest tests/test_props_*.py -v -p no:pydust
+
+# Run property tests with more examples (thorough)
+uv run pytest tests/test_props_*.py -v --hypothesis-profile=thorough -p no:pydust
+
+# Run property tests with statistics
+uv run pytest tests/test_props_*.py -v --hypothesis-show-statistics -p no:pydust
+
 # Run ONLY E2E tests (slower, for integration validation)
 uv run pytest tests/test_e2e_*.py -v -p no:pydust
+
+# Run unit + property tests (fast development feedback)
+uv run pytest tests/test_unit_*.py tests/test_props_*.py -v -p no:pydust
 
 # Run all tests
 uv run pytest tests/ -v -p no:pydust
@@ -93,48 +161,63 @@ uv run pytest tests/ -v -p no:pydust
 
 ```
 tests/
-├── README.md                    # This file
-├── conftest.py                  # E2E test fixtures (app_process, api_client)
-├── mocks/                       # Mock implementations for unit tests
+├── README.md                      # This file
+├── conftest.py                    # Shared fixtures (Hypothesis profiles, E2E fixtures)
+├── mocks/                         # Mock implementations for unit tests
 │   ├── __init__.py
-│   └── vlc_mock.py             # Mock VLC classes
-├── test_unit_player_core.py    # Unit tests for PlayerCore
-├── test_e2e_playback.py        # E2E tests for playback
-├── test_e2e_controls.py        # E2E tests for controls
-├── test_e2e_queue.py           # E2E tests for queue
-├── test_e2e_views.py           # E2E tests for views
-└── test_e2e_library.py         # E2E tests for library
+│   └── vlc_mock.py               # Mock VLC classes
+├── helpers/                       # Test helper utilities
+│   └── api_client.py             # API client for E2E tests
+├── test_unit_player_core.py      # Unit tests for PlayerCore
+├── test_unit_queue_manager.py    # Unit tests for QueueManager
+├── test_unit_library_manager.py  # Unit tests for LibraryManager
+├── test_props_player_core.py     # Property tests for PlayerCore
+├── test_props_queue_manager.py   # Property tests for QueueManager
+├── test_props_utils.py           # Property tests for utilities
+├── test_e2e_playback.py          # E2E tests for playback
+├── test_e2e_controls.py          # E2E tests for controls
+├── test_e2e_queue.py             # E2E tests for queue
+├── test_e2e_views.py             # E2E tests for views
+└── test_e2e_library.py           # E2E tests for library
 ```
 
 ## Decision Tree
 
 ```
-                  Need to test something?
-                          |
-                          v
-            Does it require real audio playback,
-            actual files, or full app integration?
-                    /              \
-                 YES                NO
-                  |                  |
-                  v                  v
-            E2E Test          Can be isolated with mocks?
-                                    /         \
-                                 YES           NO
-                                  |             |
-                                  v             v
-                             Unit Test      E2E Test
+                      Need to test something?
+                              |
+                              v
+                Does it require real audio playback,
+                actual files, or full app integration?
+                        /              \
+                     YES                NO
+                      |                  |
+                      v                  v
+                  E2E Test        Can be isolated with mocks?
+                                        /         \
+                                     YES           NO
+                                      |             |
+                                      v             v
+                              Testing invariants  E2E Test
+                              or properties?
+                                /         \
+                             YES           NO
+                              |             |
+                              v             v
+                        Property Test   Unit Test
 ```
 
 ## Best Practices
 
 1. **Write unit tests first** - They're faster to write and run
-2. **Use E2E tests sparingly** - Only when integration is critical
-3. **Mock external dependencies** - Database, file system, VLC in unit tests
-4. **Keep unit tests focused** - Test one thing at a time
-5. **Use descriptive test names** - Should explain what and why
-6. **Run unit tests frequently** - During development for quick feedback
-7. **Run E2E tests before commits** - To catch integration issues
+2. **Use property tests for invariants** - Let Hypothesis discover edge cases
+3. **Use E2E tests sparingly** - Only when integration is critical
+4. **Mock external dependencies** - Database, file system, VLC in unit and property tests
+5. **Keep unit tests focused** - Test one thing at a time
+6. **Use descriptive test names** - Should explain what and why
+7. **Run unit + property tests frequently** - During development for quick feedback
+8. **Run E2E tests before commits** - To catch integration issues
+9. **Property tests complement unit tests** - Unit tests for specific cases, property tests for general properties
 
 ## Mock VLC Usage
 
@@ -160,6 +243,8 @@ def player_core(mock_vlc, mock_db, mock_queue_manager):
 ## Performance Goals
 
 - **Unit tests**: < 1 second total (currently: ~0.12s)
+- **Property tests**: < 5 seconds total (with fast profile: 50 examples per test)
+- **Property tests (thorough)**: < 30 seconds total (with thorough profile: 1000 examples per test)
 - **E2E tests**: < 30 seconds total (depends on test music files)
 
 ## Adding New Tests
@@ -167,9 +252,50 @@ def player_core(mock_vlc, mock_db, mock_queue_manager):
 When adding a new feature:
 
 1. Start with unit tests for core logic
-2. Add E2E tests if the feature involves:
+2. Add property tests for invariants:
+   - Boundary conditions (e.g., volume clamping)
+   - Idempotent operations (e.g., toggling twice)
+   - Round-trip conversions
+   - Collection operations preserving elements
+3. Add E2E tests if the feature involves:
    - Real audio playback
    - Cross-component integration
    - User-facing workflows
-3. Ensure new tests follow the naming convention
-4. Update this README if introducing new patterns
+4. Ensure new tests follow the naming convention
+5. Update this README if introducing new patterns
+
+## Writing Property Tests
+
+Property tests use Hypothesis to generate test cases automatically. Here's how to write them:
+
+### 1. Import Hypothesis
+
+```python
+from hypothesis import given, strategies as st
+```
+
+### 2. Use @given decorator with strategies
+
+```python
+@given(volume=st.integers(min_value=-1000, max_value=1000))
+def test_volume_clamps(player_core, volume):
+    player_core.set_volume(volume)
+    assert 0 <= player_core.get_volume() <= 100
+```
+
+### 3. Common strategies
+
+- `st.integers(min_value, max_value)` - Generate integers
+- `st.floats(min_value, max_value)` - Generate floats
+- `st.booleans()` - Generate True/False
+- `st.text(min_size, max_size)` - Generate strings
+- `st.lists(strategy, min_size, max_size)` - Generate lists
+
+### 4. Configure test profiles
+
+In `conftest.py`, Hypothesis profiles are configured:
+
+- **fast**: 50 examples per test (default for development)
+- **thorough**: 1000 examples per test (for comprehensive testing)
+
+Use `--hypothesis-profile=thorough` to run more examples.
