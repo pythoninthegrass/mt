@@ -232,3 +232,6 @@ DEFAULT_LOOP_ENABLED = True
 # API Server Configuration
 API_SERVER_ENABLED = config('MT_API_SERVER_ENABLED', default=False, cast=bool)
 API_SERVER_PORT = config('MT_API_SERVER_PORT', default=5555, cast=int)
+
+# Test Configuration
+TEST_TIMEOUT = config('TEST_TIMEOUT', default=0.5, cast=float)

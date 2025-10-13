@@ -1,7 +1,6 @@
-"""End-to-end tests for view navigation via API."""
-
 import pytest
 import time
+from config import TEST_TIMEOUT
 
 
 def test_switch_to_library_view(api_client):
@@ -118,7 +117,7 @@ def test_play_from_library_selection(api_client, test_music_files, clean_queue):
 
     # Play the track
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Verify playback
     status = api_client.send('get_status')

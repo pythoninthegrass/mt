@@ -1,8 +1,7 @@
-"""API client for communicating with mt music player API server."""
-
 import json
 import socket
 import time
+from config import TEST_TIMEOUT
 from typing import Any
 
 
@@ -20,16 +19,18 @@ class APIClient:
         self.port = port
         self.socket: socket.socket | None = None
 
-    def connect(self, timeout: float = 10.0, retry_interval: float = 0.5) -> bool:
+    def connect(self, timeout: float = 10.0, retry_interval: float | None = None) -> bool:
         """Connect to the API server with retry logic.
 
         Args:
             timeout: Maximum time to wait for connection (seconds)
-            retry_interval: Time between retry attempts (seconds)
+            retry_interval: Time between retry attempts (seconds). If None, uses TEST_TIMEOUT.
 
         Returns:
             True if connection successful, False otherwise
         """
+        if retry_interval is None:
+            retry_interval = TEST_TIMEOUT
         start_time = time.time()
 
         while time.time() - start_time < timeout:

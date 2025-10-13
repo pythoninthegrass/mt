@@ -1,5 +1,3 @@
-"""End-to-end tests for library operations via API."""
-
 import pytest
 import time
 

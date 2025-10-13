@@ -1,7 +1,6 @@
-"""End-to-end tests for queue management via API."""
-
 import pytest
 import time
+from config import TEST_TIMEOUT
 
 
 def test_add_single_track(api_client, test_music_files, clean_queue):
@@ -98,7 +97,7 @@ def test_play_track_at_index(api_client, test_music_files, clean_queue):
     # Play track at index 1 (second track)
     response = api_client.send('play_track_at_index', index=1)
     assert response['status'] == 'success', "Failed to play track at index"
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Verify playback started
     status = api_client.send('get_status')

@@ -1,7 +1,6 @@
-"""End-to-end tests for player controls (volume, seek, toggles) via API."""
-
 import pytest
 import time
+from config import TEST_TIMEOUT
 
 
 def test_set_volume_valid(api_client, test_music_files, clean_queue):
@@ -9,7 +8,7 @@ def test_set_volume_valid(api_client, test_music_files, clean_queue):
     # Add and play a track
     api_client.send('add_to_queue', files=[test_music_files[0]])
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Set volume to 50
     response = api_client.send('set_volume', volume=50)
@@ -78,7 +77,7 @@ def test_seek_to_position(api_client, test_music_files, clean_queue):
     # Add and play a track
     api_client.send('add_to_queue', files=[test_music_files[0]])
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Seek to 10 seconds
     response = api_client.send('seek_to_position', position=10.0)
@@ -145,7 +144,7 @@ def test_toggle_favorite(api_client, test_music_files, clean_queue):
     # Add and play a track
     api_client.send('add_to_queue', files=[test_music_files[0]])
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Toggle favorite
     response = api_client.send('toggle_favorite')
@@ -165,7 +164,7 @@ def test_media_key_play_pause(api_client, test_music_files, clean_queue):
     response = api_client.send('media_key', key='play_pause')
     assert response['status'] == 'success', "Failed to simulate play_pause media key"
     assert response['key'] == 'play_pause', "Should report the key pressed"
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Verify playing
     status = api_client.send('get_status')
@@ -177,7 +176,7 @@ def test_media_key_next(api_client, test_music_files, clean_queue):
     # Add multiple tracks and play
     api_client.send('add_to_queue', files=test_music_files[:3])
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Get initial track
     initial_status = api_client.send('get_status')
@@ -186,7 +185,7 @@ def test_media_key_next(api_client, test_music_files, clean_queue):
     # Simulate next media key
     response = api_client.send('media_key', key='next')
     assert response['status'] == 'success', "Failed to simulate next media key"
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Verify track changed
     new_status = api_client.send('get_status')
@@ -199,9 +198,9 @@ def test_media_key_previous(api_client, test_music_files, clean_queue):
     # Add multiple tracks, play, then go to second track
     api_client.send('add_to_queue', files=test_music_files[:3])
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
     api_client.send('next')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Simulate previous media key
     response = api_client.send('media_key', key='previous')

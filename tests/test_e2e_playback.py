@@ -1,7 +1,6 @@
-"""End-to-end tests for playback controls via API."""
-
 import pytest
 import time
+from config import TEST_TIMEOUT
 
 
 def test_play_pause_toggle(api_client, test_music_files, clean_queue):
@@ -13,7 +12,7 @@ def test_play_pause_toggle(api_client, test_music_files, clean_queue):
     # Start playback
     response = api_client.send('play_pause')
     assert response['status'] == 'success', "Failed to toggle play"
-    time.sleep(0.5)  # Allow VLC to initialize
+    time.sleep(TEST_TIMEOUT)  # Allow VLC to initialize
 
     # Verify playing state
     status = api_client.send('get_status')
@@ -40,7 +39,7 @@ def test_play_when_paused(api_client, test_music_files, clean_queue):
     response = api_client.send('play')
     assert response['status'] == 'success', "Failed to play"
     assert response['is_playing'] is True, "Should report playing state"
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Verify playing state
     status = api_client.send('get_status')
@@ -52,7 +51,7 @@ def test_pause_when_playing(api_client, test_music_files, clean_queue):
     # Add and play a track
     api_client.send('add_to_queue', files=[test_music_files[0]])
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Explicitly pause
     response = api_client.send('pause')
@@ -71,7 +70,7 @@ def test_next_track(api_client, test_music_files, clean_queue):
 
     # Play first track
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Get initial track info
     initial_status = api_client.send('get_status')
@@ -80,7 +79,7 @@ def test_next_track(api_client, test_music_files, clean_queue):
     # Go to next track
     response = api_client.send('next')
     assert response['status'] == 'success', "Failed to go to next track"
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Verify track changed
     new_status = api_client.send('get_status')
@@ -95,9 +94,9 @@ def test_previous_track(api_client, test_music_files, clean_queue):
 
     # Play first track, then go to second
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
     api_client.send('next')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Get current track
     current_status = api_client.send('get_status')
@@ -106,7 +105,7 @@ def test_previous_track(api_client, test_music_files, clean_queue):
     # Go to previous track
     response = api_client.send('previous')
     assert response['status'] == 'success', "Failed to go to previous track"
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Verify track changed
     new_status = api_client.send('get_status')
@@ -119,7 +118,7 @@ def test_stop_playback(api_client, test_music_files, clean_queue):
     # Add and play a track
     api_client.send('add_to_queue', files=[test_music_files[0]])
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Stop playback
     response = api_client.send('stop')
@@ -135,7 +134,7 @@ def test_get_status(api_client, test_music_files, clean_queue):
     # Add and play a track
     api_client.send('add_to_queue', files=[test_music_files[0]])
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Get status
     response = api_client.send('get_status')
@@ -163,7 +162,7 @@ def test_get_current_track(api_client, test_music_files, clean_queue):
     # Add and play a track
     api_client.send('add_to_queue', files=[test_music_files[0]])
     api_client.send('play')
-    time.sleep(0.5)
+    time.sleep(TEST_TIMEOUT)
 
     # Get current track
     response = api_client.send('get_current_track')
