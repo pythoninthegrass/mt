@@ -8,11 +8,16 @@
 
 * macOS/Linux
 * [Python 3.11+](https://www.python.org/downloads/release/python-31111/)
+* [tcl-tk](https://formulae.brew.sh/formula/tcl-tk)
 * [VLC](https://www.videolan.org/vlc/index.html)
+* [uv](https://github.com/astral-sh/uv)
 
 ## Setup
 
 ```bash
+# install tcl-tk
+brew install tcl-tk
+
 # install vlc
 ## macos
 brew install --cask vlc
@@ -20,18 +25,29 @@ brew install --cask vlc
 ## TODO: qa ubuntu/wsl
 ## linux
 
-# create virtual environment
-python -m venv .venv
+# install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# activate virtual environment
-source .venv/bin/activate
+# create virtual environment
+uv venv --python ">=3.11,<3.12"
 
 # install dependencies
-python -m pip install -r requirements.txt
+uv pip install -r pyproject.toml --all-extras
 
 # run the app
-python main.py
+uv run main.py
 ```
+
+## Usage
+
+> [!WARNING]
+> This app is currently pre-alpha and is not yet a good daily driver for playing music you don't mind getting sucked into a black hole.
+> 
+> THERE BE DRAGONS
+> 
+> With that said, with the 1.0.0 release candidate, a proper signed build will be added and this message will be removed.
+>
+> For meow, you'll have to build the app per the [dev](#run-the-app) section 👌
 
 ## Development
 
@@ -42,10 +58,10 @@ The `repeater` script provides automatic reloading for Tkinter applications duri
 #### Installation
 
 ```bash
-uv sync  # Install all dependencies including watchdog
+uv sync --all-extras  # Install all dependencies including watchdog
 ```
 
-#### Usage
+#### Run the app
 
 ```bash
 # Watch main.py and default directories (core/, utils/)
@@ -58,23 +74,24 @@ uv run python repeater main.py
 #### Watched Paths
 
 By default, watches:
-- **Main file**: `main.py` (or specified file)
-- **core/**: Business logic directory (recursive)
-- **utils/**: Utilities directory (recursive)
+
+* **Main file**: `main.py` (or specified file)
+* **core/**: Business logic directory (recursive)
+* **utils/**: Utilities directory (recursive)
 
 #### Runtime Commands
 
-- **`h`**: Show help and current status
-- **`r`**: Manual restart of the application
-- **`a`**: Toggle auto-reload on/off
-- **`Ctrl+C`**: Exit the application gracefully
+* **`h`**: Show help and current status
+* **`r`**: Manual restart of the application
+* **`a`**: Toggle auto-reload on/off
+* **`Ctrl+C`**: Exit the application gracefully
 
 #### Features
 
-- Multi-directory watching
-- Content-aware reloading (only when content changes)
-- Rich console output with progress indicators
-- Cross-platform support (Windows, macOS, Linux)
+* Multi-directory watching
+* Content-aware reloading (only when content changes)
+* Rich console output with progress indicators
+* Cross-platform support (Windows, macOS, Linux)
 
 <!-- TODO: install -->
 
