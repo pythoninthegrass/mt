@@ -23,6 +23,7 @@ class PlayerCore:
         self.progress_bar = None
         self.window = None
         self.favorites_manager = None
+        self.current_file = None  # Track currently playing file
 
         # Set up end of track event handler
         self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
@@ -40,6 +41,8 @@ class PlayerCore:
         if not self.is_playing:
             if self.media_player.get_media() is not None:
                 self.media_player.play()
+                # Wait for media to be ready (shorter timeout since media already loaded)
+                self._wait_for_media_loaded(timeout=0.5)
                 self.is_playing = True
                 self._update_track_info()
                 # Refresh colors to update play/pause indicator
@@ -166,8 +169,11 @@ class PlayerCore:
             )
 
             self.media_player.stop()
+            # Clear media from VLC to ensure clean state
+            self.media_player.set_media(None)
             self.is_playing = False
             self.current_time = 0
+            self.current_file = None  # Clear current file on stop
 
             # Hide playback elements in progress bar
             if self.progress_bar:
@@ -239,11 +245,39 @@ class PlayerCore:
             print(f"Exception in set_volume: {e}")
             return -1
 
+    def _wait_for_media_loaded(self, timeout: float = 2.0) -> bool:
+        """Wait for VLC media to be loaded after play() call.
+        
+        Args:
+            timeout: Maximum time to wait in seconds (default: 2.0)
+            
+        Returns:
+            bool: True if media loaded successfully, False if timeout
+        """
+        import time
+        
+        start_time = time.time()
+        poll_interval = 0.05  # Poll every 50ms
+        
+        while time.time() - start_time < timeout:
+            media = self.media_player.get_media()
+            if media is not None:
+                mrl = media.get_mrl()
+                if mrl:
+                    return True
+            time.sleep(poll_interval)
+        
+        # Timeout - media didn't load
+        return False
+
     def _play_file(self, filepath: str) -> None:
         """Play a specific file."""
         if not os.path.exists(filepath):
             print(f"File not found on disk: {filepath}")
             return
+
+        # Store the filepath immediately for reliable access
+        self.current_file = filepath
 
         # Store the current volume before changing media
         current_volume = self.get_volume()
@@ -251,6 +285,11 @@ class PlayerCore:
         media = self.player.media_new(filepath)
         self.media_player.set_media(media)
         self.media_player.play()
+        
+        # Wait for VLC to load the media asynchronously
+        if not self._wait_for_media_loaded(timeout=2.0):
+            print(f"Warning: Media loading timeout for {filepath}")
+        
         self.media_player.set_time(0)  # Ensure track starts from beginning
         self.current_time = 0
         self.is_playing = True
@@ -458,15 +497,20 @@ class PlayerCore:
                 "queue_position": f"{current_index + 1}/{len(children)}",
             }
             
-            # Get filepath from VLC media player (the actual playing file)
-            media = self.media_player.get_media()
-            if media:
-                mrl = media.get_mrl()
-                # Convert file:// URL to normal path
-                if mrl.startswith('file://'):
-                    from urllib.parse import unquote
-                    filepath = unquote(mrl[7:])  # Remove 'file://' prefix
-                    track_info["filepath"] = filepath
+            # Use current_file as the reliable source for filepath
+            # This is set immediately when playback starts, before VLC finishes loading
+            if self.current_file:
+                track_info["filepath"] = self.current_file
+            else:
+                # Fallback: try to get filepath from VLC media player
+                media = self.media_player.get_media()
+                if media:
+                    mrl = media.get_mrl()
+                    # Convert file:// URL to normal path
+                    if mrl and mrl.startswith('file://'):
+                        from urllib.parse import unquote
+                        filepath = unquote(mrl[7:])  # Remove 'file://' prefix
+                        track_info["filepath"] = filepath
                 
             return track_info
         else:

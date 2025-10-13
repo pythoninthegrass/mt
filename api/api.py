@@ -343,10 +343,17 @@ class APIServer:
             except Exception as e:
                 log_message(message_type="add_to_queue_error", filepath=filepath, error=str(e))
 
+        # Set playback context to use the queue table
+        self.music_player.playback_context = None
+        # Reload queue view to show the added tracks
+        self.music_player.load_queue()
+
         return {'status': 'success', 'added': added_count}
 
     def _handle_clear_queue(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle clearing the queue."""
+        # Stop playback and clear media to ensure clean state
+        self.music_player.player_core.stop(reason="queue_cleared")
         self.music_player.queue_manager.clear_queue()
         self.music_player.load_queue()  # Refresh the queue view
         return {'status': 'success'}

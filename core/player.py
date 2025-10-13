@@ -857,21 +857,27 @@ class MusicPlayer:
             if not selected_items:
                 return "break"
 
-            item_values = self.queue_view.queue.item(selected_items[0])['values']
+            item_id = selected_items[0]
+            item_values = self.queue_view.queue.item(item_id)['values']
             if not item_values:
                 return "break"
 
             track_num, title, artist, album, year = item_values
 
-            # Format track number to ensure it's zero-padded for database matching
-            # Tkinter may strip leading zeros, so we need to reformat
-            if track_num:
-                with suppress(ValueError, TypeError):
-                    track_num = f"{int(track_num):02d}"
+            # First check if we have a direct filepath mapping (for queued tracks)
+            filepath = None
+            if hasattr(self, '_item_filepath_map') and item_id in self._item_filepath_map:
+                filepath = self._item_filepath_map[item_id]
+            else:
+                # Format track number to ensure it's zero-padded for database matching
+                # Tkinter may strip leading zeros, so we need to reformat
+                if track_num:
+                    with suppress(ValueError, TypeError):
+                        track_num = f"{int(track_num):02d}"
 
-            # Use strict matching to ensure we play the exact track that was selected
-            # This prevents fallback to title-only matching which could load wrong versions
-            filepath = self.db.find_file_by_metadata_strict(title, artist, album, track_num)
+                # Use strict matching to ensure we play the exact track that was selected
+                # This prevents fallback to title-only matching which could load wrong versions
+                filepath = self.db.find_file_by_metadata_strict(title, artist, album, track_num)
 
             # Log the double-click action with track details
             log_player_action("play_selected", title=title, artist=artist, album=album, filepath=filepath)
