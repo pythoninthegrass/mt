@@ -5,7 +5,9 @@ description = "mt is a simple desktop music player designed for large music coll
 authors = [
     { name = "pythoninthegrass", email = "4097471+pythoninthegrass@users.noreply.github.com" }
 ]
+
 requires-python = ">=3.11,<3.12"
+
 dependencies = [
     "customtkinter>=5.2.2",
     "eliot-tree>=24.0.0",
@@ -34,6 +36,21 @@ test = [
     "pytest==8.3.4",
     "pytest-asyncio==0.25.2",
     "pytest-cov==6.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+python_classes = "Test*"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--durations=10 -v -p no:pydust"
+markers = [
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+    "benchmark: marks performance benchmark tests"
 ]
 
 [project.scripts]

@@ -53,26 +53,26 @@ uv run ruff check --fix --respect-gitignore
 # Run formatting
 uv run ruff format --respect-gitignore
 
-# Run all tests
-uv run pytest tests/ -v -p no:pydust
+# Run all tests (note: -v and -p no:pydust are configured by default)
+uv run pytest tests/
 
 # Run ONLY unit tests (fast, for development)
-uv run pytest tests/test_unit_*.py -v -p no:pydust
+uv run pytest tests/test_unit_*.py
 
 # Run ONLY property-based tests (fast, for invariant validation)
-uv run pytest tests/test_props_*.py -v -p no:pydust
+uv run pytest tests/test_props_*.py
 
 # Run property tests with more examples (thorough)
-uv run pytest tests/test_props_*.py -v --hypothesis-profile=thorough -p no:pydust
+uv run pytest tests/test_props_*.py --hypothesis-profile=thorough
 
 # Run property tests with statistics
-uv run pytest tests/test_props_*.py -v --hypothesis-show-statistics -p no:pydust
+uv run pytest tests/test_props_*.py --hypothesis-show-statistics
 
 # Run ONLY E2E tests (slower, for integration validation)
-uv run pytest tests/test_e2e_*.py -v -p no:pydust
+uv run pytest tests/test_e2e_*.py
 
 # Run unit + property tests (fast development feedback)
-uv run pytest tests/test_unit_*.py tests/test_props_*.py -v -p no:pydust
+uv run pytest tests/test_unit_*.py tests/test_props_*.py
 
 # Run pre-commit hooks
 pre-commit run --all-files

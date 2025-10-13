@@ -138,25 +138,27 @@ def test_shuffle_preserves_queue_items(queue_manager, filepaths):
 
 ```bash
 # Run ONLY unit tests (fast, for development)
-uv run pytest tests/test_unit_*.py -v -p no:pydust
+uv run pytest tests/test_unit_*.py
 
 # Run ONLY property tests (fast, for invariant validation)
-uv run pytest tests/test_props_*.py -v -p no:pydust
+uv run pytest tests/test_props_*.py
 
 # Run property tests with more examples (thorough)
-uv run pytest tests/test_props_*.py -v --hypothesis-profile=thorough -p no:pydust
+uv run pytest tests/test_props_*.py --hypothesis-profile=thorough
 
 # Run property tests with statistics
-uv run pytest tests/test_props_*.py -v --hypothesis-show-statistics -p no:pydust
+uv run pytest tests/test_props_*.py --hypothesis-show-statistics
 
 # Run ONLY E2E tests (slower, for integration validation)
-uv run pytest tests/test_e2e_*.py -v -p no:pydust
+uv run pytest tests/test_e2e_*.py
 
 # Run unit + property tests (fast development feedback)
-uv run pytest tests/test_unit_*.py tests/test_props_*.py -v -p no:pydust
+uv run pytest tests/test_unit_*.py tests/test_props_*.py
 
 # Run all tests
-uv run pytest tests/ -v -p no:pydust
+uv run pytest tests/
+
+# Note: -v and -p no:pydust flags are configured by default in pyproject.toml
 ```
 
 ## Test Organization
