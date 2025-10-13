@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
+from contextlib import suppress
 from decouple import config
 from pathlib import Path
 
@@ -147,20 +148,63 @@ def api_client(app_process):
 
 @pytest.fixture
 def clean_queue(api_client):
-    """Clear the queue before and after each test.
+    """Clear the queue and reset application state before and after each test.
+
+    Resets the following stateful variables to ensure test isolation:
+    - Queue content (cleared)
+    - VLC media player state (stopped if playing, media cleared)
+    - Current view (reset to 'queue')
+    - Loop state (disabled)
+    - Shuffle state (disabled)
+    - Volume (set to 80%)
 
     Args:
         api_client: Connected API client
     """
-    # Clear queue before test
-    clear_response = api_client.send('clear_queue')
-    assert clear_response['status'] == 'success', f"Failed to clear queue: {clear_response}"
+    def reset_state():
+        """Reset all application state variables."""
+        # Clear queue first (this is critical)
+        clear_response = api_client.send('clear_queue')
+        assert clear_response['status'] == 'success', f"Failed to clear queue: {clear_response}"
 
-    # Verify queue is actually empty
-    queue_check = api_client.send('get_queue')
-    assert queue_check['count'] == 0, f"Queue not empty after clear: {queue_check['count']} items"
+        # Verify queue is actually empty
+        queue_check = api_client.send('get_queue')
+        assert queue_check['count'] == 0, f"Queue not empty after clear: {queue_check['count']} items"
+
+        # Get current state to check what needs resetting
+        status_response = api_client.send('get_status')
+        status_ok = status_response.get('status') == 'success'
+
+        if status_ok:
+            status_data = status_response.get('data', {})
+
+            # Stop playback if something is currently playing (resets VLC state)
+            if status_data.get('is_playing', False):
+                with suppress(Exception):
+                    api_client.send('stop')
+
+            # Disable loop if enabled
+            if status_data.get('loop_enabled', False):
+                with suppress(Exception):
+                    api_client.send('toggle_loop')
+
+            # Disable shuffle if enabled
+            if status_data.get('shuffle_enabled', False):
+                with suppress(Exception):
+                    api_client.send('toggle_shuffle')
+
+        # Reset view to 'queue' (now_playing view)
+        with suppress(Exception):
+            api_client.send('switch_view', view='queue')
+
+        # Set volume to consistent level (80%)
+        with suppress(Exception):
+            api_client.send('set_volume', volume=80)
+
+    # Reset state before test
+    reset_state()
 
     yield
 
-    # Clear queue after test
-    api_client.send('clear_queue')
+    # Reset state after test
+    reset_state()
