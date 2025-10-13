@@ -1,3 +1,4 @@
+import contextlib
 import random
 from core.db import MusicDatabase
 from core.logging import log_queue_operation, queue_logger
@@ -6,55 +7,316 @@ from utils.files import normalize_path
 
 
 class QueueManager:
+    """Manages the playback queue in-memory (session-only, not persisted)."""
+
     def __init__(self, db: MusicDatabase):
         self.db = db
-        self.shuffle_enabled = self.db.get_shuffle_enabled()
+        self.queue_items = []  # In-memory list of filepaths
+        self.current_index = 0  # Current playback position
+        self.shuffle_enabled = False
         self._original_order = []
         self._shuffled_order = []
         self._shuffle_generated = False
-        self._current_shuffle_pos = 0  # Track position in shuffle sequence
+        self._current_shuffle_pos = 0
 
-    def add_to_queue(self, filepath: str) -> None:
-        """Add a file to the queue."""
+    def populate_and_play(self, filepaths: list[str], start_index: int = 0) -> str | None:
+        """Replace queue with new tracks and set current position.
+
+        Args:
+            filepaths: List of file paths to add to queue
+            start_index: Index to start playback from
+
+        Returns:
+            Filepath of track to play, or None if empty
+        """
         try:
             from core.logging import log_queue_operation
 
-            log_queue_operation("add", filepath=filepath)
+            log_queue_operation("populate_and_play", count=len(filepaths), start_index=start_index)
         except ImportError:
             pass
 
-        self.db.add_to_queue(filepath)
+        self.queue_items = filepaths.copy()
+        self.current_index = start_index if 0 <= start_index < len(filepaths) else 0
+
+        # Invalidate shuffle when queue is repopulated
+        self._shuffle_generated = False
+
+        return filepaths[self.current_index] if filepaths else None
+
+    def insert_after_current(self, filepaths: list[str]) -> None:
+        """Insert tracks after currently playing track.
+
+        Args:
+            filepaths: List of file paths to insert
+        """
+        if not filepaths:
+            return
 
         try:
-            from core.logging import queue_logger
-            from eliot import log_message
+            from core.logging import log_queue_operation
 
-            log_message(message_type="queue_add_success", filepath=filepath, message="File added to queue successfully")
+            log_queue_operation("insert_after_current", count=len(filepaths), current_index=self.current_index)
         except ImportError:
             pass
 
+        insert_pos = self.current_index + 1
+        for i, filepath in enumerate(filepaths):
+            self.queue_items.insert(insert_pos + i, filepath)
+
+        # Invalidate shuffle when queue is modified
+        self._shuffle_generated = False
+
+    def add_to_queue_end(self, filepaths: list[str]) -> None:
+        """Append tracks to end of queue.
+
+        Args:
+            filepaths: List of file paths to append
+        """
+        if not filepaths:
+            return
+
+        try:
+            from core.logging import log_queue_operation
+
+            log_queue_operation("add_to_queue_end", count=len(filepaths))
+        except ImportError:
+            pass
+
+        self.queue_items.extend(filepaths)
+
+        # Invalidate shuffle when queue is modified
+        self._shuffle_generated = False
+
+    def add_to_queue(self, filepath: str) -> None:
+        """Add a single file to the end of queue (legacy compatibility).
+
+        Args:
+            filepath: File path to add
+        """
+        self.add_to_queue_end([filepath])
+
+    def reorder_queue(self, from_index: int, to_index: int) -> None:
+        """Move track from one position to another.
+
+        Args:
+            from_index: Current position of track
+            to_index: Target position for track
+        """
+        if not (0 <= from_index < len(self.queue_items)) or not (0 <= to_index < len(self.queue_items)):
+            return
+
+        if from_index == to_index:
+            return
+
+        try:
+            from core.logging import log_queue_operation
+
+            log_queue_operation("reorder", from_index=from_index, to_index=to_index, current_index=self.current_index)
+        except ImportError:
+            pass
+
+        # Remove item from original position
+        item = self.queue_items.pop(from_index)
+        # Insert at new position
+        self.queue_items.insert(to_index, item)
+
+        # Adjust current_index if affected
+        if from_index == self.current_index:
+            # Currently playing track was moved
+            self.current_index = to_index
+        elif from_index < self.current_index <= to_index:
+            # Track moved from before to after current
+            self.current_index -= 1
+        elif to_index <= self.current_index < from_index:
+            # Track moved from after to before current
+            self.current_index += 1
+
+        # Invalidate shuffle when queue is reordered
+        self._shuffle_generated = False
+
+    def move_current_to_end(self) -> None:
+        """Move the currently playing track to the end of the queue (carousel mode).
+
+        Used in loop mode to create a carousel effect where played tracks
+        move to the end, keeping upcoming tracks near the top.
+        """
+        if not self.queue_items or len(self.queue_items) <= 1:
+            return
+
+        if self.current_index >= len(self.queue_items):
+            return
+
+        try:
+            from core.logging import log_queue_operation
+
+            log_queue_operation("carousel_move", from_index=self.current_index, to_index=len(self.queue_items) - 1)
+        except ImportError:
+            pass
+
+        # Remove current track and append to end
+        track = self.queue_items.pop(self.current_index)
+        self.queue_items.append(track)
+
+        # Stay at index 0 for carousel mode - always play from the top
+        self.current_index = 0
+
+        # Invalidate shuffle when queue order changes
+        self._shuffle_generated = False
+
+    def move_last_to_beginning(self) -> None:
+        """Move the last track to the beginning of the queue (reverse carousel mode).
+
+        Used in loop mode when going backwards to create a carousel effect
+        where the previous track comes back to the top.
+        """
+        if not self.queue_items or len(self.queue_items) <= 1:
+            return
+
+        try:
+            from core.logging import log_queue_operation
+
+            log_queue_operation("carousel_move_reverse", from_index=len(self.queue_items) - 1, to_index=0)
+        except ImportError:
+            pass
+
+        # Remove last track and insert at beginning
+        track = self.queue_items.pop()
+        self.queue_items.insert(0, track)
+
+        # Current track is now at index 0
+        self.current_index = 0
+
+        # Invalidate shuffle when queue order changes
+        self._shuffle_generated = False
+
+    def remove_from_queue_at_index(self, index: int) -> None:
+        """Remove track at specific index.
+
+        Args:
+            index: Index of track to remove
+        """
+        if not (0 <= index < len(self.queue_items)):
+            return
+
+        try:
+            from core.logging import log_queue_operation
+
+            filepath = self.queue_items[index]
+            log_queue_operation("remove", index=index, filepath=filepath)
+        except ImportError:
+            pass
+
+        self.queue_items.pop(index)
+
+        # Adjust current_index if needed
+        if index < self.current_index:
+            self.current_index -= 1
+        elif index == self.current_index and self.current_index >= len(self.queue_items):
+            # Removed currently playing track and it was last
+            self.current_index = max(0, len(self.queue_items) - 1)
+
+        # Invalidate shuffle when queue is modified
+        self._shuffle_generated = False
+
     def remove_from_queue(self, title: str, artist: str = None, album: str = None, track_num: str = None) -> None:
-        """Remove a song from the queue based on its metadata."""
-        self.db.remove_from_queue(title, artist, album, track_num)
+        """Remove a song from the queue based on its metadata (legacy compatibility)."""
+        # Find matching track in queue and remove it
+        for i, filepath in enumerate(self.queue_items):
+            metadata = self.db.get_track_by_filepath(filepath)
+            if metadata and metadata[1] == title:  # metadata[1] is title
+                if artist is None or metadata[0] == artist:  # metadata[0] is artist
+                    self.remove_from_queue_at_index(i)
+                    return
 
     def clear_queue(self) -> None:
         """Clear all items from the queue."""
-        self.db.clear_queue()
+        try:
+            from core.logging import log_queue_operation
+
+            log_queue_operation("clear", count=len(self.queue_items))
+        except ImportError:
+            pass
+
+        self.queue_items = []
+        self.current_index = 0
+        self._shuffle_generated = False
 
     def get_queue_items(self) -> list[tuple]:
-        """Get all items in the queue with their metadata."""
-        return self.db.get_queue_items()
+        """Get all items in the queue with their metadata.
+
+        Returns:
+            List of tuples: (filepath, artist, title, album, track_number, date)
+        """
+        items = []
+        for filepath in self.queue_items:
+            metadata = self.db.get_track_by_filepath(filepath)
+            if metadata:
+                # metadata is (artist, title, album, track_number, date)
+                items.append((filepath, *metadata))
+            else:
+                # Fallback if metadata not found
+                items.append((filepath, "", Path(filepath).stem, "", "", ""))
+        return items
+
+    def get_current_track(self) -> str | None:
+        """Get currently playing track filepath.
+
+        Returns:
+            Filepath of current track, or None if queue empty
+        """
+        if 0 <= self.current_index < len(self.queue_items):
+            return self.queue_items[self.current_index]
+        return None
+
+    def get_queue_count(self) -> int:
+        """Get the number of items in the queue.
+
+        Returns:
+            Number of tracks in queue
+        """
+        return len(self.queue_items)
 
     def find_file_in_queue(self, title: str, artist: str = None) -> str | None:
         """Find a file in the queue based on its metadata."""
-        return self.db.find_file_in_queue(title, artist)
+        for filepath in self.queue_items:
+            metadata = self.db.get_track_by_filepath(filepath)
+            if metadata and metadata[1] == title:  # metadata[1] is title
+                if artist is None or metadata[0] == artist:  # metadata[0] is artist
+                    return filepath
+        return None
 
-    def search_queue(self, search_text):
-        """Search queue items by text across artist, title, and album."""
-        return self.db.search_queue(search_text)
+    def search_queue(self, search_text: str) -> list[tuple]:
+        """Search queue items by text across artist, title, and album.
+
+        Args:
+            search_text: Text to search for
+
+        Returns:
+            List of matching queue items
+        """
+        if not search_text:
+            return self.get_queue_items()
+
+        search_lower = search_text.lower()
+        results = []
+
+        for filepath in self.queue_items:
+            metadata = self.db.get_track_by_filepath(filepath)
+            if metadata:
+                artist, title, album, *_ = metadata
+                if search_lower in artist.lower() or search_lower in title.lower() or search_lower in album.lower():
+                    results.append((filepath, *metadata))
+
+        return results
 
     def process_dropped_files(self, paths: list[str | Path]) -> None:
-        """Process dropped files and add them to the queue."""
+        """Process dropped files and add them to the queue.
+
+        Args:
+            paths: List of file paths to add
+        """
+        filepaths = []
         for path in paths:
             if path is None:
                 continue
@@ -62,15 +324,21 @@ class QueueManager:
             try:
                 normalized_path = normalize_path(path)
                 if Path(normalized_path).exists():
-                    self.db.add_to_queue(str(normalized_path))
+                    filepaths.append(str(normalized_path))
             except (OSError, PermissionError) as e:
                 print(f"Error accessing path {path}: {e}")
                 continue
 
+        if filepaths:
+            self.add_to_queue_end(filepaths)
+
     def toggle_shuffle(self) -> bool:
-        """Toggle shuffle mode on/off and return new state."""
+        """Toggle shuffle mode on/off and return new state.
+
+        Returns:
+            New shuffle state (True if enabled)
+        """
         self.shuffle_enabled = not self.shuffle_enabled
-        self.db.set_shuffle_enabled(self.shuffle_enabled)
 
         # Invalidate shuffled order so it gets regenerated
         self._shuffle_generated = False
@@ -79,11 +347,19 @@ class QueueManager:
         return self.shuffle_enabled
 
     def is_shuffle_enabled(self) -> bool:
-        """Return current shuffle state."""
+        """Return current shuffle state.
+
+        Returns:
+            True if shuffle is enabled
+        """
         return self.shuffle_enabled
 
     def get_shuffled_queue_items(self) -> list[tuple]:
-        """Get queue items in shuffled or original order based on shuffle state."""
+        """Get queue items in shuffled or original order based on shuffle state.
+
+        Returns:
+            List of queue items (possibly shuffled)
+        """
         items = self.get_queue_items()
 
         if not self.shuffle_enabled:
@@ -99,8 +375,52 @@ class QueueManager:
         # Return items in shuffled order
         return [items[i] for i in self._shuffled_order]
 
+    def next_track(self) -> str | None:
+        """Advance to next track in queue.
+
+        Returns:
+            Filepath of next track, or None if at end
+        """
+        if not self.queue_items:
+            return None
+
+        total_items = len(self.queue_items)
+        next_index = self.get_next_track_index(self.current_index, total_items)
+
+        if next_index is not None:
+            self.current_index = next_index
+            return self.queue_items[self.current_index]
+
+        return None
+
+    def previous_track(self) -> str | None:
+        """Go to previous track in queue.
+
+        Returns:
+            Filepath of previous track, or None if at beginning
+        """
+        if not self.queue_items:
+            return None
+
+        total_items = len(self.queue_items)
+        prev_index = self.get_previous_track_index(self.current_index, total_items)
+
+        if prev_index is not None:
+            self.current_index = prev_index
+            return self.queue_items[self.current_index]
+
+        return None
+
     def get_next_track_index(self, current_index: int, total_items: int) -> int | None:
-        """Get the index of the next track considering shuffle state."""
+        """Get the index of the next track considering shuffle state.
+
+        Args:
+            current_index: Current track index
+            total_items: Total number of items in queue
+
+        Returns:
+            Index of next track, or None if none available
+        """
         if total_items <= 0:
             return None
 
@@ -112,32 +432,33 @@ class QueueManager:
                 random.shuffle(self._shuffled_order)
                 self._shuffle_generated = True
                 self._current_shuffle_pos = 0
-                print(
-                    f"Generated new shuffle order: {self._shuffled_order[:10]}... (total: {len(self._shuffled_order)})"
-                )  # Debug
 
             # In shuffle mode, we need to find where we are in the sequence
-            try:
+            with contextlib.suppress(ValueError, IndexError):
                 # Try to find current position in shuffle sequence
                 current_pos = self._shuffled_order.index(current_index)
                 self._current_shuffle_pos = current_pos
-            except (ValueError, IndexError):
-                # If current index not found, use current position or random start
-                pass
 
             # Move to next position in shuffle sequence
             self._current_shuffle_pos = (self._current_shuffle_pos + 1) % len(self._shuffled_order)
             next_track = self._shuffled_order[self._current_shuffle_pos]
-            print(
-                f"Shuffle: current_index={current_index}, shuffle_pos={self._current_shuffle_pos}, next_track={next_track}"
-            )  # Debug
             return next_track
         else:
             # In normal mode, just go to next track
-            return (current_index + 1) % total_items
+            if current_index < total_items - 1:
+                return current_index + 1
+            return None  # At end of queue
 
     def get_previous_track_index(self, current_index: int, total_items: int) -> int | None:
-        """Get the index of the previous track considering shuffle state."""
+        """Get the index of the previous track considering shuffle state.
+
+        Args:
+            current_index: Current track index
+            total_items: Total number of items in queue
+
+        Returns:
+            Index of previous track, or None if none available
+        """
         if total_items <= 0:
             return None
 
@@ -151,21 +472,17 @@ class QueueManager:
                 self._current_shuffle_pos = 0
 
             # In shuffle mode, we need to find where we are in the sequence
-            try:
+            with contextlib.suppress(ValueError, IndexError):
                 # Try to find current position in shuffle sequence
                 current_pos = self._shuffled_order.index(current_index)
                 self._current_shuffle_pos = current_pos
-            except (ValueError, IndexError):
-                # If current index not found, use current position
-                pass
 
             # Move to previous position in shuffle sequence
             self._current_shuffle_pos = (self._current_shuffle_pos - 1) % len(self._shuffled_order)
             prev_track = self._shuffled_order[self._current_shuffle_pos]
-            print(
-                f"Shuffle previous: current_index={current_index}, shuffle_pos={self._current_shuffle_pos}, prev_track={prev_track}"
-            )  # Debug
             return prev_track
         else:
             # In normal mode, just go to previous track
-            return (current_index - 1) % total_items
+            if current_index > 0:
+                return current_index - 1
+            return None  # At beginning of queue

@@ -1,7 +1,9 @@
 # TODO
 
 **Table of Contents**
+
 * [TODO](#todo)
+  * [Miscellaneous](#miscellaneous)
   * [High priority bug fixes](#high-priority-bug-fixes)
     * [Fix Controls Resizing (task-041)](#fix-controls-resizing-task-041)
     * [Fix Shuffle Randomness (task-042)](#fix-shuffle-randomness-task-042)
@@ -28,6 +30,10 @@
     * [macOS/Linux Packaging (task-019)](#macoslinux-packaging-task-019)
     * [Windows Packaging (task-020)](#windows-packaging-task-020)
     * [Code Signing (task-021)](#code-signing-task-021)
+
+## Miscellaneous
+
+* Change stats font to monospace
 
 ## High priority bug fixes
 

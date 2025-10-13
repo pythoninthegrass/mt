@@ -92,7 +92,15 @@ class PlayerCore:
                 self.stop("end_of_queue")
                 return
 
-            filepath = self._get_next_filepath()
+            # In loop mode, move current track to end for carousel effect
+            if self.loop_enabled and self.queue_manager.queue_items:
+                self.queue_manager.move_current_to_end()
+                # After moving current to end, the next track is now at current index
+                filepath = (
+                    self.queue_manager.queue_items[self.queue_manager.current_index] if self.queue_manager.queue_items else None
+                )
+            else:
+                filepath = self._get_next_filepath()
 
             # Get target track info after navigation
             target_track_info = self._get_current_track_info()
@@ -110,7 +118,13 @@ class PlayerCore:
 
             log_player_action("previous_song", trigger_source="gui", current_track=current_track_info)
 
-            filepath = self._get_previous_filepath()
+            # In loop mode, move last track to beginning for reverse carousel effect
+            if self.loop_enabled and self.queue_manager.queue_items:
+                self.queue_manager.move_last_to_beginning()
+                # After moving last to beginning, it becomes the current track at index 0
+                filepath = self.queue_manager.queue_items[0] if self.queue_manager.queue_items else None
+            else:
+                filepath = self._get_previous_filepath()
 
             # Get target track info after navigation
             target_track_info = self._get_current_track_info()
@@ -153,19 +167,14 @@ class PlayerCore:
                     current_track=self._get_current_track_info(),
                 )
 
-    def seek_to_time(
-        self, 
-        time_seconds: float, 
-        source: str = "api", 
-        timeout: float = 2.0
-    ) -> bool:
+    def seek_to_time(self, time_seconds: float, source: str = "api", timeout: float = 2.0) -> bool:
         """Seek to an absolute time position in seconds with verification.
-        
+
         Args:
             time_seconds: Target position in seconds
             source: Source of the seek operation (for logging)
             timeout: Maximum time to wait for seek completion (default 2s)
-            
+
         Returns:
             True if seek completed successfully, False otherwise
         """
@@ -179,16 +188,16 @@ class PlayerCore:
                     current_track=self._get_current_track_info(),
                 )
                 return False
-            
+
             # Convert seconds to milliseconds
             target_time_ms = int(time_seconds * 1000)
-            
+
             # Clamp to valid range
             target_time_ms = max(0, min(target_time_ms, duration_ms))
-            
+
             # Get current time before seeking
             old_time_ms = self.media_player.get_time()
-            
+
             log_player_action(
                 "seek_to_time_operation",
                 trigger_source=source,
@@ -199,23 +208,24 @@ class PlayerCore:
                 current_track=self._get_current_track_info(),
                 description=f"Seeking to {time_seconds}s ({target_time_ms}ms) via {source}",
             )
-            
+
             # Perform seek
             self.media_player.set_time(target_time_ms)
-            
+
             # Poll to verify seek completed (tolerance: ±500ms)
             import time
+
             tolerance_ms = 500
             poll_interval = 0.05  # 50ms
             elapsed = 0.0
-            
+
             while elapsed < timeout:
                 time.sleep(poll_interval)
                 elapsed += poll_interval
-                
+
                 current_time_ms = self.media_player.get_time()
                 diff = abs(current_time_ms - target_time_ms)
-                
+
                 if diff <= tolerance_ms:
                     log_player_action(
                         "seek_to_time_verified",
@@ -226,7 +236,7 @@ class PlayerCore:
                         description=f"Seek verified after {elapsed:.2f}s",
                     )
                     return True
-            
+
             # Timeout reached
             final_time_ms = self.media_player.get_time()
             log_player_action(
@@ -306,6 +316,10 @@ class PlayerCore:
             if self.progress_bar and hasattr(self.progress_bar, 'controls'):
                 self.progress_bar.controls.update_shuffle_button_color(self.shuffle_enabled)
 
+            # Refresh Now Playing view to show shuffled/unshuffled order
+            if hasattr(self, 'on_track_change') and callable(self.on_track_change):
+                self.on_track_change()
+
     def get_current_time(self) -> int:
         """Get current playback time in milliseconds."""
         return self.media_player.get_time()
@@ -333,18 +347,18 @@ class PlayerCore:
 
     def _wait_for_media_loaded(self, timeout: float = 2.0) -> bool:
         """Wait for VLC media to be loaded after play() call.
-        
+
         Args:
             timeout: Maximum time to wait in seconds (default: 2.0)
-            
+
         Returns:
             bool: True if media loaded successfully, False if timeout
         """
         import time
-        
+
         start_time = time.time()
         poll_interval = 0.05  # Poll every 50ms
-        
+
         while time.time() - start_time < timeout:
             media = self.media_player.get_media()
             if media is not None:
@@ -352,7 +366,7 @@ class PlayerCore:
                 if mrl:
                     return True
             time.sleep(poll_interval)
-        
+
         # Timeout - media didn't load
         return False
 
@@ -371,11 +385,11 @@ class PlayerCore:
         media = self.player.media_new(filepath)
         self.media_player.set_media(media)
         self.media_player.play()
-        
+
         # Wait for VLC to load the media asynchronously
         if not self._wait_for_media_loaded(timeout=2.0):
             print(f"Warning: Media loading timeout for {filepath}")
-        
+
         self.media_player.set_time(0)  # Ensure track starts from beginning
         self.current_time = 0
         self.is_playing = True
@@ -394,13 +408,21 @@ class PlayerCore:
             self.progress_bar.progress_control.show_playback_elements()
 
         # Update play button to pause symbol since we're now playing
-        if self.progress_bar and hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
+        if (
+            self.progress_bar
+            and hasattr(self.progress_bar, 'controls')
+            and hasattr(self.progress_bar.controls, 'update_play_button')
+        ):
             self.progress_bar.controls.update_play_button(True)
-        
+
         # Update favorite button icon based on track's favorite status
         if self.favorites_manager and self.progress_bar and hasattr(self.progress_bar, 'controls'):
             is_favorite = self.favorites_manager.is_favorite(filepath)
             self.progress_bar.controls.update_favorite_button(is_favorite)
+
+        # Notify track change for view updates
+        if hasattr(self, 'on_track_change') and callable(self.on_track_change):
+            self.on_track_change()
 
     def _select_item_by_filepath(self, filepath: str) -> None:
         """Find and select the item in the queue view that corresponds to the given filepath."""
@@ -444,18 +466,25 @@ class PlayerCore:
                 break
 
     def _update_track_info(self) -> None:
-        """Update track info in progress bar based on current selection."""
-        if not self.progress_bar or not self.queue_view:
+        """Update track info in progress bar based on current file."""
+        if not self.progress_bar:
             return
 
-        current_selection = self.queue_view.selection()
-        if current_selection:
-            values = self.queue_view.item(current_selection[0])['values']
-            if values and len(values) >= 3:
-                # Queue view columns are: track, title, artist, album, year
-                track_num, title, artist, album, year = values
-                # We should always have values since we set defaults in _populate_queue_view
+        # Use current_file to get track info from database
+        if self.current_file and self.db:
+            track_data = self.db.get_track_by_filepath(self.current_file)
+            if track_data:
+                artist, title, album, track_number, date = track_data
+                # Provide fallback values if artist or title are empty
+                artist = artist or "Unknown Artist"
+                title = title or "Unknown Title"
                 self.progress_bar.update_track_info(title=title, artist=artist)
+            else:
+                # Track not found in database - try to use filename
+                import os
+
+                filename = os.path.basename(self.current_file)
+                self.progress_bar.update_track_info(title=filename, artist="Unknown Artist")
         else:
             self.progress_bar.clear_track_info()
 
@@ -477,88 +506,18 @@ class PlayerCore:
         return self.db.find_file_by_metadata(title, artist, album, track_num)
 
     def _get_next_filepath(self) -> str | None:
-        """Get filepath of next song."""
-        children = self.queue_view.get_children()
-        if not children:
-            print("No children in queue")  # Debug log
-            return None
-
-        current_selection = self.queue_view.selection()
-        if not current_selection:
-            # If nothing is selected, start with the first item
-            print("No selection, starting with first item")  # Debug log
-            next_index = 0
-        else:
-            current_index = children.index(current_selection[0])
-            print(f"Current index: {current_index}")  # Debug log
-            # If loop is disabled and on the last song, then stop playback
-            if not self.loop_enabled and current_index == len(children) - 1 and not self.shuffle_enabled:
-                print("Last song and loop disabled")  # Debug log
-                return None
-
-            # Use QueueManager to get next track index (handles shuffle)
-            next_index = self.queue_manager.get_next_track_index(current_index, len(children))
-            if next_index is None:
-                return None
-            print(f"Next index: {next_index}")  # Debug log
-
-        next_item = children[next_index]
-        self.queue_view.selection_set(next_item)
-        self.queue_view.see(next_item)
-
-        values = self.queue_view.item(next_item)['values']
-        if not values:
-            print("No values for next item")  # Debug log
-            return None
-
-        track_num, title, artist, album, year = values
-        return self.db.find_file_by_metadata(title, artist, album, track_num)
+        """Get filepath of next song using in-memory queue."""
+        return self.queue_manager.next_track()
 
     def _get_previous_filepath(self) -> str | None:
-        """Get filepath of previous song."""
-        children = self.queue_view.get_children()
-        if not children:
-            print("No children in queue")  # Debug log
-            return None
-
-        current_selection = self.queue_view.selection()
-        if not current_selection:
-            # If nothing is selected, start with the last item
-            print("No selection, starting with last item")  # Debug log
-            prev_index = len(children) - 1
-        else:
-            current_index = children.index(current_selection[0])
-            print(f"Current index: {current_index}")  # Debug log
-            # Use QueueManager to get previous track index (handles shuffle)
-            prev_index = self.queue_manager.get_previous_track_index(current_index, len(children))
-            if prev_index is None:
-                return None
-            print(f"Previous index: {prev_index}")  # Debug log
-
-        prev_item = children[prev_index]
-        self.queue_view.selection_set(prev_item)
-        self.queue_view.see(prev_item)
-
-        values = self.queue_view.item(prev_item)['values']
-        if not values:
-            print("No values for previous item")  # Debug log
-            return None
-
-        track_num, title, artist, album, year = values
-        return self.db.find_file_by_metadata(title, artist, album, track_num)
+        """Get filepath of previous song using in-memory queue."""
+        return self.queue_manager.previous_track()
 
     def _is_last_song(self) -> bool:
-        """Check if current song is last in queue."""
-        children = self.queue_view.get_children()
-        if not children:
+        """Check if current song is last in queue using in-memory queue."""
+        if not self.queue_manager.queue_items:
             return True
-
-        current_selection = self.queue_view.selection()
-        if not current_selection:
-            return False
-
-        current_index = children.index(current_selection[0])
-        return current_index == len(children) - 1
+        return self.queue_manager.current_index == len(self.queue_manager.queue_items) - 1
 
     def _get_current_track_info(self) -> dict[str, any]:
         """Get current track information for logging."""
@@ -573,7 +532,7 @@ class PlayerCore:
         values = self.queue_view.item(current_item).get('values', [])
         if len(values) >= 4:
             track_num, title, artist, album = values[0:4]
-            
+
             track_info = {
                 "track_num": track_num,
                 "title": title,
@@ -582,7 +541,7 @@ class PlayerCore:
                 "queue_index": current_index,
                 "queue_position": f"{current_index + 1}/{len(children)}",
             }
-            
+
             # Use current_file as the reliable source for filepath
             # This is set immediately when playback starts, before VLC finishes loading
             if self.current_file:
@@ -595,9 +554,10 @@ class PlayerCore:
                     # Convert file:// URL to normal path
                     if mrl and mrl.startswith('file://'):
                         from urllib.parse import unquote
+
                         filepath = unquote(mrl[7:])  # Remove 'file://' prefix
                         track_info["filepath"] = filepath
-                
+
             return track_info
         else:
             return {"track": "unknown", "index": current_index}

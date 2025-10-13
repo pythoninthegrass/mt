@@ -1,7 +1,7 @@
-"""Unit tests for QueueManager using mocked database.
+"""Unit tests for QueueManager with in-memory queue.
 
-These tests use mocked database to avoid external dependencies.
-They run fast (<1s total) and test core logic deterministically.
+These tests use mocked database for metadata operations only.
+They test the core in-memory queue logic deterministically.
 """
 
 import pytest
@@ -18,15 +18,10 @@ from core.queue import QueueManager
 
 @pytest.fixture
 def mock_db():
-    """Mock MusicDatabase."""
+    """Mock MusicDatabase for metadata operations."""
     db = Mock()
     db.get_shuffle_enabled.return_value = False
-    db.get_queue_items.return_value = []
-    db.add_to_queue.return_value = None
-    db.remove_from_queue.return_value = None
-    db.clear_queue.return_value = None
-    db.find_file_in_queue.return_value = None
-    db.search_queue.return_value = []
+    db.get_track_by_filepath.return_value = None
     return db
 
 
@@ -43,91 +38,201 @@ class TestQueueManagerInitialization:
         """Test that QueueManager initializes with correct default values."""
         assert queue_manager.db == mock_db
         assert queue_manager.shuffle_enabled is False
-        assert queue_manager._original_order == []
+        assert queue_manager.queue_items == []
+        assert queue_manager.current_index == 0
         assert queue_manager._shuffled_order == []
         assert queue_manager._shuffle_generated is False
-        assert queue_manager._current_shuffle_pos == 0
 
     def test_initialization_with_shuffle_enabled(self, mock_db):
-        """Test initialization when shuffle is enabled in database."""
-        mock_db.get_shuffle_enabled.return_value = True
+        """Test initialization always starts with shuffle disabled."""
+        # Note: shuffle state is not loaded from database on init
+        # It's managed in-memory only during the session
         manager = QueueManager(mock_db)
-        assert manager.shuffle_enabled is True
+        assert manager.shuffle_enabled is False
 
 
 class TestQueueManagerBasicOperations:
     """Test basic queue operations."""
 
-    def test_add_to_queue(self, queue_manager, mock_db):
-        """Test adding a file to queue."""
-        filepath = "/path/to/song1.mp3"
-        queue_manager.add_to_queue(filepath)
+    def test_populate_and_play(self, queue_manager):
+        """Test populating queue and starting playback."""
+        filepaths = ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3"]
 
-        # Should call database add_to_queue with the filepath
-        mock_db.add_to_queue.assert_called_once_with(filepath)
+        result = queue_manager.populate_and_play(filepaths, start_index=1)
 
-    def test_remove_from_queue(self, queue_manager, mock_db):
-        """Test removing item from queue by metadata."""
-        title = "Test Song"
-        artist = "Test Artist"
-        queue_manager.remove_from_queue(title, artist)
+        assert queue_manager.queue_items == filepaths
+        assert queue_manager.current_index == 1
+        assert result == "/test/song2.mp3"
+        assert queue_manager._shuffle_generated is False
 
-        mock_db.remove_from_queue.assert_called_once_with(title, artist, None, None)
+    def test_populate_and_play_empty(self, queue_manager):
+        """Test populating with empty list."""
+        result = queue_manager.populate_and_play([])
 
-    def test_clear_queue(self, queue_manager, mock_db):
-        """Test clearing queue."""
-        queue_manager.clear_queue()
+        assert queue_manager.queue_items == []
+        assert result is None
 
-        mock_db.clear_queue.assert_called_once()
+    def test_insert_after_current(self, queue_manager):
+        """Test inserting tracks after current position."""
+        # Setup initial queue
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3", "/test/song5.mp3"]
+        queue_manager.current_index = 1
+
+        # Insert new tracks after current
+        queue_manager.insert_after_current(["/test/song3.mp3", "/test/song4.mp3"])
+
+        expected = ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3", "/test/song4.mp3", "/test/song5.mp3"]
+        assert queue_manager.queue_items == expected
+        assert queue_manager.current_index == 1  # Should remain unchanged
+
+    def test_insert_after_current_empty_queue(self, queue_manager):
+        """Test inserting into empty queue."""
+        queue_manager.insert_after_current(["/test/song1.mp3"])
+
+        assert queue_manager.queue_items == ["/test/song1.mp3"]
+
+    def test_add_to_queue_end(self, queue_manager):
+        """Test adding tracks to end of queue."""
+        queue_manager.queue_items = ["/test/song1.mp3"]
+
+        queue_manager.add_to_queue_end(["/test/song2.mp3", "/test/song3.mp3"])
+
+        assert queue_manager.queue_items == ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3"]
+
+    def test_remove_from_queue_at_index(self, queue_manager):
+        """Test removing track at specific index."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3"]
+        queue_manager.current_index = 1
+
+        queue_manager.remove_from_queue_at_index(2)
+
+        assert queue_manager.queue_items == ["/test/song1.mp3", "/test/song2.mp3"]
+        assert queue_manager.current_index == 1  # Unchanged
+
+    def test_remove_current_track(self, queue_manager):
+        """Test removing the currently playing track."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3"]
+        queue_manager.current_index = 1
+
+        queue_manager.remove_from_queue_at_index(1)
+
+        assert queue_manager.queue_items == ["/test/song1.mp3", "/test/song3.mp3"]
+        assert queue_manager.current_index == 1  # Adjusted to next track
 
     def test_get_queue_items(self, queue_manager, mock_db):
         """Test getting queue items."""
-        expected_items = [
-            {"id": 1, "filepath": "/test/song1.mp3"},
-            {"id": 2, "filepath": "/test/song2.mp3"},
-        ]
-        mock_db.get_queue_items.return_value = expected_items
+        # Setup queue
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3"]
+
+        # Mock database to return metadata (without filepath)
+        def get_track(filepath):
+            if "song1" in filepath:
+                return ("Artist 1", "Title 1", "Album 1", "01", "2024")
+            if "song2" in filepath:
+                return ("Artist 2", "Title 2", "Album 2", "02", "2024")
+            return None
+
+        mock_db.get_track_by_filepath.side_effect = get_track
 
         items = queue_manager.get_queue_items()
 
-        assert items == expected_items
-        mock_db.get_queue_items.assert_called_once()
+        assert len(items) == 2
+        assert items[0] == ("/test/song1.mp3", "Artist 1", "Title 1", "Album 1", "01", "2024")
+        assert items[1] == ("/test/song2.mp3", "Artist 2", "Title 2", "Album 2", "02", "2024")
 
 
-class TestQueueManagerSearch:
-    """Test queue search functionality."""
+class TestQueueManagerReordering:
+    """Test queue reordering functionality."""
 
-    def test_find_file_in_queue(self, queue_manager, mock_db):
-        """Test finding a file in queue by metadata."""
-        title = "Test Song"
-        artist = "Test Artist"
-        expected_result = "/test/song.mp3"
-        mock_db.find_file_in_queue.return_value = expected_result
+    def test_reorder_queue_basic(self, queue_manager):
+        """Test moving track from one position to another."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3", "/test/song4.mp3"]
+        queue_manager.current_index = 0
 
-        result = queue_manager.find_file_in_queue(title, artist)
+        queue_manager.reorder_queue(from_index=1, to_index=3)
 
-        assert result == expected_result
-        mock_db.find_file_in_queue.assert_called_once_with(title, artist)
+        # song2 should move from position 1 to position 3
+        expected = ["/test/song1.mp3", "/test/song3.mp3", "/test/song4.mp3", "/test/song2.mp3"]
+        assert queue_manager.queue_items == expected
 
-    def test_search_queue(self, queue_manager, mock_db):
-        """Test searching queue."""
-        query = "test query"
-        expected_results = [
-            {"id": 1, "title": "Test Song 1"},
-            {"id": 2, "title": "Test Song 2"},
-        ]
-        mock_db.search_queue.return_value = expected_results
+    def test_reorder_adjusts_current_index(self, queue_manager):
+        """Test that current_index adjusts when moving currently playing track."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3"]
+        queue_manager.current_index = 1
 
-        results = queue_manager.search_queue(query)
+        queue_manager.reorder_queue(from_index=1, to_index=0)
 
-        assert results == expected_results
-        mock_db.search_queue.assert_called_once_with(query)
+        assert queue_manager.current_index == 0  # Moved with track
+
+    def test_reorder_adjusts_index_when_moving_before(self, queue_manager):
+        """Test current_index adjustment when moving track before current."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3"]
+        queue_manager.current_index = 2
+
+        queue_manager.reorder_queue(from_index=0, to_index=1)
+
+        assert queue_manager.current_index == 2  # Should remain at same track
+
+
+class TestQueueManagerNavigation:
+    """Test track navigation functionality."""
+
+    def test_get_current_track(self, queue_manager):
+        """Test getting current track."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3"]
+        queue_manager.current_index = 1
+
+        assert queue_manager.get_current_track() == "/test/song2.mp3"
+
+    def test_get_current_track_empty_queue(self, queue_manager):
+        """Test getting current track from empty queue."""
+        assert queue_manager.get_current_track() is None
+
+    def test_next_track(self, queue_manager):
+        """Test moving to next track."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3"]
+        queue_manager.current_index = 0
+
+        result = queue_manager.next_track()
+
+        assert result == "/test/song2.mp3"
+        assert queue_manager.current_index == 1
+
+    def test_next_track_at_end_returns_none(self, queue_manager):
+        """Test next track returns None when at end (no wrapping)."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3"]
+        queue_manager.current_index = 1
+
+        result = queue_manager.next_track()
+
+        assert result is None
+        assert queue_manager.current_index == 1  # Stays at same position
+
+    def test_previous_track(self, queue_manager):
+        """Test moving to previous track."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3", "/test/song3.mp3"]
+        queue_manager.current_index = 2
+
+        result = queue_manager.previous_track()
+
+        assert result == "/test/song2.mp3"
+        assert queue_manager.current_index == 1
+
+    def test_previous_track_at_beginning_returns_none(self, queue_manager):
+        """Test previous track returns None when at beginning (no wrapping)."""
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3"]
+        queue_manager.current_index = 0
+
+        result = queue_manager.previous_track()
+
+        assert result is None
+        assert queue_manager.current_index == 0  # Stays at same position
 
 
 class TestQueueManagerShuffle:
     """Test shuffle functionality."""
 
-    def test_toggle_shuffle_off_to_on(self, queue_manager, mock_db):
+    def test_toggle_shuffle_off_to_on(self, queue_manager):
         """Test enabling shuffle."""
         queue_manager.shuffle_enabled = False
 
@@ -135,9 +240,8 @@ class TestQueueManagerShuffle:
 
         assert result is True
         assert queue_manager.shuffle_enabled is True
-        mock_db.set_shuffle_enabled.assert_called_once_with(True)
 
-    def test_toggle_shuffle_on_to_off(self, queue_manager, mock_db):
+    def test_toggle_shuffle_on_to_off(self, queue_manager):
         """Test disabling shuffle."""
         queue_manager.shuffle_enabled = True
 
@@ -145,17 +249,14 @@ class TestQueueManagerShuffle:
 
         assert result is False
         assert queue_manager.shuffle_enabled is False
-        mock_db.set_shuffle_enabled.assert_called_once_with(False)
 
     def test_toggle_shuffle_invalidates_shuffled_order(self, queue_manager):
         """Test that toggling shuffle invalidates the shuffled order."""
         queue_manager._shuffle_generated = True
-        queue_manager._current_shuffle_pos = 5
 
         queue_manager.toggle_shuffle()
 
         assert queue_manager._shuffle_generated is False
-        assert queue_manager._current_shuffle_pos == 0
 
     def test_is_shuffle_enabled(self, queue_manager):
         """Test checking shuffle state."""
@@ -165,109 +266,35 @@ class TestQueueManagerShuffle:
         queue_manager.shuffle_enabled = False
         assert queue_manager.is_shuffle_enabled() is False
 
-    def test_get_shuffled_queue_items_when_disabled(self, queue_manager, mock_db):
-        """Test getting shuffled items when shuffle is disabled."""
-        queue_manager.shuffle_enabled = False
-        expected_items = [{"id": 1}, {"id": 2}, {"id": 3}]
-        mock_db.get_queue_items.return_value = expected_items
-
-        items = queue_manager.get_shuffled_queue_items()
-
-        # Should return items in original order
-        assert items == expected_items
-
-    def test_get_shuffled_queue_items_when_enabled(self, queue_manager, mock_db):
-        """Test getting shuffled items when shuffle is enabled."""
-        queue_manager.shuffle_enabled = True
-        original_items = [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}, {"id": 5}]
-        mock_db.get_queue_items.return_value = original_items
-
-        items = queue_manager.get_shuffled_queue_items()
-
-        # Should return same items but potentially in different order
-        assert len(items) == len(original_items)
-        assert set(item["id"] for item in items) == set(item["id"] for item in original_items)
-
-
-class TestQueueManagerTrackNavigation:
-    """Test track navigation (next/previous) functionality."""
-
-    def test_get_next_track_index_sequential_mode(self, queue_manager, mock_db):
-        """Test getting next track in sequential mode."""
-        queue_manager.shuffle_enabled = False
-        total_items = 3
-
-        # Get next after first track
-        next_index = queue_manager.get_next_track_index(current_index=0, total_items=total_items)
-        assert next_index == 1
-
-        # Get next after second track
-        next_index = queue_manager.get_next_track_index(current_index=1, total_items=total_items)
-        assert next_index == 2
-
-    def test_get_next_track_index_at_end(self, queue_manager, mock_db):
-        """Test getting next track when at end of queue (wraps in sequential mode)."""
-        queue_manager.shuffle_enabled = False
-        total_items = 2
-
-        # In sequential mode, it wraps around using modulo
-        next_index = queue_manager.get_next_track_index(current_index=1, total_items=total_items)
-        assert next_index == 0  # Wraps to beginning
-
-    def test_get_next_track_index_empty_queue(self, queue_manager):
-        """Test getting next track with empty queue."""
-        queue_manager.shuffle_enabled = False
-
-        # Should return None when queue is empty
-        next_index = queue_manager.get_next_track_index(current_index=0, total_items=0)
-        assert next_index is None
-
-    def test_get_previous_track_index_sequential_mode(self, queue_manager, mock_db):
-        """Test getting previous track in sequential mode."""
-        queue_manager.shuffle_enabled = False
-        total_items = 3
-
-        # Get previous from third track
-        prev_index = queue_manager.get_previous_track_index(current_index=2, total_items=total_items)
-        assert prev_index == 1
-
-        # Get previous from second track
-        prev_index = queue_manager.get_previous_track_index(current_index=1, total_items=total_items)
-        assert prev_index == 0
-
-    def test_get_previous_track_index_at_beginning(self, queue_manager, mock_db):
-        """Test getting previous track when at beginning of queue (wraps in sequential mode)."""
-        queue_manager.shuffle_enabled = False
-        total_items = 2
-
-        # In sequential mode, it wraps around using modulo
-        prev_index = queue_manager.get_previous_track_index(current_index=0, total_items=total_items)
-        assert prev_index == 1  # Wraps to end
-
-    def test_get_previous_track_index_empty_queue(self, queue_manager):
-        """Test getting previous track with empty queue."""
-        queue_manager.shuffle_enabled = False
-
-        # Should return None when queue is empty
-        prev_index = queue_manager.get_previous_track_index(current_index=0, total_items=0)
-        assert prev_index is None
-
 
 class TestQueueManagerProcessDroppedFiles:
     """Test processing dropped files."""
 
-    def test_process_dropped_files_skips_none(self, queue_manager, mock_db):
-        """Test that None values in dropped files are skipped."""
-        files = ["/test/song1.mp3", None, "/test/song2.mp3"]
+    def test_process_dropped_files_adds_to_queue(self, queue_manager):
+        """Test that valid dropped files are added to queue."""
+        files = ["/test/song1.mp3", "/test/song2.mp3"]
 
         # Mock Path.exists to return True
         with patch.object(Path, "exists", return_value=True):
             queue_manager.process_dropped_files(files)
 
-        # Should only add the non-None files
-        assert mock_db.add_to_queue.call_count == 2
+        # Should add files to end of queue
+        assert len(queue_manager.queue_items) == 2
+        assert "/test/song1.mp3" in queue_manager.queue_items
+        assert "/test/song2.mp3" in queue_manager.queue_items
 
-    def test_process_dropped_files_skips_nonexistent(self, queue_manager, mock_db):
+    def test_process_dropped_files_skips_none(self, queue_manager):
+        """Test that None values in dropped files are skipped."""
+        files = ["/test/song1.mp3", None, "/test/song2.mp3"]
+
+        # Mock Path.exists to return True for valid paths
+        with patch.object(Path, "exists", return_value=True):
+            queue_manager.process_dropped_files(files)
+
+        # Should only add the non-None files
+        assert len(queue_manager.queue_items) == 2
+
+    def test_process_dropped_files_skips_nonexistent(self, queue_manager):
         """Test that non-existent files are skipped."""
         files = ["/test/exists.mp3", "/test/does_not_exist.mp3"]
 
@@ -277,4 +304,46 @@ class TestQueueManagerProcessDroppedFiles:
             queue_manager.process_dropped_files(files)
 
         # Should only add the existing file
-        assert mock_db.add_to_queue.call_count == 1
+        assert len(queue_manager.queue_items) == 1
+        assert "/test/exists.mp3" in queue_manager.queue_items
+
+
+class TestQueueManagerSearch:
+    """Test queue search functionality."""
+
+    def test_search_queue(self, queue_manager, mock_db):
+        """Test searching queue."""
+        # Setup queue
+        queue_manager.queue_items = ["/test/song1.mp3", "/test/song2.mp3", "/test/other.mp3"]
+
+        # Mock database to return metadata (without filepath)
+        def get_track(filepath):
+            if "song1" in filepath:
+                return ("Test Artist", "Test Song 1", "Album", "01", "2024")
+            if "song2" in filepath:
+                return ("Test Artist", "Test Song 2", "Album", "02", "2024")
+            if "other" in filepath:
+                return ("Other Artist", "Other Song", "Album", "03", "2024")
+            return None
+
+        mock_db.get_track_by_filepath.side_effect = get_track
+
+        # Search for "Test"
+        results = queue_manager.search_queue("Test")
+
+        # Should return tracks matching "Test"
+        assert len(results) == 2
+        assert all("Test" in str(result) for result in results)
+
+    def test_search_queue_no_results(self, queue_manager, mock_db):
+        """Test searching queue with no matches."""
+        queue_manager.queue_items = ["/test/song1.mp3"]
+
+        def get_track(filepath):
+            return (filepath, "Artist", "Title", "Album", "01", "2024")
+
+        mock_db.get_track_by_filepath.side_effect = get_track
+
+        results = queue_manager.search_queue("NonExistent")
+
+        assert len(results) == 0

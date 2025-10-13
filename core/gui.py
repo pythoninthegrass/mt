@@ -626,6 +626,9 @@ class QueueView:
         self.queue.bind('<Command-a>', self.select_all)  # macOS
         self.queue.bind('<Control-a>', self.select_all)  # Windows/Linux
 
+        # Setup context menu
+        self.setup_context_menu()
+
         # Add column resize handling with periodic check
         self._last_column_widths = self.get_column_widths()
         self._column_check_timer = None
@@ -637,6 +640,83 @@ class QueueView:
     def set_track_column_header(self, text: str):
         """Update the track column header text."""
         self.queue.heading('track', text=text)
+
+    def setup_context_menu(self):
+        """Setup right-click context menu for library views."""
+        self.context_menu = tk.Menu(self.queue, tearoff=0)
+
+        # Add menu items
+        self.context_menu.add_command(label="Play", command=self.on_context_play)
+        self.context_menu.add_command(label="Play Next", command=self.on_context_play_next)
+        self.context_menu.add_command(label="Add to Queue", command=self.on_context_add_to_queue)
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label="Remove from Library", command=self.on_context_remove_from_library)
+
+        # Bind right-click events
+        self.queue.bind('<Button-2>', self.show_context_menu)  # macOS/Linux right-click
+        self.queue.bind('<Control-Button-1>', self.show_context_menu)  # macOS Ctrl+click
+
+    def show_context_menu(self, event):
+        """Show context menu at cursor position.
+
+        Args:
+            event: Mouse button event
+        """
+        # Select the item under cursor if not already selected
+        item = self.queue.identify_row(event.y)
+        if item and item not in self.queue.selection():
+            self.queue.selection_set(item)
+
+        # Show menu if there's a selection
+        if self.queue.selection():
+            try:
+                self.context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                self.context_menu.grab_release()
+
+    def get_selected_tracks(self) -> list[str]:
+        """Get filepaths of selected items.
+
+        Returns:
+            List of selected track filepaths
+        """
+        selection = self.queue.selection()
+        tracks = []
+        for item in selection:
+            values = self.queue.item(item)['values']
+            if values:
+                # Filepath should be stored as last value or we need to look it up
+                # For now, we'll need to get it from the view's data structure
+                # This will be handled by the player when it passes the callback
+                tracks.append(item)  # Return item IDs for now
+        return tracks
+
+    def on_context_play(self):
+        """Handle 'Play' context menu action."""
+        if 'play_selected' in self.callbacks:
+            # Trigger the same action as double-click
+            self.callbacks['play_selected'](None)
+
+    def on_context_play_next(self):
+        """Handle 'Play Next' context menu action."""
+        if 'insert_after_current' in self.callbacks:
+            tracks = self.get_selected_tracks()
+            if tracks:
+                self.callbacks['insert_after_current'](tracks)
+
+    def on_context_add_to_queue(self):
+        """Handle 'Add to Queue' context menu action."""
+        if 'add_to_queue_end' in self.callbacks:
+            tracks = self.get_selected_tracks()
+            if tracks:
+                self.callbacks['add_to_queue_end'](tracks)
+
+    def on_context_remove_from_library(self):
+        """Handle 'Remove from Library' context menu action."""
+        if 'on_remove_from_library' in self.callbacks:
+            tracks = self.get_selected_tracks()
+            if tracks:
+                self.callbacks['on_remove_from_library'](tracks)
 
     def set_current_view(self, view: str):
         """Set the current view and load its column preferences."""

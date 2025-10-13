@@ -138,9 +138,7 @@ class TestStringOperationProperties:
         stripped = text.strip()
         assert len(stripped) <= len(text)
 
-    @given(
-        text=st.text(min_size=1, max_size=100, alphabet=st.characters(blacklist_categories=("Cs",)))
-    )
+    @given(text=st.text(min_size=1, max_size=100, alphabet=st.characters(blacklist_categories=("Cs",))))
     def test_lower_then_upper_identity(self, text):
         """Converting to lower then upper should give uppercase version."""
         lowered = text.lower()

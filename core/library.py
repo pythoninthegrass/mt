@@ -122,10 +122,10 @@ class LibraryManager:
 
     def delete_from_library(self, filepath: str) -> bool:
         """Delete a track from the library.
-        
+
         Args:
             filepath: The absolute path to the file to remove from library
-            
+
         Returns:
             bool: True if deleted successfully, False otherwise
         """

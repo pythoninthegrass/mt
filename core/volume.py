@@ -49,10 +49,7 @@ class VolumeControl:
         try:
             # Create volume icon using PNG image (15% larger than base 16px)
             volume_icon_image = load_icon(
-                self.button_symbols['volume'],
-                size=(18, 18),
-                opacity=1.0,
-                tint_color=self.theme_config['colors']['primary']
+                self.button_symbols['volume'], size=(18, 18), opacity=1.0, tint_color=self.theme_config['colors']['primary']
             )
             # Store reference to prevent garbage collection
             self.volume_icon_image = volume_icon_image
@@ -66,6 +63,7 @@ class VolumeControl:
         except Exception as e:
             print(f"Error loading volume icon: {e}")
             import traceback
+
             traceback.print_exc()
             raise
 

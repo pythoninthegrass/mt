@@ -129,9 +129,7 @@ class TestPlayerCoreSeekProperties:
         position=st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False),
         duration=st.integers(min_value=1000, max_value=600000),
     )
-    def test_seek_position_proportional_to_duration(
-        self, player_core, mock_queue_view, position, duration
-    ):
+    def test_seek_position_proportional_to_duration(self, player_core, mock_queue_view, position, duration):
         """Seek position should be proportional to duration."""
         # Set up media with variable duration
         media = MockMedia("/test/file.mp3")

@@ -270,7 +270,7 @@ class StoplightButtons:
                 # Notify callback BEFORE restoring geometry so columns resize first
                 if self.on_state_change:
                     self.on_state_change(is_maximized=False)
-                
+
                 # Restore to previous size
                 if self.pre_maximize_geometry:
                     self.window.geometry(self.pre_maximize_geometry)
@@ -291,7 +291,7 @@ class StoplightButtons:
             else:
                 # Store current geometry before maximizing
                 self.pre_maximize_geometry = self.window.geometry()
-                
+
                 # Notify callback BEFORE maximizing so columns resize during animation
                 if self.on_state_change:
                     self.on_state_change(is_maximized=True)

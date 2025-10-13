@@ -71,12 +71,19 @@ class TestQueueManagerShuffleProperties:
     @given(queue_size=st.integers(min_value=0, max_value=100))
     def test_shuffled_queue_has_same_size(self, mock_db, queue_size):
         """Shuffled queue should have same size as original."""
-        # Create mock queue items
-        queue_items = [{"id": i, "filepath": f"/test/song{i}.mp3"} for i in range(queue_size)]
-        mock_db.get_queue_items.return_value = queue_items
+        # Create in-memory queue items
+        filepaths = [f"/test/song{i}.mp3" for i in range(queue_size)]
 
         manager = QueueManager(mock_db)
+        manager.queue_items = filepaths
         manager.toggle_shuffle()
+
+        # Mock database to return metadata for each file
+        def get_track(filepath):
+            idx = filepath.split("song")[1].split(".")[0]
+            return (f"Artist {idx}", f"Title {idx}", "Album", "01", "2024")
+
+        mock_db.get_track_by_filepath.side_effect = get_track
 
         shuffled_items = manager.get_shuffled_queue_items()
 
@@ -94,19 +101,29 @@ class TestQueueManagerShuffleProperties:
     )
     def test_shuffled_queue_preserves_items(self, mock_db, queue_items):
         """Shuffled queue should contain exactly the same items as original."""
-        # Convert tuples to dict format
-        formatted_items = [{"id": item_id, "filepath": path} for item_id, path in queue_items]
-        mock_db.get_queue_items.return_value = formatted_items
+        # Convert tuples to in-memory queue format (filepaths)
+        filepaths = [path for item_id, path in queue_items]
 
         manager = QueueManager(mock_db)
+        manager.queue_items = filepaths
         manager.toggle_shuffle()
 
-        original_ids = {item["id"] for item in formatted_items}
+        # Mock database to return metadata
+        def get_track(filepath):
+            # Find the ID for this filepath
+            for item_id, path in queue_items:
+                if path == filepath:
+                    return (f"Artist {item_id}", f"Title {item_id}", "Album", "01", "2024")
+            return None
+
+        mock_db.get_track_by_filepath.side_effect = get_track
+
+        original_paths = set(filepaths)
         shuffled_items = manager.get_shuffled_queue_items()
-        shuffled_ids = {item["id"] for item in shuffled_items}
+        shuffled_paths = {item[0] for item in shuffled_items}  # First element is filepath
 
         # Same items
-        assert original_ids == shuffled_ids
+        assert original_paths == shuffled_paths
 
 
 # Note: Tests for add_to_queue, remove_from_queue, clear_queue, find_file, and search_queue
@@ -135,11 +152,19 @@ class TestQueueManagerStateProperties:
     @given(queue_size=st.integers(min_value=0, max_value=100))
     def test_get_queue_items_returns_list(self, mock_db, queue_size):
         """get_queue_items should always return a list."""
-        # Create mock queue items
-        queue_items = [{"id": i, "filepath": f"/test/song{i}.mp3"} for i in range(queue_size)]
-        mock_db.get_queue_items.return_value = queue_items
+        # Create in-memory queue items
+        filepaths = [f"/test/song{i}.mp3" for i in range(queue_size)]
 
         manager = QueueManager(mock_db)
+        manager.queue_items = filepaths
+
+        # Mock database to return metadata
+        def get_track(filepath):
+            idx = filepath.split("song")[1].split(".")[0]
+            return (f"Artist {idx}", f"Title {idx}", "Album", "01", "2024")
+
+        mock_db.get_track_by_filepath.side_effect = get_track
+
         result = manager.get_queue_items()
 
         # Should be a list

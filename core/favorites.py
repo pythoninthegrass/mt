@@ -45,7 +45,7 @@ class FavoritesManager:
                     trigger_source="gui",
                     filepath=filepath,
                     new_state="unfavorited",
-                    description="Track removed from favorites"
+                    description="Track removed from favorites",
                 )
                 self._notify_favorites_changed()
             return False
@@ -58,7 +58,7 @@ class FavoritesManager:
                     trigger_source="gui",
                     filepath=filepath,
                     new_state="favorited",
-                    description="Track added to favorites"
+                    description="Track added to favorites",
                 )
                 self._notify_favorites_changed()
             return True

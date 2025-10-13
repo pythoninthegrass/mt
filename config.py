@@ -37,6 +37,7 @@ AUDIO_EXTENSIONS = {
     '.wv',
 }
 
+
 def get_version():
     """Get version from pyproject.toml"""
     import tomllib

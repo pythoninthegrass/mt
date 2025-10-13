@@ -84,6 +84,7 @@ def app_process():
 
     if db_path.exists():
         import sqlite3
+
         # Copy entire database
         shutil.copy(db_path, test_db_path)
 
@@ -168,6 +169,7 @@ def clean_queue(api_client):
     Args:
         api_client: Connected API client
     """
+
     def reset_state():
         """Reset all application state variables."""
         # Clear queue first (this is critical)

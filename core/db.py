@@ -322,7 +322,7 @@ class MusicDatabase:
         self, title: str, artist: str | None = None, album: str | None = None, track_num: str | None = None
     ) -> str | None:
         """Find a file in the library based on exact metadata match only (no fallback).
-        
+
         This is used for highlighting currently playing tracks to avoid false matches
         when multiple versions of the same song exist.
         """
@@ -392,27 +392,23 @@ class MusicDatabase:
     def get_library_statistics(self) -> dict[str, Any]:
         """Get comprehensive library statistics including file count, size, and total duration."""
         from typing import Any
-        
-        stats = {
-            'file_count': 0,
-            'total_size_bytes': 0,
-            'total_duration_seconds': 0
-        }
-        
+
+        stats = {'file_count': 0, 'total_size_bytes': 0, 'total_duration_seconds': 0}
+
         try:
             # Get file count
             count_query = "SELECT COUNT(*) FROM library"
             self.db_cursor.execute(count_query)
             stats['file_count'] = self.db_cursor.fetchone()[0]
-            
+
             # Get all file paths and durations to calculate size and total duration
             files_query = "SELECT filepath, duration FROM library"
             self.db_cursor.execute(files_query)
             files = self.db_cursor.fetchall()
-            
+
             total_size = 0
             total_duration = 0.0
-            
+
             for filepath, duration in files:
                 # Calculate file size
                 try:
@@ -422,19 +418,19 @@ class MusicDatabase:
                 except (OSError, TypeError):
                     # Skip files that can't be accessed or don't exist
                     continue
-                
+
                 # Add duration (handle None values)
                 if duration and isinstance(duration, (int, float)):
                     total_duration += float(duration)
-            
+
             stats['total_size_bytes'] = total_size
             stats['total_duration_seconds'] = int(total_duration)
-            
+
         except Exception as e:
             print(f"Error calculating library statistics: {e}")
             # Return empty stats on error
             pass
-        
+
         return stats
 
     def remove_from_queue(self, title: str, artist: str | None = None, album: str | None = None, track_num: str | None = None):
@@ -471,40 +467,40 @@ class MusicDatabase:
 
     def delete_from_library(self, filepath: str) -> bool:
         """Delete a track from the library by its filepath.
-        
+
         Args:
             filepath: The absolute path to the file to remove from library
-            
+
         Returns:
             bool: True if deleted successfully, False otherwise
         """
         try:
             from eliot import log_message
-            
+
             # Delete from library
             self.db_cursor.execute('DELETE FROM library WHERE filepath = ?', (filepath,))
-            
+
             # Also delete from favorites if it exists
-            self.db_cursor.execute('''
+            self.db_cursor.execute(
+                '''
                 DELETE FROM favorites 
                 WHERE track_id IN (SELECT id FROM library WHERE filepath = ?)
-            ''', (filepath,))
-            
+            ''',
+                (filepath,),
+            )
+
             # Commit the changes
             self.db_conn.commit()
-            
-            log_message(
-                message_type="library_delete",
-                filepath=filepath,
-                message="Track deleted from library"
-            )
-            
+
+            log_message(message_type="library_delete", filepath=filepath, message="Track deleted from library")
+
             return True
-            
+
         except Exception as e:
             print(f"Error deleting from library: {e}")
             try:
                 from core.logging import library_logger, log_error
+
                 log_error(library_logger, e, filepath=filepath)
             except ImportError:
                 pass
@@ -534,6 +530,21 @@ class MusicDatabase:
         if result:
             return {'title': result[0], 'artist': result[1], 'album': result[2], 'track_number': result[3], 'date': result[4]}
         return {}
+
+    def get_track_by_filepath(self, filepath: str) -> tuple | None:
+        """Get track metadata as tuple by filepath.
+
+        Returns:
+            Tuple of (artist, title, album, track_number, date) or None if not found
+        """
+        query = """
+            SELECT artist, title, album, track_number, date
+            FROM library
+            WHERE filepath = ?
+        """
+        self.db_cursor.execute(query, (filepath,))
+        result = self.db_cursor.fetchone()
+        return result if result else None
 
     def find_song_by_title_artist(self, title: str, artist: str | None = None) -> tuple[str, str, str, str, str] | None:
         """Find a song in the library by title and artist.
@@ -666,14 +677,12 @@ class MusicDatabase:
             track_id = result[0]
 
             # Insert into favorites (UNIQUE constraint prevents duplicates)
-            self.db_cursor.execute(
-                'INSERT INTO favorites (track_id) VALUES (?)',
-                (track_id,)
-            )
+            self.db_cursor.execute('INSERT INTO favorites (track_id) VALUES (?)', (track_id,))
             self.db_conn.commit()
 
             try:
                 from eliot import log_message
+
                 log_message(message_type="favorite_added", filepath=filepath, track_id=track_id)
             except ImportError:
                 pass
@@ -686,6 +695,7 @@ class MusicDatabase:
         except Exception as e:
             try:
                 from core.logging import log_error
+
                 log_error(e, "Failed to add favorite", filepath=filepath)
             except ImportError:
                 pass
@@ -717,6 +727,7 @@ class MusicDatabase:
 
             try:
                 from eliot import log_message
+
                 log_message(message_type="favorite_removed", filepath=filepath, track_id=track_id)
             except ImportError:
                 pass
@@ -726,6 +737,7 @@ class MusicDatabase:
         except Exception as e:
             try:
                 from core.logging import log_error
+
                 log_error(e, "Failed to remove favorite", filepath=filepath)
             except ImportError:
                 pass
@@ -770,6 +782,7 @@ class MusicDatabase:
         except Exception as e:
             try:
                 from core.logging import log_error
+
                 log_error(e, "Failed to get liked songs")
             except ImportError:
                 pass
@@ -794,6 +807,7 @@ class MusicDatabase:
         except Exception as e:
             try:
                 from core.logging import log_error
+
                 log_error(e, "Failed to get top 25 most played")
             except ImportError:
                 pass

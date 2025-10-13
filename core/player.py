@@ -194,6 +194,9 @@ class MusicPlayer:
         # Connect progress bar to player core
         self.player_core.progress_bar = self.progress_bar
 
+        # Connect track change callback to refresh Now Playing view
+        self.player_core.on_track_change = self.on_track_change
+
         # Setup favorites callback to refresh view when favorites change
         self.favorites_manager.set_on_favorites_changed_callback(self.on_favorites_changed)
 
@@ -224,8 +227,7 @@ class MusicPlayer:
         from eliot import log_message
 
         if not API_SERVER_ENABLED:
-            log_message(message_type="api_server_disabled",
-                       message="API server is disabled in configuration")
+            log_message(message_type="api_server_disabled", message="API server is disabled in configuration")
             return
 
         try:
@@ -234,23 +236,25 @@ class MusicPlayer:
             result = self.api_server.start()
 
             if result['status'] == 'success':
-                log_message(message_type="api_server_initialized",
-                           port=API_SERVER_PORT,
-                           message="API server successfully started")
+                log_message(
+                    message_type="api_server_initialized", port=API_SERVER_PORT, message="API server successfully started"
+                )
             else:
-                log_message(message_type="api_server_failed",
-                           error=result.get('message', 'Unknown error'),
-                           message="Failed to start API server")
+                log_message(
+                    message_type="api_server_failed",
+                    error=result.get('message', 'Unknown error'),
+                    message="Failed to start API server",
+                )
                 self.api_server = None
 
         except Exception as e:
-            log_message(message_type="api_server_exception",
-                       error=str(e),
-                       message="Exception during API server initialization")
+            log_message(message_type="api_server_exception", error=str(e), message="Exception during API server initialization")
             self.api_server = None
 
     def setup_views(self):
         """Setup library and queue views with their callbacks."""
+        from core.now_playing import NowPlayingView
+
         # Setup library view
         self.library_view = LibraryView(
             self.left_panel,
@@ -259,7 +263,7 @@ class MusicPlayer:
             },
         )
 
-        # Setup queue view (search bar is now at window level)
+        # Setup queue view for library browsing (search bar is now at window level)
         self.queue_view = QueueView(
             self.right_panel,
             {
@@ -268,8 +272,28 @@ class MusicPlayer:
                 'on_song_select': self.on_song_select,
                 'handle_drop': self.handle_drop,
                 'save_column_widths': self.save_column_widths,
+                'insert_after_current': self.insert_tracks_after_current,
+                'add_to_queue_end': self.add_tracks_to_queue,
+                'on_remove_from_library': self.remove_tracks_from_library,
             },
         )
+
+        # Setup Now Playing view for queue visualization (initially hidden)
+        self.now_playing_view = NowPlayingView(
+            self.right_panel,
+            callbacks={
+                'on_queue_empty': self.on_queue_empty,
+                'on_remove_from_library': self.remove_track_from_library,
+                'on_play_track': self.play_track_at_index,
+            },
+            queue_manager=self.queue_manager,
+        )
+
+        # Initially hide Now Playing view
+        self.now_playing_view.pack_forget()
+
+        # Track which view is currently active
+        self.active_view = 'library'  # 'library' or 'now_playing'
 
     def load_ui_preferences(self):
         """Load and apply saved UI preferences."""
@@ -407,6 +431,11 @@ class MusicPlayer:
             # Refresh the liked songs view
             self.load_liked_songs()
 
+    def on_track_change(self):
+        """Callback when current track changes - refresh Now Playing view if active."""
+        if self.active_view == 'now_playing':
+            self.now_playing_view.refresh_from_queue()
+
     def on_section_select(self, event):
         """Handle library section selection."""
         with start_action(player_logger, "section_switch"):
@@ -417,63 +446,190 @@ class MusicPlayer:
                 log_player_action("section_switch_no_tags", trigger_source="gui", reason="no_tags_found")
                 return
 
-            # Get previous view state
-            previous_children_count = len(self.queue_view.queue.get_children())
-
             new_section = tags[0]
 
             log_player_action(
                 "section_switch",
                 trigger_source="gui",
                 new_section=new_section,
-                previous_item_count=previous_children_count,
-                description=f"Switched to {new_section} section",
+                description=f"Switching to {new_section} section",
             )
 
-            # Clear current view
-            for item in self.queue_view.queue.get_children():
-                self.queue_view.queue.delete(item)
-
-            if new_section == 'music':
-                self.load_library()
-                new_count = len(self.queue_view.queue.get_children())
-                log_player_action(
-                    "section_switch_complete",
-                    trigger_source="gui",
-                    section="music",
-                    loaded_items=new_count,
-                    description=f"Loaded {new_count} library items",
-                )
-            elif new_section == 'now_playing':
-                self.load_queue()
-                new_count = len(self.queue_view.queue.get_children())
+            # Switch to Now Playing view or library view
+            if new_section == 'now_playing':
+                self.show_now_playing_view()
                 log_player_action(
                     "section_switch_complete",
                     trigger_source="gui",
                     section="now_playing",
-                    loaded_items=new_count,
-                    description=f"Loaded {new_count} queue items",
+                    view="custom_widgets",
+                    queue_size=len(self.queue_manager.queue_items),
+                    description=f"Switched to Now Playing view with {len(self.queue_manager.queue_items)} tracks",
                 )
-            elif new_section == 'liked_songs':
-                self.load_liked_songs()
-                new_count = len(self.queue_view.queue.get_children())
-                log_player_action(
-                    "section_switch_complete",
-                    trigger_source="gui",
-                    section="liked_songs",
-                    loaded_items=new_count,
-                    description=f"Loaded {new_count} liked songs",
-                )
-            elif new_section == 'top_played':
-                self.load_top_25_most_played()
-                new_count = len(self.queue_view.queue.get_children())
-                log_player_action(
-                    "section_switch_complete",
-                    trigger_source="gui",
-                    section="top_played",
-                    loaded_items=new_count,
-                    description=f"Loaded {new_count} top played tracks",
-                )
+            else:
+                # Switch to library view and load content
+                self.show_library_view()
+
+                # Get previous view state
+                previous_children_count = len(self.queue_view.queue.get_children())
+
+                # Clear current view
+                for item in self.queue_view.queue.get_children():
+                    self.queue_view.queue.delete(item)
+
+                if new_section == 'music':
+                    self.load_library()
+                    new_count = len(self.queue_view.queue.get_children())
+                    log_player_action(
+                        "section_switch_complete",
+                        trigger_source="gui",
+                        section="music",
+                        loaded_items=new_count,
+                        description=f"Loaded {new_count} library items",
+                    )
+                elif new_section == 'liked_songs':
+                    self.load_liked_songs()
+                    new_count = len(self.queue_view.queue.get_children())
+                    log_player_action(
+                        "section_switch_complete",
+                        trigger_source="gui",
+                        section="liked_songs",
+                        loaded_items=new_count,
+                        description=f"Loaded {new_count} liked songs",
+                    )
+                elif new_section == 'top_played':
+                    self.load_top_25_most_played()
+                    new_count = len(self.queue_view.queue.get_children())
+                    log_player_action(
+                        "section_switch_complete",
+                        trigger_source="gui",
+                        section="top_played",
+                        loaded_items=new_count,
+                        description=f"Loaded {new_count} top played tracks",
+                    )
+
+    def show_library_view(self):
+        """Switch to library view (Treeview)."""
+        if self.active_view == 'library':
+            return  # Already showing library view
+
+        # Hide Now Playing view
+        self.now_playing_view.pack_forget()
+
+        # Show library view
+        self.queue_view.queue_frame.pack(expand=True, fill=tk.BOTH)
+
+        self.active_view = 'library'
+
+    def show_now_playing_view(self):
+        """Switch to Now Playing view (custom widgets)."""
+        if self.active_view == 'now_playing':
+            # Just refresh the view
+            self.now_playing_view.refresh_from_queue()
+            return
+
+        # Hide library view
+        self.queue_view.queue_frame.pack_forget()
+
+        # Show Now Playing view
+        self.now_playing_view.pack(expand=True, fill=tk.BOTH)
+
+        # Refresh from queue
+        self.now_playing_view.refresh_from_queue()
+
+        self.active_view = 'now_playing'
+
+    def insert_tracks_after_current(self, item_ids: list[str]):
+        """Insert selected tracks after currently playing track.
+
+        Args:
+            item_ids: List of Treeview item IDs
+        """
+        filepaths = []
+        for item_id in item_ids:
+            if item_id in self._item_filepath_map:
+                filepaths.append(self._item_filepath_map[item_id])
+
+        if filepaths:
+            self.queue_manager.insert_after_current(filepaths)
+
+            # Update Now Playing view if visible
+            if self.active_view == 'now_playing':
+                self.now_playing_view.refresh_from_queue()
+
+    def add_tracks_to_queue(self, item_ids: list[str]):
+        """Append selected tracks to end of queue.
+
+        Args:
+            item_ids: List of Treeview item IDs
+        """
+        filepaths = []
+        for item_id in item_ids:
+            if item_id in self._item_filepath_map:
+                filepaths.append(self._item_filepath_map[item_id])
+
+        if filepaths:
+            self.queue_manager.add_to_queue_end(filepaths)
+
+            # Update Now Playing view if visible
+            if self.active_view == 'now_playing':
+                self.now_playing_view.refresh_from_queue()
+
+    def remove_tracks_from_library(self, item_ids: list[str]):
+        """Remove selected tracks from library.
+
+        Args:
+            item_ids: List of Treeview item IDs
+        """
+        for item_id in item_ids:
+            if item_id in self._item_filepath_map:
+                filepath = self._item_filepath_map[item_id]
+                self.library_manager.delete_from_library(filepath)
+
+        # Refresh current view
+        # Get current section
+        selected_item = self.library_view.library_tree.selection()
+        if selected_item:
+            tags = self.library_view.library_tree.item(selected_item[0])['tags']
+            if tags:
+                section = tags[0]
+                # Reload the current section
+                if section == 'music':
+                    self.load_library()
+                elif section == 'liked_songs':
+                    self.load_liked_songs()
+                elif section == 'top_played':
+                    self.load_top_25_most_played()
+
+    def remove_track_from_library(self, filepath: str):
+        """Remove a single track from library (called from Now Playing view).
+
+        Args:
+            filepath: Path to track file
+        """
+        self.library_manager.delete_from_library(filepath)
+
+    def on_queue_empty(self):
+        """Handle queue becoming empty."""
+        # Stop playback if playing
+        if self.player_core.is_playing:
+            self.player_core.stop()
+
+    def play_track_at_index(self, index: int):
+        """Play track at specific index in queue (called from Now Playing view).
+
+        Args:
+            index: Index in queue
+        """
+        if 0 <= index < len(self.queue_manager.queue_items):
+            self.queue_manager.current_index = index
+            filepath = self.queue_manager.queue_items[index]
+            self.load_file(filepath)
+            self.player_core.play()
+
+            # Update Now Playing view
+            if self.active_view == 'now_playing':
+                self.now_playing_view.refresh_from_queue()
 
     def load_library(self):
         """Load and display library items."""
@@ -492,33 +648,6 @@ class MusicPlayer:
             return
 
         self._populate_queue_view(rows)
-        self.refresh_colors()
-
-    def load_queue(self):
-        """Load and display queue items from queue table only."""
-        # Set column header to "Playing"
-        self.queue_view.set_track_column_header('Playing')
-
-        # Adjust column width for "Playing" header (needs more space than "#")
-        self.queue_view.queue.column('track', width=80, minwidth=70)
-
-        # Set current view and restore column widths
-        self.queue_view.set_current_view('now_playing')
-
-        # Initialize filepath mapping if needed
-        if not hasattr(self, '_item_filepath_map'):
-            self._item_filepath_map = {}
-
-        # Clear current view and mapping
-        for item in self.queue_view.queue.get_children():
-            self.queue_view.queue.delete(item)
-        self._item_filepath_map.clear()
-
-        # Load tracks from queue table (sole source of truth for playback)
-        rows = self.queue_manager.get_queue_items()
-        if rows:
-            self._populate_queue_view(rows)
-
         self.refresh_colors()
 
     def load_liked_songs(self):
@@ -544,10 +673,7 @@ class MusicPlayer:
             year = self._extract_year(date)
             row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
             item_id = self.queue_view.queue.insert(
-                '',
-                'end',
-                values=(formatted_track, title or '', artist or '', album or '', year or ''),
-                tags=(row_tag,)
+                '', 'end', values=(formatted_track, title or '', artist or '', album or '', year or ''), tags=(row_tag,)
             )
             # Store filepath mapping
             self._item_filepath_map[item_id] = filepath
@@ -578,10 +704,7 @@ class MusicPlayer:
             year = self._extract_year(date)
             row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
             item_id = self.queue_view.queue.insert(
-                '',
-                'end',
-                values=(str(play_count), title or '', artist or '', album or '', year or ''),
-                tags=(row_tag,)
+                '', 'end', values=(str(play_count), title or '', artist or '', album or '', year or ''), tags=(row_tag,)
             )
             # Store filepath mapping
             self._item_filepath_map[item_id] = filepath
@@ -788,7 +911,9 @@ class MusicPlayer:
                             # Update statistics immediately
                             self.status_bar.update_statistics()
                             self.queue_manager.process_dropped_files(valid_paths)
-                            self.load_queue()
+                            # Refresh Now Playing view if currently visible
+                            if self.active_view == 'now_playing':
+                                self.now_playing_view.refresh_from_queue()
                             success = True
 
                         log_player_action(
@@ -812,7 +937,7 @@ class MusicPlayer:
                 )
 
     def play_selected(self, event=None):
-        """Play the selected track."""
+        """Play the selected track and populate queue from current view."""
         from eliot import log_message, start_action
 
         with start_action(player_logger, "play_selected_action"):
@@ -827,43 +952,50 @@ class MusicPlayer:
 
             track_num, title, artist, album, year = item_values
 
-            # First check if we have a direct filepath mapping (for queued tracks)
-            filepath = None
-            if hasattr(self, '_item_filepath_map') and item_id in self._item_filepath_map:
-                filepath = self._item_filepath_map[item_id]
-            else:
-                # Format track number to ensure it's zero-padded for database matching
-                # Tkinter may strip leading zeros, so we need to reformat
-                if track_num:
-                    with suppress(ValueError, TypeError):
-                        track_num = f"{int(track_num):02d}"
+            # Get all tracks from current view for queue population
+            all_item_ids = self.queue_view.queue.get_children()
+            all_filepaths = []
+            selected_index = 0
 
-                # Use strict matching to ensure we play the exact track that was selected
-                # This prevents fallback to title-only matching which could load wrong versions
-                filepath = self.db.find_file_by_metadata_strict(title, artist, album, track_num)
+            for i, item in enumerate(all_item_ids):
+                if item in self._item_filepath_map:
+                    filepath = self._item_filepath_map[item]
+                    all_filepaths.append(filepath)
+                    if item == item_id:
+                        selected_index = len(all_filepaths) - 1
 
-            # Log the double-click action with track details
-            log_player_action("play_selected", title=title, artist=artist, album=album, filepath=filepath)
+            # Log the double-click action
+            log_player_action("play_selected", title=title, artist=artist, album=album, queue_size=len(all_filepaths))
 
-            if filepath and os.path.exists(filepath):
-                was_playing = self.player_core.is_playing
-                self.player_core._play_file(filepath)
-                self.progress_bar.controls.update_play_button(True)
+            if all_filepaths:
+                # Populate queue and get track to play
+                track_to_play = self.queue_manager.populate_and_play(all_filepaths, selected_index)
 
-                # Update favorite button icon based on track's favorite status
-                is_favorite = self.favorites_manager.is_favorite(filepath)
-                self.progress_bar.controls.update_favorite_button(is_favorite)
+                if track_to_play and os.path.exists(track_to_play):
+                    was_playing = self.player_core.is_playing
+                    self.player_core._play_file(track_to_play)
+                    self.progress_bar.controls.update_play_button(True)
 
-                # Refresh colors to highlight the playing track
-                self.refresh_colors()
+                    # Update favorite button icon
+                    is_favorite = self.favorites_manager.is_favorite(track_to_play)
+                    self.progress_bar.controls.update_favorite_button(is_favorite)
 
-                # Log playback state change like play/pause does
-                if not was_playing:
-                    log_message(message_type="playback_state", state="started", message="Playback started from library selection")
-                else:
-                    log_message(
-                        message_type="playback_state", state="track_changed", message="Track changed from library selection"
-                    )
+                    # Refresh colors to highlight playing track
+                    self.refresh_colors()
+
+                    # Update Now Playing view if visible
+                    if self.active_view == 'now_playing':
+                        self.now_playing_view.refresh_from_queue()
+
+                    # Log playback state change
+                    if not was_playing:
+                        log_message(
+                            message_type="playback_state", state="started", message="Playback started from library selection"
+                        )
+                    else:
+                        log_message(
+                            message_type="playback_state", state="track_changed", message="Track changed from library selection"
+                        )
 
         return "break"
 
@@ -974,6 +1106,10 @@ class MusicPlayer:
 
         tag = tags[0]
 
+        # Search only works in library views, not Now Playing
+        if tag == 'now_playing':
+            return
+
         # Clear current view
         for item in self.queue_view.queue.get_children():
             self.queue_view.queue.delete(item)
@@ -981,9 +1117,6 @@ class MusicPlayer:
         if tag == 'music':
             # Search in library
             rows = self.library_manager.search_library(search_text) if search_text else self.library_manager.get_library_items()
-        elif tag == 'now_playing':
-            # Search in queue
-            rows = self.queue_manager.search_queue(search_text) if search_text else self.queue_manager.get_queue_items()
         else:
             return
 
@@ -1010,7 +1143,9 @@ class MusicPlayer:
                 if tag == 'music':
                     self.load_library()
                 elif tag == 'now_playing':
-                    self.load_queue()
+                    # Refresh Now Playing view
+                    if self.active_view == 'now_playing':
+                        self.now_playing_view.refresh_from_queue()
 
     def on_window_state_change(self, is_maximized):
         """Handle window state changes (maximize/unmaximize) to adjust column widths."""
@@ -1031,6 +1166,7 @@ class MusicPlayer:
                     current_filepath = current_filepath[7:]
                 # On macOS, decode URL characters
                 import urllib.parse
+
                 current_filepath = urllib.parse.unquote(current_filepath)
 
         # Check if we're in now_playing view to update play/pause indicators
@@ -1086,7 +1222,9 @@ class MusicPlayer:
             else:
                 # Determine if this is an even or odd row for alternating colors
                 row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-                self.queue_view.queue.item(item, tags=(row_tag,))  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log
+                self.queue_view.queue.item(
+                    item, tags=(row_tag,)
+                )  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log
 
     def update_progress(self):
         """Update progress bar position and time display."""

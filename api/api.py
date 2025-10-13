@@ -478,11 +478,7 @@ class APIServer:
             position = float(position)
             # Use seek_to_time with verification and configurable timeout
             timeout = command.get('timeout', 2.0)
-            success = self.music_player.player_core.seek_to_time(
-                position,
-                source="api",
-                timeout=timeout
-            )
+            success = self.music_player.player_core.seek_to_time(position, source="api", timeout=timeout)
             if success:
                 return {'status': 'success', 'position': position}
             else:

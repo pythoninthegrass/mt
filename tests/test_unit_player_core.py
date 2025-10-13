@@ -251,18 +251,18 @@ class TestPlayerCoreTrackNavigation:
 
     def test_is_last_song_true(self, player_core, mock_queue_manager, mock_queue_view):
         """Test detecting last song in queue."""
-        # Mock queue view with 5 items, last one selected
-        mock_queue_view.get_children.return_value = ["item1", "item2", "item3", "item4", "item5"]
-        mock_queue_view.selection.return_value = ["item5"]
+        # Mock in-memory queue with 5 items, currently at last one
+        mock_queue_manager.queue_items = [f"/path/to/song{i}.mp3" for i in range(5)]
+        mock_queue_manager.current_index = 4  # Last song
         player_core.loop_enabled = False
 
         assert player_core._is_last_song() is True
 
     def test_is_last_song_false(self, player_core, mock_queue_manager, mock_queue_view):
         """Test detecting not last song."""
-        # Mock queue view with 5 items, third one selected
-        mock_queue_view.get_children.return_value = ["item1", "item2", "item3", "item4", "item5"]
-        mock_queue_view.selection.return_value = ["item3"]
+        # Mock in-memory queue with 5 items, currently at third one
+        mock_queue_manager.queue_items = [f"/path/to/song{i}.mp3" for i in range(5)]
+        mock_queue_manager.current_index = 2  # Third song (index 2)
         player_core.loop_enabled = False
 
         assert player_core._is_last_song() is False
@@ -272,9 +272,9 @@ class TestPlayerCoreTrackNavigation:
 
         Note: Loop is checked in _handle_track_end(), not in _is_last_song().
         """
-        # Mock queue view with 5 items, last one selected
-        mock_queue_view.get_children.return_value = ["item1", "item2", "item3", "item4", "item5"]
-        mock_queue_view.selection.return_value = ["item5"]
+        # Mock in-memory queue with 5 items, currently at last one
+        mock_queue_manager.queue_items = [f"/path/to/song{i}.mp3" for i in range(5)]
+        mock_queue_manager.current_index = 4  # Last song
         player_core.loop_enabled = True
 
         # _is_last_song() just checks position, doesn't care about loop
