@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(backlog:*)",
       "Bash(cat:*)",
       "Bash(lsof:*)",
       "Bash(pre-commit:*)",
