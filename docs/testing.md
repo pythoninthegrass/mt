@@ -40,10 +40,10 @@ def test_seek_to_position(player_core):
     assert player_core.media_player.get_time() == 90000
 ```
 
-### E2E Tests (Integration)
+### E2E Tests (Integration Tests)
 
 **File Pattern**: `test_e2e_*.py`
-**Examples**: `test_e2e_playback.py`, `test_e2e_controls.py`, `test_e2e_queue.py`
+**Examples**: `test_e2e_playback.py`, `test_e2e_controls.py`, `test_e2e_queue.py`, `test_e2e_integration.py`
 
 **Characteristics**:
 
@@ -53,6 +53,8 @@ def test_seek_to_position(player_core):
 - Slower (requires startup time, VLC initialization)
 - Test complete user workflows
 - Verify integration between components
+
+**Note**: In this codebase, E2E tests serve as **integration tests**. They validate cross-component interactions, end-to-end workflows, and system integration. The comprehensive E2E test suite (59+ tests) covers all integration testing requirements including player-library integration, UI-database integration, queue management workflows, and cross-component functionality.
 
 **When to Use E2E Tests**:
 
@@ -161,25 +163,32 @@ uv run pytest tests/ -v -p no:pydust
 
 ```
 tests/
-├── README.md                      # This file
-├── conftest.py                    # Shared fixtures (Hypothesis profiles, E2E fixtures)
-├── mocks/                         # Mock implementations for unit tests
+├── README.md                     # This file
+├── conftest.py                   # Shared fixtures (Hypothesis profiles, E2E fixtures)
+├── mocks/                        # Mock implementations for unit tests
 │   ├── __init__.py
 │   └── vlc_mock.py               # Mock VLC classes
-├── helpers/                       # Test helper utilities
+├── helpers/                      # Test helper utilities
 │   └── api_client.py             # API client for E2E tests
-├── test_unit_player_core.py      # Unit tests for PlayerCore
-├── test_unit_queue_manager.py    # Unit tests for QueueManager
-├── test_unit_library_manager.py  # Unit tests for LibraryManager
-├── test_props_player_core.py     # Property tests for PlayerCore
-├── test_props_queue_manager.py   # Property tests for QueueManager
-├── test_props_utils.py           # Property tests for utilities
-├── test_e2e_playback.py          # E2E tests for playback
-├── test_e2e_controls.py          # E2E tests for controls
-├── test_e2e_queue.py             # E2E tests for queue
-├── test_e2e_views.py             # E2E tests for views
-└── test_e2e_library.py           # E2E tests for library
+├── test_unit_player_core.py      # Unit tests for PlayerCore (27 tests)
+├── test_unit_queue_manager.py    # Unit tests for QueueManager (18 tests)
+├── test_unit_library_manager.py  # Unit tests for LibraryManager (9 tests)
+├── test_props_player_core.py     # Property tests for PlayerCore (12 tests)
+├── test_props_queue_manager.py   # Property tests for QueueManager (6 tests)
+├── test_props_utils.py           # Property tests for utilities (18 tests)
+├── test_e2e_playback.py          # E2E tests for playback (8 tests)
+├── test_e2e_controls.py          # E2E tests for controls (18 tests)
+├── test_e2e_queue.py             # E2E tests for queue (10 tests)
+├── test_e2e_views.py             # E2E tests for views (11 tests)
+├── test_e2e_library.py           # E2E tests for library (9 tests)
+└── test_e2e_integration.py       # E2E integration workflow tests (6 tests)
 ```
+
+**Test Suite Summary:**
+- **Unit Tests**: 51 tests (~0.07s) - Fast, isolated logic testing with mocks
+- **Property Tests**: 36 tests (~0.39s) - Invariant validation with Hypothesis
+- **E2E/Integration Tests**: 59 tests (~25s) - Full system integration testing
+- **Total**: 146 tests covering unit, property, and integration testing
 
 ## Decision Tree
 
