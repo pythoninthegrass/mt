@@ -217,9 +217,6 @@ class MusicPlayer:
         # Make the close method available to stoplight buttons via search bar
         self.window.on_window_close = self.on_window_close
 
-        # Track playback context (which view we're playing from)
-        self.playback_context = 'music'  # Default to music library
-
     def setup_api_server(self):
         """Initialize and start the API server if enabled."""
         from api.api import APIServer
@@ -498,7 +495,7 @@ class MusicPlayer:
         self.refresh_colors()
 
     def load_queue(self):
-        """Load and display queue items - mirrors the current playback context."""
+        """Load and display queue items from queue table only."""
         # Set column header to "Playing"
         self.queue_view.set_track_column_header('Playing')
 
@@ -517,44 +514,10 @@ class MusicPlayer:
             self.queue_view.queue.delete(item)
         self._item_filepath_map.clear()
 
-        # Load tracks based on playback context (what view we're playing from)
-        if self.playback_context == 'music':
-            # Playing from library - show all library tracks
-            rows = self.library_manager.get_library_items()
-            if rows:
-                self._populate_queue_view(rows)
-        elif self.playback_context == 'liked_songs':
-            # Playing from liked songs - show liked songs
-            rows = self.favorites_manager.get_liked_songs()
-            for i, (filepath, artist, title, album, track_num, date) in enumerate(rows):
-                formatted_track = self._format_track_number(track_num)
-                year = self._extract_year(date)
-                row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-                # Store the actual track number for matching, will be replaced by indicator in refresh_colors
-                item_id = self.queue_view.queue.insert(
-                    '', 'end', values=(formatted_track, title or '', artist or '', album or '', year or ''), tags=(row_tag,)
-                )
-                # Store filepath mapping
-                self._item_filepath_map[item_id] = filepath
-        elif self.playback_context == 'top_played':
-            # Playing from top 25 - show top 25
-            rows = self.library_manager.get_top_25_most_played()
-            if rows:
-                for i, (filepath, artist, title, album, _play_count, date) in enumerate(rows):
-                    # For top_played, track_number isn't available, so we pass empty string
-                    # This view shows play count in the first column instead
-                    year = self._extract_year(date)
-                    row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-                    item_id = self.queue_view.queue.insert(
-                        '', 'end', values=('', title or '', artist or '', album or '', year or ''), tags=(row_tag,)
-                    )
-                    # Store filepath mapping
-                    self._item_filepath_map[item_id] = filepath
-        else:
-            # Fallback: use queue table (legacy behavior)
-            rows = self.queue_manager.get_queue_items()
-            if rows:
-                self._populate_queue_view(rows)
+        # Load tracks from queue table (sole source of truth for playback)
+        rows = self.queue_manager.get_queue_items()
+        if rows:
+            self._populate_queue_view(rows)
 
         self.refresh_colors()
 
@@ -883,9 +846,6 @@ class MusicPlayer:
             log_player_action("play_selected", title=title, artist=artist, album=album, filepath=filepath)
 
             if filepath and os.path.exists(filepath):
-                # Track playback context (which view we're playing from)
-                self.playback_context = self.queue_view.current_view
-
                 was_playing = self.player_core.is_playing
                 self.player_core._play_file(filepath)
                 self.progress_bar.controls.update_play_button(True)

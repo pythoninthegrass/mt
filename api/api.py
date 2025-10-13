@@ -305,9 +305,6 @@ class APIServer:
             is_favorite = self.music_player.favorites_manager.is_favorite(filepath)
             self.music_player.progress_bar.controls.update_favorite_button(is_favorite)
 
-            # Set playback context to indicate we're playing from queue
-            self.music_player.playback_context = 'now_playing'
-
             return {'status': 'success'}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
@@ -329,8 +326,6 @@ class APIServer:
             except Exception as e:
                 log_message(message_type="add_to_queue_error", filepath=filepath, error=str(e))
 
-        # Set playback context to use the queue table
-        self.music_player.playback_context = None
         # Reload queue view to show the added tracks
         self.music_player.load_queue()
 

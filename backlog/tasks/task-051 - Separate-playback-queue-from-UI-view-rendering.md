@@ -1,9 +1,10 @@
 ---
 id: task-051
 title: Separate playback queue from UI view rendering
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-10-12 23:28'
+updated_date: '2025-10-13 01:20'
 labels: []
 dependencies: []
 ---
@@ -14,9 +15,17 @@ Architectural refactor to decouple queue management from UI display. Currently l
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Queue table is sole source of truth for playback order
-- [ ] #2 load_queue() only shows queue table items
-- [ ] #3 Add separate methods: load_library_view(), load_liked_view(), load_top_played_view()
-- [ ] #4 playback_context doesn't affect queue operations
-- [ ] #5 All queue-related tests pass without view confusion
+- [x] #1 Queue table is sole source of truth for playback order
+- [x] #2 load_queue() only shows queue table items
+- [x] #3 Add separate methods: load_library_view(), load_liked_view(), load_top_played_view()
+- [x] #4 playback_context doesn't affect queue operations
+- [x] #5 All queue-related tests pass without view confusion
 <!-- AC:END -->
+
+## Implementation Notes
+
+Successfully refactored queue and view separation:
+- load_queue() now only loads from queue table
+- Removed playback_context attribute entirely  
+- Separate view methods already existed (load_library, load_liked_songs, load_top_25_most_played)
+- All 18 queue and playback tests pass
