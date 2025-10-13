@@ -1,9 +1,10 @@
 ---
 id: task-050
 title: Add retry logic for VLC seek operations
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-10-12 23:28'
+updated_date: '2025-10-13 01:13'
 labels: []
 dependencies: []
 ---
@@ -14,8 +15,12 @@ VLC's set_time() and get_time() don't synchronize immediately due to asynchronou
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Poll get_time() after set_time() with configurable timeout
-- [ ] #2 Return success only when position matches requested time
-- [ ] #3 Add timeout parameter (default 2s) for seek verification
-- [ ] #4 Test test_seek_position passes reliably
+- [x] #1 Poll get_time() after set_time() with configurable timeout
+- [x] #2 Return success only when position matches requested time
+- [x] #3 Add timeout parameter (default 2s) for seek verification
+- [x] #4 Test test_seek_position passes reliably
 <!-- AC:END -->
+
+## Implementation Notes
+
+Implemented seek_to_time() method in PlayerCore with polling/verification logic. Fixed API handlers to use seconds consistently and call seek_to_time(). All control tests pass.

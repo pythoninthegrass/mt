@@ -153,6 +153,92 @@ class PlayerCore:
                     current_track=self._get_current_track_info(),
                 )
 
+    def seek_to_time(
+        self, 
+        time_seconds: float, 
+        source: str = "api", 
+        timeout: float = 2.0
+    ) -> bool:
+        """Seek to an absolute time position in seconds with verification.
+        
+        Args:
+            time_seconds: Target position in seconds
+            source: Source of the seek operation (for logging)
+            timeout: Maximum time to wait for seek completion (default 2s)
+            
+        Returns:
+            True if seek completed successfully, False otherwise
+        """
+        with start_action(controls_logger, "seek_to_time_operation"):
+            duration_ms = self.media_player.get_length()
+            if duration_ms <= 0:
+                log_player_action(
+                    "seek_to_time_failed",
+                    trigger_source=source,
+                    reason="no_duration",
+                    current_track=self._get_current_track_info(),
+                )
+                return False
+            
+            # Convert seconds to milliseconds
+            target_time_ms = int(time_seconds * 1000)
+            
+            # Clamp to valid range
+            target_time_ms = max(0, min(target_time_ms, duration_ms))
+            
+            # Get current time before seeking
+            old_time_ms = self.media_player.get_time()
+            
+            log_player_action(
+                "seek_to_time_operation",
+                trigger_source=source,
+                old_position_ms=old_time_ms,
+                target_position_ms=target_time_ms,
+                target_position_seconds=time_seconds,
+                duration_ms=duration_ms,
+                current_track=self._get_current_track_info(),
+                description=f"Seeking to {time_seconds}s ({target_time_ms}ms) via {source}",
+            )
+            
+            # Perform seek
+            self.media_player.set_time(target_time_ms)
+            
+            # Poll to verify seek completed (tolerance: ±500ms)
+            import time
+            tolerance_ms = 500
+            poll_interval = 0.05  # 50ms
+            elapsed = 0.0
+            
+            while elapsed < timeout:
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+                
+                current_time_ms = self.media_player.get_time()
+                diff = abs(current_time_ms - target_time_ms)
+                
+                if diff <= tolerance_ms:
+                    log_player_action(
+                        "seek_to_time_verified",
+                        trigger_source=source,
+                        target_position_ms=target_time_ms,
+                        actual_position_ms=current_time_ms,
+                        time_taken=elapsed,
+                        description=f"Seek verified after {elapsed:.2f}s",
+                    )
+                    return True
+            
+            # Timeout reached
+            final_time_ms = self.media_player.get_time()
+            log_player_action(
+                "seek_to_time_timeout",
+                trigger_source=source,
+                target_position_ms=target_time_ms,
+                actual_position_ms=final_time_ms,
+                timeout=timeout,
+                description=f"Seek verification timed out after {timeout}s",
+            )
+            return False
+
     def stop(self, reason: str = "user_initiated") -> None:
         """Stop playback."""
         with start_action(controls_logger, "stop_playback"):

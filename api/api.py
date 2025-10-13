@@ -459,23 +459,39 @@ class APIServer:
         offset = command.get('offset', 0)
         try:
             offset = float(offset)
-            current_time = self.music_player.player_core.get_current_time()
-            new_time = current_time + offset
-            self.music_player.player_core.seek(new_time)
-            return {'status': 'success', 'new_position': new_time}
+            # Get current time in milliseconds and convert to seconds
+            current_time_ms = self.music_player.player_core.get_current_time()
+            current_time_sec = current_time_ms / 1000.0
+            # Calculate new position in seconds
+            new_time_sec = current_time_sec + offset
+            # Use seek_to_time with verification
+            success = self.music_player.player_core.seek_to_time(new_time_sec, source="api")
+            if success:
+                return {'status': 'success', 'new_position': new_time_sec}
+            else:
+                return {'status': 'error', 'message': 'Seek verification timeout'}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
     def _handle_seek_to_position(self, command: dict[str, Any]) -> dict[str, Any]:
-        """Handle absolute seek command."""
+        """Handle absolute seek command (position in seconds)."""
         position = command.get('position')
         if position is None:
             return {'status': 'error', 'message': 'No position specified'}
 
         try:
             position = float(position)
-            self.music_player.player_core.seek(position)
-            return {'status': 'success', 'position': position}
+            # Use seek_to_time with verification and configurable timeout
+            timeout = command.get('timeout', 2.0)
+            success = self.music_player.player_core.seek_to_time(
+                position,
+                source="api",
+                timeout=timeout
+            )
+            if success:
+                return {'status': 'success', 'position': position}
+            else:
+                return {'status': 'error', 'message': 'Seek verification timeout'}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
 
@@ -539,13 +555,17 @@ class APIServer:
     def _handle_get_status(self, command: dict[str, Any]) -> dict[str, Any]:
         """Get current player status."""
         try:
+            # Convert times from milliseconds to seconds for API consistency
+            current_time_ms = self.music_player.player_core.get_current_time()
+            duration_ms = self.music_player.player_core.get_duration()
+
             status = {
                 'is_playing': self.music_player.player_core.is_playing,
                 'loop_enabled': self.music_player.player_core.loop_enabled,
                 'shuffle_enabled': self.music_player.player_core.shuffle_enabled,
                 'volume': self.music_player.player_core.get_volume(),
-                'current_time': self.music_player.player_core.get_current_time(),
-                'duration': self.music_player.player_core.get_duration(),
+                'current_time': current_time_ms / 1000.0 if current_time_ms > 0 else 0.0,
+                'duration': duration_ms / 1000.0 if duration_ms > 0 else 0.0,
                 'current_view': getattr(self.music_player, '_current_view', 'Unknown'),
             }
 
