@@ -55,6 +55,10 @@ uv run ruff format --respect-gitignore
 # Run tests
 uv run pytest -v
 
+# Run without zig/pydust for end-to-end (E2E) tests
+# ! cf. 'error: failed to check cache: 'build.zig' file_hash FileNotFound'
+uv run pytest tests/test_e2e_*.py -v -p no:pydust
+
 # Run pre-commit hooks
 pre-commit run --all-files
 
