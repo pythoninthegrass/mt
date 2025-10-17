@@ -326,8 +326,9 @@ class APIServer:
             except Exception as e:
                 log_message(message_type="add_to_queue_error", filepath=filepath, error=str(e))
 
-        # Reload queue view to show the added tracks
-        self.music_player.load_queue()
+        # Refresh Now Playing view if active
+        if self.music_player.active_view == 'now_playing':
+            self.music_player.now_playing_view.refresh_from_queue()
 
         return {'status': 'success', 'added': added_count}
 
@@ -336,7 +337,11 @@ class APIServer:
         # Stop playback and clear media to ensure clean state
         self.music_player.player_core.stop(reason="queue_cleared")
         self.music_player.queue_manager.clear_queue()
-        self.music_player.load_queue()  # Refresh the queue view
+
+        # Refresh Now Playing view if active
+        if self.music_player.active_view == 'now_playing':
+            self.music_player.now_playing_view.refresh_from_queue()
+
         return {'status': 'success'}
 
     def _handle_remove_from_queue(self, command: dict[str, Any]) -> dict[str, Any]:
@@ -352,7 +357,10 @@ class APIServer:
                 # get_queue_items returns: (filepath, artist, title, album, track_number, date)
                 filepath, artist, title, album, track_num, date = queue_items[index][:6]
                 self.music_player.queue_manager.remove_from_queue(title, artist, album, track_num)
-                self.music_player.load_queue()  # Refresh the queue view
+
+                # Refresh Now Playing view if active
+                if self.music_player.active_view == 'now_playing':
+                    self.music_player.now_playing_view.refresh_from_queue()
                 return {'status': 'success'}
             else:
                 return {'status': 'error', 'message': f'Index {index} out of range'}
@@ -415,8 +423,9 @@ class APIServer:
             if not (0 <= index < len(queue_items)):
                 return {'status': 'error', 'message': f'Index {index} out of range'}
 
-            # Ensure we're showing the queue view
-            self.music_player.load_queue()
+            # Refresh Now Playing view if active (queue is displayed there)
+            if self.music_player.active_view == 'now_playing':
+                self.music_player.now_playing_view.refresh_from_queue()
 
             # Now get UI items and select the one at the validated index
             items = self.music_player.queue_view.queue.get_children()
