@@ -624,8 +624,7 @@ class MusicPlayer:
         if 0 <= index < len(self.queue_manager.queue_items):
             self.queue_manager.current_index = index
             filepath = self.queue_manager.queue_items[index]
-            self.load_file(filepath)
-            self.player_core.play()
+            self.player_core._play_file(filepath)
 
             # Update Now Playing view
             if self.active_view == 'now_playing':

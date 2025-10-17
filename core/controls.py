@@ -55,9 +55,15 @@ class PlayerCore:
                 except ImportError:
                     pass
             else:
-                filepath = self._get_current_filepath()
-                if filepath:
+                if self.queue_manager.queue_items:
+                    if self.queue_manager.current_index < 0:
+                        self.queue_manager.current_index = 0
+                    filepath = self.queue_manager.queue_items[self.queue_manager.current_index]
                     self._play_file(filepath)
+                else:
+                    filepath = self._get_current_filepath()
+                    if filepath:
+                        self._play_file(filepath)
         else:
             self.current_time = self.media_player.get_time()
             self.media_player.pause()
