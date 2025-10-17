@@ -121,7 +121,7 @@ class NowPlayingView(ttk.Frame):
         )
 
     def refresh_from_queue(self):
-        """Rebuild view from queue_manager data."""
+        """Rebuild view from queue_manager data, showing only viewport-fitting tracks."""
         if not self.queue_manager.queue_items:
             self.show_empty_state()
             return
@@ -183,8 +183,11 @@ class NowPlayingView(ttk.Frame):
         )
         self.current_row_widget.pack(fill=tk.BOTH, expand=True, pady=0)
 
+        # Calculate how many next tracks fit in the viewport
+        max_visible_tracks = self._calculate_max_visible_tracks()
+
         # Create next tracks widgets (remaining items, limited by viewport)
-        for display_i in range(1, len(display_items)):
+        for display_i in range(1, min(len(display_items), max_visible_tracks + 1)):
             filepath, artist, title, album, track_num, date = display_items[display_i]
             actual_index = (
                 self.queue_manager.queue_items.index(filepath) if filepath in self.queue_manager.queue_items else display_i
@@ -207,6 +210,30 @@ class NowPlayingView(ttk.Frame):
             )
             row.pack(fill=tk.X, pady=1)
             self.next_row_widgets.append(row)
+
+    def _calculate_max_visible_tracks(self):
+        """Calculate how many next tracks fit in the viewport without scrolling.
+
+        Returns:
+            int: Maximum number of visible next tracks based on available height
+        """
+        # Force update of widget geometry
+        self.update_idletasks()
+
+        # Get heights
+        total_height = self.next_section.winfo_height()
+        label_height = self.next_label.winfo_reqheight()
+
+        # Each row is 70px + 1px padding
+        row_height = 70 + 1
+
+        # Calculate available space for tracks
+        available_height = total_height - label_height - 10  # 10px for margins
+
+        # Calculate how many tracks fit
+        max_tracks = max(1, int(available_height / row_height))
+
+        return max_tracks
 
     def show_empty_state(self):
         """Show empty queue message."""

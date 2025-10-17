@@ -44,9 +44,9 @@ class ScrollableFrame(ttk.Frame):
         # Bind canvas resize to update frame width
         self.canvas.bind("<Configure>", self._on_canvas_configure)
 
-        # Pack widgets
+        # Pack widgets (scrollbar hidden)
         self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
+        # self.scrollbar.pack(side="right", fill="y")  # Hidden to show only viewport-fitting items
 
     def _on_canvas_configure(self, event):
         """Handle canvas resize to update frame width.
