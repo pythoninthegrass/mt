@@ -6,12 +6,13 @@ from tkinter import ttk
 
 
 class NowPlayingView(ttk.Frame):
-    """Now Playing view showing the active queue with drag-and-drop reordering.
+    """Split Now Playing view with fixed current track and scrollable next tracks.
 
     Attributes:
         queue_manager: QueueManager instance for queue data
         callbacks: Dictionary of callback functions for actions
-        row_widgets: List of QueueRowWidget instances
+        current_row_widget: QueueRowWidget for currently playing track
+        next_row_widgets: List of QueueRowWidget instances for upcoming tracks
     """
 
     def __init__(self, parent, callbacks: dict, queue_manager):
@@ -28,7 +29,8 @@ class NowPlayingView(ttk.Frame):
         super().__init__(parent)
         self.queue_manager = queue_manager
         self.callbacks = callbacks
-        self.row_widgets = []
+        self.current_row_widget = None
+        self.next_row_widgets = []
 
         # Drag state
         self._drag_state = {
@@ -44,9 +46,45 @@ class NowPlayingView(ttk.Frame):
         self.setup_ui()
 
     def setup_ui(self):
-        """Setup the UI components."""
-        # Scrollable container for queue rows
-        self.scrollable = ScrollableFrame(self)
+        """Setup the UI components with split layout."""
+        # Current track section (fixed, non-scrollable)
+        self.current_section = tk.Frame(self, bg='#202020', height=80)
+        self.current_section.pack(fill=tk.X, padx=0, pady=0)
+        self.current_section.pack_propagate(False)
+
+        self.current_label = tk.Label(
+            self.current_section,
+            text="Now Playing",
+            font=('Helvetica', 10, 'bold'),
+            fg='#888888',
+            bg='#202020',
+            anchor='w',
+        )
+        self.current_label.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(8, 2))
+
+        self.current_container = tk.Frame(self.current_section, bg='#202020')
+        self.current_container.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+
+        # Divider line
+        divider1 = tk.Frame(self, bg='#404040', height=1)
+        divider1.pack(fill=tk.X, padx=0, pady=0)
+
+        # Next tracks section (scrollable)
+        self.next_section = tk.Frame(self, bg='#202020')
+        self.next_section.pack(fill=tk.BOTH, expand=True)
+
+        self.next_label = tk.Label(
+            self.next_section,
+            text="Next",
+            font=('Helvetica', 10, 'bold'),
+            fg='#888888',
+            bg='#202020',
+            anchor='w',
+        )
+        self.next_label.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(8, 2))
+
+        # Scrollable container for next tracks
+        self.scrollable = ScrollableFrame(self.next_section)
         self.scrollable.pack(fill=tk.BOTH, expand=True)
 
         # Empty state label (hidden by default)
@@ -68,9 +106,8 @@ class NowPlayingView(ttk.Frame):
     def setup_context_menu(self):
         """Setup right-click context menu for queue items."""
         self.context_menu = tk.Menu(self, tearoff=0)
-        self._selected_row = None  # Track which row was right-clicked
+        self._selected_row = None
 
-        # Add menu items
         self.context_menu.add_command(label="Play Next", command=self.on_context_play_next)
         self.context_menu.add_command(label="Move to End", command=self.on_context_move_to_end)
         self.context_menu.add_separator()
@@ -80,52 +117,75 @@ class NowPlayingView(ttk.Frame):
         self.context_menu.add_command(
             label="Save to Playlist",
             command=self.on_context_save_to_playlist,
-            state='disabled',  # Stub for future feature
+            state='disabled',
         )
 
     def refresh_from_queue(self):
         """Rebuild view from queue_manager data."""
-        # Clear existing widgets
-        for widget in self.row_widgets:
-            widget.destroy()
-        self.row_widgets.clear()
-
-        # Get queue items (respects shuffle state)
-        if self.queue_manager.shuffle_enabled:
-            items = self.queue_manager.get_shuffled_queue_items()
-        else:
-            items = self.queue_manager.get_queue_items()
-
-        current_index = self.queue_manager.current_index
-
-        if not items:
+        if not self.queue_manager.queue_items:
             self.show_empty_state()
             return
 
         self.hide_empty_state()
 
-        # In shuffle mode, don't rotate - show in shuffled order
-        # In normal mode, rotate so current track is at top
+        # Get queue items
         if self.queue_manager.shuffle_enabled:
-            display_items = items
-            # In shuffle, need to find which display position has the current track
+            items = self.queue_manager.get_shuffled_queue_items()
             current_filepath = (
-                self.queue_manager.queue_items[current_index] if current_index < len(self.queue_manager.queue_items) else None
+                self.queue_manager.queue_items[self.queue_manager.current_index]
+                if self.queue_manager.current_index < len(self.queue_manager.queue_items)
+                else None
             )
+            # In shuffle mode, find current track in shuffled items
+            current_display_index = None
+            for i, (filepath, _, _, _, _, _) in enumerate(items):
+                if filepath == current_filepath:
+                    current_display_index = i
+                    break
+            display_items = items
         else:
+            items = self.queue_manager.get_queue_items()
+            current_display_index = self.queue_manager.current_index
             # Rotate display so current track is at top
-            display_items = items[current_index:] + items[:current_index]
-            current_filepath = None
+            display_items = items[current_display_index:] + items[:current_display_index]
 
-        # Create row widgets
-        for display_i, (filepath, artist, title, album, track_num, date) in enumerate(display_items):
-            # Determine if this is the current track
-            if self.queue_manager.shuffle_enabled:
-                is_current = filepath == current_filepath
-            else:
-                is_current = display_i == 0  # First item in rotated display is always current
+        if not display_items:
+            self.show_empty_state()
+            return
 
-            # Find actual index in original queue for operations
+        # Clear old widgets
+        if self.current_row_widget:
+            self.current_row_widget.destroy()
+            self.current_row_widget = None
+
+        for widget in self.next_row_widgets:
+            widget.destroy()
+        self.next_row_widgets.clear()
+
+        # Create current track widget (first item in display)
+        filepath, artist, title, album, track_num, date = display_items[0]
+        actual_index = self.queue_manager.queue_items.index(filepath) if filepath in self.queue_manager.queue_items else 0
+
+        self.current_row_widget = QueueRowWidget(
+            self.current_container,
+            title=title,
+            artist=artist,
+            filepath=filepath,
+            index=actual_index,
+            is_current=True,
+            callbacks={
+                'on_drag_start': self.on_drag_start,
+                'on_drag_motion': self.on_drag_motion,
+                'on_drag_release': self.on_drag_release,
+                'on_context_menu': self.show_context_menu_for_row,
+                'on_double_click': self.on_row_double_click,
+            },
+        )
+        self.current_row_widget.pack(fill=tk.BOTH, expand=True, pady=0)
+
+        # Create next tracks widgets (remaining items, limited by viewport)
+        for display_i in range(1, len(display_items)):
+            filepath, artist, title, album, track_num, date = display_items[display_i]
             actual_index = (
                 self.queue_manager.queue_items.index(filepath) if filepath in self.queue_manager.queue_items else display_i
             )
@@ -136,7 +196,7 @@ class NowPlayingView(ttk.Frame):
                 artist=artist,
                 filepath=filepath,
                 index=actual_index,
-                is_current=is_current,
+                is_current=False,
                 callbacks={
                     'on_drag_start': self.on_drag_start,
                     'on_drag_motion': self.on_drag_motion,
@@ -146,16 +206,25 @@ class NowPlayingView(ttk.Frame):
                 },
             )
             row.pack(fill=tk.X, pady=1)
-            self.row_widgets.append(row)
+            self.next_row_widgets.append(row)
 
     def show_empty_state(self):
         """Show empty queue message."""
+        self.current_section.pack_forget()
         self.scrollable.pack_forget()
+        self.next_label.pack_forget()
+        self.next_section.pack_forget()
         self.empty_label.pack(expand=True, fill=tk.BOTH)
 
     def hide_empty_state(self):
         """Hide empty queue message."""
         self.empty_label.pack_forget()
+        self.current_section.pack(fill=tk.X, padx=0, pady=0)
+        self.current_section.pack_propagate(False)
+        divider = tk.Frame(self, bg='#404040', height=1)
+        divider.pack(fill=tk.X, padx=0, pady=0)
+        self.next_label.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(8, 2))
+        self.next_section.pack(fill=tk.BOTH, expand=True)
         self.scrollable.pack(fill=tk.BOTH, expand=True)
 
     def on_drag_start(self, row_widget, event):
@@ -170,7 +239,6 @@ class NowPlayingView(ttk.Frame):
         self._drag_state['start_y'] = event.y_root
         self._drag_state['original_index'] = row_widget.index
 
-        # Apply visual feedback: lighter background to show it's being dragged
         row_widget.container.config(bg='#3a3a3a')
         row_widget.info_frame.config(bg='#3a3a3a')
         row_widget.title_label.config(bg='#3a3a3a', fg='#cccccc')
@@ -188,32 +256,27 @@ class NowPlayingView(ttk.Frame):
             return
 
         current_y = event.y_root
+        all_widgets = [self.current_row_widget] + self.next_row_widgets if self.current_row_widget else self.next_row_widgets
 
-        # Find target row based on cursor position
         target_index = -1
-        for i, target_widget in enumerate(self.row_widgets):
+        for i, target_widget in enumerate(all_widgets):
             if target_widget == row_widget:
                 continue
 
-            # Get widget position
             try:
                 target_y = target_widget.winfo_rooty()
                 target_height = target_widget.winfo_height()
 
-                # Check if cursor is over this widget
                 if target_y <= current_y <= target_y + target_height:
-                    # Determine if inserting before or after
                     midpoint = target_y + target_height / 2
                     target_index = i if current_y < midpoint else i + 1
-                    # Highlight target row with a clear indicator
                     if target_widget != row_widget:
-                        target_widget.container.config(bg='#004455')  # Blue tint to show drop target
+                        target_widget.container.config(bg='#004455')
                         target_widget.info_frame.config(bg='#004455')
                         target_widget.title_label.config(bg='#004455')
                         target_widget.artist_label.config(bg='#004455')
                         target_widget.drag_handle.config(bg='#004455')
                 else:
-                    # Reset other rows
                     if target_widget != row_widget:
                         if target_widget.is_current:
                             target_widget._apply_playing_style()
@@ -222,7 +285,6 @@ class NowPlayingView(ttk.Frame):
             except tk.TclError:
                 pass
 
-        # Store current target for release
         self._drag_state['target_index'] = target_index
 
     def on_drag_release(self, row_widget, event):
@@ -239,23 +301,20 @@ class NowPlayingView(ttk.Frame):
         original_index = self._drag_state['original_index']
         target_index = self._drag_state['target_index']
 
-        # Perform reordering if position changed
         if target_index != -1 and target_index != original_index:
-            # Adjust target index if needed
             if target_index > original_index:
                 target_index -= 1
 
             self.queue_manager.reorder_queue(original_index, target_index)
             self.refresh_from_queue()
         else:
-            # No position change - just reset styles
-            for widget in self.row_widgets:
+            all_widgets = [self.current_row_widget] + self.next_row_widgets if self.current_row_widget else self.next_row_widgets
+            for widget in all_widgets:
                 if widget.is_current:
                     widget._apply_playing_style()
                 else:
                     widget._apply_normal_style()
 
-        # Reset drag state
         self._drag_state['widget'] = None
         self._drag_state['original_index'] = -1
         self._drag_state['target_index'] = -1
@@ -267,10 +326,8 @@ class NowPlayingView(ttk.Frame):
             row_widget: The clicked row widget
             event: Mouse event
         """
-        # Store selected row for context menu actions
         self._selected_row = row_widget
 
-        # Show context menu at cursor position
         try:
             self.context_menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -293,12 +350,10 @@ class NowPlayingView(ttk.Frame):
 
         index = self._selected_row.index
         if index != self.queue_manager.current_index:
-            # Move to after current track
             track = self.queue_manager.queue_items.pop(index)
             insert_pos = self.queue_manager.current_index + 1
             self.queue_manager.queue_items.insert(insert_pos, track)
 
-            # Adjust current_index if needed
             if index < self.queue_manager.current_index:
                 self.queue_manager.current_index -= 1
 
@@ -311,11 +366,9 @@ class NowPlayingView(ttk.Frame):
 
         index = self._selected_row.index
         if index < len(self.queue_manager.queue_items) - 1:
-            # Move to end
             track = self.queue_manager.queue_items.pop(index)
             self.queue_manager.queue_items.append(track)
 
-            # Adjust current_index if needed
             if index < self.queue_manager.current_index:
                 self.queue_manager.current_index -= 1
             elif index == self.queue_manager.current_index:
@@ -332,7 +385,6 @@ class NowPlayingView(ttk.Frame):
         self.queue_manager.remove_from_queue_at_index(index)
         self.refresh_from_queue()
 
-        # Notify if queue is now empty
         if not self.queue_manager.queue_items and 'on_queue_empty' in self.callbacks:
             self.callbacks['on_queue_empty']()
 
@@ -345,18 +397,15 @@ class NowPlayingView(ttk.Frame):
         if 'on_remove_from_library' in self.callbacks:
             self.callbacks['on_remove_from_library'](filepath)
 
-        # Also remove from queue
         index = self._selected_row.index
         self.queue_manager.remove_from_queue_at_index(index)
         self.refresh_from_queue()
 
     def on_context_save_to_playlist(self):
         """Handle 'Save to Playlist' context menu action (stub)."""
-        # Future feature - currently disabled in menu
         pass
 
     def scroll_to_current(self):
         """Scroll to make the currently playing track visible."""
-        if self.queue_manager.current_index < len(self.row_widgets):
-            current_widget = self.row_widgets[self.queue_manager.current_index]
-            self.scrollable.scroll_to_widget(current_widget)
+        if self.current_row_widget:
+            self.current_row_widget.pack(fill=tk.BOTH, expand=True)
