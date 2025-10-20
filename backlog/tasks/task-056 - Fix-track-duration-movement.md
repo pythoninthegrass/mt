@@ -1,10 +1,10 @@
 ---
 id: task-056
 title: Fix track duration movement
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-20 03:37'
-updated_date: '2025-10-20 03:52'
+updated_date: '2025-10-20 20:21'
 labels: []
 dependencies: []
 ordinal: 1000
@@ -18,5 +18,5 @@ Make sure that the time display is always static and never moves in any directio
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Time display stays fixed in-place
+- [x] #1 Time display stays fixed in-place
 <!-- AC:END -->
