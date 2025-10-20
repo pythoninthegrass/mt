@@ -6,6 +6,11 @@ This file provides guidance to LLMs when working with code in this repository.
 
 mt is a desktop music player designed for large music collections, built with Python and Tkinter. It uses VLC for audio playback and supports drag-and-drop functionality.
 
+## General Guidelines
+
+- Never commit any changes without being explicitly prompted to do so
+- Never use playwright for anything. This is a tkinter desktop app.
+
 ## MCP Servers
 
 ALWAYS use these MCP servers:
