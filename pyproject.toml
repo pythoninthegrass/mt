@@ -45,13 +45,57 @@ python_functions = "test_*"
 python_classes = "Test*"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "--durations=10 -v -p no:pydust"
+addopts = "--durations=10 -v -p no:pydust --cov=. --cov-report=term-missing"
 markers = [
     "unit: marks tests as unit tests",
     "integration: marks tests as integration tests",
     "e2e: marks tests as end-to-end tests",
     "benchmark: marks performance benchmark tests"
 ]
+
+[tool.coverage.run]
+# Exclude development utilities that are not part of production code
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+    # Development tools (not production code)
+    "utils/repeater.py",
+    "utils/reload.py",
+    "utils/icons.py",
+    # GUI components (tested via E2E, heavy on rendering, low value for unit coverage)
+    "core/gui.py",
+    "core/player.py",
+    "core/widgets/*",
+    "core/progress.py",
+    "core/volume.py",
+    "core/stoplight.py",
+    "core/now_playing.py",
+    "core/theme.py",
+    # Build and configuration
+    "build.py",
+    "setup.py",
+    "config.py",
+]
+
+[tool.coverage.report]
+# Focus on production business logic
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+# Show files with less than 100% coverage
+skip_covered = false
+# Sort by percentage missing
+sort = "Miss"
 
 [project.scripts]
 repeater = "utils.repeater:main"
