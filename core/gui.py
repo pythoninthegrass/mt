@@ -48,6 +48,9 @@ class PlayerControls:
         self.canvas.update_idletasks()
         canvas_height = self.canvas.winfo_height()
         y_position = (canvas_height - self.playback_icon_size[1]) // 2
+        
+        # Store initial Y position for playback controls
+        self.initial_playback_y = y_position
 
         for action, symbol in [
             ('previous', BUTTON_SYMBOLS['prev']),
@@ -87,6 +90,9 @@ class PlayerControls:
         # Then shift down by 1%
         y_center = (canvas_height - self.utility_icon_size[1]) // 2
         y_position = int(y_center + (canvas_height * 0.01))
+        
+        # Store initial Y position for utility controls
+        self.initial_utility_y = y_position
 
         try:
             # Load icons for utility controls
@@ -221,36 +227,38 @@ class PlayerControls:
         self.utility_width = 222
 
     def _on_canvas_resize(self, event):
-        """Recenter the buttons vertically and reposition all controls when canvas is resized."""
+        """Reposition controls horizontally when canvas is resized, keeping Y positions fixed."""
         if not all([self.add_button, self.loop_button, self.shuffle_button, self.favorite_button, self.play_button]):
             return
 
-        # Calculate new y position (centered vertically - use larger playback icon size for consistency)
-        # Then shift down by 1%
-        y_center = (event.height - self.playback_icon_size[1]) // 2
-        new_y = int(y_center + (event.height * 0.01))
+        # Use stored initial Y positions - do NOT recalculate to prevent vertical movement
+        playback_y = self.initial_playback_y
+        utility_y = self.initial_utility_y
 
         # Calculate positions relative to canvas width
         canvas_width = event.width
 
-        # Utility controls are positioned from the right with 54px spacing (reduced by 10%)
-        # Add button at right edge minus padding (unchanged)
+        # Utility controls are positioned from the right with 54px spacing
+        # Add button at right edge minus padding
         add_x = canvas_width - 60
-        self.add_button.place(x=add_x, y=new_y)
+        self.add_button.place(x=add_x, y=utility_y)
 
         # Loop button to the left of add button - 54px spacing
         loop_x = canvas_width - 114
-        self.loop_button.place(x=loop_x, y=new_y)
+        self.loop_button.place(x=loop_x, y=utility_y)
 
         # Shuffle button to the left of loop button - 54px spacing
         shuffle_x = canvas_width - 168
-        self.shuffle_button.place(x=shuffle_x, y=new_y)
+        self.shuffle_button.place(x=shuffle_x, y=utility_y)
 
         # Favorite button to the left of shuffle button - 54px spacing
         favorite_x = canvas_width - 222
-        self.favorite_button.place(x=favorite_x, y=new_y)
+        self.favorite_button.place(x=favorite_x, y=utility_y)
 
-        # Playback controls are positioned from the left, maintaining relative spacing
+        # Playback controls are positioned from the left, maintaining fixed X positions
+        # Start at x=25 to match initial setup
+        x_position = 25
+        
         # Find playback control buttons (they are tk.Label widgets that are not utility buttons)
         playback_buttons = []
         for child in self.canvas.winfo_children():
@@ -263,16 +271,13 @@ class PlayerControls:
                 playback_buttons.append(child)
 
         # Position playback controls with the same spacing as initial setup
-        x_position = 10  # Same as initial setup
         for button in playback_buttons:
-            button.place(x=x_position, y=new_y)
-            # Use the same spacing calculation as setup_playback_controls
-            x_position += button.winfo_reqwidth() + 5
+            button.place(x=x_position, y=playback_y)
+            # Use the same spacing as setup_playback_controls: icon width + 10px
+            x_position += self.playback_icon_size[0] + 10
 
         # Update controls width for progress bar calculations
-        self.controls_width = (
-            x_position + 15
-        )  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup
+        self.controls_width = x_position + 15  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup
 
     def update_loop_button_color(self, loop_enabled):
         """Update loop button icon based on loop state."""
