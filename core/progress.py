@@ -197,10 +197,11 @@ class ProgressControl:
             ratio = 1
 
         # Calculate the available width for the progress bar
-        # This is the width between controls_width and the time display
-        # We need to account for the volume control position
+        # IMPORTANT: This calculation must match the one used in drag/click handlers in player.py
+        # 380 = space for time display (160) + volume control (110) + utility buttons (~110)
         width = self.canvas.winfo_width()
-        max_progress_width = width - self.controls_width - 380  # 380 is space for time display, volume, and utility buttons
+        max_x = width - 380  # Maximum x position (same as drag/click calculations)
+        max_progress_width = max_x - self.controls_width  # Available width for progress bar
 
         # Calculate the x position based on the ratio
         x = self.controls_width + (max_progress_width * ratio)

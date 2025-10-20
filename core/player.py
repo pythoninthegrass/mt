@@ -1241,7 +1241,7 @@ class MusicPlayer:
             self.player_core.is_playing
             and self.player_core.media_player.is_playing()
             and not self.progress_bar.dragging
-            and (current_time - self.progress_bar.last_drag_time) > 0.1
+            and (current_time - self.progress_bar.last_drag_time) > 0.5
         ):
             current = self.player_core.get_current_time()
             duration = self.player_core.get_duration()
@@ -1284,7 +1284,8 @@ class MusicPlayer:
 
             controls_width = self.progress_bar.controls_width
             # Calculate max width for progress bar (consistent with other methods)
-            max_width = self.progress_bar.canvas.winfo_width() - 260
+            # 380 = space for time display (160) + volume control (110) + utility buttons (~110)
+            max_width = self.progress_bar.canvas.winfo_width() - 380
 
             # Constrain x to valid range
             x = max(controls_width, min(event.x, max_width))
@@ -1325,7 +1326,8 @@ class MusicPlayer:
             # to prevent race conditions with progress updates
 
             # Calculate seek ratio using consistent boundaries
-            max_width = self.progress_bar.canvas.winfo_width() - 260
+            # 380 = space for time display (160) + volume control (110) + utility buttons (~110)
+            max_width = self.progress_bar.canvas.winfo_width() - 380
             width = max_width - self.progress_bar.controls_width
 
             # Constrain x within valid range
@@ -1381,7 +1383,8 @@ class MusicPlayer:
         controls_width = self.progress_bar.controls_width
 
         # Use consistent calculation for max x position
-        max_x = self.progress_bar.canvas.winfo_width() - 260
+        # 380 = space for time display (160) + volume control (110) + utility buttons (~110)
+        max_x = self.progress_bar.canvas.winfo_width() - 380
 
         # Constrain x to valid range
         x = max(controls_width, min(x, max_x))
@@ -1401,7 +1404,8 @@ class MusicPlayer:
         controls_width = self.progress_bar.controls_width
 
         # Calculate available width for progress bar (same calculation as in progress.py)
-        width = self.progress_bar.canvas.winfo_width() - controls_width - 260
+        # 380 = space for time display (160) + volume control (110) + utility buttons (~110)
+        width = self.progress_bar.canvas.winfo_width() - controls_width - 380
 
         # Calculate ratio of position (constrained to 0-1)
         ratio = (x - controls_width) / width
@@ -1436,8 +1440,9 @@ class MusicPlayer:
         right_margin = PROGRESS_BAR['right_margin']
         volume_width = self.progress_bar.volume_control_width
 
-        # Use consistent calculation: event.width - 260
-        # The 260 value accounts for time display (right_margin of 160) plus volume control (approx 100px)
+        # Calculate volume control position
+        # Note: on_resize uses a different calculation than progress bar (which uses -380)
+        # because it positions elements dynamically based on actual margin/width values
         volume_start_x = event.width - right_margin - volume_width
 
         # Update line coordinates (end BEFORE volume control)
