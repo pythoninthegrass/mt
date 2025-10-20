@@ -155,6 +155,10 @@ class MusicPlayer:
         self.player_core = PlayerCore(self.db, self.queue_manager, self.queue_view.queue)
         self.player_core.window = self.window  # Set window reference for thread-safe callbacks
         self.player_core.favorites_manager = self.favorites_manager  # Set favorites manager reference
+        self.player_core.on_track_change = self.on_track_change  # Connect callback for Now Playing view refresh
+
+        # Give Now Playing view reference to player_core so it can check media state
+        self.now_playing_view.player_core = self.player_core
 
         # Create frame for progress bar with black background
         self.progress_frame = tk.Frame(self.window, height=80, bg="#000000")
@@ -196,6 +200,10 @@ class MusicPlayer:
 
         # Connect track change callback to refresh Now Playing view
         self.player_core.on_track_change = self.on_track_change
+
+        # Update Now Playing view with player_core's initial loop state
+        if hasattr(self.now_playing_view, 'set_loop_enabled'):
+            self.now_playing_view.set_loop_enabled(self.player_core.loop_enabled)
 
         # Setup favorites callback to refresh view when favorites change
         self.favorites_manager.set_on_favorites_changed_callback(self.on_favorites_changed)
@@ -279,6 +287,7 @@ class MusicPlayer:
         )
 
         # Setup Now Playing view for queue visualization (initially hidden)
+        # Note: player_core is initialized later, so we use default loop_enabled=True
         self.now_playing_view = NowPlayingView(
             self.right_panel,
             callbacks={
@@ -287,6 +296,7 @@ class MusicPlayer:
                 'on_play_track': self.play_track_at_index,
             },
             queue_manager=self.queue_manager,
+            loop_enabled=True,  # Default to True; will be updated after player_core init
         )
 
         # Initially hide Now Playing view
@@ -432,8 +442,10 @@ class MusicPlayer:
             self.load_liked_songs()
 
     def on_track_change(self):
-        """Callback when current track changes - refresh Now Playing view if active."""
-        if self.active_view == 'now_playing':
+        """Callback when current track changes - always refresh Now Playing view."""
+        # Always refresh the Now Playing view when track changes to prevent stale data
+        # This is especially important when queue becomes empty
+        if hasattr(self, 'now_playing_view') and self.now_playing_view:
             self.now_playing_view.refresh_from_queue()
 
     def on_section_select(self, event):

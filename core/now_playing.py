@@ -15,7 +15,7 @@ class NowPlayingView(ttk.Frame):
         next_row_widgets: List of QueueRowWidget instances for upcoming tracks
     """
 
-    def __init__(self, parent, callbacks: dict, queue_manager):
+    def __init__(self, parent, callbacks: dict, queue_manager, loop_enabled: bool = True):
         """Initialize the Now Playing view.
 
         Args:
@@ -25,12 +25,15 @@ class NowPlayingView(ttk.Frame):
                 - on_remove_from_library(filepath): Remove track from library
                 - on_play_track(index): Play track at index
             queue_manager: QueueManager instance
+            loop_enabled: Whether loop mode is currently enabled (default: True)
         """
         super().__init__(parent)
         self.queue_manager = queue_manager
         self.callbacks = callbacks
         self.current_row_widget = None
         self.next_row_widgets = []
+        self.loop_enabled = loop_enabled
+        self.player_core = None  # Will be set later by MusicPlayer
 
         # Drag state
         self._drag_state = {
@@ -122,7 +125,24 @@ class NowPlayingView(ttk.Frame):
 
     def refresh_from_queue(self):
         """Rebuild view from queue_manager data, showing only viewport-fitting tracks."""
-        if not self.queue_manager.queue_items:
+        # Check if there's actual media loaded in the player
+        # Show empty state if no media is loaded, even if queue has items
+        has_media = False
+        if hasattr(self, 'player_core') and self.player_core:
+            media = self.player_core.media_player.get_media()
+            has_media = media is not None
+        
+        # Show empty state if queue is empty OR no media is loaded
+        if not self.queue_manager.queue_items or not has_media:
+            # Clear old widgets before showing empty state to prevent stale data
+            if self.current_row_widget:
+                self.current_row_widget.destroy()
+                self.current_row_widget = None
+
+            for widget in self.next_row_widgets:
+                widget.destroy()
+            self.next_row_widgets.clear()
+
             self.show_empty_state()
             return
 
@@ -146,10 +166,26 @@ class NowPlayingView(ttk.Frame):
         else:
             items = self.queue_manager.get_queue_items()
             current_display_index = self.queue_manager.current_index
-            # Rotate display so current track is at top
-            display_items = items[current_display_index:] + items[:current_display_index]
+
+            # When loop is OFF, only show tracks from current onwards (no wraparound)
+            # When loop is ON, show current track followed by remaining tracks, wrapping around
+            if self.loop_enabled:
+                # Rotate display so current track is at top
+                display_items = items[current_display_index:] + items[:current_display_index]
+            else:
+                # Linear mode: only show current and remaining tracks (no wraparound)
+                display_items = items[current_display_index:]
 
         if not display_items:
+            # Clear old widgets before showing empty state to prevent stale data
+            if self.current_row_widget:
+                self.current_row_widget.destroy()
+                self.current_row_widget = None
+
+            for widget in self.next_row_widgets:
+                widget.destroy()
+            self.next_row_widgets.clear()
+
             self.show_empty_state()
             return
 
@@ -237,11 +273,24 @@ class NowPlayingView(ttk.Frame):
 
     def show_empty_state(self):
         """Show empty queue message."""
+        # Destroy any existing widgets to ensure clean state
+        if self.current_row_widget:
+            self.current_row_widget.destroy()
+            self.current_row_widget = None
+
+        for widget in self.next_row_widgets:
+            widget.destroy()
+        self.next_row_widgets.clear()
+
+        # Hide all sections
         self.current_section.pack_forget()
         self.scrollable.pack_forget()
         self.next_label.pack_forget()
         self.next_section.pack_forget()
+
+        # Show empty state
         self.empty_label.pack(expand=True, fill=tk.BOTH)
+        self.update_idletasks()  # Force UI update
 
     def hide_empty_state(self):
         """Hide empty queue message."""
@@ -436,3 +485,12 @@ class NowPlayingView(ttk.Frame):
         """Scroll to make the currently playing track visible."""
         if self.current_row_widget:
             self.current_row_widget.pack(fill=tk.BOTH, expand=True)
+
+    def set_loop_enabled(self, enabled: bool) -> None:
+        """Update loop enabled state and refresh the view.
+
+        Args:
+            enabled: Whether loop mode is enabled
+        """
+        self.loop_enabled = enabled
+        self.refresh_from_queue()
