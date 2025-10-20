@@ -52,8 +52,9 @@ class TestNormalizePathProperties:
         result = normalize_path(simple_path)
         # Should not raise exceptions for simple paths
         assert isinstance(result, Path)
-        # Should preserve the core path content
-        assert simple_path in str(result) or simple_path.strip("/") in str(result)
+        # Should preserve the core path content (compare normalized paths since Path normalizes // to /)
+        normalized_simple = str(Path(simple_path))
+        assert normalized_simple in str(result) or normalized_simple.strip("/") in str(result)
 
     @given(st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789/_-", min_size=1, max_size=30))
     def test_normalize_path_strips_leading_trailing_braces(self, inner_path):
@@ -65,8 +66,9 @@ class TestNormalizePathProperties:
         # Leading/trailing braces should be stripped
         assert not result_str.startswith("{")
         assert not result_str.endswith("}")
-        # Inner path should be preserved
-        assert inner_path in result_str or inner_path.strip("/") in result_str
+        # Inner path should be preserved (compare normalized paths since Path normalizes // to /)
+        normalized_inner = str(Path(inner_path))
+        assert normalized_inner in result_str or normalized_inner.strip("/") in result_str
 
     @given(st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789/_-", min_size=1, max_size=30))
     def test_normalize_path_strips_leading_trailing_quotes(self, inner_path):
@@ -78,8 +80,9 @@ class TestNormalizePathProperties:
         # Leading/trailing quotes should be stripped
         assert not result_str.startswith('"')
         assert not result_str.endswith('"')
-        # Inner path should be preserved
-        assert inner_path in result_str or inner_path.strip("/") in result_str
+        # Inner path should be preserved (compare normalized paths since Path normalizes // to /)
+        normalized_inner = str(Path(inner_path))
+        assert normalized_inner in result_str or normalized_inner.strip("/") in result_str
 
     def test_normalize_path_handles_path_object_input(self):
         """Test that Path objects pass through unchanged."""

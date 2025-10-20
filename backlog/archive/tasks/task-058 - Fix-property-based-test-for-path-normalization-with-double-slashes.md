@@ -1,11 +1,14 @@
 ---
 id: task-058
 title: Fix property-based test for path normalization with double slashes
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2025-10-20 13:29'
+updated_date: '2025-10-20 20:05'
 labels: []
 dependencies: []
+ordinal: 500
 ---
 
 ## Description
@@ -14,7 +17,7 @@ The test test_normalize_path_strips_leading_trailing_braces in tests/test_props_
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Update test assertion to compare normalized paths instead of raw strings
-- [ ] #2 Verify test passes with Hypothesis falsifying example: inner_path='0//0'
-- [ ] #3 Run full property-based test suite to ensure no regressions
+- [x] #1 Update test assertion to compare normalized paths instead of raw strings
+- [x] #2 Verify test passes with Hypothesis falsifying example: inner_path='0//0'
+- [x] #3 Run full property-based test suite to ensure no regressions
 <!-- AC:END -->
