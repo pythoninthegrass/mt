@@ -38,6 +38,118 @@ AUDIO_EXTENSIONS = {
 }
 
 
+def _normalize_keybinding(binding: str) -> str:
+    """Normalize keybinding string to tkinter format with case-insensitive modifiers.
+
+    Supports:
+    - Case-insensitive modifiers: cmd/CMD/Command → Command
+    - Shorthand: cmd → Command, ctrl → Control
+    - Compound modifiers: cmd-shift-d → Command-D (uppercase when Shift present)
+
+    Args:
+        binding: User keybinding string (e.g., "cmd-d", "cmd-shift-d", "ctrl-D")
+
+    Returns:
+        Normalized keybinding string (e.g., "Command-d", "Command-D", "Control-D")
+
+    Examples:
+        >>> _normalize_keybinding("cmd-d")
+        'Command-d'
+        >>> _normalize_keybinding("cmd-shift-d")
+        'Command-D'
+        >>> _normalize_keybinding("ctrl-shift-a")
+        'Control-A'
+        >>> _normalize_keybinding("command-D")
+        'Command-D'
+    """
+    # Split on hyphen
+    parts = [p.strip() for p in binding.split('-')]
+
+    # Map for case-insensitive modifier normalization
+    modifier_map = {
+        'cmd': 'Command',
+        'command': 'Command',
+        'ctrl': 'Control',
+        'control': 'Control',
+        'alt': 'Alt',
+        'shift': 'Shift',
+    }
+
+    modifiers = []
+    key = None
+    has_shift = False
+
+    for part in parts:
+        part_lower = part.lower()
+        if part_lower in modifier_map:
+            normalized = modifier_map[part_lower]
+            if normalized == 'Shift':
+                has_shift = True
+            modifiers.append(normalized)
+        else:
+            # This is the key (last part)
+            key = part
+
+    # If Shift modifier present, uppercase the key
+    # In tkinter, <Command-D> (uppercase) automatically implies Shift
+    if has_shift and key:
+        key = key.upper()
+        # Remove explicit Shift from modifiers (uppercase key implies it)
+        modifiers = [m for m in modifiers if m != 'Shift']
+
+    # Rebuild normalized binding
+    if key:
+        return '-'.join(modifiers + [key])
+    return binding  # Return original if parsing failed
+
+
+def load_keybindings():
+    """Load keybindings from settings.toml with fallback defaults.
+
+    Returns:
+        dict: Keybindings with both Command and Control variants for cross-platform support
+    """
+    import tomllib
+
+    # Default keybindings
+    defaults = {
+        'queue_next': 'Command-d',
+        'stop_after_current': 'Command-s',
+    }
+
+    settings_path = Path(__file__).parent / "settings.toml"
+
+    # Load from settings.toml if it exists
+    if settings_path.exists():
+        try:
+            with open(settings_path, 'rb') as f:
+                settings = tomllib.load(f)
+                if 'keybindings' in settings:
+                    # Merge with defaults (user settings take precedence)
+                    defaults.update(settings['keybindings'])
+        except Exception:
+            pass  # Fall back to defaults if file is invalid
+
+    # Normalize all keybindings (case-insensitive, shorthand support, compound modifiers)
+    normalized = {}
+    for action, binding in defaults.items():
+        # Apply normalization to support various input formats
+        normalized_binding = _normalize_keybinding(binding)
+        normalized[action] = normalized_binding
+
+        # Create cross-platform variants if Command is used
+        if 'Command' in normalized_binding:
+            # Create Control variant for Windows/Linux
+            control_binding = normalized_binding.replace('Command-', 'Control-')
+            normalized[f"{action}_alt"] = control_binding
+
+    return normalized
+
+
+# Load keybindings at module import
+KEYBINDINGS = load_keybindings()
+
+
 def get_version():
     """Get version from pyproject.toml"""
     import tomllib

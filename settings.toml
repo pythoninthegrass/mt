@@ -1,0 +1,34 @@
+# mt Settings
+
+# This file contains user-configurable settings for the music player.
+# Settings in this file can be customized without modifying the codebase.
+
+[keybindings]
+# Keyboard shortcuts for queue management
+#
+# Format: action = "modifier-key"
+#
+# Modifiers (case-insensitive):
+#   - "Command" or "cmd" or "CMD" - macOS Command key
+#   - "Control" or "ctrl" or "CTRL" - Control key (cross-platform)
+#   - "Alt" or "alt" - Alt/Option key
+#   - "Shift" or "shift" - Shift key
+#
+# Compound modifiers:
+#   - "cmd-shift-d" - Automatically converts to uppercase D (Command+Shift+D)
+#   - "ctrl-shift-a" - Automatically converts to uppercase A (Control+Shift+A)
+#
+# Examples:
+#   queue_next = "cmd-d"              # Same as "Command-d"
+#   queue_next = "CMD-d"              # Same as "Command-d"
+#   queue_next = "command-d"          # Same as "Command-d"
+#   queue_next = "cmd-shift-d"        # Becomes Command-D (with Shift)
+#   queue_next = "ctrl-shift-s"       # Becomes Control-S (with Shift)
+#
+# Cross-platform: Command keys automatically work as Control on Windows/Linux
+
+# Add selected track(s) to queue after currently playing track
+queue_next = "cmd-d"
+
+# Stop playback after currently playing track finishes
+stop_after_current = "cmd-s"

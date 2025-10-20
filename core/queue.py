@@ -212,9 +212,14 @@ class QueueManager:
         # Adjust current_index if needed
         if index < self.current_index:
             self.current_index -= 1
-        elif index == self.current_index and self.current_index >= len(self.queue_items):
-            # Removed currently playing track and it was last
-            self.current_index = max(0, len(self.queue_items) - 1)
+        elif index == self.current_index:
+            # Removed currently playing track
+            if len(self.queue_items) == 0:
+                # Queue is now empty - reset to 0
+                self.current_index = 0
+            elif self.current_index >= len(self.queue_items):
+                # Removed last track but queue not empty - point to now-last track
+                self.current_index = len(self.queue_items) - 1
 
         # Invalidate shuffle when queue is modified
         self._shuffle_generated = False

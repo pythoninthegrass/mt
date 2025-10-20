@@ -1,22 +1,11 @@
-import importlib
-import json
-import mutagen
 import os
 import sys
 import time
 import tkinter as tk
-import tkinter.font as tkfont
-import vlc
 from config import (
     AUDIO_EXTENSIONS,
-    BUTTON_STYLE,
-    COLORS,
     DB_NAME,
-    DEFAULT_LOOP_ENABLED,
-    LISTBOX_CONFIG,
-    MAX_SCAN_DEPTH,
     PROGRESS_BAR,
-    PROGRESS_UPDATE_INTERVAL,
     RELOAD,
     THEME_CONFIG,
     WINDOW_SIZE,
@@ -27,26 +16,19 @@ from core.controls import PlayerCore
 from core.db import DB_TABLES, MusicDatabase
 from core.favorites import FavoritesManager
 from core.gui import (
-    BUTTON_SYMBOLS,
     LibraryView,
-    PlayerControls,
     ProgressBar,
     QueueView,
     SearchBar,
     StatusBar,
 )
 from core.library import LibraryManager
-from core.logging import log_error, log_file_operation, log_player_action, player_logger
-from core.progress import ProgressControl
+from core.logging import log_player_action, player_logger
 from core.queue import QueueManager
-from core.stoplight import StoplightButtons
-from core.theme import setup_theme
-from core.volume import VolumeControl
 from eliot import start_action
 from pathlib import Path
 from tkinter import filedialog, ttk
-from tkinterdnd2 import DND_FILES, TkinterDnD
-from utils.files import find_audio_files, normalize_path
+from utils.files import find_audio_files
 from utils.reload import ConfigFileHandler
 from watchdog.observers import Observer
 
@@ -283,6 +265,7 @@ class MusicPlayer:
                 'insert_after_current': self.insert_tracks_after_current,
                 'add_to_queue_end': self.add_tracks_to_queue,
                 'on_remove_from_library': self.remove_tracks_from_library,
+                'stop_after_current': self.toggle_stop_after_current,
             },
         )
 
@@ -339,7 +322,7 @@ class MusicPlayer:
                     self.main_container.sashpos(0, final_width)
                     # Force update to ensure the change takes effect
                     self.window.update_idletasks()
-            except Exception as e:
+            except Exception:
                 # If sashpos fails, try setting frame width
                 with suppress(Exception):
                     self.left_panel.configure(width=final_width)
@@ -586,6 +569,11 @@ class MusicPlayer:
             # Update Now Playing view if visible
             if self.active_view == 'now_playing':
                 self.now_playing_view.refresh_from_queue()
+
+    def toggle_stop_after_current(self):
+        """Toggle stop-after-current flag."""
+        if hasattr(self, 'player_core'):
+            self.player_core.toggle_stop_after_current()
 
     def remove_tracks_from_library(self, item_ids: list[str]):
         """Remove selected tracks from library.

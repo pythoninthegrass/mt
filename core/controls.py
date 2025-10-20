@@ -1,9 +1,8 @@
 import os
-import tkinter as tk
 import vlc
 from config import BUTTON_SYMBOLS
 from core.db import MusicDatabase
-from core.logging import controls_logger, log_error, log_player_action
+from core.logging import controls_logger, log_player_action
 from core.queue import QueueManager
 from eliot import start_action
 
@@ -20,6 +19,7 @@ class PlayerCore:
         self.was_playing = False
         self.loop_enabled = self.db.get_loop_enabled()
         self.shuffle_enabled = self.queue_manager.is_shuffle_enabled()
+        self.stop_after_current = False  # One-time flag to stop after current track (non-persistent)
         self.progress_bar = None
         self.window = None
         self.favorites_manager = None
@@ -282,8 +282,17 @@ class PlayerCore:
                 self.progress_bar.clear_track_info()
                 if hasattr(self.progress_bar, 'progress_control'):
                     self.progress_bar.progress_control.hide_playback_elements()
+                    # Reset the time display to default state when stopping
+                    self.progress_bar.progress_control.update_time_display("00:00", "00:00")
                 if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
                     self.progress_bar.controls.update_play_button(False)
+                # Clear favorite button state when stopping
+                if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_favorite_button'):
+                    self.progress_bar.controls.update_favorite_button(False)
+
+            # Refresh Now Playing view to show empty state if queue is empty
+            if hasattr(self, 'on_track_change') and callable(self.on_track_change):
+                self.on_track_change()
 
     def toggle_loop(self) -> None:
         """Toggle loop mode."""
@@ -303,6 +312,10 @@ class PlayerCore:
             self.db.set_loop_enabled(self.loop_enabled)
             if self.progress_bar and hasattr(self.progress_bar, 'controls'):
                 self.progress_bar.controls.update_loop_button_color(self.loop_enabled)
+
+            # Refresh Now Playing view to update track display based on loop state
+            if hasattr(self, 'on_track_change') and callable(self.on_track_change):
+                self.on_track_change()
 
     def toggle_shuffle(self) -> None:
         """Toggle shuffle mode."""
@@ -325,6 +338,26 @@ class PlayerCore:
             # Refresh Now Playing view to show shuffled/unshuffled order
             if hasattr(self, 'on_track_change') and callable(self.on_track_change):
                 self.on_track_change()
+
+    def toggle_stop_after_current(self) -> bool:
+        """Toggle stop-after-current flag.
+
+        Returns:
+            bool: New state of stop_after_current flag
+        """
+        with start_action(controls_logger, "toggle_stop_after_current"):
+            old_state = self.stop_after_current
+            self.stop_after_current = not self.stop_after_current
+
+            log_player_action(
+                "toggle_stop_after_current",
+                trigger_source="gui",
+                old_state=old_state,
+                new_state=self.stop_after_current,
+                description=f"Stop after current {'enabled' if self.stop_after_current else 'disabled'}",
+            )
+
+            return self.stop_after_current
 
     def get_current_time(self) -> int:
         """Get current playback time in milliseconds."""
@@ -576,15 +609,40 @@ class PlayerCore:
 
     def _handle_track_end(self):
         """Handle track end in the main thread."""
+        # Check stop_after_current flag first (highest priority)
+        if self.stop_after_current:
+            # Stop playback and reset the flag
+            self.stop_after_current = False
+            self.stop("stop_after_current")
+            log_player_action(
+                "stop_after_current_triggered",
+                trigger_source="automatic",
+                description="Stopped playback after current track as requested",
+            )
+            return
+
         if self.loop_enabled:
             # If loop is enabled, play the next track (or first if at end)
             self.next_song()
         else:
-            # If loop is disabled and we're at the last track, stop playback
+            # If loop is disabled, remove current track from queue and advance
+            # This creates a linear playback where tracks disappear after playing
             if self._is_last_song():
-                self.stop("end_of_track")
+                # Last track - remove it and stop
+                self.queue_manager.remove_from_queue_at_index(self.queue_manager.current_index)
+                self.stop("end_of_queue")
+                # Explicitly refresh Now Playing view when queue becomes empty
+                if hasattr(self, 'on_track_change') and callable(self.on_track_change):
+                    self.on_track_change()
             else:
-                self.next_song()
+                # Not last track - remove current track and play next
+                # After removing current track, the next track is now at current_index
+                self.queue_manager.remove_from_queue_at_index(self.queue_manager.current_index)
+                filepath = self._get_next_filepath()
+                if filepath:
+                    self._play_file(filepath)
+                else:
+                    self.stop("queue_exhausted")
 
         # Update UI elements
         if self.progress_bar and hasattr(self.progress_bar, 'controls'):

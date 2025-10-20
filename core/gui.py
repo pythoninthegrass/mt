@@ -1,23 +1,16 @@
 import contextlib
 import customtkinter as ctk
-import json
-import os
 import tkinter as tk
 import tkinter.font as tkfont
 from config import (
-    BUTTON_STYLE,
     BUTTON_SYMBOLS,
     COLORS,
-    LISTBOX_CONFIG,
     PROGRESS_BAR,
     THEME_CONFIG,
 )
 from core.controls import PlayerCore
 from core.progress import ProgressControl
-from core.theme import setup_theme
 from core.volume import VolumeControl
-from decouple import config
-from pathlib import Path
 from tkinter import ttk
 from utils.icons import load_icon
 
@@ -626,6 +619,14 @@ class QueueView:
         self.queue.bind('<Command-a>', self.select_all)  # macOS
         self.queue.bind('<Control-a>', self.select_all)  # Windows/Linux
 
+        # Add queue next keyboard shortcuts (Cmd-D / Ctrl-D)
+        self.queue.bind('<Command-d>', lambda e: self.on_context_play_next())  # macOS
+        self.queue.bind('<Control-d>', lambda e: self.on_context_play_next())  # Windows/Linux
+
+        # Add stop after current keyboard shortcuts (Cmd-S / Ctrl-S)
+        self.queue.bind('<Command-s>', lambda e: self.on_context_stop_after_current())  # macOS
+        self.queue.bind('<Control-s>', lambda e: self.on_context_stop_after_current())  # Windows/Linux
+
         # Setup context menu
         self.setup_context_menu()
 
@@ -649,6 +650,7 @@ class QueueView:
         self.context_menu.add_command(label="Play", command=self.on_context_play)
         self.context_menu.add_command(label="Play Next", command=self.on_context_play_next)
         self.context_menu.add_command(label="Add to Queue", command=self.on_context_add_to_queue)
+        self.context_menu.add_command(label="Stop After Current", command=self.on_context_stop_after_current)
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Remove from Library", command=self.on_context_remove_from_library)
 
@@ -718,6 +720,11 @@ class QueueView:
             if tracks:
                 self.callbacks['on_remove_from_library'](tracks)
 
+    def on_context_stop_after_current(self):
+        """Handle 'Stop After Current' context menu action."""
+        if 'stop_after_current' in self.callbacks:
+            self.callbacks['stop_after_current']()
+
     def set_current_view(self, view: str):
         """Set the current view and load its column preferences."""
         self.current_view = view
@@ -762,7 +769,7 @@ class QueueView:
 
     def on_key_press_jump(self, event):
         """Handle keypress for type-to-jump navigation."""
-        from core.logging import library_logger, log_player_action
+        from core.logging import library_logger
         from eliot import start_action
 
         # Ignore modifier keys and special keys - let them use default behavior
@@ -851,7 +858,7 @@ class QueueView:
 
     def _jump_to_artist(self, search_text: str):
         """Jump to first artist matching the typed text."""
-        from core.logging import library_logger, log_player_action
+        from core.logging import log_player_action
 
         if not search_text:
             return
@@ -1322,7 +1329,7 @@ class StatusBar:
             status_text = f"{file_count_str} files{'':<5}{size_str}{'':<5}{duration_str}"
             self.status_label.configure(text=status_text)
 
-        except Exception as e:
+        except Exception:
             self.status_label.configure(text="Unable to load library statistics")
 
     def refresh_statistics(self):
