@@ -1,11 +1,13 @@
 ---
 id: task-035
 title: Implement Recently Added playlist
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2025-10-09 05:26'
+updated_date: '2025-10-21 07:35'
 labels: []
 dependencies: []
+ordinal: 2250
 ---
 
 ## Description
