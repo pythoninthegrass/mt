@@ -385,40 +385,78 @@ class MusicPlayer:
 
     def toggle_favorite(self):
         """Toggle favorite status for currently playing track."""
-        # Only allow favoriting if a track is actually playing (not just selected)
-        if not self.player_core.media_player.get_media():
-            # No track is loaded
-            return
+        from core.logging import log_player_action, player_logger
+        from eliot import start_action
 
-        # Check if player is actually playing or paused (but has media loaded)
-        if not self.player_core.is_playing and self.player_core.media_player.get_state() not in [3, 4]:
-            # Track is not playing or paused (states 3=Playing, 4=Paused)
-            return
+        with start_action(player_logger, "toggle_favorite"):
+            # Only allow favoriting if a track is actually playing (not just selected)
+            if not self.player_core.media_player.get_media():
+                # No track is loaded
+                log_player_action(
+                    "toggle_favorite_skipped",
+                    trigger_source="gui",
+                    reason="no_media_loaded",
+                    description="No track loaded to favorite"
+                )
+                return
 
-        # Get the currently playing file path directly from VLC
-        media = self.player_core.media_player.get_media()
-        if not media:
-            return
+            # Check if player is actually playing or paused (but has media loaded)
+            if not self.player_core.is_playing and self.player_core.media_player.get_state() not in [3, 4]:
+                # Track is not playing or paused (states 3=Playing, 4=Paused)
+                log_player_action(
+                    "toggle_favorite_skipped",
+                    trigger_source="gui",
+                    reason="not_playing_or_paused",
+                    player_state=self.player_core.media_player.get_state(),
+                    description="Track not in playable state"
+                )
+                return
 
-        filepath = media.get_mrl()
-        # Remove 'file://' prefix if present
-        if filepath.startswith('file://'):
-            filepath = filepath[7:]
+            # Get the currently playing file path directly from VLC
+            media = self.player_core.media_player.get_media()
+            if not media:
+                return
 
-        # URL decode the filepath
-        import urllib.parse
+            filepath = media.get_mrl()
+            # Remove 'file://' prefix if present
+            if filepath.startswith('file://'):
+                filepath = filepath[7:]
 
-        filepath = urllib.parse.unquote(filepath)
+            # URL decode the filepath
+            import urllib.parse
 
-        if not filepath or not os.path.exists(filepath):
-            return
+            filepath = urllib.parse.unquote(filepath)
 
-        # Toggle favorite status
-        is_favorite = self.favorites_manager.toggle_favorite(filepath)
+            if not filepath or not os.path.exists(filepath):
+                log_player_action(
+                    "toggle_favorite_failed",
+                    trigger_source="gui",
+                    reason="invalid_filepath",
+                    filepath=filepath,
+                    description="Filepath does not exist"
+                )
+                return
 
-        # Update button icon
-        if self.progress_bar and hasattr(self.progress_bar, 'controls'):
-            self.progress_bar.controls.update_favorite_button(is_favorite)
+            # Get current favorite state and track info before toggling
+            old_state = self.favorites_manager.is_favorite(filepath)
+            track_info = self.player_core._get_current_track_info()
+
+            # Toggle favorite status
+            is_favorite = self.favorites_manager.toggle_favorite(filepath)
+
+            log_player_action(
+                "toggle_favorite",
+                trigger_source="gui",
+                filepath=filepath,
+                old_state=old_state,
+                new_state=is_favorite,
+                track_info=track_info,
+                description=f"Track {'added to' if is_favorite else 'removed from'} favorites"
+            )
+
+            # Update button icon
+            if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                self.progress_bar.controls.update_favorite_button(is_favorite)
 
     def on_favorites_changed(self):
         """Callback when favorites list changes - refresh view if showing liked songs."""
@@ -625,6 +663,10 @@ class MusicPlayer:
                     self.load_library()
                 elif section == 'liked_songs':
                     self.load_liked_songs()
+                elif section == 'recently_added':
+                    self.load_recently_added()
+                elif section == 'recently_played':
+                    self.load_recently_played()
                 elif section == 'top_played':
                     self.load_top_25_most_played()
 
@@ -1089,6 +1131,16 @@ class MusicPlayer:
 
     def add_files_to_library(self):
         """Open file dialog and add selected files to library."""
+        from core.logging import log_player_action, player_logger
+        from eliot import start_action
+
+        with start_action(player_logger, "add_files_to_library"):
+            log_player_action(
+                "add_files_dialog_opened",
+                trigger_source="gui",
+                description="User opened file dialog to add files to library"
+            )
+
         home_dir = Path.home()
         music_dir = home_dir / 'Music'
         start_dir = str(music_dir if music_dir.exists() else home_dir)
@@ -1122,15 +1174,46 @@ class MusicPlayer:
                             else:
                                 selected_paths.append(path_obj)
                         if selected_paths:
+                            from core.logging import log_player_action
+
+                            log_player_action(
+                                "add_files_to_library_processing",
+                                trigger_source="gui",
+                                file_count=len(selected_paths),
+                                description=f"Adding {len(selected_paths)} files to library"
+                            )
+
                             self.library_manager.add_files_to_library(selected_paths)
+
+                            log_player_action(
+                                "add_files_to_library_success",
+                                trigger_source="gui",
+                                file_count=len(selected_paths),
+                                description=f"Successfully added {len(selected_paths)} files to library"
+                            )
+
                             # Update statistics immediately
                             self.status_bar.update_statistics()
-                            # Refresh view if needed
+                            # Refresh view based on what's currently selected
                             selected_item = self.library_view.library_tree.selection()
                             if selected_item:
                                 tags = self.library_view.library_tree.item(selected_item[0])['tags']
-                                if tags and tags[0] == 'music':
-                                    self.load_library()
+                                if tags:
+                                    section = tags[0]
+                                    # Reload the current section
+                                    if section == 'music':
+                                        self.load_library()
+                                    elif section == 'liked_songs':
+                                        self.load_liked_songs()
+                                    elif section == 'recently_added':
+                                        self.load_recently_added()
+                                    elif section == 'recently_played':
+                                        self.load_recently_played()
+                                    elif section == 'top_played':
+                                        self.load_top_25_most_played()
+                            else:
+                                # No selection, default to loading music library
+                                self.load_library()
                 return
             except ImportError:
                 pass  # Fall back to tkinter dialog if AppKit is not available
@@ -1149,7 +1232,24 @@ class MusicPlayer:
         if paths:
             selected_paths = [Path(p) for p in paths]
             if selected_paths:
+                from core.logging import log_player_action
+
+                log_player_action(
+                    "add_files_to_library_processing",
+                    trigger_source="gui",
+                    file_count=len(selected_paths),
+                    description=f"Adding {len(selected_paths)} files to library"
+                )
+
                 self.library_manager.add_files_to_library(selected_paths)
+
+                log_player_action(
+                    "add_files_to_library_success",
+                    trigger_source="gui",
+                    file_count=len(selected_paths),
+                    description=f"Successfully added {len(selected_paths)} files to library"
+                )
+
                 # Update statistics immediately
                 self.status_bar.update_statistics()
                 # Refresh view if needed

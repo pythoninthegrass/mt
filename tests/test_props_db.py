@@ -381,3 +381,114 @@ class TestRecentlyAddedInvariants:
                 assert track in recently_added_paths
         finally:
             db.close()
+
+
+class TestTrackDeletionInvariants:
+    """Test invariants of track deletion functionality."""
+
+    @given(st.lists(st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=15), min_size=1, max_size=10, unique=True))
+    def test_deletion_removes_from_all_views(self, filenames):
+        """Test that deleting a track removes it from all views."""
+        db = create_test_db()
+        try:
+            # Add tracks to library, favorite them, and play them
+            for filename in filenames:
+                filepath = f"/path/{filename}.mp3"
+                add_track_and_play(db, filepath, {"artist": "Artist", "title": filename, "album": "Album", "track_number": "1", "date": "2025"})
+                db.add_favorite(filepath)
+
+            # Verify tracks are in all views
+            assert len(db.get_liked_songs()) == len(filenames)
+            assert len(db.get_recently_added()) == len(filenames)
+            assert len(db.get_recently_played()) == len(filenames)
+
+            # Delete first track
+            first_filepath = f"/path/{filenames[0]}.mp3"
+            db.delete_from_library(first_filepath)
+
+            # Verify track is removed from all views
+            assert len(db.get_liked_songs()) == len(filenames) - 1
+            assert len(db.get_recently_added()) == len(filenames) - 1
+            assert len(db.get_recently_played()) == len(filenames) - 1
+
+            # Verify deleted track is not in library
+            remaining_tracks = db.search_library("")
+            remaining_paths = [t[0] for t in remaining_tracks]
+            assert first_filepath not in remaining_paths
+        finally:
+            db.close()
+
+    @given(st.integers(min_value=1, max_value=10))
+    def test_deletion_is_idempotent(self, n):
+        """Test that deleting a track multiple times has same effect as deleting once."""
+        db = create_test_db()
+        try:
+            filepath = "/path/song.mp3"
+            db.add_to_library(filepath, {"artist": "Artist", "title": "Title", "album": "Album"})
+            db.add_favorite(filepath)
+
+            # Delete n times
+            for _ in range(n):
+                db.delete_from_library(filepath)
+
+            # Track should be gone
+            assert len(db.search_library("Title")) == 0
+            assert len(db.get_liked_songs()) == 0
+        finally:
+            db.close()
+
+    def test_deleting_track_preserves_other_tracks(self):
+        """Test that deleting one track doesn't affect other tracks."""
+        db = create_test_db()
+        try:
+            # Add multiple tracks
+            tracks = [
+                ("/path/track1.mp3", {"artist": "Artist 1", "title": "Track 1", "album": "Album"}),
+                ("/path/track2.mp3", {"artist": "Artist 2", "title": "Track 2", "album": "Album"}),
+                ("/path/track3.mp3", {"artist": "Artist 3", "title": "Track 3", "album": "Album"}),
+            ]
+
+            for filepath, metadata in tracks:
+                add_track_and_play(db, filepath, {**metadata, "track_number": "1", "date": "2025"})
+                db.add_favorite(filepath)
+
+            # Delete middle track
+            db.delete_from_library("/path/track2.mp3")
+
+            # Verify other tracks still exist
+            assert len(db.search_library("")) == 2
+            assert len(db.get_liked_songs()) == 2
+            assert len(db.get_recently_played()) == 2
+
+            # Verify specific tracks
+            assert len(db.search_library("Track 1")) == 1
+            assert len(db.search_library("Track 3")) == 1
+            assert len(db.search_library("Track 2")) == 0
+        finally:
+            db.close()
+
+    @given(st.lists(st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=15), min_size=2, max_size=10, unique=True))
+    def test_partial_deletion_maintains_consistency(self, filenames):
+        """Test that deleting some tracks maintains database consistency."""
+        db = create_test_db()
+        try:
+            # Add all tracks
+            for filename in filenames:
+                filepath = f"/path/{filename}.mp3"
+                add_track_and_play(db, filepath, {"artist": "Artist", "title": filename, "album": "Album", "track_number": "1", "date": "2025"})
+                db.add_favorite(filepath)
+
+            # Delete half of the tracks (rounded down)
+            num_to_delete = len(filenames) // 2
+            for i in range(num_to_delete):
+                filepath = f"/path/{filenames[i]}.mp3"
+                db.delete_from_library(filepath)
+
+            # Verify counts are consistent
+            expected_remaining = len(filenames) - num_to_delete
+            assert len(db.search_library("")) == expected_remaining
+            assert len(db.get_liked_songs()) == expected_remaining
+            assert len(db.get_recently_added()) == expected_remaining
+            assert len(db.get_recently_played()) == expected_remaining
+        finally:
+            db.close()

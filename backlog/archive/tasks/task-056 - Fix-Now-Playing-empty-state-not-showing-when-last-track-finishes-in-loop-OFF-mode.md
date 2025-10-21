@@ -29,6 +29,7 @@ When the last track in the queue finishes playing in loop OFF mode, the Now Play
 ## Implementation Notes
 
 Fixed by:
+
 1. Connected on_track_change callback from MusicPlayer to PlayerCore so track end events properly refresh the Now Playing view
 2. Modified NowPlayingView.refresh_from_queue() to check if media is actually loaded before showing tracks
 3. Added player_core reference to NowPlayingView so it can check media state

@@ -20,7 +20,6 @@ Controls should stay in fixed position when window is resized
 - [x] #2 Utility controls remain stationary during window resize
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
 Fixed by storing initial Y positions during control setup and using those stored positions during resize events instead of recalculating. Controls now maintain fixed vertical positions while only adjusting horizontal positions as needed (utility controls stay anchored to right edge, playback controls stay anchored to left edge).

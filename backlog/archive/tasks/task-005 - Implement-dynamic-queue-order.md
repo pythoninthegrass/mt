@@ -31,7 +31,6 @@ Add ability to dynamically reorder tracks in the playback queue
 - [x] #14 Split into two vertical columns: Now Playing and Up Next
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
 ## Implementation Summary

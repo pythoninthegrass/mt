@@ -23,4 +23,4 @@ Currently, queue_view.queue serves dual purposes: showing actual queue OR showin
 
 ## Implementation Notes
 
-Refactored _handle_play_track_at_index and _handle_select_queue_item in api/api.py to use database queue as source of truth instead of UI widget children count. Both functions now validate index against queue_manager.get_queue_items() before operations. Tests pass successfully.
+Refactored _handle_play_track_at_index and_handle_select_queue_item in api/api.py to use database queue as source of truth instead of UI widget children count. Both functions now validate index against queue_manager.get_queue_items() before operations. Tests pass successfully.
