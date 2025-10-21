@@ -1,10 +1,10 @@
 ---
 id: task-047
 title: Implement inline metadata editing
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-12 07:56'
-updated_date: '2025-10-21 05:38'
+updated_date: '2025-10-21 07:00'
 labels: []
 dependencies: []
 ordinal: 500
