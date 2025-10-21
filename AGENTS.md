@@ -20,6 +20,7 @@ ALWAYS use these MCP servers:
 - sequential-thinking: detailed, step-by-step thinking process for problem-solving and analysis.
 - context7: when looking up library context outside the source code
   - oaubert/python-vlc
+  - quodlibet/mutagen
   - itamarst/eliot
   - hypothesisworks/hypothesis
   - spiraldb/ziggy-pydust
