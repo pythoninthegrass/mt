@@ -49,7 +49,7 @@ MT_API_SERVER_ENABLED=true MT_API_SERVER_PORT=5555 uv run main.py
 
 ```bash
 # Install dependencies
-uv sync --frozen
+uv pip install -r pyproject.toml --all-extras
 
 # Update dependencies
 uv lock --upgrade
@@ -193,7 +193,7 @@ The application follows a modular architecture with clear separation of concerns
 
 ```bash
 # Install dependencies
-uv sync --frozen
+uv pip install -r pyproject.toml --all-extras
 
 # Add new dependencies
 uv add package-name

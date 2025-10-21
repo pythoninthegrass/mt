@@ -1,9 +1,8 @@
 import contextlib
 import os
 import sqlite3
-from core.logging import db_logger, log_database_operation, log_error
-from pathlib import Path
-from typing import Any, Optional
+from eliot import start_action
+from typing import Any
 
 # Database initialization tables
 # These tables are created when the database is first initialized
@@ -409,7 +408,6 @@ class MusicDatabase:
 
     def get_library_statistics(self) -> dict[str, Any]:
         """Get comprehensive library statistics including file count, size, and total duration."""
-        from typing import Any
 
         stats = {'file_count': 0, 'total_size_bytes': 0, 'total_duration_seconds': 0}
 
@@ -827,6 +825,34 @@ class MusicDatabase:
                 from core.logging import log_error
 
                 log_error(e, "Failed to get top 25 most played")
+            except ImportError:
+                pass
+            return []
+
+    def get_recently_added(self) -> list[tuple]:
+        """Get tracks added within the last 14 days, ordered by added_date (descending).
+
+        Returns:
+            list[tuple]: List of (filepath, artist, title, album, track_number, date, added_date) tuples
+        """
+        try:
+            from core.logging import player_logger
+
+            with start_action(player_logger, "db_get_recently_added"):
+                query = '''
+                    SELECT filepath, artist, title, album, track_number, date, added_date
+                    FROM library
+                    WHERE added_date >= datetime('now', '-14 days')
+                    ORDER BY added_date DESC
+                '''
+                self.db_cursor.execute(query)
+                results = self.db_cursor.fetchall()
+                return results
+        except Exception as e:
+            try:
+                from core.logging import log_error
+
+                log_error(e, "Failed to get recently added tracks")
             except ImportError:
                 pass
             return []

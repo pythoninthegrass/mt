@@ -503,6 +503,16 @@ class MusicPlayer:
                         loaded_items=new_count,
                         description=f"Loaded {new_count} top played tracks",
                     )
+                elif new_section == 'recent_added':
+                    self.load_recently_added()
+                    new_count = len(self.queue_view.queue.get_children())
+                    log_player_action(
+                        "section_switch_complete",
+                        trigger_source="gui",
+                        section="recent_added",
+                        loaded_items=new_count,
+                        description=f"Loaded {new_count} recently added tracks",
+                    )
 
     def show_library_view(self):
         """Switch to library view (Treeview)."""
@@ -744,6 +754,9 @@ class MusicPlayer:
 
     def load_library(self):
         """Load and display library items."""
+        # Reset to standard 5-column layout
+        self._reset_to_standard_columns()
+        
         # Clear current view
         for item in self.queue_view.queue.get_children():
             self.queue_view.queue.delete(item)
@@ -763,6 +776,9 @@ class MusicPlayer:
 
     def load_liked_songs(self):
         """Load and display liked songs."""
+        # Reset to standard 5-column layout
+        self._reset_to_standard_columns()
+        
         # Initialize filepath mapping if needed
         if not hasattr(self, '_item_filepath_map'):
             self._item_filepath_map = {}
@@ -791,6 +807,9 @@ class MusicPlayer:
 
     def load_top_25_most_played(self):
         """Load and display top 25 most played tracks."""
+        # Reset to standard 5-column layout
+        self._reset_to_standard_columns()
+        
         # Initialize filepath mapping if needed
         if not hasattr(self, '_item_filepath_map'):
             self._item_filepath_map = {}
@@ -820,6 +839,73 @@ class MusicPlayer:
             # Store filepath mapping
             self._item_filepath_map[item_id] = filepath
         self.refresh_colors()
+
+    def load_recently_added(self):
+        """Load and display recently added tracks (last 14 days)."""
+        with start_action(player_logger, "load_recently_added"):
+            # Initialize filepath mapping if needed
+            if not hasattr(self, '_item_filepath_map'):
+                self._item_filepath_map = {}
+
+            # Clear current view and mapping
+            for item in self.queue_view.queue.get_children():
+                self.queue_view.queue.delete(item)
+            self._item_filepath_map.clear()
+
+            # Reconfigure treeview to include 'added' column
+            self.queue_view.queue.configure(columns=('track', 'title', 'artist', 'album', 'year', 'added'))
+            
+            # Configure all columns including the new 'added' column
+            self.queue_view.queue.heading('track', text='#')
+            self.queue_view.queue.heading('title', text='Title')
+            self.queue_view.queue.heading('artist', text='Artist')
+            self.queue_view.queue.heading('album', text='Album')
+            self.queue_view.queue.heading('year', text='Year')
+            self.queue_view.queue.heading('added', text='Added')
+            
+            # Set column widths
+            self.queue_view.queue.column('track', width=50, anchor='center')
+            self.queue_view.queue.column('title', width=200, minwidth=100)
+            self.queue_view.queue.column('artist', width=150, minwidth=80)
+            self.queue_view.queue.column('album', width=150, minwidth=80)
+            self.queue_view.queue.column('year', width=80, minwidth=60, anchor='center')
+            self.queue_view.queue.column('added', width=150, minwidth=120, anchor='center')
+
+            # Set current view and restore column widths
+            self.queue_view.set_current_view('recently_added')
+
+            rows = self.library_manager.get_recently_added()
+            if not rows:
+                log_player_action(
+                    "load_recently_added_empty",
+                    trigger_source="gui",
+                    description="No recently added tracks found (last 14 days)"
+                )
+                return
+
+            # Format with standard track number display and added timestamp
+            for i, (filepath, artist, title, album, track_num, date, added_date) in enumerate(rows):
+                formatted_track = self._format_track_number(track_num)
+                year = self._extract_year(date)
+                
+                # Format added_date timestamp (from "2025-10-21 16:20:30" to "Oct 21, 4:20 PM")
+                added_str = self._format_added_date(added_date) if added_date else ''
+                
+                row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
+                item_id = self.queue_view.queue.insert(
+                    '', 'end', values=(formatted_track, title or '', artist or '', album or '', year or '', added_str), tags=(row_tag,)
+                )
+                # Store filepath mapping
+                self._item_filepath_map[item_id] = filepath
+
+            self.refresh_colors()
+
+            log_player_action(
+                "load_recently_added_success",
+                trigger_source="gui",
+                loaded_items=len(rows),
+                description=f"Loaded {len(rows)} recently added tracks (last 14 days)"
+            )
 
     def _populate_queue_view(self, rows):
         """Populate queue view with rows of data."""
@@ -879,6 +965,43 @@ class MusicPlayer:
             return date.split('-')[0] if '-' in date else date[:4]
         except Exception:
             return ''
+
+    def _format_added_date(self, added_date):
+        """Format added_date timestamp for display.
+        
+        Converts "2025-10-21 16:20:30" to "Oct 21, 4:20 PM"
+        """
+        if not added_date:
+            return ''
+        try:
+            from datetime import datetime
+            
+            # Parse the timestamp
+            dt = datetime.strptime(added_date, '%Y-%m-%d %H:%M:%S')
+            
+            # Format as "Oct 21, 4:20 PM"
+            return dt.strftime('%b %d, %-I:%M %p')
+        except Exception:
+            # If parsing fails, return as-is or empty
+            return added_date if added_date else ''
+
+    def _reset_to_standard_columns(self):
+        """Reset treeview to standard 5-column layout."""
+        self.queue_view.queue.configure(columns=('track', 'title', 'artist', 'album', 'year'))
+        
+        # Configure column headings
+        self.queue_view.queue.heading('track', text='#')
+        self.queue_view.queue.heading('title', text='Title')
+        self.queue_view.queue.heading('artist', text='Artist')
+        self.queue_view.queue.heading('album', text='Album')
+        self.queue_view.queue.heading('year', text='Year')
+        
+        # Set column widths
+        self.queue_view.queue.column('track', width=50, anchor='center')
+        self.queue_view.queue.column('title', width=200, minwidth=100)
+        self.queue_view.queue.column('artist', width=150, minwidth=80)
+        self.queue_view.queue.column('album', width=150, minwidth=80)
+        self.queue_view.queue.column('year', width=80, minwidth=60, anchor='center')
 
     def add_files_to_library(self):
         """Open file dialog and add selected files to library."""
