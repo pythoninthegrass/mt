@@ -24,6 +24,7 @@ ALWAYS use these MCP servers:
   - itamarst/eliot
   - hypothesisworks/hypothesis
   - spiraldb/ziggy-pydust
+  - ludo-technologies/pyscn
 - screencap: for screenshots of front-end changes
 
 ## Common Development Commands

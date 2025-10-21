@@ -2,6 +2,7 @@
 .aider*
 *.db
 *.sqlite
+.pyscn/
 .ruff*
 .serena/
 CLAUDE.md

@@ -1,0 +1,27 @@
+[complexity]
+low_threshold = 15
+medium_threshold = 25
+
+[dead_code]
+min_severity = "warning"
+
+[output]
+directory = ".pyscn/reports"
+
+[analysis]
+recursive = true                 # Recursively analyze directories
+follow_symlinks = false          # Follow symbolic links
+include_patterns = ["**/*.py"]   # File patterns to include
+exclude_patterns = [             # File patterns to exclude
+    ".env/",
+    ".tox/",
+    ".venv/",
+    "**/__pycache__/*",
+    "**/.pytest_cache/",
+    "**/*.pyc",
+    "**/tests/**",
+    "env/",
+    "utils/*",
+    "venv/",
+    "scratch.py",
+]
