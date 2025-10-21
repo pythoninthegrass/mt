@@ -418,6 +418,10 @@ class PlayerCore:
         # Store the filepath immediately for reliable access
         self.current_file = filepath
 
+        # Reset play count tracking for new track
+        if hasattr(self, 'play_count_updated_callback') and self.play_count_updated_callback:
+            self.play_count_updated_callback(False)
+
         # Store the current volume before changing media
         current_volume = self.get_volume()
 

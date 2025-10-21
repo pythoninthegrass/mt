@@ -27,6 +27,8 @@ def mock_db():
     db.search_library.return_value = []
     db.get_library_statistics.return_value = {}
     db.get_top_25_most_played.return_value = []
+    db.get_recently_added.return_value = []
+    db.get_recently_played.return_value = []
     db.delete_from_library.return_value = True
     return db
 
@@ -152,6 +154,32 @@ class TestLibraryManagerStatistics:
 
         assert tracks == expected_tracks
         mock_db.get_top_25_most_played.assert_called_once()
+
+    def test_get_recently_added(self, library_manager, mock_db):
+        """Test getting recently added tracks."""
+        expected_tracks = [
+            ("/path/song1.mp3", "Artist 1", "Title 1", "Album 1", "1", "2025", "2025-10-21 14:00:00"),
+            ("/path/song2.mp3", "Artist 2", "Title 2", "Album 2", "2", "2025", "2025-10-21 13:00:00"),
+        ]
+        mock_db.get_recently_added.return_value = expected_tracks
+
+        tracks = library_manager.get_recently_added()
+
+        assert tracks == expected_tracks
+        mock_db.get_recently_added.assert_called_once()
+
+    def test_get_recently_played(self, library_manager, mock_db):
+        """Test getting recently played tracks."""
+        expected_tracks = [
+            ("/path/song1.mp3", "Artist 1", "Title 1", "Album 1", "1", "2025", "2025-10-21 14:00:00"),
+            ("/path/song2.mp3", "Artist 2", "Title 2", "Album 2", "2", "2025", "2025-10-21 13:00:00"),
+        ]
+        mock_db.get_recently_played.return_value = expected_tracks
+
+        tracks = library_manager.get_recently_played()
+
+        assert tracks == expected_tracks
+        mock_db.get_recently_played.assert_called_once()
 
 
 class TestLibraryManagerAddFiles:

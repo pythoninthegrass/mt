@@ -183,12 +183,18 @@ class MusicPlayer:
         # Connect track change callback to refresh Now Playing view
         self.player_core.on_track_change = self.on_track_change
 
+        # Connect play count callback to reset tracking flag
+        self.player_core.play_count_updated_callback = self.set_play_count_updated
+
         # Update Now Playing view with player_core's initial loop state
         if hasattr(self.now_playing_view, 'set_loop_enabled'):
             self.now_playing_view.set_loop_enabled(self.player_core.loop_enabled)
 
         # Setup favorites callback to refresh view when favorites change
         self.favorites_manager.set_on_favorites_changed_callback(self.on_favorites_changed)
+
+        # Track if current track has been counted for play stats
+        self.play_count_updated = False
 
         # Start progress update
         self.update_progress()
@@ -1538,6 +1544,10 @@ class MusicPlayer:
                     item, tags=(row_tag,)
                 )  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log  # Debug log
 
+    def set_play_count_updated(self, value: bool):
+        """Set whether play count has been updated for current track."""
+        self.play_count_updated = value
+
     def update_progress(self):
         """Update progress bar position and time display."""
         current_time = time.time()
@@ -1569,6 +1579,15 @@ class MusicPlayer:
                 current_time_fmt = self._format_time(current / 1000)
                 total_time_fmt = self._format_time(duration / 1000)
                 self.progress_bar.progress_control.update_time_display(current_time_fmt, total_time_fmt)
+
+                # Update play count once track reaches 90% completion
+                if ratio >= 0.9 and not self.play_count_updated and self.player_core.current_file:
+                    self.db.update_play_count(self.player_core.current_file)
+                    self.play_count_updated = True
+
+                    # Refresh Recently Played view if it's currently active
+                    if hasattr(self.queue_view, 'current_view') and self.queue_view.current_view == 'recently_played':
+                        self.load_recently_played()
 
         self.window.after(100, self.update_progress)
 

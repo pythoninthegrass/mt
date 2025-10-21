@@ -366,6 +366,174 @@ class TestMusicDatabaseFavorites:
         assert "/path/to/song1.mp3" in str(songs[0])
 
 
+class TestMusicDatabaseRecentlyPlayed:
+    """Test recently played tracks functionality."""
+
+    def test_get_recently_played_empty(self, in_memory_db):
+        """Test getting recently played when no tracks have been played."""
+        tracks = in_memory_db.get_recently_played()
+        assert tracks == []
+
+    def test_get_recently_played_with_played_tracks(self, in_memory_db):
+        """Test getting recently played returns tracks with last_played timestamp."""
+        # Add tracks
+        in_memory_db.add_to_library(
+            "/path/to/song1.mp3",
+            {"artist": "Artist 1", "title": "Title 1", "album": "Album 1", "track_number": "1", "date": "2025"},
+        )
+        in_memory_db.add_to_library(
+            "/path/to/song2.mp3",
+            {"artist": "Artist 2", "title": "Title 2", "album": "Album 2", "track_number": "2", "date": "2025"},
+        )
+
+        # Update play count to set last_played
+        in_memory_db.update_play_count("/path/to/song1.mp3")
+        in_memory_db.update_play_count("/path/to/song2.mp3")
+
+        # Get recently played
+        tracks = in_memory_db.get_recently_played()
+        assert len(tracks) == 2
+        # Both tracks should be present
+        filepaths = [t[0] for t in tracks]
+        assert "/path/to/song1.mp3" in filepaths
+        assert "/path/to/song2.mp3" in filepaths
+
+    def test_get_recently_played_excludes_old_tracks(self, in_memory_db):
+        """Test that tracks older than 14 days are excluded."""
+        # Add a track
+        in_memory_db.add_to_library(
+            "/path/to/old_song.mp3", {"artist": "Artist", "title": "Old Song", "album": "Album"}
+        )
+
+        # Manually set last_played to 20 days ago
+        cursor = in_memory_db.db_cursor
+        cursor.execute(
+            "UPDATE library SET last_played = datetime('now', '-20 days') WHERE filepath = ?", ("/path/to/old_song.mp3",)
+        )
+        in_memory_db.db_conn.commit()
+
+        # Get recently played - should be empty
+        tracks = in_memory_db.get_recently_played()
+        assert tracks == []
+
+    def test_get_recently_played_excludes_never_played(self, in_memory_db):
+        """Test that tracks with NULL last_played are excluded."""
+        # Add a track but never play it
+        in_memory_db.add_to_library(
+            "/path/to/unplayed.mp3", {"artist": "Artist", "title": "Unplayed", "album": "Album"}
+        )
+
+        # Get recently played - should be empty
+        tracks = in_memory_db.get_recently_played()
+        assert tracks == []
+
+    def test_get_recently_played_includes_all_metadata(self, in_memory_db):
+        """Test that recently played returns all required metadata fields."""
+        # Add and play a track
+        in_memory_db.add_to_library(
+            "/path/to/song.mp3",
+            {
+                "artist": "Test Artist",
+                "title": "Test Song",
+                "album": "Test Album",
+                "track_number": "5",
+                "date": "2025",
+            },
+        )
+        in_memory_db.update_play_count("/path/to/song.mp3")
+
+        # Get recently played
+        tracks = in_memory_db.get_recently_played()
+        assert len(tracks) == 1
+
+        # Verify all fields are present: filepath, artist, title, album, track_number, date, last_played
+        track = tracks[0]
+        assert len(track) == 7
+        assert track[0] == "/path/to/song.mp3"
+        assert track[1] == "Test Artist"
+        assert track[2] == "Test Song"
+        assert track[3] == "Test Album"
+        assert track[4] == "5"
+        assert track[5] == "2025"
+        assert track[6] is not None  # last_played timestamp
+
+
+class TestMusicDatabaseRecentlyAdded:
+    """Test recently added tracks functionality."""
+
+    def test_get_recently_added_empty(self, in_memory_db):
+        """Test getting recently added when no tracks exist."""
+        tracks = in_memory_db.get_recently_added()
+        assert tracks == []
+
+    def test_get_recently_added_with_new_tracks(self, in_memory_db):
+        """Test getting recently added returns tracks added within 14 days."""
+        # Add tracks (added_date is set to CURRENT_TIMESTAMP automatically)
+        in_memory_db.add_to_library(
+            "/path/to/song1.mp3",
+            {"artist": "Artist 1", "title": "Title 1", "album": "Album 1", "track_number": "1", "date": "2025"},
+        )
+        in_memory_db.add_to_library(
+            "/path/to/song2.mp3",
+            {"artist": "Artist 2", "title": "Title 2", "album": "Album 2", "track_number": "2", "date": "2025"},
+        )
+
+        # Get recently added
+        tracks = in_memory_db.get_recently_added()
+        assert len(tracks) == 2
+        # Both tracks should be present
+        filepaths = [t[0] for t in tracks]
+        assert "/path/to/song1.mp3" in filepaths
+        assert "/path/to/song2.mp3" in filepaths
+
+    def test_get_recently_added_excludes_old_tracks(self, in_memory_db):
+        """Test that tracks older than 14 days are excluded."""
+        # Add a track
+        in_memory_db.add_to_library(
+            "/path/to/old_song.mp3", {"artist": "Artist", "title": "Old Song", "album": "Album"}
+        )
+
+        # Manually set added_date to 20 days ago
+        cursor = in_memory_db.db_cursor
+        cursor.execute(
+            "UPDATE library SET added_date = datetime('now', '-20 days') WHERE filepath = ?", ("/path/to/old_song.mp3",)
+        )
+        in_memory_db.db_conn.commit()
+
+        # Get recently added - should be empty
+        tracks = in_memory_db.get_recently_added()
+        assert tracks == []
+
+    def test_get_recently_added_includes_all_metadata(self, in_memory_db):
+        """Test that recently added returns all required metadata fields."""
+        # Add a track
+        in_memory_db.add_to_library(
+            "/path/to/song.mp3",
+            {
+                "artist": "Test Artist",
+                "title": "Test Song",
+                "album": "Test Album",
+                "track_number": "5",
+                "date": "2025",
+            },
+        )
+
+        # Get recently added
+        tracks = in_memory_db.get_recently_added()
+        assert len(tracks) == 1
+
+        # Verify all fields are present: filepath, artist, title, album, track_number, date, added_date
+        track = tracks[0]
+        assert len(track) == 7
+        assert track[0] == "/path/to/song.mp3"
+        assert track[1] == "Test Artist"
+        assert track[2] == "Test Song"
+        assert track[3] == "Test Album"
+        assert track[4] == "5"
+        assert track[5] == "2025"
+        assert track[6] is not None  # added_date timestamp
+
+
 class TestMusicDatabaseClose:
     """Test database closing."""
 

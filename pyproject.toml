@@ -46,6 +46,9 @@ python_classes = "Test*"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "--durations=10 -v -p no:pydust --cov=. --cov-report=term-missing"
+filterwarnings = [
+    "ignore::DeprecationWarning:eliot._traceback",
+]
 markers = [
     "unit: marks tests as unit tests",
     "integration: marks tests as integration tests",

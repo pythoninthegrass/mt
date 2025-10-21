@@ -21,6 +21,12 @@ def create_test_db():
     return MusicDatabase(":memory:", DB_TABLES)
 
 
+def add_track_and_play(db, filepath, metadata):
+    """Helper to add a track and mark it as played."""
+    db.add_to_library(filepath, metadata)
+    db.update_play_count(filepath)
+
+
 class TestFavoritesToggleInvariants:
     """Test invariants of favorites toggle operations."""
 
@@ -250,5 +256,128 @@ class TestLibrarySearchInvariants:
             assert len(results_lower) > 0
             assert len(results_upper) > 0
             assert len(results_mixed) > 0
+        finally:
+            db.close()
+
+
+class TestRecentlyPlayedInvariants:
+    """Test invariants of Recently Played functionality."""
+
+    @given(st.lists(st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=15), min_size=1, max_size=20, unique=True))
+    def test_recently_played_count_matches_played_tracks(self, filenames):
+        """Test that the number of recently played tracks matches update_play_count operations."""
+        db = create_test_db()
+        try:
+            for filename in filenames:
+                filepath = f"/path/{filename}.mp3"
+                add_track_and_play(db, filepath, {"artist": "Artist", "title": filename, "album": "Album", "track_number": "1", "date": "2025"})
+
+            recently_played = db.get_recently_played()
+            assert len(recently_played) == len(filenames)
+        finally:
+            db.close()
+
+    @given(st.integers(min_value=1, max_value=10))
+    def test_play_count_update_is_idempotent_for_recently_played(self, n):
+        """Test that updating play count multiple times still shows track once in recently played."""
+        db = create_test_db()
+        try:
+            filepath = "/path/song.mp3"
+            db.add_to_library(filepath, {"artist": "Artist", "title": "Title", "album": "Album", "track_number": "1", "date": "2025"})
+
+            # Update play count n times
+            for _ in range(n):
+                db.update_play_count(filepath)
+
+            recently_played = db.get_recently_played()
+            assert len(recently_played) == 1
+            assert recently_played[0][0] == filepath
+        finally:
+            db.close()
+
+    def test_recently_played_excludes_unplayed_tracks(self):
+        """Test that tracks without last_played are not in recently played."""
+        db = create_test_db()
+        try:
+            # Add tracks
+            db.add_to_library("/path/played.mp3", {"artist": "Artist 1", "title": "Played", "album": "Album", "track_number": "1", "date": "2025"})
+            db.add_to_library("/path/unplayed.mp3", {"artist": "Artist 2", "title": "Unplayed", "album": "Album", "track_number": "2", "date": "2025"})
+
+            # Play only one
+            db.update_play_count("/path/played.mp3")
+
+            recently_played = db.get_recently_played()
+            assert len(recently_played) == 1
+            assert recently_played[0][0] == "/path/played.mp3"
+        finally:
+            db.close()
+
+    def test_recently_played_includes_all_played_tracks(self):
+        """Test that all played tracks appear in recently played."""
+        db = create_test_db()
+        try:
+            # Add and play tracks
+            tracks = ["/path/track1.mp3", "/path/track2.mp3", "/path/track3.mp3"]
+            for i, track in enumerate(tracks):
+                add_track_and_play(db, track, {"artist": f"Artist {i}", "title": f"Track {i}", "album": "Album", "track_number": str(i), "date": "2025"})
+
+            recently_played = db.get_recently_played()
+
+            # All tracks should be present
+            assert len(recently_played) == 3
+            recently_played_paths = [t[0] for t in recently_played]
+            for track in tracks:
+                assert track in recently_played_paths
+        finally:
+            db.close()
+
+
+class TestRecentlyAddedInvariants:
+    """Test invariants of Recently Added functionality."""
+
+    @given(st.lists(st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=15), min_size=1, max_size=20, unique=True))
+    def test_recently_added_count_matches_added_tracks(self, filenames):
+        """Test that the number of recently added tracks matches add_to_library operations."""
+        db = create_test_db()
+        try:
+            for filename in filenames:
+                filepath = f"/path/{filename}.mp3"
+                db.add_to_library(filepath, {"artist": "Artist", "title": filename, "album": "Album", "track_number": "1", "date": "2025"})
+
+            recently_added = db.get_recently_added()
+            assert len(recently_added) == len(filenames)
+        finally:
+            db.close()
+
+    def test_recently_added_returns_correct_count(self):
+        """Test that recently added returns correct number of tracks."""
+        db = create_test_db()
+        try:
+            # Add tracks
+            tracks = ["/path/track1.mp3", "/path/track2.mp3", "/path/track3.mp3"]
+            for i, track in enumerate(tracks):
+                db.add_to_library(track, {"artist": f"Artist {i}", "title": f"Track {i}", "album": "Album", "track_number": str(i), "date": "2025"})
+
+            recently_added = db.get_recently_added()
+
+            # All tracks should be present
+            assert len(recently_added) == 3
+        finally:
+            db.close()
+
+    def test_recently_added_includes_all_tracks(self):
+        """Test that all recently added tracks appear in query."""
+        db = create_test_db()
+        try:
+            # Add multiple tracks
+            tracks = [f"/path/track{i}.mp3" for i in range(5)]
+            for i, track in enumerate(tracks):
+                db.add_to_library(track, {"artist": f"Artist {i}", "title": f"Track {i}", "album": "Album", "track_number": str(i), "date": "2025"})
+
+            recently_added = db.get_recently_added()
+            recently_added_paths = [t[0] for t in recently_added]
+
+            for track in tracks:
+                assert track in recently_added_paths
         finally:
             db.close()
