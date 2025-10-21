@@ -503,6 +503,16 @@ class MusicPlayer:
                         loaded_items=new_count,
                         description=f"Loaded {new_count} top played tracks",
                     )
+                elif new_section == 'recent_added':
+                    self.load_recently_added()
+                    new_count = len(self.queue_view.queue.get_children())
+                    log_player_action(
+                        "section_switch_complete",
+                        trigger_source="gui",
+                        section="recent_added",
+                        loaded_items=new_count,
+                        description=f"Loaded {new_count} recently added tracks",
+                    )
 
     def show_library_view(self):
         """Switch to library view (Treeview)."""
