@@ -160,14 +160,12 @@ class TestLibraryManagerAddFiles:
     def test_add_files_to_library_with_single_file(self, library_manager, mock_db):
         """Test adding a single audio file to library."""
         from unittest.mock import MagicMock, patch
-        
+
         mock_db.get_existing_files.return_value = set()
         mock_db.is_duplicate.return_value = False
-        
+
         # Mock Path.exists() and Path.is_file()
-        with patch('core.library.Path') as mock_path_class, \
-             patch('core.library.mutagen.File') as mock_mutagen:
-            
+        with patch('core.library.Path') as mock_path_class, patch('core.library.mutagen.File') as mock_mutagen:
             # Setup path mock
             mock_path_instance = MagicMock()
             mock_path_instance.exists.return_value = True
@@ -175,33 +173,34 @@ class TestLibraryManagerAddFiles:
             mock_path_instance.is_dir.return_value = False
             mock_path_instance.stem = "testsong"
             mock_path_class.return_value = mock_path_instance
-            
+
             # Setup mutagen mock
             mock_audio = MagicMock()
             mock_audio.info.length = 180.5
             mock_audio.tags = None
             mock_mutagen.return_value = mock_audio
-            
+
             # Mock normalize_path
             with patch('core.library.normalize_path') as mock_normalize:
                 mock_normalize.return_value = mock_path_instance
-                
+
                 library_manager.add_files_to_library(["/test/song.mp3"])
-                
+
                 # Verify add_to_library was called
                 assert mock_db.add_to_library.called
 
     def test_add_files_to_library_with_directory(self, library_manager, mock_db):
         """Test adding a directory of audio files."""
         from unittest.mock import MagicMock, patch
-        
+
         mock_db.get_existing_files.return_value = set()
         mock_db.is_duplicate.return_value = False
-        
-        with patch('core.library.Path') as mock_path_class, \
-             patch('core.library.find_audio_files') as mock_find, \
-             patch('core.library.mutagen.File') as mock_mutagen:
-            
+
+        with (
+            patch('core.library.Path') as mock_path_class,
+            patch('core.library.find_audio_files') as mock_find,
+            patch('core.library.mutagen.File') as mock_mutagen,
+        ):
             # Setup path mock for directory
             mock_path_instance = MagicMock()
             mock_path_instance.exists.return_value = True
@@ -209,22 +208,22 @@ class TestLibraryManagerAddFiles:
             mock_path_instance.is_dir.return_value = True
             mock_path_instance.stem = "testdir"
             mock_path_class.return_value = mock_path_instance
-            
+
             # Mock find_audio_files to return file list
             mock_find.return_value = ["/test/dir/song1.mp3", "/test/dir/song2.mp3"]
-            
+
             # Setup mutagen mock
             mock_audio = MagicMock()
             mock_audio.info.length = 180.5
             mock_audio.tags = None
             mock_mutagen.return_value = mock_audio
-            
+
             # Mock normalize_path
             with patch('core.library.normalize_path') as mock_normalize:
                 mock_normalize.return_value = mock_path_instance
-                
+
                 library_manager.add_files_to_library(["/test/dir"])
-                
+
                 # Should process both files
                 assert mock_db.add_to_library.call_count == 2
 
@@ -254,20 +253,20 @@ class TestLibraryManagerAddFiles:
     def test_add_files_to_library_handles_none_paths(self, library_manager, mock_db):
         """Test that None paths are handled gracefully."""
         library_manager.add_files_to_library([None, None])
-        
+
         # Should not call any database methods
         assert not mock_db.add_to_library.called
 
     def test_add_files_to_library_handles_permission_error(self, library_manager, mock_db):
         """Test that permission errors are handled gracefully."""
         from unittest.mock import patch
-        
+
         with patch('core.library.normalize_path') as mock_normalize:
             mock_normalize.side_effect = PermissionError("Access denied")
-            
+
             # Should not raise, just continue
             library_manager.add_files_to_library(["/restricted/path"])
-            
+
             assert not mock_db.add_to_library.called
 
 
@@ -281,7 +280,6 @@ class TestLibraryManagerProcessAudioFile:
         mock_db.is_duplicate.return_value = False
 
         with patch('core.library.Path') as mock_path_class, patch('core.library.mutagen.File') as mock_mutagen:
-
             # Setup path mock
             mock_path_instance = MagicMock()
             mock_path_instance.exists.return_value = True
@@ -306,26 +304,24 @@ class TestLibraryManagerProcessAudioFile:
     def test_process_audio_file_uses_filename_when_no_title(self, library_manager, mock_db):
         """Test that filename is used when title is missing."""
         from unittest.mock import MagicMock, patch
-        
+
         mock_db.is_duplicate.return_value = False
-        
-        with patch('core.library.Path') as mock_path_class, \
-             patch('core.library.mutagen.File') as mock_mutagen:
-            
+
+        with patch('core.library.Path') as mock_path_class, patch('core.library.mutagen.File') as mock_mutagen:
             # Setup path mock
             mock_path_instance = MagicMock()
             mock_path_instance.exists.return_value = True
             mock_path_instance.stem = "my_awesome_song"
             mock_path_class.return_value = mock_path_instance
-            
+
             # Setup mutagen mock with no title
             mock_audio = MagicMock()
             mock_audio.info.length = 180.5
             mock_audio.tags = None
             mock_mutagen.return_value = mock_audio
-            
+
             library_manager._process_audio_file("/test/my_awesome_song.mp3")
-            
+
             # Verify filename was used as title
             call_args = mock_db.add_to_library.call_args
             metadata = call_args[0][1]
@@ -334,46 +330,42 @@ class TestLibraryManagerProcessAudioFile:
     def test_process_audio_file_skips_duplicates(self, library_manager, mock_db):
         """Test that duplicate files are skipped."""
         from unittest.mock import MagicMock, patch
-        
+
         mock_db.is_duplicate.return_value = True
-        
-        with patch('core.library.Path') as mock_path_class, \
-             patch('core.library.mutagen.File') as mock_mutagen:
-            
+
+        with patch('core.library.Path') as mock_path_class, patch('core.library.mutagen.File') as mock_mutagen:
             mock_path_instance = MagicMock()
             mock_path_instance.exists.return_value = True
             mock_path_instance.stem = "duplicate"
             mock_path_class.return_value = mock_path_instance
-            
+
             mock_audio = MagicMock()
             mock_audio.info.length = 180.5
             mock_audio.tags = None
             mock_mutagen.return_value = mock_audio
-            
+
             library_manager._process_audio_file("/test/duplicate.mp3")
-            
+
             # Should not add to library
             assert not mock_db.add_to_library.called
 
     def test_process_audio_file_handles_mutagen_error(self, library_manager, mock_db):
         """Test that mutagen errors are handled gracefully."""
         from unittest.mock import MagicMock, patch
-        
+
         mock_db.is_duplicate.return_value = False
-        
-        with patch('core.library.Path') as mock_path_class, \
-             patch('core.library.mutagen.File') as mock_mutagen:
-            
+
+        with patch('core.library.Path') as mock_path_class, patch('core.library.mutagen.File') as mock_mutagen:
             mock_path_instance = MagicMock()
             mock_path_instance.exists.return_value = True
             mock_path_instance.stem = "corrupted"
             mock_path_class.return_value = mock_path_instance
-            
+
             # Simulate mutagen error
             mock_mutagen.side_effect = Exception("Corrupt file")
-            
+
             library_manager._process_audio_file("/test/corrupted.mp3")
-            
+
             # Should still add with basic metadata
             assert mock_db.add_to_library.called
             call_args = mock_db.add_to_library.call_args
@@ -383,14 +375,14 @@ class TestLibraryManagerProcessAudioFile:
     def test_process_audio_file_skips_nonexistent(self, library_manager, mock_db):
         """Test that nonexistent files are skipped."""
         from unittest.mock import MagicMock, patch
-        
+
         with patch('core.library.Path') as mock_path_class:
             mock_path_instance = MagicMock()
             mock_path_instance.exists.return_value = False
             mock_path_class.return_value = mock_path_instance
-            
+
             library_manager._process_audio_file("/test/nonexistent.mp3")
-            
+
             # Should not attempt to process
             assert not mock_db.add_to_library.called
 
@@ -452,13 +444,13 @@ class TestLibraryManagerExtractMetadata:
     def test_extract_metadata_with_no_tags(self, library_manager):
         """Test extracting metadata when no tags exist."""
         from unittest.mock import MagicMock
-        
+
         mock_audio = MagicMock()
         mock_audio.info.length = 120.0
         mock_audio.tags = None
-        
+
         metadata = library_manager._extract_metadata(mock_audio)
-        
+
         # Should return empty metadata structure
         assert metadata['title'] is None
         assert metadata['artist'] is None
@@ -481,30 +473,33 @@ class TestLibraryManagerExtractMetadata:
 
     def test_extract_metadata_from_mp4_tags(self, library_manager):
         """Test extracting metadata from MP4/M4A tags."""
-        import mutagen.id3  # noqa: F401 - needed for isinstance check in library code
+        import mutagen.mp4
         from unittest.mock import MagicMock
 
         mock_audio = MagicMock()
         mock_audio.info.length = 200.5
-        
-        # Create mock MP4 tags
-        mock_tags = MagicMock()
-        mock_tags.get.side_effect = lambda key, default=None: {
+
+        # Create mock MP4 tags using spec to make isinstance work
+        tag_data = {
             '\xa9nam': ['M4A Title'],
             '\xa9ART': ['M4A Artist'],
             '\xa9alb': ['M4A Album'],
             'aART': ['M4A Album Artist'],
-            'trkn': [(7, 15)],  # track 7 of 15
+            'trkn': [(7, 15)],
             '\xa9day': ['2025'],
-        }.get(key, default)
-        mock_tags.__contains__ = lambda self, key: key in ['\xa9nam', '\xa9ART', '\xa9alb', 'aART', 'trkn', '\xa9day']
-        # Mark as MP4Tags by having the _DictMixin__dict attribute
-        mock_tags._DictMixin__dict = {}
-        
+        }
+        # Use MagicMock without spec_set to allow __bool__ override
+        mock_tags = MagicMock()
+        # Manually configure to pass isinstance check
+        mock_tags.__class__ = mutagen.mp4.MP4Tags
+        mock_tags.get = lambda key, default=None: tag_data.get(key, default)
+        mock_tags.__contains__ = lambda self, key: key in tag_data
+        mock_tags.__getitem__ = lambda self, key: tag_data[key]
+
         mock_audio.tags = mock_tags
-        
+
         metadata = library_manager._extract_metadata(mock_audio)
-        
+
         assert metadata['title'] == 'M4A Title'
         assert metadata['artist'] == 'M4A Artist'
         assert metadata['album'] == 'M4A Album'
