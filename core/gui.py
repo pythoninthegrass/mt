@@ -618,7 +618,9 @@ class QueueView:
         self.scrollbar.config(command=self.queue.yview)
 
         # Add bindings
-        self.queue.bind('<Double-Button-1>', self.callbacks['play_selected'])
+        # Add column auto-resize on double-click separator (must be first to check before play_selected)
+        self.queue.bind('<Double-Button-1>', self.auto_resize_column)
+        self.queue.bind('<Double-Button-1>', self.callbacks['play_selected'], add='+')
         self.queue.bind('<Delete>', self.callbacks['handle_delete'])
         self.queue.bind('<BackSpace>', self.callbacks['handle_delete'])
         self.queue.bind('<<TreeviewSelect>>', self.callbacks['on_song_select'])
@@ -636,6 +638,9 @@ class QueueView:
 
         # Setup context menu
         self.setup_context_menu()
+
+        # Setup column separator hover feedback
+        self.setup_column_separator_hover()
 
         # Add column resize handling with periodic check
         self._last_column_widths = self.get_column_widths()
@@ -998,6 +1003,112 @@ class QueueView:
         if self._column_check_timer:
             self.queue.after_cancel(self._column_check_timer)
             self._column_check_timer = None
+
+    def auto_resize_column(self, event):
+        """Auto-resize column to fit content on double-click of separator."""
+        region = self.queue.identify_region(event.x, event.y)
+        if region != 'separator':
+            return
+
+        # Get the column to the left of the separator
+        col_id = self.queue.identify_column(event.x)
+        if not col_id:
+            return
+
+        # Convert column ID from '#N' format to actual column name
+        try:
+            col_index = int(col_id.replace('#', '')) - 1
+            columns = self.queue['columns']
+            if col_index < 0 or col_index >= len(columns):
+                return
+            col_name = columns[col_index]
+        except (ValueError, IndexError):
+            return
+
+        # Calculate optimal width for this column
+        optimal_width = self._calculate_optimal_column_width(col_name)
+        if optimal_width:
+            self.queue.column(col_name, width=optimal_width)
+            # Save the new width
+            self.on_column_resize(None)
+
+        # Stop event propagation to prevent play_selected from being triggered
+        return 'break'
+
+    def _calculate_optimal_column_width(self, col_name):
+        """Calculate optimal width for a column based on its content."""
+        import tkinter.font as tkfont
+
+        # Get the font used by the treeview
+        style = ttk.Style()
+        font_str = style.lookup('Treeview', 'font')
+        if not font_str:
+            font_str = 'TkDefaultFont'
+        font = tkfont.nametofont(font_str)
+
+        # Get heading font
+        heading_font_str = style.lookup('Treeview.Heading', 'font')
+        if not heading_font_str:
+            heading_font_str = font_str
+        heading_font = tkfont.nametofont(heading_font_str)
+
+        # Get column index
+        columns = self.queue['columns']
+        try:
+            col_index = columns.index(col_name)
+        except ValueError:
+            return None
+
+        # Measure heading text
+        heading_text = self.queue.heading(col_name, 'text')
+        max_width = heading_font.measure(heading_text) + 20  # Add padding
+
+        # Measure all items in the column
+        for item_id in self.queue.get_children():
+            values = self.queue.item(item_id, 'values')
+            if col_index < len(values):
+                text = str(values[col_index])
+                text_width = font.measure(text)
+                max_width = max(max_width, text_width)
+
+        # Add padding for content
+        max_width += 30
+
+        # Get current column width
+        current_width = self.queue.column(col_name, 'width')
+
+        # Set reasonable limits based on column type
+        # Track, year and any 'added' columns: allow shrinking to fit content
+        # Title, artist, album: only allow expanding, never shrink below current width
+        if col_name == 'track':
+            # Track number can shrink to fit
+            max_width = min(max_width, 30)
+            max_width = max(max_width, 15)
+        elif col_name == 'year':
+            # Year column can shrink to fit
+            max_width = min(max_width, 100)
+            max_width = max(max_width, 60)
+        elif col_name in ('title', 'artist', 'album'):
+            # Title, artist, album: only expand, never shrink below current
+            max_width = min(max_width, 400)
+            max_width = max(max_width, current_width)
+        else:
+            # Any other columns (like 'added' if it exists): can shrink to fit
+            max_width = min(max_width, 200)
+            max_width = max(max_width, 60)
+
+        return max_width
+
+    def setup_column_separator_hover(self):
+        """Setup visual feedback for hovering over column separators."""
+        def on_motion(event):
+            region = self.queue.identify_region(event.x, event.y)
+            if region == 'separator':
+                # Tkinter automatically shows resize cursor, but we could add additional feedback
+                pass
+            return
+
+        self.queue.bind('<Motion>', on_motion, add='+')
 
     def on_window_state_change(self, is_maximized):
         """Handle window maximize/unmaximize events to adjust column widths."""
