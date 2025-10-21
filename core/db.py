@@ -1,3 +1,4 @@
+import contextlib
 import os
 import sqlite3
 from core.logging import db_logger, log_database_operation, log_error
@@ -203,6 +204,46 @@ class MusicDatabase:
         except ImportError:
             pass
 
+    def update_track_metadata(
+        self,
+        filepath: str,
+        title: str | None,
+        artist: str | None,
+        album: str | None,
+        album_artist: str | None,
+        year: str | None,
+        genre: str | None,
+        track_number: str | None,
+    ) -> bool:
+        """Update track metadata in library.
+
+        Args:
+            filepath: Path to the track file
+            title: Track title
+            artist: Artist name
+            album: Album name
+            album_artist: Album artist name
+            year: Release year
+            genre: Genre
+            track_number: Track number
+
+        Returns:
+            bool: True if updated successfully
+        """
+        with contextlib.suppress(Exception):
+            self.db_cursor.execute(
+                '''
+                UPDATE library
+                SET title = ?, artist = ?, album = ?, album_artist = ?,
+                    date = ?, track_number = ?
+                WHERE filepath = ?
+            ''',
+                (title, artist, album, album_artist, year, track_number, filepath),
+            )
+            self.db_conn.commit()
+            return True
+        return False
+
     def add_to_queue(self, filepath: str):
         """Add a file to the queue."""
         self.db_cursor.execute('INSERT INTO queue (filepath) VALUES (?)', (filepath,))
@@ -221,9 +262,7 @@ class MusicDatabase:
     def get_library_items(self) -> list[tuple]:
         """Get all items in the library with their metadata."""
         self.db_cursor.execute('''
-            WITH RECURSIVE
-            -- First, get the track number as an integer for sorting
-            parsed_tracks AS (
+            WITH parsed_tracks AS (
                 SELECT
                     id,
                     filepath,
@@ -238,28 +277,7 @@ class MusicDatabase:
                         ELSE CAST(track_number AS INTEGER)
                     END as track_num_int
                 FROM library
-            ),
-            -- Then, deduplicate based on metadata while keeping the first added version
-            deduped AS (
-                SELECT
-                    filepath,
-                    artist,
-                    title,
-                    album,
-                    track_number,
-                    date,
-                    track_num_int,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY
-                            LOWER(COALESCE(title, '')),
-                            LOWER(COALESCE(artist, '')),
-                            LOWER(COALESCE(album, '')),
-                            COALESCE(track_number, '')
-                        ORDER BY id ASC
-                    ) as rn
-                FROM parsed_tracks
             )
-            -- Finally, select and sort the deduplicated results
             SELECT
                 filepath,
                 artist,
@@ -267,15 +285,15 @@ class MusicDatabase:
                 album,
                 track_number,
                 date
-            FROM deduped
-            WHERE rn = 1
+            FROM parsed_tracks
             ORDER BY
                 CASE WHEN artist IS NULL THEN 1 ELSE 0 END,
                 LOWER(COALESCE(artist, '')),
                 CASE WHEN album IS NULL THEN 1 ELSE 0 END,
                 LOWER(COALESCE(album, '')),
                 track_num_int,
-                LOWER(COALESCE(title, ''))
+                LOWER(COALESCE(title, '')),
+                filepath
         ''')
         return self.db_cursor.fetchall()
 

@@ -48,7 +48,7 @@ class PlayerControls:
         self.canvas.update_idletasks()
         canvas_height = self.canvas.winfo_height()
         y_position = (canvas_height - self.playback_icon_size[1]) // 2
-        
+
         # Store initial Y position for playback controls
         self.initial_playback_y = y_position
 
@@ -90,7 +90,7 @@ class PlayerControls:
         # Then shift down by 1%
         y_center = (canvas_height - self.utility_icon_size[1]) // 2
         y_position = int(y_center + (canvas_height * 0.01))
-        
+
         # Store initial Y position for utility controls
         self.initial_utility_y = y_position
 
@@ -258,7 +258,7 @@ class PlayerControls:
         # Playback controls are positioned from the left, maintaining fixed X positions
         # Start at x=25 to match initial setup
         x_position = 25
-        
+
         # Find playback control buttons (they are tk.Label widgets that are not utility buttons)
         playback_buttons = []
         for child in self.canvas.winfo_children():
@@ -277,7 +277,9 @@ class PlayerControls:
             x_position += self.playback_icon_size[0] + 10
 
         # Update controls width for progress bar calculations
-        self.controls_width = x_position + 15  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup
+        self.controls_width = (
+            x_position + 15
+        )  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup
 
     def update_loop_button_color(self, loop_enabled):
         """Update loop button icon based on loop state."""
@@ -649,13 +651,28 @@ class QueueView:
 
     def setup_context_menu(self):
         """Setup right-click context menu for library views."""
-        self.context_menu = tk.Menu(self.queue, tearoff=0)
+        from config import THEME_CONFIG
+
+        self.context_menu = tk.Menu(
+            self.queue,
+            tearoff=0,
+            bg=THEME_CONFIG['colors']['bg'],
+            fg=THEME_CONFIG['colors']['fg'],
+            activebackground=THEME_CONFIG['colors']['primary'],
+            activeforeground="#ffffff",
+            selectcolor=THEME_CONFIG['colors']['primary'],
+            borderwidth=1,
+            relief="flat",
+            activeborderwidth=0
+        )
 
         # Add menu items
         self.context_menu.add_command(label="Play", command=self.on_context_play)
         self.context_menu.add_command(label="Play Next", command=self.on_context_play_next)
         self.context_menu.add_command(label="Add to Queue", command=self.on_context_add_to_queue)
         self.context_menu.add_command(label="Stop After Current", command=self.on_context_stop_after_current)
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label="Edit Tag", command=self.on_context_edit_metadata)
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Remove from Library", command=self.on_context_remove_from_library)
 
@@ -729,6 +746,13 @@ class QueueView:
         """Handle 'Stop After Current' context menu action."""
         if 'stop_after_current' in self.callbacks:
             self.callbacks['stop_after_current']()
+
+    def on_context_edit_metadata(self):
+        """Handle 'Edit Tag' context menu action."""
+        if 'edit_metadata' in self.callbacks:
+            tracks = self.get_selected_tracks()
+            if tracks:
+                self.callbacks['edit_metadata'](tracks[0])
 
     def set_current_view(self, view: str):
         """Set the current view and load its column preferences."""

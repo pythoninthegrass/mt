@@ -4,10 +4,10 @@ title: Implement inline metadata editing
 status: In Progress
 assignee: []
 created_date: '2025-10-12 07:56'
-updated_date: '2025-10-20 03:52'
+updated_date: '2025-10-21 05:38'
 labels: []
 dependencies: []
-ordinal: 3000
+ordinal: 500
 ---
 
 ## Description
@@ -16,8 +16,14 @@ Add ability to edit track metadata (title, artist, album, etc.) directly in the 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Right-click track shows Edit Metadata option
-- [ ] #2 Metadata editing dialog with fields for title, artist, album, genre, year
-- [ ] #3 Changes saved to file using mutagen
-- [ ] #4 UI updates to reflect metadata changes
+- [x] #1 Right-click track shows Edit Metadata option
+- [x] #2 Metadata editing dialog with fields for title, artist, album, genre, year
+- [x] #3 Changes saved to file using mutagen
+- [x] #4 UI updates to reflect metadata changes
+- [x] #5 Metadata editing dialog includes 'Album Artist' field
+- [x] #6 Metadata editing dialog includes 'Composer' field
+- [x] #7 Metadata editing dialog includes 'Track #' field
+- [x] #8 Metadata editing dialog includes 'Disc #' field
+- [x] #9 Metadata editing dialog includes 'Rating' field
+- [x] #10 Metadata editing dialog includes 'Comment' field
 <!-- AC:END -->

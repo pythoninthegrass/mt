@@ -1,4 +1,6 @@
 import mutagen
+import mutagen.id3
+import mutagen.mp4
 import os
 from core.db import MusicDatabase
 from core.logging import library_logger, log_error, log_file_operation
@@ -131,6 +133,45 @@ class LibraryManager:
         """
         return self.db.delete_from_library(filepath)
 
+    def update_track_metadata(self, filepath: str) -> bool:
+        """Update track metadata in library from file.
+
+        Args:
+            filepath: The absolute path to the file to update
+
+        Returns:
+            bool: True if updated successfully, False otherwise
+        """
+        import mutagen
+        from pathlib import Path
+
+        path_obj = Path(filepath)
+        if not path_obj.exists():
+            return False
+
+        # Load the audio file first
+        try:
+            audio = mutagen.File(filepath)
+            if not audio:
+                return False
+        except Exception:
+            return False
+
+        # Extract metadata from the loaded audio object
+        metadata = self._extract_metadata(audio)
+        if metadata:
+            return self.db.update_track_metadata(
+                filepath,
+                metadata.get('title'),
+                metadata.get('artist'),
+                metadata.get('album'),
+                metadata.get('album_artist'),
+                metadata.get('date'),  # This was 'year' but should be 'date' to match _extract_metadata
+                metadata.get('genre'),
+                metadata.get('track_number'),
+            )
+        return False
+
     def _process_audio_file(self, file_path: str) -> None:
         """Process a single audio file and add it to the library."""
         path_obj = Path(file_path)
@@ -181,14 +222,13 @@ class LibraryManager:
         # Try to get duration
         try:
             metadata['duration'] = audio.info.length
-        except Exception as e:
-            print(f"Error getting duration: {e}")
+        except Exception:
+            pass
 
         # Handle different tag formats
         if hasattr(audio, 'tags'):
             tags = audio.tags
             if tags:
-                print("Found tags:", type(tags).__name__)
                 # MP3 (ID3)
                 if isinstance(tags, mutagen.id3.ID3):
                     metadata.update(
@@ -202,7 +242,7 @@ class LibraryManager:
                         }
                     )
                 # MP4/M4A tags
-                elif hasattr(tags, '_DictMixin__dict'):  # MP4Tags
+                elif isinstance(tags, mutagen.mp4.MP4Tags):
                     # MP4 tags use different keys
                     metadata.update(
                         {

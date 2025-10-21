@@ -266,6 +266,7 @@ class MusicPlayer:
                 'add_to_queue_end': self.add_tracks_to_queue,
                 'on_remove_from_library': self.remove_tracks_from_library,
                 'stop_after_current': self.toggle_stop_after_current,
+                'edit_metadata': self.edit_track_metadata,
             },
         )
 
@@ -608,6 +609,117 @@ class MusicPlayer:
             filepath: Path to track file
         """
         self.library_manager.delete_from_library(filepath)
+
+    def edit_track_metadata(self, item_id: str):
+        """Open metadata editor for a track or multiple selected tracks.
+
+        Args:
+            item_id: Treeview item ID of the track (used to get all selections)
+        """
+        from core.logging import library_logger
+        from core.metadata import MetadataEditor
+        from eliot import start_action
+
+        with start_action(library_logger, "edit_metadata"):
+            # Get all selected items
+            selected_items = self.queue_view.queue.selection()
+            
+            # Get filepaths for all selected items
+            filepaths = []
+            for item in selected_items:
+                filepath = self._item_filepath_map.get(item)
+                if filepath:
+                    filepaths.append(filepath)
+            
+            if not filepaths:
+                return
+
+            def on_save(file_path: str):
+                """Callback after metadata is saved."""
+                # Give the file system a moment to ensure metadata is written
+                # This is especially important for m4a files
+                import time
+                time.sleep(0.1)
+
+                # Update database with new metadata
+                self.library_manager.update_track_metadata(file_path)
+
+                # Refresh the current view
+                if self.active_view == 'now_playing':
+                    # Refresh Now Playing view
+                    self.now_playing_view.refresh_from_queue()
+                else:
+                    # Refresh the current library view (music, liked_songs, top_played)
+                    current_view = self.queue_view.current_view
+                    if current_view == 'music':
+                        self.load_library()
+                    elif current_view == 'liked_songs':
+                        self.load_liked_songs()
+                    elif current_view == 'top_played':
+                        self.load_top_25_most_played()
+
+            # For batch editing, disable navigation
+            if len(filepaths) > 1:
+                MetadataEditor(self.window, filepaths, on_save, navigation_callback=None, has_prev=False, has_next=False)
+            else:
+                # Single file editing with navigation
+                filepath = filepaths[0]
+                
+                def navigate_track(current_filepath: str, direction: int):
+                    """Navigate to adjacent track in the library view.
+
+                    Args:
+                        current_filepath: Current file path
+                        direction: -1 for previous, 1 for next
+
+                    Returns:
+                        Tuple of (new_filepath, has_prev, has_next)
+                    """
+                    # Get all items in current order
+                    all_items = self.queue_view.queue.get_children()
+
+                    # Find current item index by filepath
+                    current_index = None
+                    for i, item in enumerate(all_items):
+                        if self._item_filepath_map.get(item) == current_filepath:
+                            current_index = i
+                            break
+
+                    if current_index is None:
+                        return None, False, False
+
+                    # Calculate new index
+                    new_index = current_index + direction
+
+                    # Check bounds
+                    if new_index < 0 or new_index >= len(all_items):
+                        return None, False, False
+
+                    # Get new item and filepath
+                    new_item = all_items[new_index]
+                    new_filepath = self._item_filepath_map.get(new_item)
+
+                    if not new_filepath:
+                        return None, False, False
+
+                    # Calculate has_prev and has_next for new position
+                    has_prev = new_index > 0
+                    has_next = new_index < len(all_items) - 1
+
+                    return new_filepath, has_prev, has_next
+
+                # Calculate has_prev and has_next for initial track
+                all_items = self.queue_view.queue.get_children()
+                current_index = None
+                for i, item in enumerate(all_items):
+                    if self._item_filepath_map.get(item) == filepath:
+                        current_index = i
+                        break
+
+                has_prev = current_index > 0 if current_index is not None else False
+                has_next = current_index < len(all_items) - 1 if current_index is not None else False
+
+                MetadataEditor(self.window, filepath, on_save, navigate_track, has_prev, has_next)
 
     def on_queue_empty(self):
         """Handle queue becoming empty."""
