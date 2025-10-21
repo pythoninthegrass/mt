@@ -21,7 +21,6 @@ Add Cmd-D shortcut and Right click > Queue next option to add tracks to queue af
 - [x] #3 Queued tracks play after current track finishes
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
 Implementation complete. Added Cmd-D keyboard shortcut in core/gui.py that calls existing on_context_play_next() method. Created settings.toml for configurable keybindings with cross-platform support (Command/Control). Right-click menu and queue insertion were already implemented and working.

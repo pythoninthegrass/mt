@@ -534,6 +534,135 @@ class TestMusicDatabaseRecentlyAdded:
         assert track[6] is not None  # added_date timestamp
 
 
+class TestMusicDatabaseTrackDeletion:
+    """Test track deletion and cleanup."""
+
+    def test_delete_track_removes_from_library(self, in_memory_db):
+        """Test that deleting a track removes it from library."""
+        # Add track
+        in_memory_db.add_to_library("/path/song.mp3", {"artist": "Artist", "title": "Song", "album": "Album"})
+
+        # Verify it exists
+        tracks = in_memory_db.search_library("Song")
+        assert len(tracks) == 1
+
+        # Delete track
+        result = in_memory_db.delete_from_library("/path/song.mp3")
+        assert result is True
+
+        # Verify it's gone
+        tracks = in_memory_db.search_library("Song")
+        assert len(tracks) == 0
+
+    def test_delete_track_removes_from_liked_songs(self, in_memory_db):
+        """Test that deleting a track removes it from liked songs."""
+        # Add and favorite track
+        in_memory_db.add_to_library("/path/song.mp3", {"artist": "Artist", "title": "Song", "album": "Album"})
+        in_memory_db.add_favorite("/path/song.mp3")
+
+        # Verify it's favorited
+        assert in_memory_db.is_favorite("/path/song.mp3") is True
+        liked = in_memory_db.get_liked_songs()
+        assert len(liked) == 1
+
+        # Delete track
+        in_memory_db.delete_from_library("/path/song.mp3")
+
+        # Verify it's removed from favorites (manual cleanup in delete_from_library)
+        liked = in_memory_db.get_liked_songs()
+        assert len(liked) == 0
+
+    def test_delete_track_removes_from_recently_added(self, in_memory_db):
+        """Test that deleting a track removes it from recently added."""
+        # Add track
+        in_memory_db.add_to_library(
+            "/path/song.mp3",
+            {"artist": "Artist", "title": "Song", "album": "Album", "track_number": "1", "date": "2025"},
+        )
+
+        # Verify it's in recently added
+        recently_added = in_memory_db.get_recently_added()
+        assert len(recently_added) == 1
+
+        # Delete track
+        in_memory_db.delete_from_library("/path/song.mp3")
+
+        # Verify it's removed from recently added
+        recently_added = in_memory_db.get_recently_added()
+        assert len(recently_added) == 0
+
+    def test_delete_track_removes_from_recently_played(self, in_memory_db):
+        """Test that deleting a track removes it from recently played."""
+        # Add and play track
+        in_memory_db.add_to_library(
+            "/path/song.mp3",
+            {"artist": "Artist", "title": "Song", "album": "Album", "track_number": "1", "date": "2025"},
+        )
+        in_memory_db.update_play_count("/path/song.mp3")
+
+        # Verify it's in recently played
+        recently_played = in_memory_db.get_recently_played()
+        assert len(recently_played) == 1
+
+        # Delete track
+        in_memory_db.delete_from_library("/path/song.mp3")
+
+        # Verify it's removed from recently played
+        recently_played = in_memory_db.get_recently_played()
+        assert len(recently_played) == 0
+
+    def test_delete_track_removes_from_top_25_most_played(self, in_memory_db):
+        """Test that deleting a track removes it from top 25 most played."""
+        # Add and play track multiple times
+        in_memory_db.add_to_library("/path/song.mp3", {"artist": "Artist", "title": "Song", "album": "Album"})
+        for _ in range(10):
+            in_memory_db.update_play_count("/path/song.mp3")
+
+        # Verify it's in top played
+        top_played = in_memory_db.get_top_25_most_played()
+        assert len(top_played) > 0
+
+        # Delete track
+        in_memory_db.delete_from_library("/path/song.mp3")
+
+        # Verify it's removed from top played
+        top_played = in_memory_db.get_top_25_most_played()
+        assert len(top_played) == 0
+
+    def test_delete_nonexistent_track_returns_true(self, in_memory_db):
+        """Test that deleting a nonexistent track doesn't raise an error."""
+        result = in_memory_db.delete_from_library("/path/nonexistent.mp3")
+        # Should succeed even if track doesn't exist
+        assert result is True
+
+    def test_delete_multiple_tracks_maintains_integrity(self, in_memory_db):
+        """Test that deleting multiple tracks maintains database integrity."""
+        # Add multiple tracks
+        tracks = [
+            ("/path/song1.mp3", {"artist": "Artist 1", "title": "Song 1", "album": "Album"}),
+            ("/path/song2.mp3", {"artist": "Artist 2", "title": "Song 2", "album": "Album"}),
+            ("/path/song3.mp3", {"artist": "Artist 3", "title": "Song 3", "album": "Album"}),
+        ]
+
+        for filepath, metadata in tracks:
+            in_memory_db.add_to_library(filepath, metadata)
+            in_memory_db.add_favorite(filepath)
+            in_memory_db.update_play_count(filepath)
+
+        # Delete first track
+        in_memory_db.delete_from_library("/path/song1.mp3")
+
+        # Verify other tracks still exist
+        library = in_memory_db.search_library("")
+        assert len(library) == 2
+
+        liked = in_memory_db.get_liked_songs()
+        assert len(liked) == 2
+
+        recently_played = in_memory_db.get_recently_played()
+        assert len(recently_played) == 2
+
+
 class TestMusicDatabaseClose:
     """Test database closing."""
 

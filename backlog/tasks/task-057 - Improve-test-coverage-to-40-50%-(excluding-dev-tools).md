@@ -29,7 +29,6 @@ Continue test coverage improvements from current 13% to target 40-50%, focusing 
 - [x] #11 Document coverage exclusions in pyproject.toml or .coveragerc with rationale
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
-Session 3 complete: Added 15 new LibraryManager unit tests covering add_files_to_library, _process_audio_file, and _extract_metadata methods. LibraryManager coverage improved from 21% to 87%. Overall coverage reached 40% target (up from 35%). All 252 tests passing (4 skipped). Test suite runs in 1.60s. Task complete - 40% coverage achieved on production code. Note: AC#4, #5, #6 remain incomplete but are not needed to reach the 40% target.
+Session 3 complete: Added 15 new LibraryManager unit tests covering add_files_to_library,_process_audio_file, and _extract_metadata methods. LibraryManager coverage improved from 21% to 87%. Overall coverage reached 40% target (up from 35%). All 252 tests passing (4 skipped). Test suite runs in 1.60s. Task complete - 40% coverage achieved on production code. Note: AC#4, #5, #6 remain incomplete but are not needed to reach the 40% target.

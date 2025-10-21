@@ -23,4 +23,4 @@ Currently, media_player.get_media() can return None briefly after play() is call
 
 ## Implementation Notes
 
-Implemented solution by adding current_file attribute to PlayerCore that's set immediately when playback starts, before VLC finishes loading. The _get_current_track_info() method now uses this reliable source instead of waiting for VLC's media.get_mrl(). Also fixed test state issues: clear_queue now stops playback and clears media, add_to_queue sets playback context, and play_selected checks filepath mapping for queued tracks. Both tests now pass reliably.
+Implemented solution by adding current_file attribute to PlayerCore that's set immediately when playback starts, before VLC finishes loading. The_get_current_track_info() method now uses this reliable source instead of waiting for VLC's media.get_mrl(). Also fixed test state issues: clear_queue now stops playback and clears media, add_to_queue sets playback context, and play_selected checks filepath mapping for queued tracks. Both tests now pass reliably.

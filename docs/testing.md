@@ -187,6 +187,7 @@ tests/
 ```
 
 **Test Suite Summary:**
+
 - **Unit Tests**: 51 tests (~0.07s) - Fast, isolated logic testing with mocks
 - **Property Tests**: 36 tests (~0.39s) - Invariant validation with Hypothesis
 - **E2E/Integration Tests**: 59 tests (~25s) - Full system integration testing

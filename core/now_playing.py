@@ -51,7 +51,8 @@ class NowPlayingView(ttk.Frame):
     def setup_ui(self):
         """Setup the UI components with split layout."""
         # Current track section (fixed, non-scrollable)
-        self.current_section = tk.Frame(self, bg='#202020', height=80)
+        # Height = label (10pt + 8+2 padding) + row (70px) ≈ 100px
+        self.current_section = tk.Frame(self, bg='#202020', height=100)
         self.current_section.pack(fill=tk.X, padx=0, pady=0)
         self.current_section.pack_propagate(False)
 
@@ -68,9 +69,9 @@ class NowPlayingView(ttk.Frame):
         self.current_container = tk.Frame(self.current_section, bg='#202020')
         self.current_container.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
 
-        # Divider line
-        divider1 = tk.Frame(self, bg='#404040', height=1)
-        divider1.pack(fill=tk.X, padx=0, pady=0)
+        # Divider line (track as instance variable to reuse)
+        self.divider = tk.Frame(self, bg='#404040', height=1)
+        self.divider.pack(fill=tk.X, padx=0, pady=0)
 
         # Next tracks section (scrollable)
         self.next_section = tk.Frame(self, bg='#202020')
@@ -124,7 +125,7 @@ class NowPlayingView(ttk.Frame):
         )
 
     def refresh_from_queue(self):
-        """Rebuild view from queue_manager data, showing only viewport-fitting tracks."""
+        """Rebuild view from queue_manager data, showing only fully visible tracks."""
         # Check if there's actual media loaded in the player
         # Show empty state if no media is loaded, even if queue has items
         has_media = False
@@ -145,8 +146,6 @@ class NowPlayingView(ttk.Frame):
 
             self.show_empty_state()
             return
-
-        self.hide_empty_state()
 
         # Get queue items
         if self.queue_manager.shuffle_enabled:
@@ -198,6 +197,12 @@ class NowPlayingView(ttk.Frame):
             widget.destroy()
         self.next_row_widgets.clear()
 
+        # Determine if we have next tracks
+        has_next_tracks = len(display_items) > 1
+        
+        # Show sections based on what we have
+        self.hide_empty_state(show_next=has_next_tracks)
+
         # Create current track widget (first item in display)
         filepath, artist, title, album, track_num, date = display_items[0]
         actual_index = self.queue_manager.queue_items.index(filepath) if filepath in self.queue_manager.queue_items else 0
@@ -219,33 +224,38 @@ class NowPlayingView(ttk.Frame):
         )
         self.current_row_widget.pack(fill=tk.BOTH, expand=True, pady=0)
 
-        # Calculate how many next tracks fit in the viewport
-        max_visible_tracks = self._calculate_max_visible_tracks()
+        # Create next track widgets - calculate viewport and show only what fits
+        if has_next_tracks:
+            # Calculate how many complete tracks fit in viewport
+            tracks_to_show, _ = self._calculate_viewport_layout(len(display_items) - 1)
+            
+            # DEBUG: Print to see what we're getting
+            print(f"DEBUG: Total display_items={len(display_items)}, tracks_to_show={tracks_to_show}, available_next={len(display_items)-1}")
+            
+            # Create widgets for tracks that fit (skip index 0 which is current)
+            for display_i in range(1, min(tracks_to_show + 1, len(display_items))):
+                filepath, artist, title, album, track_num, date = display_items[display_i]
+                actual_index = (
+                    self.queue_manager.queue_items.index(filepath) if filepath in self.queue_manager.queue_items else display_i
+                )
 
-        # Create next tracks widgets (remaining items, limited by viewport)
-        for display_i in range(1, min(len(display_items), max_visible_tracks + 1)):
-            filepath, artist, title, album, track_num, date = display_items[display_i]
-            actual_index = (
-                self.queue_manager.queue_items.index(filepath) if filepath in self.queue_manager.queue_items else display_i
-            )
-
-            row = QueueRowWidget(
-                self.scrollable.scrollable_frame,
-                title=title,
-                artist=artist,
-                filepath=filepath,
-                index=actual_index,
-                is_current=False,
-                callbacks={
-                    'on_drag_start': self.on_drag_start,
-                    'on_drag_motion': self.on_drag_motion,
-                    'on_drag_release': self.on_drag_release,
-                    'on_context_menu': self.show_context_menu_for_row,
-                    'on_double_click': self.on_row_double_click,
-                },
-            )
-            row.pack(fill=tk.X, pady=1)
-            self.next_row_widgets.append(row)
+                row = QueueRowWidget(
+                    self.scrollable.scrollable_frame,
+                    title=title,
+                    artist=artist,
+                    filepath=filepath,
+                    index=actual_index,
+                    is_current=False,
+                    callbacks={
+                        'on_drag_start': self.on_drag_start,
+                        'on_drag_motion': self.on_drag_motion,
+                        'on_drag_release': self.on_drag_release,
+                        'on_context_menu': self.show_context_menu_for_row,
+                        'on_double_click': self.on_row_double_click,
+                    },
+                )
+                row.pack(fill=tk.X, pady=1)
+                self.next_row_widgets.append(row)
 
     def _calculate_max_visible_tracks(self):
         """Calculate how many next tracks fit in the viewport without scrolling.
@@ -271,6 +281,27 @@ class NowPlayingView(ttk.Frame):
 
         return max_tracks
 
+    def _calculate_viewport_layout(self, num_tracks_available: int):
+        """Calculate how many complete tracks fit in viewport without stretching.
+        
+        For now, use a simple heuristic: show up to 8 tracks which should fit
+        in most reasonable window sizes.
+        
+        Args:
+            num_tracks_available: Number of next tracks available to show
+            
+        Returns:
+            tuple: (tracks_to_show, top_padding) - number of complete tracks that fit
+        """
+        # Simple heuristic: show up to 8 tracks in the Next section
+        # This should fit comfortably in a standard 768px height window
+        max_tracks_to_show = 8
+        
+        # Don't show more than available
+        tracks_to_show = min(max_tracks_to_show, num_tracks_available)
+        
+        return tracks_to_show, 0
+
     def show_empty_state(self):
         """Show empty queue message."""
         # Destroy any existing widgets to ensure clean state
@@ -284,24 +315,39 @@ class NowPlayingView(ttk.Frame):
 
         # Hide all sections
         self.current_section.pack_forget()
+        self.divider.pack_forget()
         self.scrollable.pack_forget()
         self.next_label.pack_forget()
         self.next_section.pack_forget()
 
         # Show empty state
         self.empty_label.pack(expand=True, fill=tk.BOTH)
-        self.update_idletasks()  # Force UI update
+        self.update_idletasks()  # Force UI update  # Force UI update
 
-    def hide_empty_state(self):
-        """Hide empty queue message."""
+    def hide_empty_state(self, show_next: bool = True):
+        """Hide empty queue message and show sections.
+        
+        Args:
+            show_next: Whether to show the Next section (default: True)
+        """
         self.empty_label.pack_forget()
         self.current_section.pack(fill=tk.X, padx=0, pady=0)
         self.current_section.pack_propagate(False)
-        divider = tk.Frame(self, bg='#404040', height=1)
-        divider.pack(fill=tk.X, padx=0, pady=0)
-        self.next_label.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(8, 2))
-        self.next_section.pack(fill=tk.BOTH, expand=True)
-        self.scrollable.pack(fill=tk.BOTH, expand=True)
+        
+        # Only show Next section if requested
+        if show_next:
+            self.divider.pack(fill=tk.X, padx=0, pady=0)
+            self.next_label.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(8, 2))
+            self.next_section.pack(fill=tk.BOTH, expand=True)
+            # Pack scrollable anchored to top, no expand so it doesn't fill remaining space
+            # This prevents the last row from stretching
+            self.scrollable.pack(fill=tk.X, anchor=tk.N)
+        else:
+            # Hide Next section and divider when there are no upcoming tracks
+            self.divider.pack_forget()
+            self.next_label.pack_forget()
+            self.next_section.pack_forget()
+            self.scrollable.pack_forget()
 
     def on_drag_start(self, row_widget, event):
         """Handle drag start from a row widget.

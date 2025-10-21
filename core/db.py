@@ -495,17 +495,18 @@ class MusicDatabase:
         try:
             from eliot import log_message
 
+            # Get track_id before deleting from library
+            self.db_cursor.execute('SELECT id FROM library WHERE filepath = ?', (filepath,))
+            result = self.db_cursor.fetchone()
+
+            if result:
+                track_id = result[0]
+
+                # Delete from favorites first
+                self.db_cursor.execute('DELETE FROM favorites WHERE track_id = ?', (track_id,))
+
             # Delete from library
             self.db_cursor.execute('DELETE FROM library WHERE filepath = ?', (filepath,))
-
-            # Also delete from favorites if it exists
-            self.db_cursor.execute(
-                '''
-                DELETE FROM favorites 
-                WHERE track_id IN (SELECT id FROM library WHERE filepath = ?)
-            ''',
-                (filepath,),
-            )
 
             # Commit the changes
             self.db_conn.commit()

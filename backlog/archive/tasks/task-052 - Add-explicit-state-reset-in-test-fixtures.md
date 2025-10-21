@@ -27,6 +27,7 @@ Some test failures may be due to state leaking between tests. playback_context a
 Implemented explicit state reset in clean_queue fixture.
 
 Reset the following stateful variables:
+
 - Queue content (cleared via clear_queue API)
 - VLC media player state (stopped if playing)
 - Current view (reset to 'queue')

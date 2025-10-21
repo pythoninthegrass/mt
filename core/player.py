@@ -625,6 +625,10 @@ class MusicPlayer:
                     self.load_library()
                 elif section == 'liked_songs':
                     self.load_liked_songs()
+                elif section == 'recently_added':
+                    self.load_recently_added()
+                elif section == 'recently_played':
+                    self.load_recently_played()
                 elif section == 'top_played':
                     self.load_top_25_most_played()
 
@@ -1125,12 +1129,26 @@ class MusicPlayer:
                             self.library_manager.add_files_to_library(selected_paths)
                             # Update statistics immediately
                             self.status_bar.update_statistics()
-                            # Refresh view if needed
+                            # Refresh view based on what's currently selected
                             selected_item = self.library_view.library_tree.selection()
                             if selected_item:
                                 tags = self.library_view.library_tree.item(selected_item[0])['tags']
-                                if tags and tags[0] == 'music':
-                                    self.load_library()
+                                if tags:
+                                    section = tags[0]
+                                    # Reload the current section
+                                    if section == 'music':
+                                        self.load_library()
+                                    elif section == 'liked_songs':
+                                        self.load_liked_songs()
+                                    elif section == 'recently_added':
+                                        self.load_recently_added()
+                                    elif section == 'recently_played':
+                                        self.load_recently_played()
+                                    elif section == 'top_played':
+                                        self.load_top_25_most_played()
+                            else:
+                                # No selection, default to loading music library
+                                self.load_library()
                 return
             except ImportError:
                 pass  # Fall back to tkinter dialog if AppKit is not available

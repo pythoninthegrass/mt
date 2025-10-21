@@ -24,7 +24,6 @@ Incrementally upgrade Python from 3.11 to 3.14t (free-threaded), testing and fix
 - [ ] #6 Update documentation to reflect Python 3.14t requirement
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
 ## Upgrade Commands
@@ -37,7 +36,6 @@ uv python install 3.14t
 # Upgrade project to use 3.14t
 uv python upgrade 3.14t
 ```
-
 
 ## Tool Management
 
@@ -72,4 +70,4 @@ mise use uv
 
 ## Reference
 
-https://astral.sh/blog/python-3.14#free-threaded-python
+<https://astral.sh/blog/python-3.14#free-threaded-python>

@@ -25,6 +25,7 @@ Architectural refactor to decouple queue management from UI display. Currently l
 ## Implementation Notes
 
 Successfully refactored queue and view separation:
+
 - load_queue() now only loads from queue table
 - Removed playback_context attribute entirely  
 - Separate view methods already existed (load_library, load_liked_songs, load_top_25_most_played)
