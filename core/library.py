@@ -122,6 +122,22 @@ class LibraryManager:
         """Get top 25 most played tracks with their metadata."""
         return self.db.get_top_25_most_played()
 
+    def get_recently_added(self) -> list[tuple]:
+        """Get tracks added within the last 14 days.
+
+        Returns:
+            list[tuple]: List of (filepath, artist, title, album, track_number, date, added_date) tuples
+        """
+        return self.db.get_recently_added()
+
+    def get_recently_played(self) -> list[tuple]:
+        """Get tracks played within the last 14 days.
+
+        Returns:
+            list[tuple]: List of (filepath, artist, title, album, track_number, date, last_played) tuples
+        """
+        return self.db.get_recently_played()
+
     def delete_from_library(self, filepath: str) -> bool:
         """Delete a track from the library.
 
