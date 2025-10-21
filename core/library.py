@@ -1,7 +1,9 @@
 import mutagen
 import mutagen.id3
 import mutagen.mp4
+import os
 from core.db import MusicDatabase
+from core.logging import library_logger, log_error, log_file_operation
 from pathlib import Path
 from typing import Any
 from utils.files import find_audio_files, normalize_path
@@ -124,9 +126,17 @@ class LibraryManager:
         """Get tracks added within the last 14 days.
 
         Returns:
-            list[tuple]: List of (filepath, artist, title, album, track_number, date) tuples
+            list[tuple]: List of (filepath, artist, title, album, track_number, date, added_date) tuples
         """
         return self.db.get_recently_added()
+
+    def get_recently_played(self) -> list[tuple]:
+        """Get tracks played within the last 14 days.
+
+        Returns:
+            list[tuple]: List of (filepath, artist, title, album, track_number, date, last_played) tuples
+        """
+        return self.db.get_recently_played()
 
     def delete_from_library(self, filepath: str) -> bool:
         """Delete a track from the library.

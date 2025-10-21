@@ -1,8 +1,9 @@
 import contextlib
 import os
 import sqlite3
-from eliot import start_action
-from typing import Any
+from core.logging import db_logger, log_database_operation, log_error
+from pathlib import Path
+from typing import Any, Optional
 
 # Database initialization tables
 # These tables are created when the database is first initialized
@@ -408,6 +409,7 @@ class MusicDatabase:
 
     def get_library_statistics(self) -> dict[str, Any]:
         """Get comprehensive library statistics including file count, size, and total duration."""
+        from typing import Any
 
         stats = {'file_count': 0, 'total_size_bytes': 0, 'total_duration_seconds': 0}
 
@@ -837,6 +839,7 @@ class MusicDatabase:
         """
         try:
             from core.logging import player_logger
+            from eliot import start_action
 
             with start_action(player_logger, "db_get_recently_added"):
                 query = '''
@@ -853,6 +856,36 @@ class MusicDatabase:
                 from core.logging import log_error
 
                 log_error(e, "Failed to get recently added tracks")
+            except ImportError:
+                pass
+            return []
+
+    def get_recently_played(self) -> list[tuple]:
+        """Get tracks played within the last 14 days, ordered by last_played (descending).
+
+        Returns:
+            list[tuple]: List of (filepath, artist, title, album, track_number, date, last_played) tuples
+        """
+        try:
+            from core.logging import player_logger
+            from eliot import start_action
+
+            with start_action(player_logger, "db_get_recently_played"):
+                query = '''
+                    SELECT filepath, artist, title, album, track_number, date, last_played
+                    FROM library
+                    WHERE last_played IS NOT NULL 
+                    AND last_played >= datetime('now', '-14 days')
+                    ORDER BY last_played DESC
+                '''
+                self.db_cursor.execute(query)
+                results = self.db_cursor.fetchall()
+                return results
+        except Exception as e:
+            try:
+                from core.logging import log_error
+
+                log_error(e, "Failed to get recently played tracks")
             except ImportError:
                 pass
             return []
