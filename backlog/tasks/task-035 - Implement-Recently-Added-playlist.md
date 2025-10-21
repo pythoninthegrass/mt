@@ -4,7 +4,7 @@ title: Implement Recently Added playlist
 status: In Progress
 assignee: []
 created_date: '2025-10-09 05:26'
-updated_date: '2025-10-21 07:35'
+updated_date: '2025-10-21 16:04'
 labels: []
 dependencies: []
 ordinal: 2250
@@ -25,3 +25,7 @@ Create a dynamic 'Recently Added' playlist that displays tracks added to the lib
 - [ ] #7 Clicking on tracks in the playlist adds them to queue and plays as expected
 - [ ] #8 All playlist interactions logged with Eliot using appropriate trigger sources
 <!-- AC:END -->
+
+## Implementation Notes
+
+Starting implementation of Recently Added playlist feature
