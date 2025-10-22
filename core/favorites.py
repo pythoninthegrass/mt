@@ -34,34 +34,49 @@ class FavoritesManager:
         Returns:
             bool: True if now favorited, False if now unfavorited
         """
+        import os
+        from core.logging import controls_logger
+        from eliot import start_action
+
+        # Get track metadata for logging
+        track_metadata = self.db.get_metadata_by_filepath(filepath) if filepath else {}
+        track_title = track_metadata.get('title', os.path.basename(filepath) if filepath else 'Unknown')
+        track_artist = track_metadata.get('artist', 'Unknown')
+        track_display = f"{track_artist} - {track_title}"
+
         is_favorited = self.db.is_favorite(filepath)
 
-        if is_favorited:
-            # Unfavorite
-            success = self.db.remove_favorite(filepath)
-            if success:
-                log_player_action(
-                    "unfavorite_track",
-                    trigger_source="gui",
-                    filepath=filepath,
-                    new_state="unfavorited",
-                    description="Track removed from favorites",
-                )
-                self._notify_favorites_changed()
-            return False
-        else:
-            # Favorite
-            success = self.db.add_favorite(filepath)
-            if success:
-                log_player_action(
-                    "favorite_track",
-                    trigger_source="gui",
-                    filepath=filepath,
-                    new_state="favorited",
-                    description="Track added to favorites",
-                )
-                self._notify_favorites_changed()
-            return True
+        with start_action(controls_logger, "toggle_favorite_button"):
+            if is_favorited:
+                # Unfavorite
+                success = self.db.remove_favorite(filepath)
+                if success:
+                    log_player_action(
+                        "favorite_button_pressed",
+                        trigger_source="gui",
+                        filepath=filepath,
+                        track=track_display,
+                        old_state="favorited",
+                        new_state="unfavorited",
+                        description=f"Removed from favorites: {track_display}",
+                    )
+                    self._notify_favorites_changed()
+                return False
+            else:
+                # Favorite
+                success = self.db.add_favorite(filepath)
+                if success:
+                    log_player_action(
+                        "favorite_button_pressed",
+                        trigger_source="gui",
+                        filepath=filepath,
+                        track=track_display,
+                        old_state="unfavorited",
+                        new_state="favorited",
+                        description=f"Added to favorites: {track_display}",
+                    )
+                    self._notify_favorites_changed()
+                return True
 
     def is_favorite(self, filepath: str) -> bool:
         """Check if a track is favorited.

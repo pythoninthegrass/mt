@@ -3,19 +3,12 @@ import socket
 import threading
 import traceback
 from contextlib import suppress
+from core.logging import api_logger, log_api_request
 from eliot import log_message, start_action
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from core.player import MusicPlayer
-
-# Create API logger
-try:
-    from eliot import Logger
-
-    api_logger = Logger()
-except ImportError:
-    api_logger = None
 
 
 class APIServer:
@@ -232,9 +225,19 @@ class APIServer:
 
     def _handle_play_pause(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle play/pause toggle command."""
-        self.music_player.play_pause()
-        is_playing = self.music_player.player_core.is_playing
-        return {'status': 'success', 'is_playing': is_playing}
+        with start_action(api_logger, "api_play_pause"):
+            old_state = self.music_player.player_core.is_playing
+            self.music_player.play_pause()
+            new_state = self.music_player.player_core.is_playing
+
+            log_api_request(
+                "play_pause",
+                trigger_source="api",
+                old_state=old_state,
+                new_state=new_state,
+                response_status="success"
+            )
+            return {'status': 'success', 'is_playing': new_state}
 
     def _handle_play(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle play command."""
@@ -255,13 +258,35 @@ class APIServer:
 
     def _handle_next(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle next track command."""
-        self.music_player.player_core.next_song()
-        return {'status': 'success'}
+        with start_action(api_logger, "api_next_track"):
+            old_track = self.music_player.player_core._get_current_track_info()
+            self.music_player.player_core.next_song()
+            new_track = self.music_player.player_core._get_current_track_info()
+
+            log_api_request(
+                "next_track",
+                trigger_source="api",
+                old_track=old_track.get('title', 'Unknown') if old_track else None,
+                new_track=new_track.get('title', 'Unknown') if new_track else None,
+                response_status="success"
+            )
+            return {'status': 'success'}
 
     def _handle_previous(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle previous track command."""
-        self.music_player.player_core.previous_song()
-        return {'status': 'success'}
+        with start_action(api_logger, "api_previous_track"):
+            old_track = self.music_player.player_core._get_current_track_info()
+            self.music_player.player_core.previous_song()
+            new_track = self.music_player.player_core._get_current_track_info()
+
+            log_api_request(
+                "previous_track",
+                trigger_source="api",
+                old_track=old_track.get('title', 'Unknown') if old_track else None,
+                new_track=new_track.get('title', 'Unknown') if new_track else None,
+                response_status="success"
+            )
+            return {'status': 'success'}
 
     # === Track Selection Handlers ===
 
@@ -453,9 +478,26 @@ class APIServer:
             if not 0 <= volume <= 100:
                 return {'status': 'error', 'message': 'Volume must be between 0 and 100'}
 
-            self.music_player.player_core.set_volume(int(volume))
-            return {'status': 'success', 'volume': volume}
+            with start_action(api_logger, "api_set_volume"):
+                old_volume = self.music_player.player_core.get_volume()
+                self.music_player.player_core.set_volume(int(volume))
+
+                log_api_request(
+                    "set_volume",
+                    trigger_source="api",
+                    old_volume=old_volume,
+                    new_volume=volume,
+                    response_status="success"
+                )
+                return {'status': 'success', 'volume': volume}
         except (ValueError, TypeError) as e:
+            log_api_request(
+                "set_volume",
+                trigger_source="api",
+                attempted_volume=volume,
+                error=str(e),
+                response_status="error"
+            )
             return {'status': 'error', 'message': f'Invalid volume value: {str(e)}'}
 
     def _handle_seek(self, command: dict[str, Any]) -> dict[str, Any]:
@@ -499,15 +541,35 @@ class APIServer:
 
     def _handle_toggle_loop(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle loop toggle command."""
-        self.music_player.player_core.toggle_loop()
-        loop_enabled = self.music_player.player_core.loop_enabled
-        return {'status': 'success', 'loop_enabled': loop_enabled}
+        with start_action(api_logger, "api_toggle_loop"):
+            old_state = self.music_player.player_core.loop_enabled
+            self.music_player.player_core.toggle_loop()
+            new_state = self.music_player.player_core.loop_enabled
+
+            log_api_request(
+                "toggle_loop",
+                trigger_source="api",
+                old_state=old_state,
+                new_state=new_state,
+                response_status="success"
+            )
+            return {'status': 'success', 'loop_enabled': new_state}
 
     def _handle_toggle_shuffle(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle shuffle toggle command."""
-        self.music_player.player_core.toggle_shuffle()
-        shuffle_enabled = self.music_player.player_core.shuffle_enabled
-        return {'status': 'success', 'shuffle_enabled': shuffle_enabled}
+        with start_action(api_logger, "api_toggle_shuffle"):
+            old_state = self.music_player.player_core.shuffle_enabled
+            self.music_player.player_core.toggle_shuffle()
+            new_state = self.music_player.player_core.shuffle_enabled
+
+            log_api_request(
+                "toggle_shuffle",
+                trigger_source="api",
+                old_state=old_state,
+                new_state=new_state,
+                response_status="success"
+            )
+            return {'status': 'success', 'shuffle_enabled': new_state}
 
     def _handle_toggle_favorite(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle favorite toggle command."""

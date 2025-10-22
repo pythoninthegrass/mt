@@ -254,7 +254,6 @@ class NowPlayingView(ttk.Frame):
                 # Fallback: create a reasonable number
                 tracks_to_create = min(10, len(display_items) - 1)
 
-            print(f"[VIEWPORT] Creating {tracks_to_create} next track widgets (of {len(display_items)-1} available)")
 
             # Create only the widgets that will be visible (skip index 0 which is current)
             for display_i in range(1, min(tracks_to_create + 1, len(display_items))):
@@ -335,9 +334,6 @@ class NowPlayingView(ttk.Frame):
         # Use whichever is larger and valid
         total_height = max(parent_height, self_height)
 
-        # DEBUG: Print geometry info
-        print(f"[VIEWPORT DEBUG] parent_height={parent_height}, self_height={self_height}, "
-              f"using total_height={total_height}, num_tracks_available={num_tracks_available}")
 
         # If height not yet calculated (widget not yet rendered), use a safe default
         if total_height <= 1:
@@ -345,7 +341,6 @@ class NowPlayingView(ttk.Frame):
             # Total ~768px - current section 100px - divider 1px - next label 30px = ~637px
             # 637 / 71 = ~8 tracks
             tracks_to_show = min(8, num_tracks_available)
-            print(f"[VIEWPORT DEBUG] Using fallback: tracks_to_show={tracks_to_show}")
             return tracks_to_show, 0
 
         # Calculate fixed sections heights
@@ -365,10 +360,6 @@ class NowPlayingView(ttk.Frame):
         # Don't show more than available
         tracks_to_show = min(max_complete_rows, num_tracks_available)
 
-        # DEBUG: Print calculation details
-        print(f"[VIEWPORT DEBUG] current_section={current_section_height}, divider={divider_height}, "
-              f"next_label={next_label_height}, available={available_height}, "
-              f"max_rows={max_complete_rows}, showing={tracks_to_show}")
 
         return tracks_to_show, 0
 

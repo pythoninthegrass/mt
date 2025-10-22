@@ -22,16 +22,98 @@ def setup_logging(log_level: str = "INFO", log_file: str = None) -> None:
 
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Optional file path to write logs to
+        log_file: Optional file path to write logs to (always logs to stdout as well)
     """
-    # Configure eliot to write to stdout by default
+    # Create a custom destination that outputs human-readable logs
+    class HumanReadableDestination:
+        """Destination that formats logs in a human-readable format."""
+
+        def __init__(self, file):
+            self.file = file
+
+        def __call__(self, message):
+            """Format and write log message."""
+            # Skip internal Eliot messages (action start/status messages)
+            if message.get("action_type") and not message.get("message_type"):
+                return
+            if message.get("action_status") in ("started", "succeeded", "failed") and not message.get("message_type"):
+                return
+
+            # Extract key information
+            msg_type = message.get("message_type", "")
+            action = message.get("action", msg_type)
+            description = message.get("description", "")
+            trigger = message.get("trigger_source", "")
+
+            # Skip certain noisy/duplicate message types
+            skip_messages = {
+                "playback_paused",  # Duplicate of play_pause_pressed
+                "playback_started",  # Duplicate of Started playing
+                "queue_operation",  # Too noisy, not useful
+                "volume_change_success",  # Duplicate of Volume changed
+                "play_selected",  # Covered by Started playing
+            }
+            if msg_type in skip_messages:
+                return
+
+            # Format based on message type
+            if "player_action" in msg_type:
+                # Player action logs
+                track = message.get("track", message.get("current_track", ""))
+                old_state = message.get("old_state", "")
+                new_state = message.get("new_state", "")
+
+                # Require trigger_source for player actions
+                if not trigger:
+                    return
+
+                if track and old_state and new_state:
+                    output = f"[{trigger.upper()}] {action}: {track} ({old_state} → {new_state})"
+                elif track:
+                    output = f"[{trigger.upper()}] {action}: {track}"
+                elif description:
+                    output = f"[{trigger.upper()}] {description}"
+                else:
+                    output = f"[{trigger.upper()}] {action}"
+
+            elif "api_request" in msg_type:
+                # API request logs
+                output = f"[API] {action}"
+                if description:
+                    output += f": {description}"
+
+            elif msg_type == "application_ready":
+                # Add newline after application startup completes
+                output = message.get("message", description)
+                if output and output.strip():
+                    self.file.write(output + "\n\n")  # Extra newline
+                    self.file.flush()
+                return
+
+            elif description:
+                # Generic message with description
+                output = description
+            elif "message" in message:
+                # Generic message
+                output = message["message"]
+            else:
+                # Skip messages without useful content
+                return
+
+            # Write to file only if there's actual content
+            if output and output.strip():
+                self.file.write(output + "\n")
+                self.file.flush()
+
+    # Use human-readable output for stdout
+    eliot.add_destination(HumanReadableDestination(sys.stdout))
+
+    # Also log to file if specified (raw JSON format for machine parsing)
     if log_file:
         # Ensure log directory exists
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
         eliot.to_file(open(log_file, "a"))
-    else:
-        eliot.to_file(sys.stdout)
 
     # Set up Python logging to work with eliot
     logger = logging.getLogger()
@@ -75,6 +157,7 @@ db_logger = get_logger("mt_database")
 library_logger = get_logger("mt_library")
 queue_logger = get_logger("mt_queue")
 controls_logger = get_logger("mt_controls")
+api_logger = get_logger("mt_api")
 
 
 def log_function_call(logger: eliot.Logger, action_type: str):
@@ -198,3 +281,17 @@ def log_performance(logger: eliot.Logger, operation: str, duration_ms: float, **
     from eliot import log_message
 
     log_message(message_type="performance_metric", operation=operation, duration_ms=duration_ms, **context)
+
+
+def log_api_request(action: str, trigger_source: str = "api", **context):
+    """
+    Log API requests with context.
+
+    Args:
+        action: API action being performed
+        trigger_source: Source of the request (default: "api")
+        **context: Additional context data (request parameters, response, etc.)
+    """
+    from eliot import log_message
+
+    log_message(message_type="api_request", action=action, trigger_source=trigger_source, **context)

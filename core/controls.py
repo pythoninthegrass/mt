@@ -30,11 +30,22 @@ class PlayerCore:
 
     def play_pause(self) -> None:
         """Toggle play/pause state."""
+        # Get current track info for logging
+        current_track = self._get_current_track_info()
+        track_display = f"{current_track.get('artist', 'Unknown')} - {current_track.get('title', 'Unknown')}" if current_track else "No track"
+
         try:
             from core.logging import controls_logger, log_player_action
 
             with start_action(controls_logger, "play_pause"):
-                log_player_action("play_pause", current_state=self.is_playing)
+                log_player_action(
+                    "play_pause_pressed",
+                    trigger_source="gui",
+                    old_state="playing" if self.is_playing else "paused",
+                    new_state="paused" if self.is_playing else "playing",
+                    track=track_display,
+                    description=f"{'Pausing' if self.is_playing else 'Resuming'}: {track_display}"
+                )
         except ImportError:
             pass
 
@@ -83,9 +94,14 @@ class PlayerCore:
         with start_action(controls_logger, "next_song"):
             # Get current track info for logging
             current_track_info = self._get_current_track_info()
+            current_display = f"{current_track_info.get('artist', 'Unknown')} - {current_track_info.get('title', 'Unknown')}" if current_track_info else "No track"
 
             log_player_action(
-                "next_song", trigger_source="gui", current_track=current_track_info, queue_has_loop=self.loop_enabled
+                "next_pressed",
+                trigger_source="gui",
+                current_track=current_display,
+                queue_has_loop=self.loop_enabled,
+                description=f"Next button pressed (currently playing: {current_display})"
             )
 
             if not self.loop_enabled and self._is_last_song():
@@ -108,10 +124,18 @@ class PlayerCore:
             else:
                 filepath = self._get_next_filepath()
 
-            # Get target track info after navigation
-            target_track_info = self._get_current_track_info()
+            # Get target track info after navigation (after queue update)
+            if filepath:
+                target_metadata = self.db.get_metadata_by_filepath(filepath) if self.db else {}
+                target_display = f"{target_metadata.get('artist', 'Unknown')} - {target_metadata.get('title', os.path.basename(filepath))}"
 
-            log_player_action("next_song_selected", trigger_source="gui", target_track=target_track_info, filepath=filepath)
+                log_player_action(
+                    "next_track_selected",
+                    trigger_source="gui",
+                    next_track=target_display,
+                    filepath=filepath,
+                    description=f"Playing next: {target_display}"
+                )
 
             if filepath:
                 self._play_file(filepath)
@@ -121,8 +145,14 @@ class PlayerCore:
         with start_action(controls_logger, "previous_song"):
             # Get current track info for logging
             current_track_info = self._get_current_track_info()
+            current_display = f"{current_track_info.get('artist', 'Unknown')} - {current_track_info.get('title', 'Unknown')}" if current_track_info else "No track"
 
-            log_player_action("previous_song", trigger_source="gui", current_track=current_track_info)
+            log_player_action(
+                "previous_pressed",
+                trigger_source="gui",
+                current_track=current_display,
+                description=f"Previous button pressed (currently playing: {current_display})"
+            )
 
             # In loop mode, move last track to beginning for reverse carousel effect
             if self.loop_enabled and self.queue_manager.queue_items:
@@ -132,10 +162,18 @@ class PlayerCore:
             else:
                 filepath = self._get_previous_filepath()
 
-            # Get target track info after navigation
-            target_track_info = self._get_current_track_info()
+            # Get target track info after navigation (after queue update)
+            if filepath:
+                target_metadata = self.db.get_metadata_by_filepath(filepath) if self.db else {}
+                target_display = f"{target_metadata.get('artist', 'Unknown')} - {target_metadata.get('title', os.path.basename(filepath))}"
 
-            log_player_action("previous_song_selected", trigger_source="gui", target_track=target_track_info, filepath=filepath)
+                log_player_action(
+                    "previous_track_selected",
+                    trigger_source="gui",
+                    previous_track=target_display,
+                    filepath=filepath,
+                    description=f"Playing previous: {target_display}"
+                )
 
             if filepath:
                 self._play_file(filepath)
@@ -373,15 +411,14 @@ class PlayerCore:
 
     def set_volume(self, volume: int) -> None:
         """Set volume (0-100)."""
-        print(f"PlayerCore: Setting volume to {volume}")  # Debug log
         try:
             # Ensure volume is within valid range
             volume = max(0, min(100, int(volume)))
             result = self.media_player.audio_set_volume(volume)
-            print(f"VLC set_volume result: {result}")  # Debug result
             return result
         except Exception as e:
-            print(f"Exception in set_volume: {e}")
+            from eliot import log_message
+            log_message(message_type="volume_set_error", error=str(e), attempted_volume=volume)
             return -1
 
     def _wait_for_media_loaded(self, timeout: float = 2.0) -> bool:
@@ -412,8 +449,26 @@ class PlayerCore:
     def _play_file(self, filepath: str) -> None:
         """Play a specific file."""
         if not os.path.exists(filepath):
-            print(f"File not found on disk: {filepath}")
+            from eliot import log_message
+            log_message(message_type="file_not_found", filepath=filepath)
             return
+
+        # Get track metadata for logging
+        track_metadata = self.db.get_metadata_by_filepath(filepath) if self.db else {}
+        track_title = track_metadata.get('title', os.path.basename(filepath))
+        track_artist = track_metadata.get('artist', 'Unknown')
+        track_album = track_metadata.get('album', 'Unknown')
+
+        with start_action(controls_logger, "play_file"):
+            log_player_action(
+                "playback_started",
+                trigger_source="gui",
+                filepath=filepath,
+                title=track_title,
+                artist=track_artist,
+                album=track_album,
+                description=f"Started playing: {track_artist} - {track_title}"
+            )
 
         # Store the filepath immediately for reliable access
         self.current_file = filepath
@@ -504,7 +559,6 @@ class PlayerCore:
         # Find the MusicPlayer instance
         for child in self.window.winfo_children():
             if hasattr(child, 'refresh_colors'):
-                print("Calling refresh_colors from PlayerCore")  # Debug log
                 child.refresh_colors()
                 break
 
