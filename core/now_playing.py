@@ -1,7 +1,7 @@
 """Now Playing view with custom widgets for queue visualization."""
 
 import tkinter as tk
-from core.widgets import QueueRowWidget, ScrollableFrame
+from core.widgets import QueueRowWidget
 from tkinter import ttk
 
 
@@ -87,9 +87,9 @@ class NowPlayingView(ttk.Frame):
         )
         self.next_label.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(8, 2))
 
-        # Scrollable container for next tracks
-        self.scrollable = ScrollableFrame(self.next_section)
-        self.scrollable.pack(fill=tk.BOTH, expand=True)
+        # Fixed container for next tracks (no scrolling - viewport-limited)
+        self.next_tracks_container = tk.Frame(self.next_section, bg='#202020')
+        self.next_tracks_container.pack(fill=tk.X, anchor=tk.N)  # anchor to top, don't expand
 
         # Empty state label (hidden by default)
         self.empty_label = tk.Label(
@@ -161,7 +161,18 @@ class NowPlayingView(ttk.Frame):
                 if filepath == current_filepath:
                     current_display_index = i
                     break
-            display_items = items
+
+            # Apply rotation logic for shuffle mode
+            if current_display_index is not None:
+                if self.loop_enabled:
+                    # Rotate display so current track is at top
+                    display_items = items[current_display_index:] + items[:current_display_index]
+                else:
+                    # Linear mode: only show current and remaining tracks (no wraparound)
+                    display_items = items[current_display_index:]
+            else:
+                # Fallback if current track not found in shuffled list
+                display_items = items
         else:
             items = self.queue_manager.get_queue_items()
             current_display_index = self.queue_manager.current_index
@@ -224,23 +235,35 @@ class NowPlayingView(ttk.Frame):
         )
         self.current_row_widget.pack(fill=tk.BOTH, expand=True, pady=0)
 
-        # Create next track widgets - calculate viewport and show only what fits
+        # Create next track widgets - only create what fits in viewport
         if has_next_tracks:
-            # Calculate how many complete tracks fit in viewport
-            tracks_to_show, _ = self._calculate_viewport_layout(len(display_items) - 1)
-            
-            # DEBUG: Print to see what we're getting
-            print(f"DEBUG: Total display_items={len(display_items)}, tracks_to_show={tracks_to_show}, available_next={len(display_items)-1}")
-            
-            # Create widgets for tracks that fit (skip index 0 which is current)
-            for display_i in range(1, min(tracks_to_show + 1, len(display_items))):
+            # Calculate how many tracks fit immediately (before creating widgets)
+            # Use a reasonable default since geometry might not be ready yet
+            self.update_idletasks()
+            parent_height = self.master.winfo_height() if self.master else 0
+
+            if parent_height > 1:
+                # Calculate based on actual geometry
+                row_height = 71
+                current_section_height = 100
+                divider_height = 1
+                next_label_height = 30  # Approximate
+                available_height = parent_height - current_section_height - divider_height - next_label_height
+                tracks_to_create = max(1, min(int(available_height / row_height), len(display_items) - 1))
+            else:
+                # Fallback: create a reasonable number
+                tracks_to_create = min(10, len(display_items) - 1)
+
+
+            # Create only the widgets that will be visible (skip index 0 which is current)
+            for display_i in range(1, min(tracks_to_create + 1, len(display_items))):
                 filepath, artist, title, album, track_num, date = display_items[display_i]
                 actual_index = (
                     self.queue_manager.queue_items.index(filepath) if filepath in self.queue_manager.queue_items else display_i
                 )
 
                 row = QueueRowWidget(
-                    self.scrollable.scrollable_frame,
+                    self.next_tracks_container,
                     title=title,
                     artist=artist,
                     filepath=filepath,
@@ -256,6 +279,7 @@ class NowPlayingView(ttk.Frame):
                 )
                 row.pack(fill=tk.X, pady=1)
                 self.next_row_widgets.append(row)
+
 
     def _calculate_max_visible_tracks(self):
         """Calculate how many next tracks fit in the viewport without scrolling.
@@ -283,23 +307,60 @@ class NowPlayingView(ttk.Frame):
 
     def _calculate_viewport_layout(self, num_tracks_available: int):
         """Calculate how many complete tracks fit in viewport without stretching.
-        
-        For now, use a simple heuristic: show up to 8 tracks which should fit
-        in most reasonable window sizes.
-        
+
+        Calculates based on actual available viewport height:
+        - Total window height
+        - Minus current section (100px)
+        - Minus divider (1px)
+        - Minus next label height (~30px)
+        = Available height for track rows
+
+        Then divides by row height (71px = 70px + 1px padding) to get max complete rows.
+
         Args:
             num_tracks_available: Number of next tracks available to show
-            
+
         Returns:
             tuple: (tracks_to_show, top_padding) - number of complete tracks that fit
         """
-        # Simple heuristic: show up to 8 tracks in the Next section
-        # This should fit comfortably in a standard 768px height window
-        max_tracks_to_show = 8
-        
+        # Force update to get accurate geometry
+        self.update_idletasks()
+
+        # Get total height - use parent's height since this frame might not have expanded yet
+        # self is packed with expand=True, fill=BOTH, so it should fill the parent
+        parent_height = self.master.winfo_height() if self.master else 0
+        self_height = self.winfo_height()
+
+        # Use whichever is larger and valid
+        total_height = max(parent_height, self_height)
+
+
+        # If height not yet calculated (widget not yet rendered), use a safe default
+        if total_height <= 1:
+            # Fallback: assume standard 768px window height
+            # Total ~768px - current section 100px - divider 1px - next label 30px = ~637px
+            # 637 / 71 = ~8 tracks
+            tracks_to_show = min(8, num_tracks_available)
+            return tracks_to_show, 0
+
+        # Calculate fixed sections heights
+        current_section_height = 100  # Fixed height from setup_ui
+        divider_height = 1
+        next_label_height = self.next_label.winfo_reqheight()
+
+        # Calculate available height for track rows
+        available_height = total_height - current_section_height - divider_height - next_label_height
+
+        # Each row is 70px + 1px padding
+        row_height = 71
+
+        # Calculate how many complete rows fit (minimum 1)
+        max_complete_rows = max(1, int(available_height / row_height))
+
         # Don't show more than available
-        tracks_to_show = min(max_tracks_to_show, num_tracks_available)
-        
+        tracks_to_show = min(max_complete_rows, num_tracks_available)
+
+
         return tracks_to_show, 0
 
     def show_empty_state(self):
@@ -316,7 +377,7 @@ class NowPlayingView(ttk.Frame):
         # Hide all sections
         self.current_section.pack_forget()
         self.divider.pack_forget()
-        self.scrollable.pack_forget()
+        self.next_tracks_container.pack_forget()
         self.next_label.pack_forget()
         self.next_section.pack_forget()
 
@@ -339,15 +400,15 @@ class NowPlayingView(ttk.Frame):
             self.divider.pack(fill=tk.X, padx=0, pady=0)
             self.next_label.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(8, 2))
             self.next_section.pack(fill=tk.BOTH, expand=True)
-            # Pack scrollable anchored to top, no expand so it doesn't fill remaining space
+            # Pack container anchored to top, no expand so it doesn't fill remaining space
             # This prevents the last row from stretching
-            self.scrollable.pack(fill=tk.X, anchor=tk.N)
+            self.next_tracks_container.pack(fill=tk.X, anchor=tk.N)
         else:
             # Hide Next section and divider when there are no upcoming tracks
             self.divider.pack_forget()
             self.next_label.pack_forget()
             self.next_section.pack_forget()
-            self.scrollable.pack_forget()
+            self.next_tracks_container.pack_forget()
 
     def on_drag_start(self, row_widget, event):
         """Handle drag start from a row widget.

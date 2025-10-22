@@ -58,7 +58,6 @@ class EventHandler(NSObject):
             key_code = (data & 0xFFFF0000) >> 16
             key_state = (data & 0x0000FF00) >> 8
             if key_state == 0xA:  # Key pressed
-                print(f"Media key pressed: {key_code}")  # Debug log
                 self.controller.handle_media_key(key_code)
         return event
 
@@ -67,7 +66,6 @@ class MediaKeyController:
     """Controller for handling media key events."""
 
     def __init__(self, window):
-        print("Initializing MediaKeyController")  # Debug log
         self.window = window
         self.player = None  # Will be set by MusicPlayer
         self.command_queue = queue.Queue()
@@ -77,7 +75,6 @@ class MediaKeyController:
     def setup_media_keys(self):
         """Setup media key event monitoring."""
         try:
-            print("Setting up media key monitoring")  # Debug log
             # Create event handler
             self.event_handler = EventHandler.alloc().initWithController_(self)
 
@@ -86,7 +83,6 @@ class MediaKeyController:
             self.event_monitor = Quartz.NSEvent.addLocalMonitorForEventsMatchingMask_handler_(
                 mask, self.event_handler.handleEvent_
             )
-            print("Media key monitoring setup complete")  # Debug log
         except Exception as e:
             print(f"Error setting up media keys: {e}")
 
@@ -118,13 +114,11 @@ class MediaKeyController:
 
     def set_player(self, player):
         """Set the player instance for direct function calls."""
-        print("Setting player instance in MediaKeyController")  # Debug log
         self.player = player
 
     def handle_media_key(self, key_code):
         """Handle media key press by queueing commands for the main thread."""
         if not self.player:
-            print("Player not set, cannot handle media keys")
             return
 
         # Map key codes to human-readable names and actions
@@ -135,7 +129,6 @@ class MediaKeyController:
         }
 
         if key_code not in key_map:
-            print(f"Unknown media key code: {key_code}")
             return
 
         key_name, action = key_map[key_code]
@@ -150,7 +143,6 @@ class MediaKeyController:
                     message=f"Media key pressed: {key_name}",
                 )
 
-                print(f"Queueing {action} command")  # Debug log
                 self.command_queue.put(action)
             except Exception as e:
                 print(f"Error handling media key: {e}")

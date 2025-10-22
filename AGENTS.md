@@ -15,8 +15,6 @@ mt is a desktop music player designed for large music collections, built with Py
 
 ALWAYS use these MCP servers:
 
-- serena: when editing and searching for files
-  - activate_project (MCP)(project: "mt")
 - sequential-thinking: detailed, step-by-step thinking process for problem-solving and analysis.
 - context7: when looking up library context outside the source code
   - oaubert/python-vlc

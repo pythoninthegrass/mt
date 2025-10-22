@@ -103,6 +103,12 @@ class ReloadEventHandler(FileSystemEventHandler):
             # Prepend TCL/TK bin to PATH
             env['PATH'] = f"{tcl_tk_bin}:{env.get('PATH', '')}"
 
+        # Enable API server by default for development (can be overridden with env var)
+        api_server_enabled = config('MT_API_SERVER_ENABLED', default='true', cast=str)
+        api_server_port = config('MT_API_SERVER_PORT', default='5555', cast=str)
+        env['MT_API_SERVER_ENABLED'] = api_server_enabled
+        env['MT_API_SERVER_PORT'] = api_server_port
+
         return env
 
     def start_app(self):
