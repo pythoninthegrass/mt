@@ -361,7 +361,41 @@ class MusicPlayer:
             log_player_action("play_pause", was_playing=self.player_core.is_playing)
 
         was_playing = self.player_core.is_playing
-        self.player_core.play_pause()
+
+        # If not playing and queue is empty, initialize queue from library
+        if not was_playing and not self.queue_manager.queue_items:
+            all_filepaths = self._get_all_filepaths_from_view()
+            if all_filepaths:
+                from eliot import log_message
+
+                log_message(
+                    message_type="queue_initialization",
+                    trigger_source="play_pause",
+                    track_count=len(all_filepaths),
+                    message="Initializing queue from library on play/pause"
+                )
+                # Populate queue with library content, start at first track
+                track_to_play = self.queue_manager.populate_and_play(all_filepaths, 0)
+
+                if track_to_play and os.path.exists(track_to_play):
+                    self.player_core._play_file(track_to_play)
+                    self.progress_bar.controls.update_play_button(True)
+
+                    # Update favorite button icon
+                    is_favorite = self.favorites_manager.is_favorite(track_to_play)
+                    self.progress_bar.controls.update_favorite_button(is_favorite)
+
+                    # Refresh colors to highlight playing track
+                    self.refresh_colors()
+
+                    # Update Now Playing view if visible
+                    if self.active_view == 'now_playing':
+                        self.now_playing_view.refresh_from_queue()
+
+                    self.progress_bar.progress_control.show_playback_elements()
+                    return
+        else:
+            self.player_core.play_pause()
 
         # Update play button appearance
         self.progress_bar.controls.update_play_button(self.player_core.is_playing)
@@ -1354,6 +1388,22 @@ class MusicPlayer:
                     "file_drop_no_destination", trigger_source="drag_drop", total_files=len(paths), reason="no_section_selected"
                 )
 
+    def _get_all_filepaths_from_view(self) -> list[str]:
+        """Get all filepaths from current library view for queue initialization.
+
+        Returns:
+            List of filepaths from current view, or empty list if no tracks
+        """
+        all_item_ids = self.queue_view.queue.get_children()
+        all_filepaths = []
+
+        for item in all_item_ids:
+            if item in self._item_filepath_map:
+                filepath = self._item_filepath_map[item]
+                all_filepaths.append(filepath)
+
+        return all_filepaths
+
     def play_selected(self, event=None):
         """Play the selected track and populate queue from current view."""
         from eliot import log_message, start_action
@@ -1371,16 +1421,16 @@ class MusicPlayer:
             track_num, title, artist, album, year = item_values
 
             # Get all tracks from current view for queue population
-            all_item_ids = self.queue_view.queue.get_children()
-            all_filepaths = []
-            selected_index = 0
+            all_filepaths = self._get_all_filepaths_from_view()
 
-            for i, item in enumerate(all_item_ids):
+            # Find the selected track's index in the filepaths list
+            selected_index = 0
+            all_item_ids = self.queue_view.queue.get_children()
+            for item in all_item_ids:
                 if item in self._item_filepath_map:
-                    filepath = self._item_filepath_map[item]
-                    all_filepaths.append(filepath)
                     if item == item_id:
-                        selected_index = len(all_filepaths) - 1
+                        break
+                    selected_index += 1
 
             # Log the double-click action
             log_player_action("play_selected", title=title, artist=artist, album=album, queue_size=len(all_filepaths))
