@@ -114,8 +114,9 @@ class PlayerCore:
                 self.stop("end_of_queue")
                 return
 
-            # In loop mode, move current track to end for carousel effect
-            if self.loop_enabled and self.queue_manager.queue_items:
+            # In loop mode with shuffle disabled, use carousel mode (move track to end)
+            # With shuffle enabled, use shuffle navigation which handles looping internally
+            if self.loop_enabled and not self.shuffle_enabled and self.queue_manager.queue_items:
                 self.queue_manager.move_current_to_end()
                 # After moving current to end, the next track is now at current index
                 filepath = (
@@ -154,8 +155,9 @@ class PlayerCore:
                 description=f"Previous button pressed (currently playing: {current_display})"
             )
 
-            # In loop mode, move last track to beginning for reverse carousel effect
-            if self.loop_enabled and self.queue_manager.queue_items:
+            # In loop mode with shuffle disabled, use reverse carousel mode (move last to beginning)
+            # With shuffle enabled, use shuffle navigation which handles looping internally
+            if self.loop_enabled and not self.shuffle_enabled and self.queue_manager.queue_items:
                 self.queue_manager.move_last_to_beginning()
                 # After moving last to beginning, it becomes the current track at index 0
                 filepath = self.queue_manager.queue_items[0] if self.queue_manager.queue_items else None

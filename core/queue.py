@@ -24,7 +24,7 @@ class QueueManager:
 
         Args:
             filepaths: List of file paths to add to queue
-            start_index: Index to start playback from
+            start_index: Index to start playback from (in original order)
 
         Returns:
             Filepath of track to play, or None if empty
@@ -32,17 +32,41 @@ class QueueManager:
         try:
             from core.logging import log_queue_operation
 
-            log_queue_operation("populate_and_play", count=len(filepaths), start_index=start_index)
+            log_queue_operation("populate_and_play", count=len(filepaths), start_index=start_index, shuffle_enabled=self.shuffle_enabled)
         except ImportError:
             pass
 
+        if not filepaths:
+            return None
+
+        # Store the track we want to play (before any shuffling)
+        start_index = start_index if 0 <= start_index < len(filepaths) else 0
+        track_to_play = filepaths[start_index]
+
         self.queue_items = filepaths.copy()
-        self.current_index = start_index if 0 <= start_index < len(filepaths) else 0
 
-        # Invalidate shuffle when queue is repopulated
-        self._shuffle_generated = False
+        # If shuffle is enabled, apply shuffle immediately
+        if self.shuffle_enabled:
+            # Generate new shuffle order
+            self._original_order = list(range(len(self.queue_items)))
+            self._shuffled_order = self._original_order.copy()
+            random.shuffle(self._shuffled_order)
+            self._shuffle_generated = True
 
-        return filepaths[self.current_index] if filepaths else None
+            # Shuffle the queue items in place
+            shuffled_items = [self.queue_items[i] for i in self._shuffled_order]
+            self.queue_items = shuffled_items
+
+            # Find where the track we want to play ended up after shuffle
+            with contextlib.suppress(ValueError):
+                self.current_index = self.queue_items.index(track_to_play)
+                self._current_shuffle_pos = self.current_index
+        else:
+            # No shuffle - just use the provided index
+            self.current_index = start_index
+            self._shuffle_generated = False
+
+        return self.queue_items[self.current_index] if self.queue_items else None
 
     def insert_after_current(self, filepaths: list[str]) -> None:
         """Insert tracks after currently playing track.
@@ -340,14 +364,29 @@ class QueueManager:
     def toggle_shuffle(self) -> bool:
         """Toggle shuffle mode on/off and return new state.
 
+        When enabling shuffle with an existing queue, generates a new shuffle
+        order immediately so that next/previous navigation works correctly.
+
         Returns:
             New shuffle state (True if enabled)
         """
         self.shuffle_enabled = not self.shuffle_enabled
 
-        # Invalidate shuffled order so it gets regenerated
-        self._shuffle_generated = False
-        self._current_shuffle_pos = 0
+        # If enabling shuffle and we have items in queue, generate shuffle order immediately
+        if self.shuffle_enabled and self.queue_items:
+            # Generate new shuffle order
+            self._original_order = list(range(len(self.queue_items)))
+            self._shuffled_order = self._original_order.copy()
+            random.shuffle(self._shuffled_order)
+            self._shuffle_generated = True
+
+            # Find where the current track is in the new shuffle order
+            with contextlib.suppress(ValueError):
+                self._current_shuffle_pos = self._shuffled_order.index(self.current_index)
+        else:
+            # Invalidate shuffled order so it gets regenerated or disabled
+            self._shuffle_generated = False
+            self._current_shuffle_pos = 0
 
         return self.shuffle_enabled
 
@@ -447,6 +486,7 @@ class QueueManager:
             # Move to next position in shuffle sequence
             self._current_shuffle_pos = (self._current_shuffle_pos + 1) % len(self._shuffled_order)
             next_track = self._shuffled_order[self._current_shuffle_pos]
+
             return next_track
         else:
             # In normal mode, just go to next track
