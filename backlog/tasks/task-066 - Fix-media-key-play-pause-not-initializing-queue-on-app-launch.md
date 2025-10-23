@@ -1,10 +1,10 @@
 ---
 id: task-066
 title: Fix media key play/pause not initializing queue on app launch
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-22 03:07'
-updated_date: '2025-10-22 03:08'
+updated_date: '2025-10-23 03:43'
 labels: []
 dependencies: []
 priority: high
@@ -17,8 +17,8 @@ When the app is first launched and the media key play/pause is pressed without f
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Pressing media key play/pause after app launch should queue the library
-- [ ] #2 Shuffle should work correctly when playback is initiated via media key
-- [ ] #3 Behavior should match the queue initialization that occurs when double-clicking a library track
-- [ ] #4 Previous/next navigation should work correctly after media key play/pause
+- [x] #1 Pressing media key play/pause after app launch should queue the library
+- [x] #2 Shuffle should work correctly when playback is initiated via media key
+- [x] #3 Behavior should match the queue initialization that occurs when double-clicking a library track
+- [x] #4 Previous/next navigation should work correctly after media key play/pause
 <!-- AC:END -->
