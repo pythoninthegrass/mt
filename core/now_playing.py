@@ -1,11 +1,13 @@
-"""Now Playing view with custom widgets for queue visualization."""
+"""Now Playing view with custom widgets for queue visualization and lyrics display."""
 
 import tkinter as tk
+from core.logging import log_player_action
 from core.widgets import QueueRowWidget
+from core.widgets.lyrics_panel import LyricsPanel
 from tkinter import ttk
 
 
-class NowPlayingView(ttk.Frame):
+class NowPlayingView(tk.Frame):
     """Split Now Playing view with fixed current track and scrollable next tracks.
 
     Attributes:
@@ -15,7 +17,7 @@ class NowPlayingView(ttk.Frame):
         next_row_widgets: List of QueueRowWidget instances for upcoming tracks
     """
 
-    def __init__(self, parent, callbacks: dict, queue_manager, loop_enabled: bool = True):
+    def __init__(self, parent, callbacks: dict, queue_manager, loop_enabled: bool = True, lyrics_manager=None):
         """Initialize the Now Playing view.
 
         Args:
@@ -26,14 +28,19 @@ class NowPlayingView(ttk.Frame):
                 - on_play_track(index): Play track at index
             queue_manager: QueueManager instance
             loop_enabled: Whether loop mode is currently enabled (default: True)
+            lyrics_manager: LyricsManager instance for lyrics fetching (optional)
         """
-        super().__init__(parent)
+        super().__init__(parent, bg='#000000', relief=tk.FLAT, borderwidth=0)
         self.queue_manager = queue_manager
         self.callbacks = callbacks
+        self.lyrics_manager = lyrics_manager
         self.current_row_widget = None
         self.next_row_widgets = []
         self.loop_enabled = loop_enabled
         self.player_core = None  # Will be set later by MusicPlayer
+
+        # Active tab state
+        self.active_tab = "up_next"  # or "lyrics"
 
         # Drag state
         self._drag_state = {
@@ -49,10 +56,142 @@ class NowPlayingView(ttk.Frame):
         self.setup_ui()
 
     def setup_ui(self):
-        """Setup the UI components with split layout."""
-        # Current track section (fixed, non-scrollable)
-        # Height = label (10pt + 8+2 padding) + row (70px) ≈ 100px
-        self.current_section = tk.Frame(self, bg='#202020', height=100)
+        """Setup the UI components with 2-column tabbed layout."""
+        # Main container with horizontal layout
+        self.main_container = tk.Frame(self, bg='#000000')
+        self.main_container.pack(fill=tk.BOTH, expand=True)
+
+        # LEFT COLUMN: Album art stub with more space
+        # Right column will be ~857px (67% of original 1280px)
+        # Album art column gets remaining space (~873px)
+        self.album_art_column = tk.Frame(self.main_container, bg='#000000')
+        self.album_art_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.setup_album_art_stub()
+
+        # RIGHT COLUMN: Tabbed content - shrunk by 33% to ~857px
+        self.content_column = tk.Frame(self.main_container, bg='#000000', width=857)
+        self.content_column.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15), pady=0)
+        self.content_column.pack_propagate(False)
+
+        # Tab bar with grey line at bottom
+        self.setup_tab_bar()
+
+        # White underline container (packed after tab bar, before content)
+        self.white_underline_container = tk.Frame(self.content_column, bg='#000000', height=4)
+        self.white_underline_container.pack(fill=tk.X, padx=0, pady=0)
+        self.white_underline_container.pack_propagate(False)
+
+        # Active tab white underline (positioned dynamically)
+        self.active_underline = tk.Frame(
+            self.white_underline_container,
+            bg='#FFFFFF',
+            height=4
+        )
+        # Start hidden until properly positioned when view is shown
+        self.active_underline.place(x=0, y=0, width=0)
+
+        # Content frame for switching between tabs
+        self.content_frame = tk.Frame(self.content_column, bg='#000000')
+        self.content_frame.pack(fill=tk.BOTH, expand=True)
+
+        # UP NEXT content (queue view)
+        self.up_next_frame = tk.Frame(self.content_frame, bg='#000000')
+        self.setup_up_next_content()
+
+        # LYRICS content
+        self.lyrics_frame = tk.Frame(self.content_frame, bg='#000000')
+        self.lyrics_panel = LyricsPanel(self.lyrics_frame)
+        self.lyrics_panel.pack(fill=tk.BOTH, expand=True)
+
+        # Empty state label (for up_next tab)
+        self.empty_label = tk.Label(
+            self.up_next_frame,
+            text="Queue is empty\n\nDouble-click a track in Library to start playing",
+            font=('Helvetica', 14),
+            fg='#888888',
+            bg='#000000',
+            justify=tk.CENTER,
+        )
+
+        # Context menu
+        self.setup_context_menu()
+
+        # Show initial tab (up_next)
+        self.switch_tab("up_next")
+
+        # Initially show empty state
+        self.show_empty_state()
+
+    def setup_album_art_stub(self):
+        """Setup placeholder album art with musical note icon centered in column."""
+        # Create large square container for album art
+        square_size = 400
+
+        # Use place to center both horizontally and vertically in the album art column
+        art_container = tk.Frame(
+            self.album_art_column,
+            bg='#000000',
+            width=square_size,
+            height=square_size
+        )
+        art_container.pack_propagate(False)
+        # Center both horizontally and vertically
+        art_container.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        # Musical note icon (large, centered in square)
+        self.album_art_icon = tk.Label(
+            art_container,
+            text="🎵",
+            font=('Helvetica', 120),
+            fg='#666666',
+            bg='#000000'
+        )
+        self.album_art_icon.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    def setup_tab_bar(self):
+        """Setup tab buttons for switching between UP NEXT and LYRICS."""
+        self.tab_bar = tk.Frame(self.content_column, bg='#000000', height=50)
+        self.tab_bar.pack(fill=tk.X, padx=0, pady=0)
+        self.tab_bar.pack_propagate(False)
+
+        # Container for tab labels (centered horizontally at top)
+        self.tabs_container = tk.Frame(self.tab_bar, bg='#000000')
+        self.tabs_container.pack(side=tk.TOP, pady=(10, 0))  # Pack at top with small top margin
+
+        # UP NEXT tab button - centered with more padding
+        self.up_next_tab = tk.Label(
+            self.tabs_container,
+            text="UP NEXT",
+            font=('Helvetica', 11, 'bold'),
+            fg='#FFFFFF',
+            bg='#000000',
+            padx=15,
+            pady=8
+        )
+        self.up_next_tab.pack(side=tk.LEFT, padx=30)  # Generous spacing
+        self.up_next_tab.bind('<Button-1>', lambda e: self.switch_tab("up_next"))
+
+        # LYRICS tab button - centered with more padding
+        self.lyrics_tab = tk.Label(
+            self.tabs_container,
+            text="LYRICS",
+            font=('Helvetica', 11, 'bold'),
+            fg='#FFFFFF',
+            bg='#000000',
+            padx=15,
+            pady=8
+        )
+        self.lyrics_tab.pack(side=tk.LEFT, padx=30)  # Generous spacing
+        self.lyrics_tab.bind('<Button-1>', lambda e: self.switch_tab("lyrics"))
+
+        # Grey underline at the bottom edge of tab bar
+        self.grey_underline = tk.Frame(self.tab_bar, bg='#555555', height=2)
+        self.grey_underline.pack(side=tk.BOTTOM, fill=tk.X, padx=0, pady=0)
+
+    def setup_up_next_content(self):
+        """Setup the UP NEXT tab content (queue view)."""
+        # Current track section
+        self.current_section = tk.Frame(self.up_next_frame, bg='#000000', height=100)
         self.current_section.pack(fill=tk.X, padx=0, pady=0)
         self.current_section.pack_propagate(False)
 
@@ -61,20 +200,20 @@ class NowPlayingView(ttk.Frame):
             text="Now Playing",
             font=('Helvetica', 10, 'bold'),
             fg='#888888',
-            bg='#202020',
+            bg='#000000',
             anchor='w',
         )
         self.current_label.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(8, 2))
 
-        self.current_container = tk.Frame(self.current_section, bg='#202020')
+        self.current_container = tk.Frame(self.current_section, bg='#000000')
         self.current_container.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
 
-        # Divider line (track as instance variable to reuse)
-        self.divider = tk.Frame(self, bg='#404040', height=1)
+        # Divider line
+        self.divider = tk.Frame(self.up_next_frame, bg='#404040', height=1)
         self.divider.pack(fill=tk.X, padx=0, pady=0)
 
-        # Next tracks section (scrollable)
-        self.next_section = tk.Frame(self, bg='#202020')
+        # Next tracks section
+        self.next_section = tk.Frame(self.up_next_frame, bg='#000000')
         self.next_section.pack(fill=tk.BOTH, expand=True)
 
         self.next_label = tk.Label(
@@ -82,30 +221,77 @@ class NowPlayingView(ttk.Frame):
             text="Next",
             font=('Helvetica', 10, 'bold'),
             fg='#888888',
-            bg='#202020',
+            bg='#000000',
             anchor='w',
         )
         self.next_label.pack(anchor=tk.W, fill=tk.X, padx=10, pady=(8, 2))
 
-        # Fixed container for next tracks (no scrolling - viewport-limited)
-        self.next_tracks_container = tk.Frame(self.next_section, bg='#202020')
-        self.next_tracks_container.pack(fill=tk.X, anchor=tk.N)  # anchor to top, don't expand
+        # Fixed container for next tracks
+        self.next_tracks_container = tk.Frame(self.next_section, bg='#000000')
+        self.next_tracks_container.pack(fill=tk.X, anchor=tk.N)
 
-        # Empty state label (hidden by default)
-        self.empty_label = tk.Label(
-            self,
-            text="Queue is empty\n\nDouble-click a track in Library to start playing",
-            font=('Helvetica', 14),
-            fg='#888888',
-            bg='#202020',
-            justify=tk.CENTER,
+    def switch_tab(self, tab_name: str):
+        """Switch between UP NEXT and LYRICS tabs.
+
+        Args:
+            tab_name: Either "up_next" or "lyrics"
+        """
+        # Log tab switch with before/after state
+        old_tab = self.active_tab
+        self.active_tab = tab_name
+
+        # Log the tab switch action
+        log_player_action(
+            "tab_switch",
+            trigger_source="gui",
+            old_state=old_tab.replace("_", " ").title(),
+            new_state=tab_name.replace("_", " ").title(),
+            description=f"Switched tab from {old_tab.replace('_', ' ').title()} to {tab_name.replace('_', ' ').title()}"
         )
 
-        # Context menu
-        self.setup_context_menu()
+        # Update tab styles
+        self._update_tab_styles()
 
-        # Initially show empty state
-        self.show_empty_state()
+        # Show appropriate content
+        if tab_name == "up_next":
+            self.lyrics_frame.pack_forget()
+            self.up_next_frame.pack(fill=tk.BOTH, expand=True)
+        elif tab_name == "lyrics":
+            self.up_next_frame.pack_forget()
+            self.lyrics_frame.pack(fill=tk.BOTH, expand=True)
+
+    def _update_tab_styles(self):
+        """Update tab underline position based on active tab."""
+        # Both tabs stay white - only underline moves
+
+        # Force geometry update to get accurate positions
+        self.update_idletasks()
+
+        # Calculate absolute positions of tabs
+        if self.active_tab == "up_next":
+            # Get UP NEXT tab position and width
+            tab_x = self.up_next_tab.winfo_x()
+            tab_width = self.up_next_tab.winfo_width()
+
+            # Get tabs_container position relative to white_underline_container
+            container_x = self.tabs_container.winfo_x()
+
+            # Calculate absolute position
+            underline_x = container_x + tab_x
+
+            self.active_underline.place(x=underline_x, y=0, width=tab_width)
+        else:
+            # Get LYRICS tab position and width
+            tab_x = self.lyrics_tab.winfo_x()
+            tab_width = self.lyrics_tab.winfo_width()
+
+            # Get tabs_container position relative to white_underline_container
+            container_x = self.tabs_container.winfo_x()
+
+            # Calculate absolute position
+            underline_x = container_x + tab_x
+
+            self.active_underline.place(x=underline_x, y=0, width=tab_width)
 
     def setup_context_menu(self):
         """Setup right-click context menu for queue items."""
@@ -132,7 +318,7 @@ class NowPlayingView(ttk.Frame):
         if hasattr(self, 'player_core') and self.player_core:
             media = self.player_core.media_player.get_media()
             has_media = media is not None
-        
+
         # Show empty state if queue is empty OR no media is loaded
         if not self.queue_manager.queue_items or not has_media:
             # Clear old widgets before showing empty state to prevent stale data
@@ -210,7 +396,7 @@ class NowPlayingView(ttk.Frame):
 
         # Determine if we have next tracks
         has_next_tracks = len(display_items) > 1
-        
+
         # Show sections based on what we have
         self.hide_empty_state(show_next=has_next_tracks)
 
@@ -248,7 +434,9 @@ class NowPlayingView(ttk.Frame):
                 current_section_height = 100
                 divider_height = 1
                 next_label_height = 30  # Approximate
-                available_height = parent_height - current_section_height - divider_height - next_label_height
+                tab_bar_height = 50  # Height of the tab bar
+                # Subtract tab bar height from available space
+                available_height = parent_height - tab_bar_height - current_section_height - divider_height - next_label_height
                 tracks_to_create = max(1, min(int(available_height / row_height), len(display_items) - 1))
             else:
                 # Fallback: create a reasonable number
@@ -347,9 +535,10 @@ class NowPlayingView(ttk.Frame):
         current_section_height = 100  # Fixed height from setup_ui
         divider_height = 1
         next_label_height = self.next_label.winfo_reqheight()
+        tab_bar_height = 50  # Height of the tab bar
 
         # Calculate available height for track rows
-        available_height = total_height - current_section_height - divider_height - next_label_height
+        available_height = total_height - tab_bar_height - current_section_height - divider_height - next_label_height
 
         # Each row is 70px + 1px padding
         row_height = 71
@@ -387,14 +576,14 @@ class NowPlayingView(ttk.Frame):
 
     def hide_empty_state(self, show_next: bool = True):
         """Hide empty queue message and show sections.
-        
+
         Args:
             show_next: Whether to show the Next section (default: True)
         """
         self.empty_label.pack_forget()
         self.current_section.pack(fill=tk.X, padx=0, pady=0)
         self.current_section.pack_propagate(False)
-        
+
         # Only show Next section if requested
         if show_next:
             self.divider.pack(fill=tk.X, padx=0, pady=0)
@@ -601,3 +790,43 @@ class NowPlayingView(ttk.Frame):
         """
         self.loop_enabled = enabled
         self.refresh_from_queue()
+
+    def update_lyrics(self, artist: str, title: str, album: str | None = None):
+        """Update lyrics display for current track.
+
+        Args:
+            artist: Artist name
+            title: Song title
+            album: Album name (optional)
+        """
+        if not self.lyrics_manager:
+            self.lyrics_panel.show_not_found(title, artist)
+            return
+
+        # Show loading state
+        self.lyrics_panel.show_loading()
+
+        # Fetch lyrics (async with callback)
+        def on_lyrics_loaded(lyrics_data):
+            # Thread-safe UI update using after()
+            self.after(0, lambda: self._display_lyrics(lyrics_data))
+
+        self.lyrics_manager.get_lyrics(artist, title, album, on_complete=on_lyrics_loaded)
+
+    def _display_lyrics(self, lyrics_data: dict):
+        """Display fetched lyrics (called on main thread).
+
+        Args:
+            lyrics_data: Dict from LyricsManager
+        """
+        if lyrics_data.get("found") and lyrics_data.get("lyrics"):
+            self.lyrics_panel.show_lyrics(
+                lyrics_data.get("title", ""),
+                lyrics_data.get("artist", ""),
+                lyrics_data.get("lyrics", "")
+            )
+        else:
+            self.lyrics_panel.show_not_found(
+                lyrics_data.get("title", ""),
+                lyrics_data.get("artist", "")
+            )

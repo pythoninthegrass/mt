@@ -110,6 +110,35 @@ class LibraryManager:
         """Find a file in the library based on its metadata."""
         return self.db.find_file_by_metadata(title, artist, album, track_num)
 
+    def get_track_by_filepath(self, filepath: str) -> dict | None:
+        """Get track metadata by filepath.
+
+        Args:
+            filepath: Full path to the audio file
+
+        Returns:
+            Dict with track metadata or None if not found
+        """
+        import contextlib
+        with contextlib.suppress(Exception):
+            cursor = self.db.db_cursor
+            cursor.execute(
+                '''SELECT title, artist, album, album_artist, track_number, date
+                   FROM library WHERE filepath = ?''',
+                (filepath,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'title': row[0],
+                    'artist': row[1],
+                    'album': row[2],
+                    'album_artist': row[3],
+                    'track_number': row[4],
+                    'date': row[5]
+                }
+        return None
+
     def search_library(self, search_text):
         """Search library items by text across artist, title, and album."""
         return self.db.search_library(search_text)

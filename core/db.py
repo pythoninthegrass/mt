@@ -45,6 +45,18 @@ DB_TABLES = {
             UNIQUE(track_id)
         )
     ''',
+    'lyrics_cache': '''
+        CREATE TABLE IF NOT EXISTS lyrics_cache (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            artist TEXT NOT NULL,
+            title TEXT NOT NULL,
+            album TEXT,
+            lyrics TEXT,
+            source_url TEXT,
+            fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(artist, title)
+        )
+    ''',
 }
 
 

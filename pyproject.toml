@@ -12,6 +12,7 @@ dependencies = [
     "customtkinter>=5.2.2",
     "eliot-tree>=24.0.0",
     "eliot>=1.17.5",
+    "lyricsgenius>=3.7.2",
     "mutagen>=1.47.0",
     "pillow>=11.3.0",
     'pyobjc-framework-Cocoa; platform_system == "Darwin"',

@@ -88,6 +88,10 @@ class MusicPlayer:
         self.library_manager = LibraryManager(self.db)
         self.favorites_manager = FavoritesManager(self.db)
 
+        # Initialize lyrics manager
+        from core.lyrics import LyricsManager
+        self.lyrics_manager = LyricsManager(self.db)
+
         log_message(message_type="component_init", component="database", message="Database and managers initialized")
 
         # Load window size and position before creating UI components to prevent visible resize
@@ -287,6 +291,7 @@ class MusicPlayer:
             },
             queue_manager=self.queue_manager,
             loop_enabled=True,  # Default to True; will be updated after player_core init
+            lyrics_manager=self.lyrics_manager,  # Pass lyrics manager for lyrics fetching
         )
 
         # Initially hide Now Playing view
@@ -510,6 +515,18 @@ class MusicPlayer:
         if hasattr(self, 'now_playing_view') and self.now_playing_view:
             self.now_playing_view.refresh_from_queue()
 
+            # Update lyrics for the new track
+            if self.queue_manager.queue_items and self.queue_manager.current_index < len(self.queue_manager.queue_items):
+                current_filepath = self.queue_manager.queue_items[self.queue_manager.current_index]
+                # Get track metadata from database
+                track_info = self.library_manager.get_track_by_filepath(current_filepath)
+                if track_info:
+                    artist = track_info.get('artist', '')
+                    title = track_info.get('title', '')
+                    album = track_info.get('album', '')
+                    if artist and title:
+                        self.now_playing_view.update_lyrics(artist, title, album)
+
     def on_section_select(self, event):
         """Handle library section selection."""
         with start_action(player_logger, "section_switch"):
@@ -620,6 +637,8 @@ class MusicPlayer:
         if self.active_view == 'now_playing':
             # Just refresh the view
             self.now_playing_view.refresh_from_queue()
+            # Update tab underline position in case it wasn't positioned correctly
+            self.now_playing_view._update_tab_styles()
             return
 
         # Hide library view
@@ -630,6 +649,10 @@ class MusicPlayer:
 
         # Refresh from queue
         self.now_playing_view.refresh_from_queue()
+
+        # Update tab underline position now that geometry is calculated
+        # Use after() to ensure pack() geometry has been processed
+        self.now_playing_view.after(10, self.now_playing_view._update_tab_styles)
 
         self.active_view = 'now_playing'
 
