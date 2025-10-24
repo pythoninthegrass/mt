@@ -82,6 +82,8 @@ def setup_theme(root):
     )
 
     # Configure Treeview style
+    # Note: Not setting a custom font here to avoid font lookup issues in gui.py
+    # The status bar will still use monospace font for statistics display
     style.configure(
         'Treeview',
         background=THEME_CONFIG['colors']['bg'],

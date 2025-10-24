@@ -521,10 +521,15 @@ class LibraryView:
         ]
 
         style = ttk.Style()
-        font_str = style.lookup('Treeview', 'font')
-        if not font_str:
-            font_str = 'TkDefaultFont'
-        font = tkfont.nametofont(font_str)
+        font_spec = style.lookup('Treeview', 'font')
+        if not font_spec:
+            font_spec = 'TkDefaultFont'
+
+        # Handle both font tuples and named fonts
+        if isinstance(font_spec, (tuple, list)):
+            font = tkfont.Font(family=font_spec[0], size=font_spec[1] if len(font_spec) > 1 else 12)
+        else:
+            font = tkfont.nametofont(font_spec)
 
         text_width = max(font.measure(text) for text in items)
         indent_width = 10
@@ -1042,16 +1047,26 @@ class QueueView:
 
         # Get the font used by the treeview
         style = ttk.Style()
-        font_str = style.lookup('Treeview', 'font')
-        if not font_str:
-            font_str = 'TkDefaultFont'
-        font = tkfont.nametofont(font_str)
+        font_spec = style.lookup('Treeview', 'font')
+        if not font_spec:
+            font_spec = 'TkDefaultFont'
+
+        # Handle both font tuples and named fonts
+        if isinstance(font_spec, (tuple, list)):
+            font = tkfont.Font(family=font_spec[0], size=font_spec[1] if len(font_spec) > 1 else 12)
+        else:
+            font = tkfont.nametofont(font_spec)
 
         # Get heading font
-        heading_font_str = style.lookup('Treeview.Heading', 'font')
-        if not heading_font_str:
-            heading_font_str = font_str
-        heading_font = tkfont.nametofont(heading_font_str)
+        heading_font_spec = style.lookup('Treeview.Heading', 'font')
+        if not heading_font_spec:
+            heading_font_spec = font_spec
+
+        # Handle both font tuples and named fonts for heading
+        if isinstance(heading_font_spec, (tuple, list)):
+            heading_font = tkfont.Font(family=heading_font_spec[0], size=heading_font_spec[1] if len(heading_font_spec) > 1 else 12)
+        else:
+            heading_font = tkfont.nametofont(heading_font_spec)
 
         # Get column index
         columns = self.queue['columns']
@@ -1395,6 +1410,11 @@ class StatusBar:
     def __init__(self, parent, library_manager):
         self.parent = parent
         self.library_manager = library_manager
+
+        # Use monospace font for statistics display to prevent horizontal movement
+        # SF Mono is available on macOS, CustomTkinter will handle font fallback
+        self.stats_font = ("SF Mono", 12)
+
         self.setup_status_bar()
 
     def setup_status_bar(self):
@@ -1413,10 +1433,11 @@ class StatusBar:
         self.status_bar.pack_propagate(False)
 
         # Status label with library statistics - right-justified
+        # Use monospace font to prevent horizontal shifting when numbers change
         self.status_label = ctk.CTkLabel(
             self.status_bar,
             text="Loading library statistics...",
-            font=("SF Pro Display", 12),
+            font=self.stats_font,
             text_color="#CCCCCC",  # Light gray text
             anchor="e",  # Right-aligned text
         )
@@ -1434,16 +1455,16 @@ class StatusBar:
         return f"{gb_size:.1f} GB"
 
     def format_duration(self, total_seconds):
-        """Convert total seconds to NNd hh:mm format."""
+        """Convert total seconds to d h m format."""
         if total_seconds <= 0:
-            return "0d 00:00"
+            return "0d 0h 0m"
 
         days = int(total_seconds // 86400)  # 86400 seconds in a day
         remaining_seconds = total_seconds % 86400
         hours = int(remaining_seconds // 3600)
         minutes = int((remaining_seconds % 3600) // 60)
 
-        return f"{days}d {hours:02d}:{minutes:02d}"
+        return f"{days}d {hours}h {minutes}m"
 
     def format_file_count(self, count):
         """Format file count with commas for readability."""
@@ -1467,7 +1488,7 @@ class StatusBar:
             size_str = self.format_file_size(stats['total_size_bytes'])
             duration_str = self.format_duration(stats['total_duration_seconds'])
 
-            status_text = f"{file_count_str} files{'':<5}{size_str}{'':<5}{duration_str}"
+            status_text = f"{file_count_str} files{'':<2}{size_str}{'':<2}{duration_str}"
             self.status_label.configure(text=status_text)
 
         except Exception:

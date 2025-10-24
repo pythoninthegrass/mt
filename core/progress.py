@@ -3,8 +3,6 @@ import tkinter as tk
 
 class ProgressControl:
     def __init__(self, canvas, config, command_callbacks):
-        import tkinter.font as tkfont
-
         self.canvas = canvas
         self.config = config
         self.callbacks = command_callbacks
@@ -21,18 +19,9 @@ class ProgressControl:
         self.last_drag_time = 0
         self.playback_active = False  # Flag to track if playback is active
 
-        # Create monospace font for time display to prevent horizontal movement
-        # Try SF Mono first (macOS), fall back to system monospace fonts
-        try:
-            self.time_font = tkfont.Font(family="SF Mono", size=12)
-        except Exception:
-            # Fall back to Menlo on macOS or other monospace fonts
-            try:
-                self.time_font = tkfont.Font(family="Menlo", size=12)
-            except Exception:
-                # Final fallback to TkFixedFont (guaranteed monospace)
-                self.time_font = tkfont.nametofont("TkFixedFont")
-                self.time_font.configure(size=12)
+        # Use monospace font for time display to prevent horizontal movement
+        # SF Mono is available on macOS, tkinter will handle font fallback
+        self.time_font = ("SF Mono", 12)
 
         self.setup_progress_bar()
 
