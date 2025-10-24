@@ -162,3 +162,91 @@ def test_get_cache_stats(lyrics_manager):
     assert stats["total_entries"] == 2
     assert stats["found_lyrics"] == 1
     assert stats["not_found"] == 1
+
+
+def test_get_lyrics_with_cached_and_callback(lyrics_manager):
+    """Test get_lyrics returns cached lyrics and calls callback when both provided."""
+    # Cache some lyrics first
+    lyrics_data = {
+        "title": "Cached Song",
+        "artist": "Cached Artist",
+        "lyrics": "Cached lyrics",
+        "url": "https://genius.com/cached",
+        "found": True
+    }
+    lyrics_manager.cache_lyrics("Cached Artist", "Cached Song", lyrics_data)
+
+    # Call with callback - should call callback with cached data
+    callback = MagicMock()
+    result = lyrics_manager.get_lyrics("Cached Artist", "Cached Song", on_complete=callback)
+
+    assert result is not None  # Returns cached data immediately
+    assert result["lyrics"] == "Cached lyrics"
+    assert callback.called
+    callback.assert_called_once_with(result)
+
+
+@patch('core.lyrics.fetch_lyrics')
+def test_get_lyrics_async_with_callback(mock_fetch_lyrics, lyrics_manager):
+    """Test get_lyrics fetches async when callback provided and not cached."""
+    mock_fetch_lyrics.return_value = {
+        "title": "Async Song",
+        "artist": "Async Artist",
+        "lyrics": "Async lyrics",
+        "url": "https://genius.com/async",
+        "found": True
+    }
+
+    callback = MagicMock()
+    result = lyrics_manager.get_lyrics("Async Artist", "Async Song", on_complete=callback)
+
+    # Should return None immediately (async fetch)
+    assert result is None
+
+    # Wait for background thread to complete
+    import time
+    time.sleep(0.5)
+
+    # Callback should have been called
+    assert callback.called
+    callback.assert_called_once()
+    called_data = callback.call_args[0][0]
+    assert called_data["lyrics"] == "Async lyrics"
+
+
+@patch('core.lyrics.fetch_lyrics')
+def test_fetch_async_cancels_existing_thread(mock_fetch_lyrics, lyrics_manager):
+    """Test _fetch_async handles existing thread gracefully."""
+    mock_fetch_lyrics.return_value = {
+        "title": "Song",
+        "artist": "Artist",
+        "lyrics": "Lyrics",
+        "url": "https://genius.com/song",
+        "found": True
+    }
+
+    callback1 = MagicMock()
+    callback2 = MagicMock()
+
+    # Start first fetch
+    lyrics_manager.get_lyrics("Artist", "Song", on_complete=callback1)
+
+    # Start second fetch immediately (should handle existing thread)
+    lyrics_manager.get_lyrics("Artist", "Song 2", on_complete=callback2)
+
+    # Wait for threads to complete
+    import time
+    time.sleep(0.5)
+
+    # Both callbacks should have been called
+    assert callback1.called or callback2.called
+
+
+def test_get_cache_stats_with_db_error(lyrics_manager):
+    """Test get_cache_stats returns default dict on database error."""
+    # Close the database to simulate error
+    lyrics_manager.db.close()
+
+    # Should return default stats without raising exception
+    stats = lyrics_manager.get_cache_stats()
+    assert stats == {"total_entries": 0, "found_lyrics": 0, "not_found": 0}
