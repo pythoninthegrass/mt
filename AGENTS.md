@@ -386,6 +386,7 @@ cd src && zig build test
 - ✅ **DO**: Use `backlog task edit` and other CLI commands
 - ✅ **DO**: Use `backlog task create` to create new tasks
 - ✅ **DO**: Use `backlog task edit <id> --check-ac <index>` to mark acceptance criteria
+  - ALWAYS mark acceptance criteria before setting it to done via `backlog task edit <id> -s Done`
 - ❌ **DON'T**: Edit markdown files directly
 - ❌ **DON'T**: Manually change checkboxes in files
 - ❌ **DON'T**: Add or modify text in task files without using CLI
