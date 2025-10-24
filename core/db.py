@@ -80,6 +80,10 @@ class MusicDatabase:
         if self.db_cursor.fetchone()[0] == 0:
             self.set_shuffle_enabled(False)  # Set default shuffle state
 
+        self.db_cursor.execute("SELECT COUNT(*) FROM settings WHERE key = 'volume'")
+        if self.db_cursor.fetchone()[0] == 0:
+            self.set_volume(100)  # Set default volume to 100%
+
         self.db_conn.commit()
 
     def close(self):
@@ -109,6 +113,19 @@ class MusicDatabase:
         """Set shuffle state in settings."""
         value = '1' if enabled else '0'
         self.db_cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('shuffle_enabled', ?)", (value,))
+        self.db_conn.commit()
+
+    def get_volume(self) -> int:
+        """Get volume from settings (0-100)."""
+        self.db_cursor.execute("SELECT value FROM settings WHERE key = 'volume'")
+        result = self.db_cursor.fetchone()
+        return int(result[0]) if result else 100
+
+    def set_volume(self, volume: int):
+        """Set volume in settings (0-100)."""
+        # Ensure volume is within valid range
+        volume = max(0, min(100, int(volume)))
+        self.db_cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('volume', ?)", (str(volume),))
         self.db_conn.commit()
 
     def get_ui_preference(self, key: str, default: str = '') -> str:

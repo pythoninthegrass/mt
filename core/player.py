@@ -158,6 +158,9 @@ class MusicPlayer:
         # Create status bar just above the progress bar
         self.status_bar = StatusBar(self.window, self.library_manager)
 
+        # Get saved volume from database
+        initial_volume = self.db.get_volume()
+
         # Setup progress bar with callbacks
         self.progress_bar = ProgressBar(
             self.window,
@@ -179,6 +182,7 @@ class MusicPlayer:
             },
             initial_loop_enabled=self.player_core.loop_enabled,
             initial_shuffle_enabled=self.player_core.shuffle_enabled,
+            initial_volume=initial_volume,
         )
 
         # Connect progress bar to player core
@@ -203,8 +207,9 @@ class MusicPlayer:
         # Start progress update
         self.update_progress()
 
-        # Initialize the volume after a delay to ensure VLC is ready
-        self.window.after(1000, lambda: self.player_core.set_volume(80))
+        # Initialize VLC volume after a delay to ensure it's ready
+        # UI volume is already set during ProgressBar initialization
+        self.window.after(1000, lambda: self.player_core.set_volume(initial_volume))
 
         # If media key controller exists, set this instance as the player
         if hasattr(self, 'media_key_controller'):
@@ -2017,6 +2022,9 @@ class MusicPlayer:
                 try:
                     result = self.player_core.set_volume(new_volume)
                     log_player_action("volume_change_success", trigger_source="gui", final_volume=new_volume, result=result)
+
+                    # Persist volume to database
+                    self.db.set_volume(new_volume)
                 except Exception as e:
                     log_player_action("volume_change_error", trigger_source="gui", attempted_volume=new_volume, error=str(e))
 

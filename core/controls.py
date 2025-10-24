@@ -494,8 +494,8 @@ class PlayerCore:
         self.current_time = 0
         self.is_playing = True
 
-        # Restore volume after media change
-        self.set_volume(current_volume if current_volume > 0 else 80)
+        # Restore volume after media change (including 0% for muted state)
+        self.set_volume(current_volume)
 
         # Find and select the corresponding item in the queue view
         self._select_item_by_filepath(filepath)

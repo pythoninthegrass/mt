@@ -318,12 +318,13 @@ class PlayerControls:
 
 
 class ProgressBar:
-    def __init__(self, window, progress_frame, callbacks, initial_loop_enabled=True, initial_shuffle_enabled=False):
+    def __init__(self, window, progress_frame, callbacks, initial_loop_enabled=True, initial_shuffle_enabled=False, initial_volume=100):
         self.window = window
         self.progress_frame = progress_frame
         self.callbacks = callbacks
         self.initial_loop_enabled = initial_loop_enabled
         self.initial_shuffle_enabled = initial_shuffle_enabled
+        self.initial_volume = initial_volume
         self.setup_progress_bar()
         self.setup_volume_control()
 
@@ -410,7 +411,7 @@ class ProgressBar:
         # Utility controls are centered at (canvas_height - utility_icon_size[1]) // 2 + utility_icon_size[1] // 2
         volume_bar_y = int(canvas_height // 2 * 1.10)  # Center of canvas, lowered by 10%
 
-        # Create volume control
+        # Create volume control with initial volume from database
         self.volume_control = VolumeControl(
             self.canvas,
             volume_bar_y,
@@ -419,12 +420,12 @@ class ProgressBar:
             THEME_CONFIG,
             {'volume_change': self.callbacks['volume_change']},
         )
-        self.volume_control.setup_volume_control(volume_x_start, volume_slider_length)
+        self.volume_control.setup_volume_control(volume_x_start, volume_slider_length, initial_volume=self.initial_volume)
 
         # Add properties for backwards compatibility
         self.volume_circle = self.volume_control.volume_circle
         self.volume_dragging = False
-        self.volume_value = 80
+        self.volume_value = self.initial_volume
         self.volume_x_start = volume_x_start
         self.volume_line_bg = self.volume_control.volume_line_bg
         self.volume_line_fg = self.volume_control.volume_line_fg

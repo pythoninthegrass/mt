@@ -11,9 +11,10 @@ class VolumeControl:
         self.theme_config = theme_config
         self.callbacks = callbacks
 
-        # Default volume is 80%
-        self.volume_value = 80
+        # Default volume is 100%
+        self.volume_value = 100
         self.volume_dragging = False
+        self.pre_mute_volume = 100  # Track volume before muting for restoration
 
         # Will be calculated during setup
         self.volume_slider_width = 80
@@ -30,9 +31,19 @@ class VolumeControl:
         self.volume_circle = None
         self.volume_hitbox = None
 
-    def setup_volume_control(self, volume_x_start, volume_slider_length=80):
-        """Create and setup custom volume control slider."""
+    def setup_volume_control(self, volume_x_start, volume_slider_length=80, initial_volume=None):
+        """Create and setup custom volume control slider.
+
+        Args:
+            volume_x_start: X position to start the volume control
+            volume_slider_length: Length of the slider
+            initial_volume: Initial volume percentage (0-100). If None, uses self.volume_value
+        """
         self.volume_slider_width = volume_slider_length
+
+        # Use provided initial volume or current value
+        if initial_volume is not None:
+            self.volume_value = max(0, min(100, initial_volume))
 
         # Store the actual slider bounds (with padding for the circle)
         self.volume_slider_padding = self.volume_circle_radius
@@ -43,8 +54,8 @@ class VolumeControl:
         self.volume_line_start = volume_x_start
         self.volume_line_end = volume_x_start + self.volume_slider_width
 
-        # Calculate initial volume position with padding
-        volume_position = self.volume_slider_start + ((self.volume_slider_end - self.volume_slider_start) * 0.8)
+        # Calculate initial volume position based on actual volume value
+        volume_position = self.volume_slider_start + ((self.volume_slider_end - self.volume_slider_start) * (self.volume_value / 100.0))
 
         try:
             # Create volume icon using PNG image (15% larger than base 16px)
@@ -60,6 +71,9 @@ class VolumeControl:
                 bg='#000000',  # Pure black to match control pane
             )
             self.volume_icon.place(x=volume_x_start - 25, y=self.bar_y - 11)  # Position icon aligned with volume circle
+
+            # Bind click event to toggle mute
+            self.volume_icon.bind('<Button-1>', self._toggle_mute)
         except Exception as e:
             print(f"Error loading volume icon: {e}")
             import traceback
@@ -131,10 +145,6 @@ class VolumeControl:
 
         # Bind click on the hitbox
         self.canvas.tag_bind('volume_hitbox', '<Button-1>', self._click_volume)
-
-        # Set initial volume after a short delay
-        if self.callbacks and 'volume_change' in self.callbacks:
-            self.canvas.after(1000, lambda: self.callbacks['volume_change'](80))
 
     def _start_volume_drag(self, event):
         """Start dragging the volume slider."""
@@ -222,10 +232,45 @@ class VolumeControl:
         """Set the volume value and update the slider position."""
         self.volume_value = max(0, min(volume, 100))
         self._update_volume_slider_position()
+        self._update_volume_icon_appearance()
 
     def get_volume(self):
         """Get the current volume value."""
         return self.volume_value
+
+    def _toggle_mute(self, event=None):
+        """Toggle mute/unmute on volume icon click."""
+        if self.volume_value > 0:
+            # Currently not muted - save current volume and mute
+            self.pre_mute_volume = self.volume_value
+            self.volume_value = 0
+        else:
+            # Currently muted - restore previous volume
+            self.volume_value = self.pre_mute_volume if self.pre_mute_volume > 0 else 100
+
+        # Update UI
+        self._update_volume_slider_position()
+        self._update_volume_icon_appearance()
+
+        # Notify callback
+        if self.callbacks and 'volume_change' in self.callbacks:
+            self.callbacks['volume_change'](self.volume_value)
+
+    def _update_volume_icon_appearance(self):
+        """Update volume icon appearance based on mute state."""
+        try:
+            # Change icon opacity when muted for visual feedback
+            opacity = 0.3 if self.volume_value == 0 else 1.0
+            volume_icon_image = load_icon(
+                self.button_symbols['volume'],
+                size=(18, 18),
+                opacity=opacity,
+                tint_color=self.theme_config['colors']['primary']
+            )
+            self.volume_icon_image = volume_icon_image
+            self.volume_icon.config(image=volume_icon_image)
+        except Exception:
+            pass  # Gracefully fail if icon update doesn't work
 
     def update_positions(self, volume_x_start):
         """Update the positions of volume control elements on resize."""
