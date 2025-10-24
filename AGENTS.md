@@ -23,6 +23,7 @@ ALWAYS use these MCP servers:
   - hypothesisworks/hypothesis
   - spiraldb/ziggy-pydust
   - ludo-technologies/pyscn
+  - johnwmillr/lyricsgenius
 - screencap: for screenshots of front-end changes
 
 ## Common Development Commands
@@ -108,6 +109,8 @@ The application follows a modular architecture with clear separation of concerns
    - Manages VLC media player instance
    - Handles file loading and playback control
    - Coordinates between GUI, database (`./mt.db`), and playback systems
+     - ALWAYS respect the `DB_NAME` under `config.py`
+     - NEVER create additional sqlite databases (e.g., `mt_test.db`)
 
 2. **GUI Components** (`core/gui.py`): 
    - MainFrame: Primary interface with left panel (library) and right panel (queue)
@@ -171,6 +174,7 @@ The application follows a modular architecture with clear separation of concerns
    - If an `"error": "No windows found for 'python3'"` occurs, relaunch the app via `nohup uv run repeater > /dev/null 2>&1` 
    - When pkill raises a non-zero exit code, assume that the app has been manually quit and restart it
    - Skip screencap calls if the front-end change isn't _visible_ (e.g., typing produces a bell sound)
+   - DO NOT take a screenshot until verifying that the app has reloaded with the end user; `sleep 2` isn't enough time to propagate the changes
 3. **Validate feature implementation** - Ensure the change fulfills the user's specific request
 4. **Check acceptance criteria** - Review any provided context files or requirements
 5. **Capture evidence** - Take a screenshot of each changed view. Save to `/tmp` if writeable; otherwise, `.claude/screenshots`
