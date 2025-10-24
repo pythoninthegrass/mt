@@ -849,7 +849,7 @@ class MusicPlayer:
         """Load and display library items."""
         # Reset to standard 5-column layout
         self._reset_to_standard_columns()
-        
+
         # Clear current view
         for item in self.queue_view.queue.get_children():
             self.queue_view.queue.delete(item)
@@ -871,7 +871,7 @@ class MusicPlayer:
         """Load and display liked songs."""
         # Reset to standard 5-column layout
         self._reset_to_standard_columns()
-        
+
         # Initialize filepath mapping if needed
         if not hasattr(self, '_item_filepath_map'):
             self._item_filepath_map = {}
@@ -902,7 +902,7 @@ class MusicPlayer:
         """Load and display top 25 most played tracks."""
         # Reset to standard 5-column layout
         self._reset_to_standard_columns()
-        
+
         # Initialize filepath mapping if needed
         if not hasattr(self, '_item_filepath_map'):
             self._item_filepath_map = {}
@@ -994,17 +994,17 @@ class MusicPlayer:
 
     def _format_added_date(self, added_date):
         """Format added_date timestamp for display.
-        
+
         Converts "2025-10-21 16:20:30" to "Oct 21, 4:20 PM"
         """
         if not added_date:
             return ''
         try:
             from datetime import datetime
-            
+
             # Parse the timestamp
             dt = datetime.strptime(added_date, '%Y-%m-%d %H:%M:%S')
-            
+
             # Format as "Oct 21, 4:20 PM"
             return dt.strftime('%b %d, %-I:%M %p')
         except Exception:
@@ -1014,14 +1014,14 @@ class MusicPlayer:
     def _reset_to_standard_columns(self):
         """Reset treeview to standard 5-column layout."""
         self.queue_view.queue.configure(columns=('track', 'title', 'artist', 'album', 'year'))
-        
+
         # Configure column headings
         self.queue_view.queue.heading('track', text='#')
         self.queue_view.queue.heading('title', text='Title')
         self.queue_view.queue.heading('artist', text='Artist')
         self.queue_view.queue.heading('album', text='Album')
         self.queue_view.queue.heading('year', text='Year')
-        
+
         # Set column widths
         self.queue_view.queue.column('track', width=50, anchor='center')
         self.queue_view.queue.column('title', width=200, minwidth=100)
@@ -1043,7 +1043,7 @@ class MusicPlayer:
 
             # Reconfigure treeview to include 'added' column
             self.queue_view.queue.configure(columns=('track', 'title', 'artist', 'album', 'year', 'added'))
-            
+
             # Configure all columns including the new 'added' column
             self.queue_view.queue.heading('track', text='#')
             self.queue_view.queue.heading('title', text='Title')
@@ -1051,7 +1051,7 @@ class MusicPlayer:
             self.queue_view.queue.heading('album', text='Album')
             self.queue_view.queue.heading('year', text='Year')
             self.queue_view.queue.heading('added', text='Added')
-            
+
             # Set column widths
             self.queue_view.queue.column('track', width=50, anchor='center')
             self.queue_view.queue.column('title', width=200, minwidth=100)
@@ -1076,10 +1076,10 @@ class MusicPlayer:
             for i, (filepath, artist, title, album, track_num, date, added_date) in enumerate(rows):
                 formatted_track = self._format_track_number(track_num)
                 year = self._extract_year(date)
-                
+
                 # Format added_date timestamp
                 added_str = self._format_added_date(added_date) if added_date else ''
-                
+
                 row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
                 item_id = self.queue_view.queue.insert(
                     '', 'end', values=(formatted_track, title or '', artist or '', album or '', year or '', added_str), tags=(row_tag,)
@@ -1110,7 +1110,7 @@ class MusicPlayer:
 
             # Reconfigure treeview to include 'played' column
             self.queue_view.queue.configure(columns=('track', 'title', 'artist', 'album', 'year', 'played'))
-            
+
             # Configure all columns including the new 'played' column
             self.queue_view.queue.heading('track', text='#')
             self.queue_view.queue.heading('title', text='Title')
@@ -1118,7 +1118,7 @@ class MusicPlayer:
             self.queue_view.queue.heading('album', text='Album')
             self.queue_view.queue.heading('year', text='Year')
             self.queue_view.queue.heading('played', text='Last Played')
-            
+
             # Set column widths
             self.queue_view.queue.column('track', width=50, anchor='center')
             self.queue_view.queue.column('title', width=200, minwidth=100)
@@ -1143,10 +1143,10 @@ class MusicPlayer:
             for i, (filepath, artist, title, album, track_num, date, last_played) in enumerate(rows):
                 formatted_track = self._format_track_number(track_num)
                 year = self._extract_year(date)
-                
+
                 # Format last_played timestamp
                 played_str = self._format_added_date(last_played) if last_played else ''
-                
+
                 row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
                 item_id = self.queue_view.queue.insert(
                     '', 'end', values=(formatted_track, title or '', artist or '', album or '', year or '', played_str), tags=(row_tag,)
@@ -1610,10 +1610,9 @@ class MusicPlayer:
                 tag = tags[0]
                 if tag == 'music':
                     self.load_library()
-                elif tag == 'now_playing':
+                elif tag == 'now_playing' and self.active_view == 'now_playing':
                     # Refresh Now Playing view
-                    if self.active_view == 'now_playing':
-                        self.now_playing_view.refresh_from_queue()
+                    self.now_playing_view.refresh_from_queue()
 
     def on_window_state_change(self, is_maximized):
         """Handle window state changes (maximize/unmaximize) to adjust column widths."""
