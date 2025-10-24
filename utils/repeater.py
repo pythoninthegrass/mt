@@ -26,8 +26,10 @@ import signal
 import subprocess
 import sys
 import time
+from collections import defaultdict
 from decouple import config
 from pathlib import Path
+from threading import Lock, Timer
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
@@ -79,11 +81,16 @@ def should_ignore_path(file_path, gitignore_patterns, repo_root):
 class ReloadEventHandler(FileSystemEventHandler):
     """Event handler that triggers app reload on file changes."""
 
-    def __init__(self, main_file, repo_root, gitignore_patterns):
+    def __init__(self, main_file, repo_root, gitignore_patterns, debounce_seconds=0.5):
         self.main_file = main_file
         self.repo_root = repo_root
         self.gitignore_patterns = gitignore_patterns
         self.process = None
+        self.debounce_seconds = debounce_seconds
+        self.pending_reload = None
+        self.reload_lock = Lock()
+        self.changed_files = set()
+        self.logger = logging.getLogger('repeater')
         self.start_app()
 
     def setup_macos_environment(self):
@@ -127,19 +134,61 @@ class ReloadEventHandler(FileSystemEventHandler):
         if path == self.main_file:
             return True
 
-        return not should_ignore_path(path, self.gitignore_patterns, self.repo_root)
+        should_watch = not should_ignore_path(path, self.gitignore_patterns, self.repo_root)
+        if should_watch:
+            try:
+                rel_path = path.relative_to(self.repo_root)
+                self.logger.debug(f"Will reload for: {rel_path}")
+            except ValueError:
+                pass
+        return should_watch
+
+    def schedule_reload(self, file_path):
+        """Schedule a debounced reload for the changed file."""
+        with self.reload_lock:
+            self.changed_files.add(file_path)
+
+            # Cancel existing reload timer
+            if self.pending_reload:
+                self.pending_reload.cancel()
+
+            # Schedule new reload
+            self.pending_reload = Timer(self.debounce_seconds, self._execute_reload)
+            self.pending_reload.start()
+
+    def _execute_reload(self):
+        """Execute the actual reload after debounce period."""
+        with self.reload_lock:
+            if self.changed_files:
+                files = list(self.changed_files)
+                self.changed_files.clear()
+                self.pending_reload = None
+
+                # Log all changed files
+                for file_path in files:
+                    try:
+                        rel_path = Path(file_path).relative_to(self.repo_root)
+                        print(f"File changed: {rel_path}")
+                    except (ValueError, Exception):
+                        print(f"File changed: {file_path}")
+
+                self.restart_app()
 
     def on_modified(self, event):
         """Called when a file is modified."""
         if not event.is_directory and self.should_reload(event.src_path):
-            print(f"File changed: {event.src_path}")
-            self.restart_app()
+            self.schedule_reload(event.src_path)
 
     def on_created(self, event):
         """Called when a file is created."""
         if not event.is_directory and self.should_reload(event.src_path):
-            print(f"File created: {event.src_path}")
-            self.restart_app()
+            self.schedule_reload(event.src_path)
+
+    def on_moved(self, event):
+        """Called when a file is moved (common with atomic saves)."""
+        # Check destination path for atomic save pattern (editors often save to .tmp then move)
+        if not event.is_directory and self.should_reload(event.dest_path):
+            self.schedule_reload(event.dest_path)
 
     def restart_app(self):
         """Restart the Tkinter application."""
@@ -158,7 +207,15 @@ class ReloadEventHandler(FileSystemEventHandler):
         self.start_app()
 
     def cleanup(self):
-        """Clean up the process."""
+        """Clean up the process and pending timers."""
+        # Cancel any pending reload
+        with self.reload_lock:
+            if self.pending_reload:
+                self.pending_reload.cancel()
+                self.pending_reload = None
+            self.changed_files.clear()
+
+        # Terminate the app process
         if self.process:
             self.process.send_signal(signal.SIGINT)
             try:
@@ -172,6 +229,12 @@ def main():
     parser = argparse.ArgumentParser(description="Simple tkinter reloader with multi-directory watching")
     parser.add_argument(
         "main_file", nargs="?", default="main.py", help="Path to the main Tkinter application file (default: main.py)"
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Enable debug logging to see watched files"
+    )
+    parser.add_argument(
+        "--debounce", type=float, default=0.5, help="Debounce delay in seconds (default: 0.5)"
     )
 
     args = parser.parse_args()
@@ -209,11 +272,15 @@ def main():
     print(f"Watching project root: {project_root}")
     print(f"Main file: {main_file}")
     print(f"Gitignore patterns loaded: {len(gitignore_patterns)}")
+    print(f"Debounce delay: {args.debounce}s")
+    if args.debug:
+        print("Debug mode: ON")
     print("\nPress Ctrl+C to stop\n")
 
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(level=log_level, format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
-    event_handler = ReloadEventHandler(main_file, project_root, gitignore_patterns)
+    event_handler = ReloadEventHandler(main_file, project_root, gitignore_patterns, debounce_seconds=args.debounce)
 
     observer = Observer()
 
