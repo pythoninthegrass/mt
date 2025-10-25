@@ -228,8 +228,8 @@ def test_select_track_not_in_queue(api_client, clean_queue):
 def test_invalid_action(api_client, clean_queue):
     """Test sending an invalid action."""
     # We need to send raw command, so use a socket directly
-    import socket
     import json
+    import socket
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(5.0)
@@ -257,8 +257,8 @@ def test_invalid_action(api_client, clean_queue):
 def test_missing_action(api_client, clean_queue):
     """Test sending command without action field."""
     # Send raw command with missing action
-    import socket
     import json
+    import socket
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(5.0)
