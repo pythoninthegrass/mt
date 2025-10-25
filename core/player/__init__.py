@@ -3,6 +3,12 @@
 import os
 import sys
 import tkinter as tk
+from .handlers import PlayerEventHandlers
+from .library import PlayerLibraryManager
+from .progress import PlayerProgressController
+from .queue import PlayerQueueHandler
+from .ui import PlayerUIManager
+from .window import PlayerWindowManager
 from config import (
     DB_NAME,
     RELOAD,
@@ -21,12 +27,6 @@ from core.gui import (
 )
 from core.library import LibraryManager
 from core.queue import QueueManager
-from .handlers import PlayerEventHandlers
-from .library import PlayerLibraryManager
-from .progress import PlayerProgressController
-from .queue import PlayerQueueHandler
-from .ui import PlayerUIManager
-from .window import PlayerWindowManager
 from tkinter import ttk
 from utils.reload import ConfigFileHandler
 from watchdog.observers import Observer
