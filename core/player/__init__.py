@@ -321,7 +321,7 @@ class MusicPlayer:
 
     def setup_api_server(self):
         """Initialize and start the API server if enabled."""
-        from api.api import APIServer
+        from api import APIServer
         from config import API_SERVER_ENABLED, API_SERVER_PORT
         from eliot import log_message
 
