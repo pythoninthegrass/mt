@@ -8,8 +8,9 @@ mt is a desktop music player designed for large music collections, built with Py
 
 ## General Guidelines
 
-- Never commit any changes without being explicitly prompted to do so
-- Never use playwright for anything. This is a tkinter desktop app.
+- NEVER commit any changes without being explicitly prompted to do so
+- NEVER use playwright for anything. This is a tkinter desktop app.
+- NEVER create *.backup files. This is a version controlled repo
 
 ## MCP Servers
 
