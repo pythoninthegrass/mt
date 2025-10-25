@@ -15,6 +15,7 @@ from core.volume import VolumeControl
 from tkinter import ttk
 from utils.icons import load_icon
 
+
 class ProgressBar:
     def __init__(self, window, progress_frame, callbacks, initial_loop_enabled=True, initial_shuffle_enabled=False, initial_volume=100):
         self.window = window
@@ -192,7 +193,6 @@ class StatusBar:
 
     def setup_status_bar(self):
         """Create status bar spanning entire bottom pane."""
-        from config import COLORS
 
         # Create status bar container - continuous bar across full width
         self.status_bar = ctk.CTkFrame(
@@ -270,7 +270,3 @@ class StatusBar:
     def refresh_statistics(self):
         """Manually refresh the statistics (useful after library scan)."""
         self.update_statistics()
-
-
-
-

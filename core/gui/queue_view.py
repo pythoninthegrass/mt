@@ -505,7 +505,6 @@ class QueueView:
 
     def _calculate_optimal_column_width(self, col_name):
         """Calculate optimal width for a column based on its content."""
-        import tkinter.font as tkfont
 
         # Get the font used by the treeview
         style = ttk.Style()

@@ -4,6 +4,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
 
+
 class LibraryView:
     def __init__(self, parent, callbacks):
         self.parent = parent
@@ -236,7 +237,3 @@ class SearchBar:
         self.search_icon.bind("<B1-Motion>", drag_window)
         self.search_icon.bind("<ButtonRelease-1>", stop_drag)
         self.search_icon.bind("<Double-Button-1>", double_click_maximize)
-
-
-
-
