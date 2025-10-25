@@ -1,14 +1,14 @@
 ---
 id: task-067
 title: Suppress generic VLC playback errors from console output
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-23 16:06'
-updated_date: '2025-10-23 16:07'
+updated_date: '2025-10-25 23:41'
 labels: []
 dependencies: []
 priority: low
-ordinal: 1000
+ordinal: 3000
 ---
 
 ## Description

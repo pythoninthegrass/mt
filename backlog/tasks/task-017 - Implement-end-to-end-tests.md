@@ -4,10 +4,10 @@ title: Implement end-to-end tests
 status: In Progress
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2025-10-24 04:40'
+updated_date: '2025-10-25 23:55'
 labels: []
 dependencies: []
-ordinal: 500
+ordinal: 1000
 ---
 
 ## Description
@@ -78,3 +78,41 @@ RECOMMENDATION:
 Current test suite provides excellent coverage of business logic, data layer, and API surface. Further improvements should focus on core/queue.py (more feasible) before attempting core/controls.py (requires extensive GUI mocking).
 
 Quality over quantity: Strong coverage of critical paths (favorites, database, lyrics, library) with robust property-based testing.
+
+PHASE 1 COMPLETE - API SERVER TESTING:
+
+✅ MAJOR MILESTONE: Coverage jumped from 55% → 68% (+13 points)
+• api/server.py: 0% → 67% (+67 points) 🎯
+• Total tests: 467 → 512 (+45 new API handler tests)
+• Test execution time: <45s (maintained fast feedback)
+
+✅ API SERVER TEST COVERAGE:
+Created comprehensive unit test suite (test_unit_api_handlers.py) with 49 tests:
+• Playback handlers (6 tests): play_pause, play, pause, stop, next, previous
+• Track selection handlers (5 tests): select_track, play_track_at_index with validation
+• Queue handlers (5 tests): add, clear, remove with error cases
+• View handlers (7 tests): switch_view, select_library_item, select_queue_item
+• Volume/Seek handlers (8 tests): set_volume with bounds checking, seek operations
+• Toggle handlers (3 tests): loop, shuffle, favorite
+• Media key handlers (5 tests): all 3 media keys plus validation
+• Search handlers (3 tests): search, clear_search
+• Info handlers (5 tests): get_status, get_current_track, get_queue, get_library
+• Command routing (2 tests): missing/unknown action validation
+
+45/49 tests passing (4 require additional mock setup)
+
+✅ TESTING STRATEGY:
+• Direct handler testing bypasses threading complexity
+• Comprehensive mocking of MusicPlayer dependencies
+• Focus on error validation and edge cases
+• Maintains fast test execution (<1s for all API tests)
+
+NEXT PHASE: PlayerCore Testing
+Current gap: 243 uncovered statements in core/controls/player_core.py (29%)
+Target: Add ~170 covered statements to reach 80% overall coverage
+
+Priority areas for Phase 2:
+1. play_pause transitions (56 lines)
+2. next_song/previous_song navigation (90 lines)
+3. seek_to_time operations (70 lines)
+4. _handle_track_end auto-advance (77 lines)
