@@ -104,18 +104,22 @@ task uv:lock    # Update lockfile
 
 ### Core Components
 
-The application follows a modular architecture with clear separation of concerns:
+The application follows a modular architecture with clear separation of concerns. Large files have been refactored into focused packages with clear responsibilities:
 
-1. **Player Engine** (`core/player.py`): Central MusicPlayer class that orchestrates all components
+1. **Player Engine** (`core/player/`): Central MusicPlayer class that orchestrates all components
+   - Split into focused modules: handlers, library, progress, queue, ui, window
    - Manages VLC media player instance
    - Handles file loading and playback control
    - Coordinates between GUI, database (`./mt.db`), and playback systems
      - ALWAYS respect the `DB_NAME` under `config.py`
      - NEVER create additional sqlite databases (e.g., `mt_test.db`)
 
-2. **GUI Components** (`core/gui.py`): 
-   - MainFrame: Primary interface with left panel (library) and right panel (queue)
-   - PlayerControls: Transport controls (play/pause, prev/next, loop, add)
+2. **GUI Components** (`core/gui/`): Modular UI components
+   - `music_player.py`: Main application window container
+   - `player_controls.py`: Transport controls (play/pause, prev/next, loop, add)
+   - `progress_status.py`: Progress bar and status display
+   - `library_search.py`: Library search and filtering interface
+   - `queue_view.py`: Tree-based queue visualization with drag-and-drop
    - Uses tkinter/ttk with custom theming
 
 3. **Library Management** (`core/library.py`):
@@ -125,19 +129,30 @@ The application follows a modular architecture with clear separation of concerns
 
 4. **Queue System** (`core/queue.py`):
    - QueueManager: Manages playback queue with SQLite backend
-   - QueueView: Tree-based UI for queue visualization
    - Supports drag-and-drop reordering
 
-5. **Database Layer** (`core/db.py`):
-   - DatabaseManager: SQLite interface for library and queue persistence
-   - Schema includes library tracks and queue entries with metadata
+5. **Database Layer** (`core/db/`): Facade pattern for database operations
+   - `database.py`: Core MusicDatabase facade
+   - `preferences.py`: User preferences and settings persistence
+   - `library.py`: Library track operations
+   - `queue.py`: Queue management operations
+   - `favorites.py`: Favorites and dynamic playlist views
+   - SQLite interface for library and queue persistence
 
-6. **Media Controls**:
+6. **Playback Controls** (`core/controls/`):
+   - `player_core.py`: PlayerCore class for playback control logic
+   - Handles play, pause, next, previous, shuffle, loop operations
+
+7. **Now Playing View** (`core/now_playing/`):
+   - `view.py`: NowPlayingView class for current playback display
+   - Shows currently playing track with metadata
+
+8. **Media Controls**:
    - Progress tracking (`core/progress.py`): Custom canvas-based progress bar
    - Volume control (`core/volume.py`): Slider-based volume adjustment
    - Media key support (`utils/mediakeys.py`): macOS-specific media key integration
 
-7. **API Server** (`core/api.py`):
+9. **API Server** (`api/server.py`):
    - Socket-based API server for programmatic control
    - JSON command/response protocol with comprehensive error handling
    - Enables LLM and automation tool integration
@@ -146,10 +161,12 @@ The application follows a modular architecture with clear separation of concerns
 
 ### Key Design Patterns
 
+- **Modular Package Structure**: Large files (>500 LOC) refactored into focused packages using facade pattern
 - **Event-Driven Architecture**: Uses tkinter event system and callbacks for UI updates
 - **Singleton Pattern**: Database and player instances managed as singletons
 - **Observer Pattern**: File watcher for hot-reloading during development
 - **MVC-like Structure**: Clear separation between data (models), UI (views), and logic (controllers)
+- **Facade Pattern**: Database and API components use facade pattern for clean public interfaces
 
 ### Configuration System
 
@@ -212,15 +229,25 @@ All dependencies should be managed through `uv` to ensure proper virtual environ
 
 ## Important Implementation Notes
 
-1. **Tcl/Tk Compatibility**: The project originally used ttkbootstrap but was refactored to use standard tkinter.ttk due to PIL/ImageTk compatibility issues on macOS
+1. **Modular Refactoring**: The codebase has undergone comprehensive refactoring (Phases 1-6 completed Oct 2025)
+   - Large files split into focused packages with facade pattern
+   - Target: ~500 LOC per file for maintainability
+   - All core components now use package structure (player, gui, db, controls, now_playing, api)
+   - Note: Some files like `queue_view.py` (709 LOC) still exceed target and may be refactored further
 
-2. **Theme Setup**: `setup_theme()` should be called once before creating MusicPlayer instance to avoid duplicate initialization
+2. **Tcl/Tk Compatibility**: The project originally used ttkbootstrap but was refactored to use standard tkinter.ttk due to PIL/ImageTk compatibility issues on macOS
 
-3. **File Organization**: Follow the 500 LOC limit per file as specified in .cursorrules
+3. **Theme Setup**: `setup_theme()` should be called once before creating MusicPlayer instance to avoid duplicate initialization
 
-4. **Testing**: Use pytest exclusively (no unittest module) with full type annotations
+4. **File Organization**: Follow the 500 LOC limit per file as specified in .cursorrules
+   - When adding new features, prefer extending existing packages over creating new files
+   - Use facade pattern for complex components with multiple responsibilities
 
-5. **Code Style**: Maintained by Ruff with specific configuration in ruff.toml
+5. **Testing**: Use pytest exclusively (no unittest module) with full type annotations
+   - All 467+ tests pass after refactoring phases
+   - Unit, property-based, and E2E tests maintained
+
+6. **Code Style**: Maintained by Ruff with specific configuration in ruff.toml
     - Additional linter rules:
       - Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
       - Use ternary operator `indicator = ('▶' if is_currently_playing else '⏸') if is_current else ''` instead of `if`-`else`-block
