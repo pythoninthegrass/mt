@@ -142,8 +142,17 @@ class TestQueueHandlers:
 
     def test_remove_from_queue_with_index(self, api_server, mock_player):
         """Test remove_from_queue with valid index."""
+        # Mock get_queue_items to return tuple format
+        mock_player.queue_manager.get_queue_items.return_value = [
+            ('/track1.mp3', 'Artist 1', 'Title 1', 'Album 1', 1, '2024'),
+            ('/track2.mp3', 'Artist 2', 'Title 2', 'Album 2', 2, '2024'),
+            ('/track3.mp3', 'Artist 3', 'Title 3', 'Album 3', 3, '2024'),
+        ]
+        mock_player.active_view = 'queue'  # Not 'now_playing' to avoid refresh call
         result = api_server._handle_remove_from_queue({'index': 2})
         assert result['status'] == 'success'
+        # Verify remove_from_queue was called with metadata (not index)
+        mock_player.queue_manager.remove_from_queue.assert_called_once_with('Title 3', 'Artist 3', 'Album 3', 3)
 
 
 class TestViewHandlers:
@@ -168,8 +177,12 @@ class TestViewHandlers:
 
     def test_select_library_item_with_index(self, api_server, mock_player):
         """Test select_library_item with valid index."""
+        # Mock the queue_view.queue widget with children
+        mock_player.queue_view.queue.get_children.return_value = ['item0', 'item1', 'item2', 'item3', 'item4', 'item5']
         result = api_server._handle_select_library_item({'index': 5})
         assert result['status'] == 'success'
+        mock_player.queue_view.queue.selection_set.assert_called_once_with('item5')
+        mock_player.queue_view.queue.focus.assert_called_once_with('item5')
 
     def test_select_queue_item_no_index(self, api_server):
         """Test select_queue_item without index."""
@@ -189,8 +202,13 @@ class TestViewHandlers:
             ('track1.mp3', 'Artist 1', 'Title 1', 'Album 1', 1, '2024'),
             ('track2.mp3', 'Artist 2', 'Title 2', 'Album 2', 2, '2024'),
         ]
+        # Mock the UI queue widget with matching children
+        mock_player.queue_view.queue.get_children.return_value = ['item0', 'item1']
+        mock_player.active_view = 'queue'  # Not 'now_playing' to avoid refresh call
         result = api_server._handle_select_queue_item({'index': 1})
         assert result['status'] == 'success'
+        mock_player.queue_view.queue.selection_set.assert_called_once_with('item1')
+        mock_player.queue_view.queue.focus.assert_called_once_with('item1')
 
 
 class TestVolumeSeekHandlers:
@@ -377,14 +395,23 @@ class TestInfoHandlers:
 
     def test_get_library(self, api_server, mock_player):
         """Test get_library handler."""
-        # Mock the queue_view widget
+        # Mock the queue_view widget - get_children returns list of item IDs
         mock_player.queue_view.queue.get_children.return_value = ['item1', 'item2']
-        mock_player.queue_view.queue.item.side_effect = lambda item, option: {
-            'values': ['1', 'Title', 'Artist', 'Album']
-        }
+        # Mock item() method to return dict with 'values' key containing tuple
+        def mock_item(item_id, key):
+            if key == 'values':
+                if item_id == 'item1':
+                    return ('1', 'Title 1', 'Artist 1', 'Album 1')
+                elif item_id == 'item2':
+                    return ('2', 'Title 2', 'Artist 2', 'Album 2')
+            return ()
+        mock_player.queue_view.queue.item = mock_item
+
         result = api_server._handle_get_library({})
         assert result['status'] == 'success'
-        assert 'count' in result
+        assert result['count'] == 2
+        assert len(result['data']) == 2
+        assert result['total'] == 2
 
 
 class TestCommandExecution:
