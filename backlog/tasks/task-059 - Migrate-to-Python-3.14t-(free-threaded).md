@@ -4,7 +4,7 @@ title: Migrate to Python 3.14t (free-threaded)
 status: In Progress
 assignee: []
 created_date: '2025-10-21 06:58'
-updated_date: '2025-10-25 22:49'
+updated_date: '2025-10-24 03:28'
 labels: []
 dependencies: []
 ordinal: 6000
@@ -24,6 +24,7 @@ Incrementally upgrade Python from 3.11 to 3.14t (free-threaded), testing and fix
 - [ ] #6 Update documentation to reflect Python 3.14t requirement
 <!-- AC:END -->
 
+
 ## Implementation Notes
 
 ## Upgrade Commands
@@ -36,6 +37,7 @@ uv python install 3.14t
 # Upgrade project to use 3.14t
 uv python upgrade 3.14t
 ```
+
 
 ## Tool Management
 

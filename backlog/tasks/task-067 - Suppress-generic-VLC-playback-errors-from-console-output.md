@@ -4,7 +4,7 @@ title: Suppress generic VLC playback errors from console output
 status: Done
 assignee: []
 created_date: '2025-10-23 16:06'
-updated_date: '2025-10-25 23:41'
+updated_date: '2025-10-24 03:16'
 labels: []
 dependencies: []
 priority: low

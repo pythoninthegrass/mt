@@ -4,7 +4,7 @@ title: Implement Last.fm scrobbling
 status: In Progress
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2025-10-25 22:49'
+updated_date: '2025-10-24 03:28'
 labels: []
 dependencies: []
 ordinal: 5000
