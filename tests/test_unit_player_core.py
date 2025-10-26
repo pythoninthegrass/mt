@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, Mock, patch
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from tests.mocks import MockEventType, MockInstance
+from tests.mocks import MockEventType, MockInstance, MockMediaPlayer
 
 
 @pytest.fixture
@@ -58,11 +58,17 @@ def mock_queue_view():
 @pytest.fixture
 def player_core(mock_vlc, mock_db, mock_queue_manager, mock_queue_view):
     """Create PlayerCore with mocked dependencies."""
-    with patch.dict('sys.modules', {'vlc': mock_vlc}):
-        from core.controls import PlayerCore
+    # Import PlayerCore directly - it will use the real VLC module
+    # but we'll mock the specific methods we need to test
+    from core.controls import PlayerCore
 
-        player = PlayerCore(mock_db, mock_queue_manager, mock_queue_view)
-        return player
+    player = PlayerCore(mock_db, mock_queue_manager, mock_queue_view)
+
+    # Replace the media_player with our mock for deterministic testing
+    player.media_player = MockMediaPlayer()
+    player.player = mock_vlc.Instance()
+
+    return player
 
 
 class TestPlayerCoreInitialization:
@@ -243,7 +249,7 @@ class TestPlayerCoreStop:
         assert player_core.is_playing is False
         assert player_core.current_file is None
         assert player_core.media_player.get_media() is None
-        assert player_core.media_player._is_playing is False
+        assert player_core.media_player.is_playing() is False
 
 
 class TestPlayerCoreTrackNavigation:

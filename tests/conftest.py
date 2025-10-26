@@ -154,20 +154,89 @@ def api_client(app_process):
     client.disconnect()
 
 
+@pytest.fixture(scope='session')
+def api_client_session(app_process):
+    """Session-scoped API client for setup/teardown operations.
+
+    This client is used for session-level operations like:
+    - Capturing original state before tests
+    - Restoring original state after all tests
+
+    Args:
+        app_process: The running application process
+
+    Yields:
+        APIClient: Connected API client instance
+    """
+    from tests.helpers.api_client import APIClient
+
+    client = APIClient()
+
+    # Wait for server to be ready with retries
+    max_retries = 10
+    for attempt in range(max_retries):
+        try:
+            client.connect()
+            # Test connection
+            response = client.send('get_status')
+            if response.get('status') == 'success':
+                break
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise RuntimeError(f"Failed to connect to API server after {max_retries} attempts") from e
+            time.sleep(0.5)
+
+    yield client
+
+    client.disconnect()
+
+
+@pytest.fixture(scope='session')
+def original_volume(api_client_session):
+    """Capture and restore original volume level across entire test session.
+
+    This session-scoped fixture:
+    - Captures the volume level before any tests run
+    - Restores it after all tests complete
+
+    This ensures the user's volume preference is preserved after running tests.
+    """
+    # Capture original volume before any tests run
+    original_vol = 80  # Default fallback
+    try:
+        status_response = api_client_session.send('get_status')
+        if status_response.get('status') == 'success':
+            original_vol = status_response.get('data', {}).get('volume', 80)
+    except Exception:
+        pass
+
+    yield original_vol
+
+    # Restore original volume after all tests complete
+    try:
+        api_client_session.send('set_volume', volume=original_vol)
+    except Exception:
+        pass
+
+
 @pytest.fixture
-def clean_queue(api_client):
+def clean_queue(api_client, original_volume):
     """Clear the queue and reset application state before and after each test.
 
     Resets the following stateful variables to ensure test isolation:
     - Queue content (cleared)
     - VLC media player state (stopped if playing, media cleared)
+    - Search query (cleared)
     - Current view (reset to 'queue')
     - Loop state (disabled)
     - Shuffle state (disabled)
-    - Volume (set to 80%)
+    - Volume (set to 80% during tests)
+
+    Note: Original volume is restored after all tests via the original_volume fixture.
 
     Args:
         api_client: Connected API client
+        original_volume: Session fixture that captures and restores volume
     """
 
     def reset_state():
@@ -202,11 +271,15 @@ def clean_queue(api_client):
                 with suppress(Exception):
                     api_client.send('toggle_shuffle')
 
+        # Clear any active search
+        with suppress(Exception):
+            api_client.send('clear_search')
+
         # Reset view to 'queue' (now_playing view)
         with suppress(Exception):
             api_client.send('switch_view', view='queue')
 
-        # Set volume to consistent level (80%)
+        # Set volume to consistent level for tests (80%)
         with suppress(Exception):
             api_client.send('set_volume', volume=80)
 
