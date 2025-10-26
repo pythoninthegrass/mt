@@ -4,10 +4,11 @@ title: Migrate to Python 3.14t (free-threaded)
 status: In Progress
 assignee: []
 created_date: '2025-10-21 06:58'
-updated_date: '2025-10-24 03:28'
+updated_date: '2025-10-26 04:53'
 labels: []
 dependencies: []
-ordinal: 6000
+priority: high
+ordinal: 1000
 ---
 
 ## Description
@@ -16,7 +17,7 @@ Incrementally upgrade Python from 3.11 to 3.14t (free-threaded), testing and fix
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Upgrade to Python 3.12 and ensure all tests pass
+- [x] #1 Upgrade to Python 3.12 and ensure all tests pass
 - [ ] #2 Upgrade to Python 3.13 and ensure all tests pass
 - [ ] #3 Upgrade to Python 3.14 (standard) and ensure all tests pass
 - [ ] #4 Upgrade to Python 3.14t (free-threaded) and ensure all tests pass
@@ -27,16 +28,41 @@ Incrementally upgrade Python from 3.11 to 3.14t (free-threaded), testing and fix
 
 ## Implementation Notes
 
-## Upgrade Commands
+## Python 3.12 Upgrade Complete (2025-10-25)
 
-From Astral's Python 3.14 announcement:
-```bash
-# Install Python 3.14t
-uv python install 3.14t
+### Summary
+Successfully upgraded from Python 3.11.11 to 3.12.9. All 516 tests pass with 58% coverage maintained.
 
-# Upgrade project to use 3.14t
-uv python upgrade 3.14t
-```
+### Changes Made
+- Updated `.tool-versions` to python 3.12.9
+- Updated `pyproject.toml` to require python >=3.12,<3.13
+- Pinned `ziggy-pydust==0.25.1` for Zig 0.14.0 compatibility (0.26.0 requires Zig 0.15.1)
+- Rebuilt Zig extension modules successfully
+
+### Regressions Fixed During Manual Testing
+1. **Play/pause icon not updating**: Added explicit `update_play_button()` calls in `player_core.py`
+2. **Queue not populating from media key**: Added queue population logic from library view
+3. **Search not filtering**: Fixed `perform_search()` to directly populate queue view
+4. **App startup failure**: Fixed initialization order for `queue_handler` reference
+
+All fixes in: `core/controls/player_core.py`, `core/player/handlers.py`, `core/player/__init__.py`
+
+### Testing Gap Analysis
+Created follow-up tasks to address test coverage gaps discovered during migration:
+- **task-074**: Add integration tests for recent bug fixes (high priority)
+- **task-075**: Add unit tests for PlayerEventHandlers class (0% coverage)
+- **task-076**: Increase PlayerCore coverage from 29% to 50%+
+
+### Python 3.12 Compatibility Notes
+- No deprecation warnings triggered
+- Asyncio behavior stable (limited usage in project)
+- VLC bindings working correctly
+- All dependencies compatible
+
+### Next Steps for task-059
+- Proceed to AC #2: Upgrade to Python 3.13
+- Monitor for Python 3.13 specific changes (PEP 701 f-strings, etc.)
+- Continue validating Zig/ziggy-pydust compatibility at each step
 
 
 ## Tool Management
