@@ -4,7 +4,7 @@ title: Implement end-to-end tests
 status: In Progress
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2025-10-25 23:55'
+updated_date: '2025-10-26 00:05'
 labels: []
 dependencies: []
 ordinal: 1000
@@ -116,3 +116,115 @@ Priority areas for Phase 2:
 2. next_song/previous_song navigation (90 lines)
 3. seek_to_time operations (70 lines)
 4. _handle_track_end auto-advance (77 lines)
+
+SESSION COMPLETE - API SERVER TESTING (PHASE 1):
+
+✅ FINAL ACHIEVEMENT: Coverage 55% → 68% (+13 points, 85% toward 80% goal)
+• api/server.py: 0% → 69% (+69 points) 🎯
+• Total tests: 467 → 516 (+49 new tests)
+• All 516 tests passing (100% pass rate, 5 skipped)
+• Test execution: <45s (fast feedback maintained)
+
+✅ API SERVER COMPREHENSIVE COVERAGE (49 tests in test_unit_api_handlers.py):
+All 33 command handlers tested with 100% pass rate:
+
+**Playback Controls (6 tests)**
+• play_pause, play, pause, stop, next, previous
+
+**Track Selection (5 tests)**  
+• select_track with filepath validation
+• play_track_at_index with bounds checking
+
+**Queue Management (5 tests)**
+• add_to_queue with file validation
+• clear_queue, remove_from_queue with error handling
+
+**View Navigation (7 tests)**
+• switch_view with view validation
+• select_library_item, select_queue_item with index bounds
+
+**Volume & Seek (8 tests)**
+• set_volume with range validation (0-100)
+• seek (relative), seek_to_position (absolute)
+
+**State Toggles (3 tests)**
+• toggle_loop, toggle_shuffle, toggle_favorite
+
+**Media Keys (5 tests)**
+• play_pause, next, previous simulation
+• Invalid key validation
+
+**Search (3 tests)**
+• search with query handling
+• clear_search
+
+**Info Queries (5 tests)**
+• get_status: player state, volume, position, duration
+• get_current_track: track metadata
+• get_queue: queue contents
+• get_library: library contents
+
+**Command Routing (2 tests)**
+• Missing/unknown action error handling
+
+✅ TESTING APPROACH:
+• Direct handler testing (bypasses threading complexity)
+• Comprehensive MusicPlayer mocking
+• Fast execution (<1s for all 49 API tests)
+• Error validation and edge case coverage
+
+✅ COMMITS:
+1. test: add comprehensive API server unit tests (0% → 67% coverage)
+2. test: fix 4 failing API handler tests (49/49 passing)
+
+═══════════════════════════════════════════════════════════
+
+REMAINING GAP TO 80% TARGET: 12 percentage points
+
+**Current State:**
+• Overall coverage: 68%
+• Target coverage: 80%
+• Gap: 234 uncovered statements
+
+**Largest Opportunity - core/controls/player_core.py:**
+• Current: 29% coverage (101/344 statements covered)
+• Uncovered: 243 statements
+• Impact: +12.5 percentage points if fully covered
+
+**Priority Areas for Phase 2 (PlayerCore Testing):**
+
+1. **play_pause() transitions** (56 lines: 34-90)
+   - Toggle behavior when playing/paused
+   - State synchronization with VLC
+   - ~3% coverage gain
+
+2. **Track navigation** (90 lines: 94-142, 146-181)  
+   - next_song() with loop/shuffle variations
+   - previous_song() boundary conditions
+   - ~5% coverage gain
+
+3. **Seeking operations** (70 lines: 227-296)
+   - seek_to_time() with various positions
+   - Edge cases (beginning, end, no media)
+   - ~4% coverage gain
+
+4. **Track ending logic** (77 lines: 633-710)
+   - _handle_track_end() auto-advance
+   - Loop/shuffle/stop-after-current interactions
+   - ~4% coverage gain
+
+**Phase 2 Strategy:**
+• Build on existing test_unit_player_core.py (20 tests, 29% coverage)
+• Add ~30-40 new tests targeting uncovered methods
+• Use VLC mocking patterns from existing tests
+• Focus on state transitions and edge cases
+
+**Alternative Approach - core/queue.py:**
+• Current: 91% coverage (247/270 statements)
+• Uncovered: 23 statements (UI synchronization code)
+• Easier to test than PlayerCore (less VLC interaction)
+• Impact: +1.2% coverage gain (fills remaining gaps)
+
+**Recommendation:**
+Phase 2 should target PlayerCore as it offers the largest coverage gain. 
+Adding 170 covered statements in PlayerCore would achieve 80% target.
