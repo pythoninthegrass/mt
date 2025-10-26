@@ -29,12 +29,93 @@ class PlayerCore:
         self.active_view = None  # Will be set by MusicPlayer
         self._playback_lock = threading.RLock()  # Reentrant lock for thread-safe playback operations
 
+        # Rate limiting state for playback operations
+        self._rate_limit_state = {
+            'next_song': {'last_time': 0, 'pending_timer': None},
+            'previous_song': {'last_time': 0, 'pending_timer': None},
+            'play_pause': {'last_time': 0, 'pending_timer': None},
+        }
+
         # Set up end of track event handler
         self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
+
+    def _check_rate_limit(self, method_name: str, min_interval: float) -> bool:
+        """Check if method call should proceed based on rate limiting.
+
+        Implements debouncing with trailing edge: if called too soon after last execution,
+        schedules a pending call instead of executing immediately.
+
+        Args:
+            method_name: Name of the method being rate-limited
+            min_interval: Minimum seconds between executions
+
+        Returns:
+            True if call should proceed immediately, False if throttled
+        """
+        import time
+
+        state = self._rate_limit_state[method_name]
+        current_time = time.time()
+        time_since_last = current_time - state['last_time']
+
+        # If enough time has passed, allow immediate execution
+        if time_since_last >= min_interval:
+            state['last_time'] = current_time
+
+            # Cancel any pending timer since we're executing now
+            if state['pending_timer'] is not None:
+                state['pending_timer'].cancel()
+                state['pending_timer'] = None
+
+            log_player_action(
+                "rate_limit_immediate",
+                method_name=method_name,
+                trigger_source="rate_limit",
+                time_since_last=time_since_last,
+                description=f"{method_name} executed immediately (sufficient time elapsed)"
+            )
+            return True
+
+        # Too soon - schedule for later (debounce trailing edge)
+        # Cancel any existing pending timer
+        if state['pending_timer'] is not None:
+            state['pending_timer'].cancel()
+
+        # Schedule execution after minimum interval
+        delay = min_interval - time_since_last
+
+        def execute_pending():
+            """Execute the pending call after delay."""
+            # This will be called from timer thread, but method will acquire lock
+            state['last_time'] = time.time()
+            state['pending_timer'] = None
+
+            # Call the actual method
+            method = getattr(self, method_name)
+            method()
+
+        state['pending_timer'] = threading.Timer(delay, execute_pending)
+        state['pending_timer'].daemon = True
+        state['pending_timer'].start()
+
+        log_player_action(
+            "rate_limit_throttled",
+            method_name=method_name,
+            trigger_source="rate_limit",
+            time_since_last=time_since_last,
+            delay=delay,
+            queued=True,
+            description=f"{method_name} throttled, will execute in {delay:.3f}s"
+        )
+        return False
 
     def play_pause(self) -> None:
         """Toggle play/pause state."""
         with self._playback_lock:
+            # Rate limiting: minimum 50ms between play/pause toggles
+            if not self._check_rate_limit('play_pause', 0.05):
+                return
+
             # Get current track info for logging
             current_track = self._get_current_track_info()
             track_display = f"{current_track.get('artist', 'Unknown')} - {current_track.get('title', 'Unknown')}" if current_track else "No track"
@@ -114,6 +195,10 @@ class PlayerCore:
     def next_song(self) -> None:
         """Play the next song in the queue."""
         with self._playback_lock:
+            # Rate limiting: minimum 100ms between next() calls
+            if not self._check_rate_limit('next_song', 0.1):
+                return
+
             # Defensive check: ensure queue has items
             if not self.queue_manager.queue_items:
                 log_player_action(
@@ -182,6 +267,10 @@ class PlayerCore:
     def previous_song(self) -> None:
         """Play the previous song in the queue."""
         with self._playback_lock:
+            # Rate limiting: minimum 100ms between previous() calls
+            if not self._check_rate_limit('previous_song', 0.1):
+                return
+
             # Defensive check: ensure queue has items
             if not self.queue_manager.queue_items:
                 log_player_action(
@@ -479,6 +568,43 @@ class PlayerCore:
             from eliot import log_message
             log_message(message_type="volume_set_error", error=str(e), attempted_volume=volume)
             return -1
+
+    def cleanup_vlc(self) -> None:
+        """Clean up VLC resources to prevent leaks.
+
+        Releases VLC media player and instance resources. Should be called
+        between tests or when shutting down the player.
+        """
+        with self._playback_lock:
+            try:
+                # Stop playback first
+                if self.is_playing:
+                    self.media_player.stop()
+                    self.is_playing = False
+
+                # Clear media
+                self.media_player.set_media(None)
+
+                # Release media player resources
+                if self.media_player:
+                    self.media_player.release()
+
+                # Release VLC instance resources
+                if self.player:
+                    self.player.release()
+
+                # Clear references
+                self.current_file = None
+                self.current_time = 0
+
+                log_player_action(
+                    "vlc_cleanup",
+                    trigger_source="cleanup",
+                    description="VLC resources released"
+                )
+            except Exception as e:
+                from eliot import log_message
+                log_message(message_type="vlc_cleanup_error", error=str(e))
 
     def _wait_for_media_loaded(self, timeout: float = 2.0) -> bool:
         """Wait for VLC media to be loaded after play() call.
