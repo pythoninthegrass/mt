@@ -1,9 +1,10 @@
 ---
 id: task-013
 title: Suppress python-vlc output in favor of eliot logging
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-09-17 04:10'
+updated_date: '2025-10-26 02:57'
 labels: []
 dependencies: []
 ---
