@@ -6,7 +6,7 @@ authors = [
     { name = "pythoninthegrass", email = "4097471+pythoninthegrass@users.noreply.github.com" }
 ]
 
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.12,<3.13"
 
 dependencies = [
     "customtkinter>=5.2.2",
@@ -21,7 +21,7 @@ dependencies = [
     "python-vlc>=3.0.21203",
     "tk>=0.1.0",
     "tkinterdnd2>=0.4.2",
-    "ziggy-pydust>=0.25.1",
+    "ziggy-pydust==0.25.1",
 ]
 
 [project.optional-dependencies]
@@ -29,7 +29,7 @@ dev = [
     "pyclean>=3.1.0",
     "ruff>=0.9.6",
     "watchdog>=6.0.0",
-    "ziggy-pydust>=0.25.1",
+    "ziggy-pydust==0.25.1",
 ]
 
 test = [

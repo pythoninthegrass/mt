@@ -287,6 +287,10 @@ class MusicPlayer:
         # Share the active view tracking
         self.queue_handler.active_view = self.active_view
 
+        # Connect queue handler and active view to player_core for media key queue population
+        self.player_core.queue_handler = self.queue_handler
+        self.player_core.active_view = self.active_view
+
         # Progress Controller
         self.progress_controller = PlayerProgressController(
             window=self.window,
@@ -315,6 +319,7 @@ class MusicPlayer:
             load_recently_played_callback=lambda: self.library_handler.load_recently_played(),
             refresh_colors_callback=lambda: self.ui_manager.refresh_colors(self.player_core),
             _item_filepath_map=self._item_filepath_map,
+            library_handler=self.library_handler,
         )
         # Share the active view tracking
         self.event_handlers.active_view = self.active_view

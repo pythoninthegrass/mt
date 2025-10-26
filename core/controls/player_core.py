@@ -24,6 +24,8 @@ class PlayerCore:
         self.window = None
         self.favorites_manager = None
         self.current_file = None  # Track currently playing file
+        self.queue_handler = None  # Will be set by MusicPlayer
+        self.active_view = None  # Will be set by MusicPlayer
 
         # Set up end of track event handler
         self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
@@ -58,6 +60,9 @@ class PlayerCore:
                 self._update_track_info()
                 # Refresh colors to update play/pause indicator
                 self._refresh_colors_callback()
+                # Update play button icon
+                if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
+                    self.progress_bar.controls.update_play_button(True)
                 try:
                     from core.logging import controls_logger
                     from eliot import log_message
@@ -72,6 +77,17 @@ class PlayerCore:
                     filepath = self.queue_manager.queue_items[self.queue_manager.current_index]
                     self._play_file(filepath)
                 else:
+                    # Try to populate queue from current view (works in any library section)
+                    if self.queue_handler:
+                        # Get all tracks from current view
+                        all_filepaths = self.queue_handler._get_all_filepaths_from_view()
+                        if all_filepaths:
+                            # Populate queue and play first track
+                            track_to_play = self.queue_manager.populate_and_play(all_filepaths, 0)
+                            if track_to_play:
+                                self._play_file(track_to_play)
+                                return
+                    # Fallback: try to get current filepath
                     filepath = self._get_current_filepath()
                     if filepath:
                         self._play_file(filepath)
@@ -81,6 +97,9 @@ class PlayerCore:
             self.is_playing = False
             # Refresh colors to update play/pause indicator
             self._refresh_colors_callback()
+            # Update play button icon
+            if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
+                self.progress_bar.controls.update_play_button(False)
             try:
                 from core.logging import controls_logger
                 from eliot import log_message

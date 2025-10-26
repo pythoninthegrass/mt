@@ -27,6 +27,7 @@ class PlayerEventHandlers:
         load_recently_played_callback,
         refresh_colors_callback,
         _item_filepath_map,
+        library_handler=None,
     ):
         """Initialize the event handlers.
 
@@ -64,6 +65,7 @@ class PlayerEventHandlers:
         self.load_recently_played = load_recently_played_callback
         self.refresh_colors = refresh_colors_callback
         self._item_filepath_map = _item_filepath_map
+        self.library_handler = library_handler
         self.active_view = 'library'
 
     def handle_drop(self, event):
@@ -378,10 +380,8 @@ class PlayerEventHandlers:
             return
 
         if rows:
-            # Need to populate queue view - this is handled by the library manager
-            # but we need access to _populate_queue_view from PlayerLibraryManager
-            # For now, we'll just refresh the library
-            self.load_library()
+            # Populate queue view with search results
+            self.library_handler._populate_queue_view(rows)
             self.refresh_colors()
 
     def clear_search(self):
