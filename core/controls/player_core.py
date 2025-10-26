@@ -1,4 +1,5 @@
 import os
+import threading
 import vlc
 from config import BUTTON_SYMBOLS
 from core.db import MusicDatabase
@@ -26,126 +27,145 @@ class PlayerCore:
         self.current_file = None  # Track currently playing file
         self.queue_handler = None  # Will be set by MusicPlayer
         self.active_view = None  # Will be set by MusicPlayer
+        self._playback_lock = threading.RLock()  # Reentrant lock for thread-safe playback operations
 
         # Set up end of track event handler
         self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
 
     def play_pause(self) -> None:
         """Toggle play/pause state."""
-        # Get current track info for logging
-        current_track = self._get_current_track_info()
-        track_display = f"{current_track.get('artist', 'Unknown')} - {current_track.get('title', 'Unknown')}" if current_track else "No track"
+        with self._playback_lock:
+            # Get current track info for logging
+            current_track = self._get_current_track_info()
+            track_display = f"{current_track.get('artist', 'Unknown')} - {current_track.get('title', 'Unknown')}" if current_track else "No track"
 
-        try:
-            from core.logging import controls_logger, log_player_action
+            try:
+                from core.logging import controls_logger, log_player_action
 
-            with start_action(controls_logger, "play_pause"):
-                log_player_action(
-                    "play_pause_pressed",
-                    trigger_source="gui",
-                    old_state="playing" if self.is_playing else "paused",
-                    new_state="paused" if self.is_playing else "playing",
-                    track=track_display,
-                    description=f"{'Pausing' if self.is_playing else 'Resuming'}: {track_display}"
-                )
-        except ImportError:
-            pass
+                with start_action(controls_logger, "play_pause"):
+                    log_player_action(
+                        "play_pause_pressed",
+                        trigger_source="gui",
+                        old_state="playing" if self.is_playing else "paused",
+                        new_state="paused" if self.is_playing else "playing",
+                        track=track_display,
+                        description=f"{'Pausing' if self.is_playing else 'Resuming'}: {track_display}"
+                    )
+            except ImportError:
+                pass
 
-        if not self.is_playing:
-            if self.media_player.get_media() is not None:
-                self.media_player.play()
-                # Wait for media to be ready (shorter timeout since media already loaded)
-                self._wait_for_media_loaded(timeout=0.5)
-                self.is_playing = True
-                self._update_track_info()
+            if not self.is_playing:
+                if self.media_player.get_media() is not None:
+                    self.media_player.play()
+                    # Wait for media to be ready (shorter timeout since media already loaded)
+                    self._wait_for_media_loaded(timeout=0.5)
+                    self.is_playing = True
+                    self._update_track_info()
+                    # Refresh colors to update play/pause indicator
+                    self._refresh_colors_callback()
+                    # Update play button icon
+                    if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
+                        self.progress_bar.controls.update_play_button(True)
+                    try:
+                        from core.logging import controls_logger
+                        from eliot import log_message
+
+                        log_message(message_type="playback_started", message="Playback resumed from pause")
+                    except ImportError:
+                        pass
+                else:
+                    if self.queue_manager.queue_items:
+                        if self.queue_manager.current_index < 0:
+                            self.queue_manager.current_index = 0
+                        filepath = self.queue_manager.queue_items[self.queue_manager.current_index]
+                        self._play_file(filepath)
+                    else:
+                        # Try to populate queue from current view (works in any library section)
+                        if self.queue_handler:
+                            # Get all tracks from current view
+                            all_filepaths = self.queue_handler._get_all_filepaths_from_view()
+                            if all_filepaths:
+                                # Populate queue and play first track
+                                track_to_play = self.queue_manager.populate_and_play(all_filepaths, 0)
+                                if track_to_play:
+                                    self._play_file(track_to_play)
+                                    return
+                        # Fallback: try to get current filepath
+                        filepath = self._get_current_filepath()
+                        if filepath:
+                            self._play_file(filepath)
+            else:
+                self.current_time = self.media_player.get_time()
+                self.media_player.pause()
+                self.is_playing = False
                 # Refresh colors to update play/pause indicator
                 self._refresh_colors_callback()
                 # Update play button icon
                 if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
-                    self.progress_bar.controls.update_play_button(True)
+                    self.progress_bar.controls.update_play_button(False)
                 try:
                     from core.logging import controls_logger
                     from eliot import log_message
 
-                    log_message(message_type="playback_started", message="Playback resumed from pause")
+                    log_message(message_type="playback_paused", message="Playback paused")
                 except ImportError:
                     pass
-            else:
-                if self.queue_manager.queue_items:
-                    if self.queue_manager.current_index < 0:
-                        self.queue_manager.current_index = 0
-                    filepath = self.queue_manager.queue_items[self.queue_manager.current_index]
-                    self._play_file(filepath)
-                else:
-                    # Try to populate queue from current view (works in any library section)
-                    if self.queue_handler:
-                        # Get all tracks from current view
-                        all_filepaths = self.queue_handler._get_all_filepaths_from_view()
-                        if all_filepaths:
-                            # Populate queue and play first track
-                            track_to_play = self.queue_manager.populate_and_play(all_filepaths, 0)
-                            if track_to_play:
-                                self._play_file(track_to_play)
-                                return
-                    # Fallback: try to get current filepath
-                    filepath = self._get_current_filepath()
-                    if filepath:
-                        self._play_file(filepath)
-        else:
-            self.current_time = self.media_player.get_time()
-            self.media_player.pause()
-            self.is_playing = False
-            # Refresh colors to update play/pause indicator
-            self._refresh_colors_callback()
-            # Update play button icon
-            if hasattr(self.progress_bar, 'controls') and hasattr(self.progress_bar.controls, 'update_play_button'):
-                self.progress_bar.controls.update_play_button(False)
-            try:
-                from core.logging import controls_logger
-                from eliot import log_message
-
-                log_message(message_type="playback_paused", message="Playback paused")
-            except ImportError:
-                pass
 
     def next_song(self) -> None:
         """Play the next song in the queue."""
-        with start_action(controls_logger, "next_song"):
-            # Get current track info for logging
-            current_track_info = self._get_current_track_info()
-            current_display = f"{current_track_info.get('artist', 'Unknown')} - {current_track_info.get('title', 'Unknown')}" if current_track_info else "No track"
-
-            log_player_action(
-                "next_pressed",
-                trigger_source="gui",
-                current_track=current_display,
-                queue_has_loop=self.loop_enabled,
-                description=f"Next button pressed (currently playing: {current_display})"
-            )
-
-            if not self.loop_enabled and self._is_last_song():
+        with self._playback_lock:
+            # Defensive check: ensure queue has items
+            if not self.queue_manager.queue_items:
                 log_player_action(
-                    "next_song_stopped",
+                    "next_song_no_queue",
                     trigger_source="gui",
-                    reason="last_song_and_loop_disabled",
-                    current_track=current_track_info,
+                    reason="queue_empty",
+                    description="Next button pressed but queue is empty"
                 )
-                self.stop("end_of_queue")
                 return
 
-            # In loop mode with shuffle disabled, use carousel mode (move track to end)
-            # With shuffle enabled, use shuffle navigation which handles looping internally
-            if self.loop_enabled and not self.shuffle_enabled and self.queue_manager.queue_items:
-                self.queue_manager.move_current_to_end()
-                # After moving current to end, the next track is now at current index
-                filepath = (
-                    self.queue_manager.queue_items[self.queue_manager.current_index] if self.queue_manager.queue_items else None
-                )
-            else:
-                filepath = self._get_next_filepath()
+            with start_action(controls_logger, "next_song"):
+                # Get current track info for logging
+                current_track_info = self._get_current_track_info()
+                current_display = f"{current_track_info.get('artist', 'Unknown')} - {current_track_info.get('title', 'Unknown')}" if current_track_info else "No track"
 
-            # Get target track info after navigation (after queue update)
-            if filepath:
+                log_player_action(
+                    "next_pressed",
+                    trigger_source="gui",
+                    current_track=current_display,
+                    queue_has_loop=self.loop_enabled,
+                    description=f"Next button pressed (currently playing: {current_display})"
+                )
+
+                if not self.loop_enabled and self._is_last_song():
+                    log_player_action(
+                        "next_song_stopped",
+                        trigger_source="gui",
+                        reason="last_song_and_loop_disabled",
+                        current_track=current_track_info,
+                    )
+                    self.stop("end_of_queue")
+                    return
+
+                # In loop mode with shuffle disabled, use carousel mode (move track to end)
+                # With shuffle enabled, use shuffle navigation which handles looping internally
+                if self.loop_enabled and not self.shuffle_enabled and self.queue_manager.queue_items:
+                    # Use atomic operation to prevent race condition
+                    filepath = self.queue_manager.move_current_to_end_and_get_next()
+                else:
+                    filepath = self._get_next_filepath()
+
+                # Defensive check: validate filepath before playing
+                if not filepath:
+                    log_player_action(
+                        "next_song_no_filepath",
+                        trigger_source="gui",
+                        reason="no_next_track",
+                        description="No filepath returned from queue navigation"
+                    )
+                    return
+
+                # Get target track info after navigation (after queue update)
                 target_metadata = self.db.get_metadata_by_filepath(filepath) if self.db else {}
                 target_display = f"{target_metadata.get('artist', 'Unknown')} - {target_metadata.get('title', os.path.basename(filepath))}"
 
@@ -157,34 +177,53 @@ class PlayerCore:
                     description=f"Playing next: {target_display}"
                 )
 
-            if filepath:
                 self._play_file(filepath)
 
     def previous_song(self) -> None:
         """Play the previous song in the queue."""
-        with start_action(controls_logger, "previous_song"):
-            # Get current track info for logging
-            current_track_info = self._get_current_track_info()
-            current_display = f"{current_track_info.get('artist', 'Unknown')} - {current_track_info.get('title', 'Unknown')}" if current_track_info else "No track"
+        with self._playback_lock:
+            # Defensive check: ensure queue has items
+            if not self.queue_manager.queue_items:
+                log_player_action(
+                    "previous_song_no_queue",
+                    trigger_source="gui",
+                    reason="queue_empty",
+                    description="Previous button pressed but queue is empty"
+                )
+                return
 
-            log_player_action(
-                "previous_pressed",
-                trigger_source="gui",
-                current_track=current_display,
-                description=f"Previous button pressed (currently playing: {current_display})"
-            )
+            with start_action(controls_logger, "previous_song"):
+                # Get current track info for logging
+                current_track_info = self._get_current_track_info()
+                current_display = f"{current_track_info.get('artist', 'Unknown')} - {current_track_info.get('title', 'Unknown')}" if current_track_info else "No track"
 
-            # In loop mode with shuffle disabled, use reverse carousel mode (move last to beginning)
-            # With shuffle enabled, use shuffle navigation which handles looping internally
-            if self.loop_enabled and not self.shuffle_enabled and self.queue_manager.queue_items:
-                self.queue_manager.move_last_to_beginning()
-                # After moving last to beginning, it becomes the current track at index 0
-                filepath = self.queue_manager.queue_items[0] if self.queue_manager.queue_items else None
-            else:
-                filepath = self._get_previous_filepath()
+                log_player_action(
+                    "previous_pressed",
+                    trigger_source="gui",
+                    current_track=current_display,
+                    description=f"Previous button pressed (currently playing: {current_display})"
+                )
 
-            # Get target track info after navigation (after queue update)
-            if filepath:
+                # In loop mode with shuffle disabled, use reverse carousel mode (move last to beginning)
+                # With shuffle enabled, use shuffle navigation which handles looping internally
+                if self.loop_enabled and not self.shuffle_enabled and self.queue_manager.queue_items:
+                    self.queue_manager.move_last_to_beginning()
+                    # After moving last to beginning, it becomes the current track at index 0
+                    filepath = self.queue_manager.queue_items[0] if self.queue_manager.queue_items else None
+                else:
+                    filepath = self._get_previous_filepath()
+
+                # Defensive check: validate filepath before playing
+                if not filepath:
+                    log_player_action(
+                        "previous_song_no_filepath",
+                        trigger_source="gui",
+                        reason="no_previous_track",
+                        description="No filepath returned from queue navigation"
+                    )
+                    return
+
+                # Get target track info after navigation (after queue update)
                 target_metadata = self.db.get_metadata_by_filepath(filepath) if self.db else {}
                 target_display = f"{target_metadata.get('artist', 'Unknown')} - {target_metadata.get('title', os.path.basename(filepath))}"
 
@@ -196,7 +235,6 @@ class PlayerCore:
                     description=f"Playing previous: {target_display}"
                 )
 
-            if filepath:
                 self._play_file(filepath)
 
     def seek(self, position: float, source: str = "progress_bar", interaction_type: str = "click") -> None:
@@ -316,7 +354,7 @@ class PlayerCore:
 
     def stop(self, reason: str = "user_initiated") -> None:
         """Stop playback."""
-        with start_action(controls_logger, "stop_playback"):
+        with self._playback_lock, start_action(controls_logger, "stop_playback"):
             # Get current track info before stopping
             current_track_info = self._get_current_track_info()
 
@@ -469,79 +507,81 @@ class PlayerCore:
 
     def _play_file(self, filepath: str) -> None:
         """Play a specific file."""
-        if not os.path.exists(filepath):
-            from eliot import log_message
-            log_message(message_type="file_not_found", filepath=filepath)
-            return
+        with self._playback_lock:
+            # Defensive check: file must exist
+            if not os.path.exists(filepath):
+                from eliot import log_message
+                log_message(message_type="file_not_found", filepath=filepath)
+                return
 
-        # Get track metadata for logging
-        track_metadata = self.db.get_metadata_by_filepath(filepath) if self.db else {}
-        track_title = track_metadata.get('title', os.path.basename(filepath))
-        track_artist = track_metadata.get('artist', 'Unknown')
-        track_album = track_metadata.get('album', 'Unknown')
+            # Get track metadata for logging
+            track_metadata = self.db.get_metadata_by_filepath(filepath) if self.db else {}
+            track_title = track_metadata.get('title', os.path.basename(filepath))
+            track_artist = track_metadata.get('artist', 'Unknown')
+            track_album = track_metadata.get('album', 'Unknown')
 
-        with start_action(controls_logger, "play_file"):
-            log_player_action(
-                "playback_started",
-                trigger_source="gui",
-                filepath=filepath,
-                title=track_title,
-                artist=track_artist,
-                album=track_album,
-                description=f"Started playing: {track_artist} - {track_title}"
-            )
+            with start_action(controls_logger, "play_file"):
+                log_player_action(
+                    "playback_started",
+                    trigger_source="gui",
+                    filepath=filepath,
+                    title=track_title,
+                    artist=track_artist,
+                    album=track_album,
+                    description=f"Started playing: {track_artist} - {track_title}"
+                )
 
-        # Store the filepath immediately for reliable access
-        self.current_file = filepath
+            # Store the filepath immediately for reliable access
+            self.current_file = filepath
 
-        # Reset play count tracking for new track
-        if hasattr(self, 'play_count_updated_callback') and self.play_count_updated_callback:
-            self.play_count_updated_callback(False)
+            # Reset play count tracking for new track
+            if hasattr(self, 'play_count_updated_callback') and self.play_count_updated_callback:
+                self.play_count_updated_callback(False)
 
-        # Store the current volume before changing media
-        current_volume = self.get_volume()
+            # Store the current volume before changing media
+            current_volume = self.get_volume()
 
-        media = self.player.media_new(filepath)
-        self.media_player.set_media(media)
-        self.media_player.play()
+            media = self.player.media_new(filepath)
+            self.media_player.set_media(media)
+            self.media_player.play()
 
-        # Wait for VLC to load the media asynchronously
-        if not self._wait_for_media_loaded(timeout=2.0):
-            print(f"Warning: Media loading timeout for {filepath}")
+            # Wait for VLC to load the media asynchronously
+            if not self._wait_for_media_loaded(timeout=2.0):
+                print(f"Warning: Media loading timeout for {filepath}")
 
-        self.media_player.set_time(0)  # Ensure track starts from beginning
-        self.current_time = 0
-        self.is_playing = True
+            self.media_player.set_time(0)  # Ensure track starts from beginning
+            self.current_time = 0
+            self.is_playing = True
 
-        # Restore volume after media change (including 0% for muted state)
-        self.set_volume(current_volume)
+            # Restore volume after media change (including 0% for muted state)
+            self.set_volume(current_volume)
 
-        # Find and select the corresponding item in the queue view
-        self._select_item_by_filepath(filepath)
+            # Find and select the corresponding item in the queue view
+            self._select_item_by_filepath(filepath)
 
-        # Update track info in UI
-        self._update_track_info()
+            # Update track info in UI
+            self._update_track_info()
 
-        # Show playback elements in progress bar
-        if self.progress_bar and hasattr(self.progress_bar, 'progress_control'):
-            self.progress_bar.progress_control.show_playback_elements()
+            # Show playback elements in progress bar
+            if self.progress_bar and hasattr(self.progress_bar, 'progress_control'):
+                self.progress_bar.progress_control.show_playback_elements()
 
-        # Update play button to pause symbol since we're now playing
-        if (
-            self.progress_bar
-            and hasattr(self.progress_bar, 'controls')
-            and hasattr(self.progress_bar.controls, 'update_play_button')
-        ):
-            self.progress_bar.controls.update_play_button(True)
+            # Update play button to pause symbol since we're now playing
+            if (
+                self.progress_bar
+                and hasattr(self.progress_bar, 'controls')
+                and hasattr(self.progress_bar.controls, 'update_play_button')
+            ):
+                self.progress_bar.controls.update_play_button(True)
 
-        # Update favorite button icon based on track's favorite status
-        if self.favorites_manager and self.progress_bar and hasattr(self.progress_bar, 'controls'):
-            is_favorite = self.favorites_manager.is_favorite(filepath)
-            self.progress_bar.controls.update_favorite_button(is_favorite)
+            # Update favorite button icon based on track's favorite status
+            if self.favorites_manager and self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                is_favorite = self.favorites_manager.is_favorite(filepath)
+                self.progress_bar.controls.update_favorite_button(is_favorite)
 
-        # Notify track change for view updates
-        if hasattr(self, 'on_track_change') and callable(self.on_track_change):
-            self.on_track_change()
+            # Notify track change for view updates
+            if hasattr(self, 'on_track_change') and callable(self.on_track_change):
+                self.on_track_change()
 
     def _select_item_by_filepath(self, filepath: str) -> None:
         """Find and select the item in the queue view that corresponds to the given filepath."""
@@ -688,43 +728,55 @@ class PlayerCore:
 
     def _handle_track_end(self):
         """Handle track end in the main thread."""
-        # Check stop_after_current flag first (highest priority)
-        if self.stop_after_current:
-            # Stop playback and reset the flag
-            self.stop_after_current = False
-            self.stop("stop_after_current")
-            log_player_action(
-                "stop_after_current_triggered",
-                trigger_source="automatic",
-                description="Stopped playback after current track as requested",
-            )
-            return
+        with self._playback_lock:
+            # Defensive check: only proceed if we were actually playing
+            # This prevents double-triggering of track end events
+            if not self.is_playing:
+                log_player_action(
+                    "track_end_ignored",
+                    trigger_source="automatic",
+                    reason="not_playing",
+                    description="Track end event ignored because player is not in playing state"
+                )
+                return
 
-        if self.loop_enabled:
-            # If loop is enabled, play the next track (or first if at end)
-            self.next_song()
-        else:
-            # If loop is disabled, remove current track from queue and advance
-            # This creates a linear playback where tracks disappear after playing
-            if self._is_last_song():
-                # Last track - remove it and stop
-                self.queue_manager.remove_from_queue_at_index(self.queue_manager.current_index)
-                self.stop("end_of_queue")
-                # Explicitly refresh Now Playing view when queue becomes empty
-                if hasattr(self, 'on_track_change') and callable(self.on_track_change):
-                    self.on_track_change()
+            # Check stop_after_current flag first (highest priority)
+            if self.stop_after_current:
+                # Stop playback and reset the flag
+                self.stop_after_current = False
+                self.stop("stop_after_current")
+                log_player_action(
+                    "stop_after_current_triggered",
+                    trigger_source="automatic",
+                    description="Stopped playback after current track as requested",
+                )
+                return
+
+            if self.loop_enabled:
+                # If loop is enabled, play the next track (or first if at end)
+                self.next_song()
             else:
-                # Not last track - remove current track and play next
-                # After removing current track, the next track is now at current_index
-                self.queue_manager.remove_from_queue_at_index(self.queue_manager.current_index)
-                filepath = self._get_next_filepath()
-                if filepath:
-                    self._play_file(filepath)
+                # If loop is disabled, remove current track from queue and advance
+                # This creates a linear playback where tracks disappear after playing
+                if self._is_last_song():
+                    # Last track - remove it and stop
+                    self.queue_manager.remove_from_queue_at_index(self.queue_manager.current_index)
+                    self.stop("end_of_queue")
+                    # Explicitly refresh Now Playing view when queue becomes empty
+                    if hasattr(self, 'on_track_change') and callable(self.on_track_change):
+                        self.on_track_change()
                 else:
-                    self.stop("queue_exhausted")
+                    # Not last track - remove current track and play next
+                    # After removing current track, the next track is now at current_index
+                    self.queue_manager.remove_from_queue_at_index(self.queue_manager.current_index)
+                    filepath = self._get_next_filepath()
+                    if filepath:
+                        self._play_file(filepath)
+                    else:
+                        self.stop("queue_exhausted")
 
-        # Update UI elements
-        if self.progress_bar and hasattr(self.progress_bar, 'controls'):
-            self.progress_bar.controls.play_button.configure(
-                text=BUTTON_SYMBOLS['pause'] if self.is_playing else BUTTON_SYMBOLS['play']
-            )
+            # Update UI elements
+            if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                self.progress_bar.controls.play_button.configure(
+                    text=BUTTON_SYMBOLS['pause'] if self.is_playing else BUTTON_SYMBOLS['play']
+                )

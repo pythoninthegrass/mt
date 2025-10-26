@@ -1,5 +1,6 @@
 import contextlib
 import random
+import threading
 from core.db import MusicDatabase
 from core.logging import log_queue_operation, queue_logger
 from pathlib import Path
@@ -18,6 +19,7 @@ class QueueManager:
         self._shuffled_order = []
         self._shuffle_generated = False
         self._current_shuffle_pos = 0
+        self._lock = threading.RLock()  # Reentrant lock for thread-safe operations
 
     def populate_and_play(self, filepaths: list[str], start_index: int = 0) -> str | None:
         """Replace queue with new tracks and set current position.
@@ -165,28 +167,65 @@ class QueueManager:
         Used in loop mode to create a carousel effect where played tracks
         move to the end, keeping upcoming tracks near the top.
         """
-        if not self.queue_items or len(self.queue_items) <= 1:
-            return
+        with self._lock:
+            if not self.queue_items or len(self.queue_items) <= 1:
+                return
 
-        if self.current_index >= len(self.queue_items):
-            return
+            if self.current_index >= len(self.queue_items):
+                return
 
-        try:
-            from core.logging import log_queue_operation
+            try:
+                from core.logging import log_queue_operation
 
-            log_queue_operation("carousel_move", from_index=self.current_index, to_index=len(self.queue_items) - 1)
-        except ImportError:
-            pass
+                log_queue_operation("carousel_move", from_index=self.current_index, to_index=len(self.queue_items) - 1)
+            except ImportError:
+                pass
 
-        # Remove current track and append to end
-        track = self.queue_items.pop(self.current_index)
-        self.queue_items.append(track)
+            # Remove current track and append to end
+            track = self.queue_items.pop(self.current_index)
+            self.queue_items.append(track)
 
-        # Stay at index 0 for carousel mode - always play from the top
-        self.current_index = 0
+            # Stay at index 0 for carousel mode - always play from the top
+            self.current_index = 0
 
-        # Invalidate shuffle when queue order changes
-        self._shuffle_generated = False
+            # Invalidate shuffle when queue order changes
+            self._shuffle_generated = False
+
+    def move_current_to_end_and_get_next(self) -> str | None:
+        """Atomically move current track to end and return next filepath.
+
+        This is a thread-safe version of move_current_to_end() that also returns
+        the next track to play, preventing race conditions.
+
+        Returns:
+            Filepath of next track to play, or None if queue is empty
+        """
+        with self._lock:
+            if not self.queue_items or len(self.queue_items) <= 1:
+                return self.queue_items[0] if self.queue_items else None
+
+            if self.current_index >= len(self.queue_items):
+                return None
+
+            try:
+                from core.logging import log_queue_operation
+
+                log_queue_operation("carousel_move", from_index=self.current_index, to_index=len(self.queue_items) - 1)
+            except ImportError:
+                pass
+
+            # Remove current track and append to end
+            track = self.queue_items.pop(self.current_index)
+            self.queue_items.append(track)
+
+            # Stay at index 0 for carousel mode - always play from the top
+            self.current_index = 0
+
+            # Invalidate shuffle when queue order changes
+            self._shuffle_generated = False
+
+            # Return the track now at current_index (guaranteed to be within bounds)
+            return self.queue_items[self.current_index] if self.queue_items else None
 
     def move_last_to_beginning(self) -> None:
         """Move the last track to the beginning of the queue (reverse carousel mode).
@@ -425,17 +464,18 @@ class QueueManager:
         Returns:
             Filepath of next track, or None if at end
         """
-        if not self.queue_items:
+        with self._lock:
+            if not self.queue_items:
+                return None
+
+            total_items = len(self.queue_items)
+            next_index = self.get_next_track_index(self.current_index, total_items)
+
+            if next_index is not None:
+                self.current_index = next_index
+                return self.queue_items[self.current_index]
+
             return None
-
-        total_items = len(self.queue_items)
-        next_index = self.get_next_track_index(self.current_index, total_items)
-
-        if next_index is not None:
-            self.current_index = next_index
-            return self.queue_items[self.current_index]
-
-        return None
 
     def previous_track(self) -> str | None:
         """Go to previous track in queue.
@@ -443,17 +483,18 @@ class QueueManager:
         Returns:
             Filepath of previous track, or None if at beginning
         """
-        if not self.queue_items:
+        with self._lock:
+            if not self.queue_items:
+                return None
+
+            total_items = len(self.queue_items)
+            prev_index = self.get_previous_track_index(self.current_index, total_items)
+
+            if prev_index is not None:
+                self.current_index = prev_index
+                return self.queue_items[self.current_index]
+
             return None
-
-        total_items = len(self.queue_items)
-        prev_index = self.get_previous_track_index(self.current_index, total_items)
-
-        if prev_index is not None:
-            self.current_index = prev_index
-            return self.queue_items[self.current_index]
-
-        return None
 
     def get_next_track_index(self, current_index: int, total_items: int) -> int | None:
         """Get the index of the next track considering shuffle state.
