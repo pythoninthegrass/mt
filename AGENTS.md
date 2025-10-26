@@ -423,10 +423,65 @@ cd src && zig build test
 
 ## Essential CLI Commands
 
+### Task Creation Best Practices
+
+**IMPORTANT: When creating new tasks, follow this two-step process:**
+
+1. **Create the task with temporary filename** using `backlog task create`
+2. **Manually rename file and update metadata** to match nomenclature
+
+**Example Workflow:**
+```bash
+# Step 1: Create task (will generate task-<priority>.<number> filename)
+backlog task create "Fix race condition in shuffle mode" \
+  -d "Description here" \
+  --ac "Criterion 1" \
+  --ac "Criterion 2" \
+  -p high --plain
+
+# Step 2: Find highest task number
+ls -1 backlog/tasks/task-*.md | grep -E "^task-[0-9]" | sort -V | tail -1
+
+# Step 3: Rename file manually (e.g., if highest is task-076, use task-077)
+mv "backlog/tasks/task-high.01 - Title.md" "backlog/tasks/task-077 - Title.md"
+
+# Step 4: Edit frontmatter manually to update id and set priority
+# Change: id: task-high.01 → id: task-077
+# Add:    priority: high
+# Add:    ordinal: 2000
+# Remove: parent_task_id: task-high
+```
+
+**Standard Task File Format:**
+```markdown
+---
+id: task-077
+title: Fix race condition in shuffle mode
+status: To Do
+assignee: []
+created_date: '2025-10-26 18:40'
+updated_date: '2025-10-26 18:40'
+labels: []
+dependencies: []
+priority: high
+ordinal: 2000
+---
+
+## Description
+
+Task description here.
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 First criterion
+- [ ] #2 Second criterion
+<!-- AC:END -->
+```
+
 ### Task Management
 
 ```bash
-backlog task create "Title" -d "Description" --ac "Criterion 1" --ac "Criterion 2"
+backlog task create "Title" -d "Description" --ac "Criterion 1" --ac "Criterion 2" -p high --plain
 backlog task list --plain                    # List all tasks
 backlog task 42 --plain                      # View specific task
 backlog task edit 42 -s "In Progress" -a @myself  # Start working
