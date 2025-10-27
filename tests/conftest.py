@@ -1,9 +1,11 @@
+import gc
 import glob
 import os
 import pytest
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from contextlib import suppress
 from decouple import config
@@ -283,6 +285,16 @@ def clean_queue(api_client, original_volume):
         with suppress(Exception):
             api_client.send('set_volume', volume=80)
 
+        # Cleanup VLC resources to prevent exhaustion
+        with suppress(Exception):
+            api_client.send('cleanup_vlc')
+
+        # Force garbage collection to cleanup any circular references
+        gc.collect()
+
+        # Give VLC time to recover between tests
+        time.sleep(0.1)
+
     # Reset state before test
     reset_state()
 
@@ -290,3 +302,77 @@ def clean_queue(api_client, original_volume):
 
     # Reset state after test
     reset_state()
+
+
+@pytest.fixture(scope="function", autouse=False)
+def monitor_resources(request):
+    """Monitor system resources before and after each test.
+
+    Tracks:
+    - Thread count
+    - Memory usage (if psutil available)
+    - File descriptors (if psutil available on Unix)
+
+    Usage: Add to test function parameters to enable monitoring for that test.
+    """
+    test_name = request.node.name
+
+    # Get initial resource counts
+    threads_before = threading.active_count()
+    thread_names_before = [t.name for t in threading.enumerate()]
+
+    try:
+        import psutil
+        process = psutil.Process()
+        memory_before = process.memory_info().rss / 1024 / 1024  # MB
+        try:
+            fds_before = process.num_fds() if hasattr(process, 'num_fds') else None
+        except Exception:
+            fds_before = None
+    except ImportError:
+        memory_before = None
+        fds_before = None
+
+    print(f"\n[RESOURCES BEFORE {test_name}]")
+    print(f"  Threads: {threads_before}")
+    print(f"  Thread names: {thread_names_before}")
+    if memory_before:
+        print(f"  Memory: {memory_before:.1f} MB")
+    if fds_before:
+        print(f"  File descriptors: {fds_before}")
+
+    yield
+
+    # Get final resource counts
+    threads_after = threading.active_count()
+    thread_names_after = [t.name for t in threading.enumerate()]
+
+    try:
+        import psutil
+        process = psutil.Process()
+        memory_after = process.memory_info().rss / 1024 / 1024  # MB
+        try:
+            fds_after = process.num_fds() if hasattr(process, 'num_fds') else None
+        except Exception:
+            fds_after = None
+    except ImportError:
+        memory_after = None
+        fds_after = None
+
+    print(f"\n[RESOURCES AFTER {test_name}]")
+    print(f"  Threads: {threads_after} (delta: {threads_after - threads_before:+d})")
+    print(f"  Thread names: {thread_names_after}")
+    if memory_after:
+        memory_delta = memory_after - memory_before
+        print(f"  Memory: {memory_after:.1f} MB (delta: {memory_delta:+.1f} MB)")
+    if fds_after and fds_before:
+        fd_delta = fds_after - fds_before
+        print(f"  File descriptors: {fds_after} (delta: {fd_delta:+d})")
+
+    # Warn if resources increased significantly
+    if threads_after > threads_before:
+        print(f"  ⚠️  WARNING: {threads_after - threads_before} thread(s) leaked!")
+    if memory_after and memory_before and (memory_after - memory_before) > 50:
+        print(f"  ⚠️  WARNING: Memory increased by {memory_after - memory_before:.1f} MB!")
+    if fds_after and fds_before and fds_after > fds_before:
+        print(f"  ⚠️  WARNING: {fds_after - fds_before} file descriptor(s) leaked!")

@@ -9,6 +9,7 @@ import time
 from config import TEST_TIMEOUT
 
 
+@pytest.mark.order(index=-10, after=["test_unit", "test_props", "test_e2e"])
 def test_rapid_next_operations(api_client, test_music_files, clean_queue):
     """Test rapid consecutive next() calls don't cause race conditions.
 
@@ -36,6 +37,9 @@ def test_rapid_next_operations(api_client, test_music_files, clean_queue):
         # Very short delay to simulate rapid button clicks
         time.sleep(0.05)
 
+    # Give VLC extra recovery time after stress test
+    time.sleep(0.2)
+
     # Verify player is still in valid state
     status = api_client.send('get_status')
     assert status['status'] == 'success', "Failed to get status after rapid next calls"
@@ -47,6 +51,7 @@ def test_rapid_next_operations(api_client, test_music_files, clean_queue):
     assert queue['count'] == 10, f"Queue should still have 10 items, got {queue['count']}"
 
 
+@pytest.mark.order(index=-9, after="test_rapid_next_operations")
 def test_concurrent_next_and_track_end(api_client, test_music_files, clean_queue):
     """Test that next() called during track end doesn't cause race conditions.
 
@@ -90,7 +95,11 @@ def test_concurrent_next_and_track_end(api_client, test_music_files, clean_queue
     # Track may have changed (expected) or may be same if queue very short
     # Main goal is no crash
 
+    # Give VLC extra recovery time after stress test
+    time.sleep(0.2)
 
+
+@pytest.mark.order(index=-8, after="test_concurrent_next_and_track_end")
 def test_rapid_play_pause_with_next(api_client, test_music_files, clean_queue):
     """Test mixing play/pause with next() operations rapidly.
 
@@ -126,7 +135,11 @@ def test_rapid_play_pause_with_next(api_client, test_music_files, clean_queue):
     # Player may be playing or paused, both are valid
     assert 'is_playing' in status['data'], "Status should include is_playing"
 
+    # Give VLC extra recovery time after stress test
+    time.sleep(0.2)
 
+
+@pytest.mark.order(index=-7, after="test_rapid_play_pause_with_next")
 def test_shuffle_toggle_during_playback(api_client, test_music_files, clean_queue):
     """Test toggling shuffle on/off during active playback with next operations.
 
@@ -169,7 +182,11 @@ def test_shuffle_toggle_during_playback(api_client, test_music_files, clean_queu
     assert queue['status'] == 'success', "Failed to get queue"
     assert queue['count'] == 10, f"Queue should have 10 items, got {queue['count']}"
 
+    # Give VLC extra recovery time after stress test
+    time.sleep(0.2)
 
+
+@pytest.mark.order(index=-6, after="test_shuffle_toggle_during_playback")
 def test_queue_exhaustion_with_rapid_next(api_client, test_music_files, clean_queue):
     """Test rapid next() operations when queue is exhausting (loop disabled).
 
@@ -202,7 +219,11 @@ def test_queue_exhaustion_with_rapid_next(api_client, test_music_files, clean_qu
     # Player should have stopped when queue exhausted
     # (is_playing may be False or queue may be empty)
 
+    # Give VLC extra recovery time after stress test
+    time.sleep(0.2)
 
+
+@pytest.mark.order(index=-5, after="test_queue_exhaustion_with_rapid_next")
 def test_stress_test_100_rapid_next_operations(api_client, test_music_files, clean_queue):
     """Stress test: 100 rapid next() operations with shuffle+loop.
 
@@ -241,3 +262,6 @@ def test_stress_test_100_rapid_next_operations(api_client, test_music_files, cle
     queue = api_client.send('get_queue')
     assert queue['status'] == 'success', "Failed to get queue"
     assert queue['count'] == 10, f"Queue should have 10 items, got {queue['count']}"
+
+    # Give VLC extra recovery time after ultimate stress test
+    time.sleep(0.5)
