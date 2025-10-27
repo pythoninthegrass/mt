@@ -57,34 +57,12 @@ def mock_queue_view():
 
 @pytest.fixture
 def player_core(mock_vlc, mock_db, mock_queue_manager, mock_queue_view):
-    """Create PlayerCore with mocked dependencies.
+    """Create PlayerCore with mocked dependencies."""
+    with patch.dict('sys.modules', {'vlc': mock_vlc}):
+        from core.controls import PlayerCore
 
-    This fixture ensures proper isolation even if VLC has been imported by E2E tests.
-    It removes cached modules and re-imports them with mocked VLC to prevent
-    contamination from real VLC instances.
-    """
-    # Store and remove any cached modules that import VLC
-    cached_modules = {}
-    modules_to_remove = [
-        'core.controls.player_core',
-        'core.controls',
-    ]
-
-    for module_name in modules_to_remove:
-        if module_name in sys.modules:
-            cached_modules[module_name] = sys.modules[module_name]
-            del sys.modules[module_name]
-
-    try:
-        with patch.dict('sys.modules', {'vlc': mock_vlc}):
-            from core.controls import PlayerCore
-
-            player = PlayerCore(mock_db, mock_queue_manager, mock_queue_view)
-            return player
-    finally:
-        # Restore cached modules after test
-        for module_name, module in cached_modules.items():
-            sys.modules[module_name] = module
+        player = PlayerCore(mock_db, mock_queue_manager, mock_queue_view)
+        return player
 
 
 class TestPlayerCoreVolumeProperties:

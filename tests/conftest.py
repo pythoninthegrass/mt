@@ -300,16 +300,6 @@ def clean_queue(api_client, original_volume):
         with suppress(Exception):
             api_client.send('set_volume', volume=80)
 
-        # Cleanup VLC resources to prevent exhaustion
-        with suppress(Exception):
-            api_client.send('cleanup_vlc')
-
-        # Force garbage collection to cleanup any circular references
-        gc.collect()
-
-        # Give VLC time to recover between tests
-        time.sleep(0.1)
-
     # Reset state before test
     reset_state()
 

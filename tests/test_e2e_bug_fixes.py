@@ -9,6 +9,7 @@ import time
 from config import TEST_TIMEOUT
 
 
+@pytest.mark.slow
 def test_media_key_with_empty_queue_populates_from_library(api_client, test_music_files, clean_queue):
     """Test that media key with empty queue populates from library view.
 
@@ -46,6 +47,7 @@ def test_media_key_with_empty_queue_populates_from_library(api_client, test_musi
     assert status['data']['current_track'] is not None, "Should have a current track"
 
 
+@pytest.mark.slow
 def test_search_filtering_populates_queue_view_without_reload(api_client, clean_queue):
     """Test that search filtering correctly populates queue view without reloading library.
 
@@ -88,6 +90,7 @@ def test_search_filtering_populates_queue_view_without_reload(api_client, clean_
     assert library_restored['status'] == 'success', "Library should be accessible after clear"
 
 
+@pytest.mark.slow
 def test_double_click_track_populates_queue_and_starts_playback(api_client, test_music_files, clean_queue):
     """Test that double-clicking a track populates queue and starts playback.
 

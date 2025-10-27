@@ -3,6 +3,7 @@ import time
 from config import TEST_TIMEOUT
 
 
+@pytest.mark.slow
 def test_play_pause_toggle(api_client, test_music_files, clean_queue):
     """Test play/pause toggle functionality."""
     # Add a track to the queue
@@ -30,6 +31,7 @@ def test_play_pause_toggle(api_client, test_music_files, clean_queue):
     assert status['data']['is_playing'] is False, "Track should be paused"
 
 
+@pytest.mark.slow
 def test_play_when_paused(api_client, test_music_files, clean_queue):
     """Test explicit play command when paused."""
     # Add a track to the queue
@@ -46,6 +48,7 @@ def test_play_when_paused(api_client, test_music_files, clean_queue):
     assert status['data']['is_playing'] is True, "Track should be playing"
 
 
+@pytest.mark.slow
 def test_pause_when_playing(api_client, test_music_files, clean_queue):
     """Test explicit pause command when playing."""
     # Add and play a track
@@ -63,6 +66,7 @@ def test_pause_when_playing(api_client, test_music_files, clean_queue):
     assert status['data']['is_playing'] is False, "Track should be paused"
 
 
+@pytest.mark.slow
 def test_next_track(api_client, test_music_files, clean_queue):
     """Test navigation to next track."""
     # Add multiple tracks
@@ -87,6 +91,7 @@ def test_next_track(api_client, test_music_files, clean_queue):
     assert new_track != initial_track, "Track should have changed"
 
 
+@pytest.mark.slow
 def test_previous_track(api_client, test_music_files, clean_queue):
     """Test navigation to previous track."""
     # Add multiple tracks
@@ -113,6 +118,7 @@ def test_previous_track(api_client, test_music_files, clean_queue):
     assert new_track != current_track, "Track should have changed to previous"
 
 
+@pytest.mark.slow
 def test_stop_playback(api_client, test_music_files, clean_queue):
     """Test stop command."""
     # Add and play a track
@@ -129,6 +135,7 @@ def test_stop_playback(api_client, test_music_files, clean_queue):
     assert status['data']['is_playing'] is False, "Track should be stopped"
 
 
+@pytest.mark.slow
 def test_get_status(api_client, test_music_files, clean_queue):
     """Test status query returns valid information."""
     # Add and play a track
@@ -157,6 +164,7 @@ def test_get_status(api_client, test_music_files, clean_queue):
         assert 'filepath' in track, "Track should include filepath"
 
 
+@pytest.mark.slow
 def test_get_current_track(api_client, test_music_files, clean_queue):
     """Test getting current track information."""
     # Add and play a track
@@ -175,6 +183,7 @@ def test_get_current_track(api_client, test_music_files, clean_queue):
         assert track['filepath'] == test_music_files[0], "Filepath should match added track"
 
 
+@pytest.mark.slow
 def test_last_track_loop_off_shows_empty_state(api_client, test_music_files, clean_queue):
     """Test that removing the last track from queue results in empty state.
 
@@ -273,6 +282,7 @@ def test_last_track_loop_off_shows_empty_state(api_client, test_music_files, cle
     assert final_data['is_playing'] is False, "Playback should be stopped when queue is empty"
 
 
+@pytest.mark.slow
 def test_progress_seeking_stability(api_client, test_music_files, clean_queue):
     """Test that seeking progress doesn't jump backward after manual seeks."""
     # Add a track to the queue and start playback

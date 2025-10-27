@@ -3,6 +3,7 @@ import time
 from config import TEST_TIMEOUT
 
 
+@pytest.mark.slow
 def test_switch_to_library_view(api_client):
     """Test switching to library view."""
     response = api_client.send('switch_view', view='library')
@@ -10,6 +11,7 @@ def test_switch_to_library_view(api_client):
     assert response['view'] == 'Library', "Should report Library view"
 
 
+@pytest.mark.slow
 def test_switch_to_queue_view(api_client):
     """Test switching to queue view."""
     response = api_client.send('switch_view', view='queue')
@@ -17,6 +19,7 @@ def test_switch_to_queue_view(api_client):
     assert response['view'] == 'Queue', "Should report Queue view"
 
 
+@pytest.mark.slow
 def test_switch_to_liked_songs(api_client):
     """Test switching to liked songs view."""
     response = api_client.send('switch_view', view='liked')
@@ -24,6 +27,7 @@ def test_switch_to_liked_songs(api_client):
     assert response['view'] == 'Liked Songs', "Should report Liked Songs view"
 
 
+@pytest.mark.slow
 def test_switch_to_top25_view(api_client):
     """Test switching to top 25 most played view."""
     response = api_client.send('switch_view', view='top25')
@@ -31,6 +35,7 @@ def test_switch_to_top25_view(api_client):
     assert response['view'] == 'Top 25 Most Played', "Should report Top 25 Most Played view"
 
 
+@pytest.mark.slow
 def test_switch_to_invalid_view(api_client):
     """Test switching to invalid view returns error."""
     response = api_client.send('switch_view', view='invalid_view')
@@ -39,12 +44,14 @@ def test_switch_to_invalid_view(api_client):
     assert 'available_views' in response, "Should include list of available views"
 
 
+@pytest.mark.slow
 def test_switch_view_no_parameter(api_client):
     """Test switch_view with no view parameter returns error."""
     response = api_client.send('switch_view')
     assert response['status'] == 'error', "Should return error for missing view parameter"
 
 
+@pytest.mark.slow
 def test_view_switching_sequence(api_client):
     """Test switching between multiple views in sequence."""
     # Switch to each view in sequence
@@ -59,6 +66,7 @@ def test_view_switching_sequence(api_client):
     assert response['status'] == 'success', "Failed to switch back to library"
 
 
+@pytest.mark.slow
 def test_select_queue_item_in_queue_view(api_client, test_music_files, clean_queue):
     """Test selecting an item in queue view."""
     # Switch to queue view
@@ -72,6 +80,7 @@ def test_select_queue_item_in_queue_view(api_client, test_music_files, clean_que
     assert response['status'] == 'success', "Failed to select queue item"
 
 
+@pytest.mark.slow
 def test_select_queue_item_invalid_index(api_client, test_music_files, clean_queue):
     """Test selecting queue item with invalid index."""
     # Add only 2 tracks
@@ -82,6 +91,7 @@ def test_select_queue_item_invalid_index(api_client, test_music_files, clean_que
     assert response['status'] == 'error', "Should return error for invalid index"
 
 
+@pytest.mark.slow
 def test_library_and_queue_interaction(api_client, test_music_files, clean_queue):
     """Test interaction between library view and queue."""
     # Start in library view
@@ -107,6 +117,7 @@ def test_library_and_queue_interaction(api_client, test_music_files, clean_queue
     assert response['status'] == 'success', "Failed to switch back to library"
 
 
+@pytest.mark.slow
 def test_play_from_library_selection(api_client, test_music_files, clean_queue):
     """Test selecting and playing from library view."""
     # Switch to library and select item
@@ -124,6 +135,7 @@ def test_play_from_library_selection(api_client, test_music_files, clean_queue):
     assert status['data']['is_playing'] is True, "Track should be playing"
 
 
+@pytest.mark.slow
 def test_view_state_preserved(api_client, test_music_files, clean_queue):
     """Test that view states are preserved when switching."""
     # Add tracks to queue

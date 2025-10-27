@@ -3,6 +3,7 @@ import time
 from config import TEST_TIMEOUT
 
 
+@pytest.mark.slow
 def test_add_single_track(api_client, test_music_files, clean_queue):
     """Test adding a single track to the queue."""
     # Add one track
@@ -16,6 +17,7 @@ def test_add_single_track(api_client, test_music_files, clean_queue):
     assert queue['count'] == 1, "Queue should have 1 track"
 
 
+@pytest.mark.slow
 def test_add_multiple_tracks(api_client, test_music_files, clean_queue):
     """Test adding multiple tracks at once."""
     # Add three tracks
@@ -30,6 +32,7 @@ def test_add_multiple_tracks(api_client, test_music_files, clean_queue):
     assert queue['count'] == 3, "Queue should have 3 tracks"
 
 
+@pytest.mark.slow
 def test_get_queue(api_client, test_music_files, clean_queue):
     """Test getting queue contents."""
     # Add tracks
@@ -53,6 +56,7 @@ def test_get_queue(api_client, test_music_files, clean_queue):
     assert 'album' in first_item, "Item should have album"
 
 
+@pytest.mark.slow
 def test_remove_from_queue(api_client, test_music_files, clean_queue):
     """Test removing a track from the queue by index."""
     # Add three tracks
@@ -71,6 +75,7 @@ def test_remove_from_queue(api_client, test_music_files, clean_queue):
     assert updated_queue['count'] == 2, "Queue should have 2 tracks after removal"
 
 
+@pytest.mark.slow
 def test_clear_queue(api_client, test_music_files, clean_queue):
     """Test clearing the entire queue."""
     # Add tracks
@@ -89,6 +94,7 @@ def test_clear_queue(api_client, test_music_files, clean_queue):
     assert empty_queue['count'] == 0, "Queue should be empty after clearing"
 
 
+@pytest.mark.slow
 def test_play_track_at_index(api_client, test_music_files, clean_queue):
     """Test playing a track at a specific queue index."""
     # Add multiple tracks
@@ -108,6 +114,7 @@ def test_play_track_at_index(api_client, test_music_files, clean_queue):
     assert current_track == test_music_files[1], "Should be playing the second track"
 
 
+@pytest.mark.slow
 def test_remove_invalid_index(api_client, test_music_files, clean_queue):
     """Test removing with invalid index returns error."""
     # Add only 2 tracks
@@ -119,6 +126,7 @@ def test_remove_invalid_index(api_client, test_music_files, clean_queue):
     assert 'out of range' in response.get('message', '').lower(), "Error message should mention range"
 
 
+@pytest.mark.slow
 def test_play_invalid_index(api_client, test_music_files, clean_queue):
     """Test playing at invalid index returns error."""
     # Add only 2 tracks
@@ -130,6 +138,7 @@ def test_play_invalid_index(api_client, test_music_files, clean_queue):
     assert 'out of range' in response.get('message', '').lower(), "Error message should mention range"
 
 
+@pytest.mark.slow
 def test_select_queue_item(api_client, test_music_files, clean_queue):
     """Test selecting an item in the queue view."""
     # Add tracks
@@ -140,6 +149,7 @@ def test_select_queue_item(api_client, test_music_files, clean_queue):
     assert response['status'] == 'success', "Failed to select queue item"
 
 
+@pytest.mark.slow
 def test_add_no_files(api_client, clean_queue):
     """Test adding with no files returns appropriate response."""
     # Try to add empty list

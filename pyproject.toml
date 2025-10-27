@@ -57,7 +57,8 @@ markers = [
     "unit: marks tests as unit tests",
     "integration: marks tests as integration tests",
     "e2e: marks tests as end-to-end tests",
-    "benchmark: marks performance benchmark tests"
+    "benchmark: marks performance benchmark tests",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
 ]
 
 [tool.coverage.run]
@@ -84,6 +85,8 @@ omit = [
     "build.py",
     "setup.py",
     "config.py",
+    # Miscellaneous
+    "scratch.py",
 ]
 
 [tool.coverage.report]

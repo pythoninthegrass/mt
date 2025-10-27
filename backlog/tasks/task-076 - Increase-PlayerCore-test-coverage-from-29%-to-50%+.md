@@ -1,14 +1,14 @@
 ---
 id: task-076
 title: Increase PlayerCore test coverage from 29% to 50%+
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2025-10-26 04:51'
-updated_date: '2025-10-26 04:54'
+updated_date: '2025-10-27 02:08'
 labels: []
 dependencies: []
 priority: medium
-ordinal: 3000
+ordinal: 7000
 ---
 
 ## Description

@@ -3,6 +3,7 @@ import time
 from config import TEST_TIMEOUT
 
 
+@pytest.mark.slow
 def test_set_volume_valid(api_client, test_music_files, clean_queue):
     """Test setting volume to valid values."""
     # Add and play a track
@@ -28,6 +29,7 @@ def test_set_volume_valid(api_client, test_music_files, clean_queue):
     assert response['status'] == 'success', "Failed to set volume to 100"
 
 
+@pytest.mark.slow
 def test_set_volume_invalid(api_client, test_music_files, clean_queue):
     """Test that invalid volume values are rejected."""
     # Try to set volume above 100
@@ -40,12 +42,14 @@ def test_set_volume_invalid(api_client, test_music_files, clean_queue):
     assert response['status'] == 'error', "Should reject volume < 0"
 
 
+@pytest.mark.slow
 def test_set_volume_no_parameter(api_client, clean_queue):
     """Test that missing volume parameter returns error."""
     response = api_client.send('set_volume')
     assert response['status'] == 'error', "Should return error for missing volume"
 
 
+@pytest.mark.slow
 def test_seek_relative(api_client, test_music_files, clean_queue):
     """Test relative seeking (forward/backward)."""
     # Add and play a track
@@ -72,6 +76,7 @@ def test_seek_relative(api_client, test_music_files, clean_queue):
     assert response['status'] == 'success', "Failed to seek backward"
 
 
+@pytest.mark.slow
 def test_seek_to_position(api_client, test_music_files, clean_queue):
     """Test absolute position seeking."""
     # Add and play a track
@@ -91,12 +96,14 @@ def test_seek_to_position(api_client, test_music_files, clean_queue):
     assert 9.0 <= current_time <= 11.0, f"Time should be around 10s, got {current_time}"
 
 
+@pytest.mark.slow
 def test_seek_no_position(api_client, clean_queue):
     """Test that missing position parameter returns error."""
     response = api_client.send('seek_to_position')
     assert response['status'] == 'error', "Should return error for missing position"
 
 
+@pytest.mark.slow
 def test_toggle_loop(api_client, clean_queue):
     """Test toggling loop mode."""
     # Get initial loop state
@@ -118,6 +125,7 @@ def test_toggle_loop(api_client, clean_queue):
     assert response['loop_enabled'] == initial_loop, "Loop should be back to initial state"
 
 
+@pytest.mark.slow
 def test_toggle_shuffle(api_client, clean_queue):
     """Test toggling shuffle mode."""
     # Get initial shuffle state
@@ -139,6 +147,7 @@ def test_toggle_shuffle(api_client, clean_queue):
     assert response['shuffle_enabled'] == initial_shuffle, "Shuffle should be back to initial state"
 
 
+@pytest.mark.slow
 def test_toggle_favorite(api_client, test_music_files, clean_queue):
     """Test toggling favorite status of current track."""
     # Add and play a track
@@ -155,6 +164,7 @@ def test_toggle_favorite(api_client, test_music_files, clean_queue):
     assert response['status'] == 'success', "Failed to toggle favorite back"
 
 
+@pytest.mark.slow
 def test_media_key_play_pause(api_client, test_music_files, clean_queue):
     """Test media key simulation for play/pause."""
     # Add a track
@@ -171,6 +181,7 @@ def test_media_key_play_pause(api_client, test_music_files, clean_queue):
     assert status['data']['is_playing'] is True, "Track should be playing after media key"
 
 
+@pytest.mark.slow
 def test_media_key_next(api_client, test_music_files, clean_queue):
     """Test media key simulation for next track."""
     # Add multiple tracks and play
@@ -194,6 +205,7 @@ def test_media_key_next(api_client, test_music_files, clean_queue):
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_media_key_previous(api_client, test_music_files, clean_queue):
     """Test media key simulation for previous track."""
     # Add multiple tracks, play, then go to second track
@@ -209,6 +221,7 @@ def test_media_key_previous(api_client, test_music_files, clean_queue):
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_media_key_invalid(api_client, clean_queue):
     """Test that invalid media key returns error."""
     response = api_client.send('media_key', key='invalid_key')
@@ -217,6 +230,7 @@ def test_media_key_invalid(api_client, clean_queue):
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_media_key_no_parameter(api_client, clean_queue):
     """Test that missing key parameter returns error."""
     response = api_client.send('media_key')

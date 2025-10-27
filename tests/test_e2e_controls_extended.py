@@ -6,6 +6,7 @@ from config import TEST_TIMEOUT
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_stop_playback_clears_state(api_client, test_music_files, clean_queue):
     """Test that stop command properly clears playback state."""
     # Add tracks and start playback
@@ -27,6 +28,7 @@ def test_stop_playback_clears_state(api_client, test_music_files, clean_queue):
     assert status["data"]["current_time"] == 0.0
 
 
+@pytest.mark.slow
 def test_get_volume(api_client, test_music_files, clean_queue):
     """Test getting and setting volume level."""
     # Play something first so VLC has a valid audio stream
@@ -50,6 +52,7 @@ def test_get_volume(api_client, test_music_files, clean_queue):
     assert status2["data"]["volume"] in [new_volume, -1]
 
 
+@pytest.mark.slow
 def test_volume_boundaries(api_client, test_music_files, clean_queue):
     """Test volume validation rejects out-of-range values."""
     # Play something first so VLC has a valid audio stream
@@ -73,6 +76,7 @@ def test_volume_boundaries(api_client, test_music_files, clean_queue):
     assert result["volume"] == 50
 
 
+@pytest.mark.slow
 def test_get_duration_without_media(api_client, clean_queue):
     """Test getting duration when no media is loaded."""
     # Get status - duration should be 0 (clean_queue ensures stopped state)
@@ -80,6 +84,7 @@ def test_get_duration_without_media(api_client, clean_queue):
     assert status["data"]["duration"] == 0.0
 
 
+@pytest.mark.slow
 def test_seek_without_media(api_client, clean_queue):
     """Test seeking when no media is playing (should handle gracefully)."""
     # Try to seek - should not crash
@@ -88,6 +93,7 @@ def test_seek_without_media(api_client, clean_queue):
     assert result["status"] in ["success", "error"]
 
 
+@pytest.mark.slow
 def test_play_pause_without_queue(api_client, clean_queue):
     """Test play_pause when queue is empty."""
     # Try to play - should handle gracefully
@@ -95,6 +101,7 @@ def test_play_pause_without_queue(api_client, clean_queue):
     assert result["status"] == "success"
 
 
+@pytest.mark.slow
 def test_next_on_last_track_without_loop(api_client, test_music_files, clean_queue):
     """Test next command on last track without loop enabled."""
     # Setup: Add single track, ensure loop disabled (clean_queue does this)
@@ -115,6 +122,7 @@ def test_next_on_last_track_without_loop(api_client, test_music_files, clean_que
     assert status["data"]["is_playing"] is False
 
 
+@pytest.mark.slow
 def test_previous_on_first_track(api_client, test_music_files, clean_queue):
     """Test previous command on first track."""
     # Setup: Add tracks, play first
@@ -127,6 +135,7 @@ def test_previous_on_first_track(api_client, test_music_files, clean_queue):
     assert result["status"] == "success"
 
 
+@pytest.mark.slow
 def test_toggle_loop_multiple_times(api_client, clean_queue):
     """Test toggling loop mode multiple times."""
     # Get initial state (should be disabled from clean_queue)
@@ -141,6 +150,7 @@ def test_toggle_loop_multiple_times(api_client, clean_queue):
     assert status["data"]["loop_enabled"] == initial_loop
 
 
+@pytest.mark.slow
 def test_toggle_shuffle_multiple_times(api_client, clean_queue):
     """Test toggling shuffle mode multiple times."""
     # Get initial state (should be disabled from clean_queue)
@@ -155,6 +165,7 @@ def test_toggle_shuffle_multiple_times(api_client, clean_queue):
     assert status["data"]["shuffle_enabled"] == initial_shuffle
 
 
+@pytest.mark.slow
 def test_get_current_track_when_stopped(api_client, clean_queue):
     """Test get_current_track when nothing is playing."""
     # Get current track (clean_queue ensures stopped state)
@@ -165,6 +176,7 @@ def test_get_current_track_when_stopped(api_client, clean_queue):
     assert result is not None
 
 
+@pytest.mark.slow
 def test_seek_to_beginning(api_client, test_music_files, clean_queue):
     """Test seeking to the beginning of a track."""
     # Setup and play
@@ -185,6 +197,7 @@ def test_seek_to_beginning(api_client, test_music_files, clean_queue):
     assert status["data"]["current_time"] < 1.0  # Should be near start
 
 
+@pytest.mark.slow
 def test_seek_to_end(api_client, test_music_files, clean_queue):
     """Test seeking near the end of a track."""
     # Setup and play
@@ -201,6 +214,7 @@ def test_seek_to_end(api_client, test_music_files, clean_queue):
     assert result["status"] == "success"
 
 
+@pytest.mark.slow
 def test_get_queue_with_empty_queue(api_client, clean_queue):
     """Test getting queue when it's empty."""
     result = api_client.send('get_queue')
@@ -209,6 +223,7 @@ def test_get_queue_with_empty_queue(api_client, clean_queue):
     assert result["count"] == 0
 
 
+@pytest.mark.slow
 def test_remove_from_queue_invalid_index(api_client, test_music_files, clean_queue):
     """Test removing from queue with invalid index."""
     # Add track
@@ -220,12 +235,14 @@ def test_remove_from_queue_invalid_index(api_client, test_music_files, clean_que
     assert "out of range" in result["message"].lower()
 
 
+@pytest.mark.slow
 def test_select_track_not_in_queue(api_client, clean_queue):
     """Test selecting a track by filepath that's not in queue."""
     result = api_client.send('select_track', filepath="/nonexistent/file.mp3")
     assert result["status"] == "error"
 
 
+@pytest.mark.slow
 def test_invalid_action(api_client, clean_queue):
     """Test sending an invalid action."""
     # We need to send raw command, so use a socket directly
@@ -255,6 +272,7 @@ def test_invalid_action(api_client, clean_queue):
     assert "available_actions" in result
 
 
+@pytest.mark.slow
 def test_missing_action(api_client, clean_queue):
     """Test sending command without action field."""
     # Send raw command with missing action
@@ -283,6 +301,7 @@ def test_missing_action(api_client, clean_queue):
     assert "no action specified" in result["message"].lower()
 
 
+@pytest.mark.slow
 def test_concurrent_commands(api_client, test_music_files, clean_queue):
     """Test sending multiple commands rapidly."""
     # Setup

@@ -9,6 +9,7 @@ import time
 from config import TEST_TIMEOUT
 
 
+@pytest.mark.slow
 def test_library_search_to_playback_workflow(api_client, test_music_files, clean_queue):
     """Test complete workflow: Library search → Filter → Add multiple → Play → Verify.
 
@@ -62,6 +63,7 @@ def test_library_search_to_playback_workflow(api_client, test_music_files, clean
     assert library_after['count'] == initial_count, "Library count should be restored after clearing search"
 
 
+@pytest.mark.slow
 def test_shuffle_mode_full_workflow(api_client, test_music_files, clean_queue):
     """Test shuffle mode across library/queue/player integration.
 
@@ -123,6 +125,7 @@ def test_shuffle_mode_full_workflow(api_client, test_music_files, clean_queue):
     assert unique_tracks >= 2, f"Should have played at least 2 different tracks, played {unique_tracks}"
 
 
+@pytest.mark.slow
 def test_loop_queue_exhaustion(api_client, test_music_files, clean_queue):
     """Test loop mode with queue exhaustion and restart.
 
@@ -168,6 +171,7 @@ def test_loop_queue_exhaustion(api_client, test_music_files, clean_queue):
     # The key is that playback continues
 
 
+@pytest.mark.slow
 def test_add_from_different_library_views(api_client, test_music_files, clean_queue):
     """Test adding tracks from different library views (Top25, Liked Songs, Library).
 
@@ -214,6 +218,7 @@ def test_add_from_different_library_views(api_client, test_music_files, clean_qu
     assert len(set(track_identifiers)) == 3, "All tracks should be unique"
 
 
+@pytest.mark.slow
 def test_error_recovery_workflow(api_client, test_music_files, clean_queue):
     """Test error recovery: Add invalid file → Play → Skip → Continue playback.
 
@@ -266,6 +271,7 @@ def test_error_recovery_workflow(api_client, test_music_files, clean_queue):
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_concurrent_operations_workflow(api_client, test_music_files, clean_queue):
     """Test rapid concurrent operations: view switching + queue ops + playback control.
 

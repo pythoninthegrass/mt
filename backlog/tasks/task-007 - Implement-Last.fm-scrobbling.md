@@ -1,13 +1,13 @@
 ---
 id: task-007
 title: Implement Last.fm scrobbling
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2025-10-24 03:28'
+updated_date: '2025-10-27 02:08'
 labels: []
 dependencies: []
-ordinal: 5000
+ordinal: 10000
 ---
 
 ## Description

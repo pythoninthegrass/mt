@@ -10,6 +10,7 @@ from config import TEST_TIMEOUT
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_rapid_next_operations(api_client, test_music_files, clean_queue):
     """Test rapid consecutive next() calls don't cause race conditions.
 
@@ -52,6 +53,7 @@ def test_rapid_next_operations(api_client, test_music_files, clean_queue):
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_concurrent_next_and_track_end(api_client, test_music_files, clean_queue):
     """Test that next() called during track end doesn't cause race conditions.
 
@@ -100,6 +102,7 @@ def test_concurrent_next_and_track_end(api_client, test_music_files, clean_queue
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_rapid_play_pause_with_next(api_client, test_music_files, clean_queue):
     """Test mixing play/pause with next() operations rapidly.
 
@@ -140,6 +143,7 @@ def test_rapid_play_pause_with_next(api_client, test_music_files, clean_queue):
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_shuffle_toggle_during_playback(api_client, test_music_files, clean_queue):
     """Test toggling shuffle on/off during active playback with next operations.
 
@@ -187,6 +191,7 @@ def test_shuffle_toggle_during_playback(api_client, test_music_files, clean_queu
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_queue_exhaustion_with_rapid_next(api_client, test_music_files, clean_queue):
     """Test rapid next() operations when queue is exhausting (loop disabled).
 
@@ -224,6 +229,7 @@ def test_queue_exhaustion_with_rapid_next(api_client, test_music_files, clean_qu
 
 
 @pytest.mark.order("last")
+@pytest.mark.slow
 def test_stress_test_100_rapid_next_operations(api_client, test_music_files, clean_queue):
     """Stress test: 100 rapid next() operations with shuffle+loop.
 

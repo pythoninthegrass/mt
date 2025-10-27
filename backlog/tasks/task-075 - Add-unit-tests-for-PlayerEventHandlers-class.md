@@ -1,14 +1,14 @@
 ---
 id: task-075
 title: Add unit tests for PlayerEventHandlers class
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2025-10-26 04:51'
-updated_date: '2025-10-26 04:54'
+updated_date: '2025-10-27 02:07'
 labels: []
 dependencies: []
 priority: medium
-ordinal: 2250
+ordinal: 6000
 ---
 
 ## Description

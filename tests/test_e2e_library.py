@@ -2,6 +2,7 @@ import pytest
 import time
 
 
+@pytest.mark.slow
 def test_get_library(api_client):
     """Test getting library contents."""
     response = api_client.send('get_library')
@@ -20,6 +21,7 @@ def test_get_library(api_client):
         assert 'album' in first_item, "Item should have album"
 
 
+@pytest.mark.slow
 def test_select_library_item(api_client):
     """Test selecting an item in the library view."""
     # Get library to find valid index
@@ -32,6 +34,7 @@ def test_select_library_item(api_client):
         assert response['status'] == 'success', "Failed to select library item"
 
 
+@pytest.mark.slow
 def test_select_library_item_invalid_index(api_client):
     """Test selecting with invalid index returns error."""
     response = api_client.send('select_library_item', index=99999)
@@ -39,6 +42,7 @@ def test_select_library_item_invalid_index(api_client):
     assert 'out of range' in response.get('message', '').lower(), "Error should mention range"
 
 
+@pytest.mark.slow
 def test_search_tracks(api_client, clean_queue):
     """Test searching for tracks in the library."""
     # Search for a common term (like "the")
@@ -50,6 +54,7 @@ def test_search_tracks(api_client, clean_queue):
     # We can't directly verify the results, but the command should succeed
 
 
+@pytest.mark.slow
 def test_search_with_specific_term(api_client, clean_queue):
     """Test searching with a specific artist or title."""
     # Search for "deadmau5" (we know this artist is in the test music)
@@ -57,12 +62,14 @@ def test_search_with_specific_term(api_client, clean_queue):
     assert response['status'] == 'success', "Failed to search for deadmau5"
 
 
+@pytest.mark.slow
 def test_search_empty_query(api_client, clean_queue):
     """Test search with empty query."""
     response = api_client.send('search', query='')
     assert response['status'] == 'success', "Empty search should succeed"
 
 
+@pytest.mark.slow
 def test_clear_search(api_client, clean_queue):
     """Test clearing search filter."""
     # First perform a search
@@ -73,6 +80,7 @@ def test_clear_search(api_client, clean_queue):
     assert response['status'] == 'success', "Failed to clear search"
 
 
+@pytest.mark.slow
 def test_switch_to_library_view(api_client):
     """Test switching to library view."""
     response = api_client.send('switch_view', view='library')
@@ -80,6 +88,7 @@ def test_switch_to_library_view(api_client):
     assert response['view'] == 'Library', "Should report Library view"
 
 
+@pytest.mark.slow
 def test_library_limit_100_items(api_client):
     """Test that library returns maximum 100 items for performance."""
     response = api_client.send('get_library')
