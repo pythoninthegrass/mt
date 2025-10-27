@@ -8,7 +8,15 @@ mt is a desktop music player designed for large music collections, built with Py
 
 ## General Guidelines
 
-- NEVER commit any changes without being explicitly prompted to do so
+- ALWAYS use atomic commits throughout development
+  - Each commit should represent a single, complete, and coherent unit of work
+  - "Don't mix your apples with your toaster" - keep changes distinct and focused
+  - Commit frequently after completing subtasks or reaching meaningful progress points
+  - Write clear commit messages explaining both what changed and why
+  - Use `git add -i` (interactive mode) or `git add -p` (patch mode) to stage specific changes
+  - Break files with multiple changes into smaller hunks using patch mode's split feature
+  - Verify each commit is not broken - ensure all necessary files/chunks are included
+  - After user confirms changes are ready to push, offer to squash related atomic commits using `git rebase -i`
 - NEVER use playwright for anything. This is a tkinter desktop app.
 - NEVER create *.backup files. This is a version controlled repo
 
@@ -26,6 +34,85 @@ ALWAYS use these MCP servers:
   - ludo-technologies/pyscn
   - johnwmillr/lyricsgenius
 - screencap: for screenshots of front-end changes
+
+## Atomic Commit Workflow
+
+### Why Atomic Commits
+
+Atomic commits make code reviews easier, improve history browsing, and simplify reverting changes. Each commit should contain a single, complete, and coherent unit of work that stands independently.
+
+### Benefits
+
+- **Debugging**: Use `git bisect` to rapidly identify problems
+- **Code History**: Create organized, understandable histories with clear stories
+- **Collaboration**: Streamline code reviews by focusing on single changes
+- **Safe Operations**: Revert or cherry-pick individual changes without side effects
+
+### Creating Atomic Commits
+
+**Keep changes small and simple** - The more complex your changes, the harder it is to break them into atomic commits without mistakes.
+
+**Use Interactive Staging** - Stage specific files and parts of files:
+
+```bash
+# Interactive mode - select which files/hunks to stage
+git add -i
+
+# Patch mode - directly choose hunks to stage
+git add -p <file>
+
+# Other patch commands
+git reset --patch        # Unstage specific hunks
+git checkout --patch     # Discard specific hunks
+git stash save --patch   # Stash specific hunks
+```
+
+**Interactive Mode Commands** (`git add -i`):
+- `s` or `1`: View status (staged vs unstaged changes)
+- `u` or `2`: Stage files (equivalent to `git add <file>`)
+- `r` or `3`: Unstage files (equivalent to `git rm --cached <file>`)
+- `a` or `4`: Add untracked files
+- `p` or `5`: Patch mode - select parts of files (hunks) to stage
+- `d` or `6`: View diff of staged files
+
+**Patch Mode Commands** (after selecting `p` or using `git add -p`):
+- `y`: Stage this hunk
+- `n`: Don't stage this hunk
+- `s`: Split the hunk into smaller hunks ⭐ (most useful!)
+- `e`: Manually edit the hunk
+- `q`: Quit without staging remaining hunks
+- `a`: Stage this hunk and all later hunks in the file
+- `d`: Don't stage this or any later hunks
+- `g`: Jump to a specific hunk
+- `/`: Search for hunks matching regex
+- `?`: Show help
+
+### Workflow Example
+
+1. **Check what changed**: `git status` and `git diff`
+2. **Start interactive mode**: `git add -i`
+3. **Stage related files**: Use `u` to stage complete files that belong together
+4. **Handle mixed changes**: Use `p` to enter patch mode for files with multiple unrelated changes
+5. **Split hunks**: Use `s` to break large hunks into smaller pieces
+6. **Stage relevant hunks**: Use `y` to stage only the hunks for this commit
+7. **Review staged changes**: Use `d` to review what will be committed
+8. **Commit**: Exit with `q` and run `git commit -m "descriptive message"`
+9. **Repeat**: Continue staging and committing remaining changes
+
+### Before Pushing
+
+After completing development with multiple atomic commits:
+
+1. Review your commit history: `git log --oneline`
+2. Review what changed: `git status` and `git diff`
+3. When user confirms readiness to push, ask: "Would you like me to squash these related atomic commits into a single commit using `git rebase -i`?"
+4. If yes, use `git rebase -i HEAD~N` (where N = number of commits to review)
+
+### Important Warnings
+
+⚠️ **Verify each commit is not broken** - Ensure all necessary files and code chunks are included before committing. A broken commit defeats the purpose of atomic commits.
+
+⚠️ **Don't mix unrelated changes** - "Don't mix your apples with your toaster." Each commit should be focused on one logical change.
 
 ## Common Development Commands
 
