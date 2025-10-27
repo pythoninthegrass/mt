@@ -21,10 +21,18 @@ class MockEventManager:
 
 
 class MockMedia:
-    """Mock VLC Media object."""
+    """Mock VLC Media object with ctypes compatibility.
+
+    When real VLC is loaded (e.g., after E2E tests), the real MediaPlayer
+    may be used with MockMedia objects. VLC uses ctypes which requires
+    the _as_parameter_ attribute for proper conversion.
+    """
 
     def __init__(self, filepath):
         self.filepath = filepath
+        # ctypes compatibility: return None to indicate no native object
+        # This allows set_media() to work without crashing
+        self._as_parameter_ = None
 
 
 class MockMediaPlayer:
