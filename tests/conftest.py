@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import time
+from config import DB_NAME
 from contextlib import suppress
 from decouple import config
 from pathlib import Path
@@ -91,26 +92,24 @@ def app_process():
     Yields:
         subprocess.Popen: The running application process
     """
-    # Use a test database to avoid polluting the main one
-    db_path = project_root / "mt.db"
-    test_db_path = project_root / "mt_test.db"
-    backup_path = project_root / "mt.db.backup"
+    # Use temporary database file for tests (auto-cleanup, no filesystem pollution)
+    import sqlite3
+    import tempfile
 
-    # Backup the main database
-    if db_path.exists():
-        shutil.copy(db_path, backup_path)
+    main_db_path = project_root / DB_NAME
 
-    # Create test database by copying main database and clearing queue
-    if test_db_path.exists():
-        test_db_path.unlink()
+    # Create a temporary file for the test database
+    # Using tempfile ensures automatic cleanup and no conflicts
+    test_db_fd, test_db_path = tempfile.mkstemp(suffix='.db', prefix='mt_test_')
+    os.close(test_db_fd)  # Close the file descriptor, we'll use the path
+    test_db_path = Path(test_db_path)
 
-    if db_path.exists():
-        import sqlite3
-
+    # Copy main database to test location if it exists
+    if main_db_path.exists():
         # Copy entire database
-        shutil.copy(db_path, test_db_path)
+        shutil.copy(main_db_path, test_db_path)
 
-        # Clear the queue table
+        # Clear the queue table for clean test state
         conn = sqlite3.connect(test_db_path)
         conn.execute("DELETE FROM queue")
         conn.commit()
@@ -121,7 +120,7 @@ def app_process():
     env['MT_API_SERVER_ENABLED'] = 'true'
     env['MT_API_SERVER_PORT'] = '5555'
     env['MT_RELOAD'] = 'false'  # Disable auto-reload during tests
-    env['DB_NAME'] = 'mt_test.db'  # Use test database
+    env['DB_NAME'] = str(test_db_path)  # Use temporary test database
 
     # Start the application
     proc = subprocess.Popen(
@@ -147,13 +146,9 @@ def app_process():
     proc.terminate()
     proc.wait(timeout=5)
 
-    # Remove test database
+    # Remove temporary test database
     if test_db_path.exists():
         test_db_path.unlink()
-
-    # Restore the main database backup
-    if backup_path.exists():
-        shutil.move(backup_path, db_path)
 
 
 @pytest.fixture
