@@ -34,6 +34,7 @@ class APIServer:
             'play': self._handle_play,
             'pause': self._handle_pause,
             'stop': self._handle_stop,
+            'cleanup_vlc': self._handle_cleanup_vlc,
             'next': self._handle_next,
             'previous': self._handle_previous,
             # Track selection
@@ -255,6 +256,18 @@ class APIServer:
         """Handle stop command."""
         self.music_player.player_core.stop()
         return {'status': 'success'}
+
+    def _handle_cleanup_vlc(self, command: dict[str, Any]) -> dict[str, Any]:
+        """Handle VLC cleanup command.
+
+        Releases VLC resources to prevent memory leaks and resource exhaustion.
+        Typically called between tests or when shutting down.
+        """
+        try:
+            self.music_player.player_core.cleanup_vlc()
+            return {'status': 'success', 'message': 'VLC resources cleaned up'}
+        except Exception as e:
+            return {'status': 'error', 'message': f'Failed to cleanup VLC: {str(e)}'}
 
     def _handle_next(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle next track command."""

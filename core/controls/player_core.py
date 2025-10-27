@@ -570,10 +570,11 @@ class PlayerCore:
             return -1
 
     def cleanup_vlc(self) -> None:
-        """Clean up VLC resources to prevent leaks.
+        """Clean up VLC resources and recreate instances to prevent leaks.
 
-        Releases VLC media player and instance resources. Should be called
-        between tests or when shutting down the player.
+        Releases VLC media player and instance resources, then creates fresh instances.
+        This prevents resource accumulation during test runs and ensures a clean state.
+        Should be called between tests or when shutting down the player.
         """
         with self._playback_lock:
             try:
@@ -593,14 +594,21 @@ class PlayerCore:
                 if self.player:
                     self.player.release()
 
+                # Recreate VLC instances with fresh resources
+                self.player = vlc.Instance()
+                self.media_player = self.player.media_player_new()
+
+                # Re-attach end of track event handler
+                self.media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEndReached, self._on_track_end)
+
                 # Clear references
                 self.current_file = None
                 self.current_time = 0
 
                 log_player_action(
-                    "vlc_cleanup",
+                    "vlc_cleanup_recreate",
                     trigger_source="cleanup",
-                    description="VLC resources released"
+                    description="VLC resources released and fresh instances created"
                 )
             except Exception as e:
                 from eliot import log_message
