@@ -150,6 +150,12 @@ uv run ruff format --respect-gitignore
 # Run all tests (note: -v and -p no:pydust are configured by default)
 uv run pytest tests/
 
+# Quick smoke tests (~11s) - critical E2E tests for development
+uv run pytest tests/test_e2e_smoke.py
+
+# Fast tests (~23s) - unit + property + smoke E2E
+uv run pytest -m "not slow"
+
 # Run ONLY unit tests (fast, for development)
 uv run pytest tests/test_unit_*.py
 
@@ -164,6 +170,9 @@ uv run pytest tests/test_props_*.py --hypothesis-show-statistics
 
 # Run ONLY E2E tests (slower, for integration validation)
 uv run pytest tests/test_e2e_*.py
+
+# Run comprehensive E2E tests (marked as slow)
+uv run pytest tests/test_e2e_*.py -m slow
 
 # Run unit + property tests (fast development feedback)
 uv run pytest tests/test_unit_*.py tests/test_props_*.py
