@@ -1,7 +1,7 @@
 ---
 id: task-087
 title: 'Fix remaining test failures: property tests and flaky smoke test'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2025-10-27 05:48'
 updated_date: '2025-10-27 05:48'
