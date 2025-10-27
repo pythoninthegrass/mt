@@ -145,22 +145,22 @@ def test_seek_position(api_client, test_music_files, clean_queue):
     time.sleep(TEST_TIMEOUT)
 
     # Seek to 10 seconds
-    response = api_client.send('seek_to_position', position=10000)
+    response = api_client.send('seek_to_position', position=10.0)
     assert response['status'] == 'success'
     time.sleep(0.2)
 
     # Verify position (allow some tolerance)
     status = api_client.send('get_status')
     current_time = status['data'].get('current_time', 0)
-    assert 9000 <= current_time <= 11000, f"Expected ~10s, got {current_time}ms"
+    assert 9.0 <= current_time <= 11.0, f"Expected ~10s, got {current_time}s"
 
 
 def test_get_library_returns_data(api_client, clean_queue):
     """Test that library retrieval works."""
     response = api_client.send('get_library')
     assert response['status'] == 'success'
-    assert 'items' in response
-    assert isinstance(response['items'], list)
+    assert 'data' in response
+    assert isinstance(response['data'], list)
 
 
 def test_search_library(api_client, clean_queue):
