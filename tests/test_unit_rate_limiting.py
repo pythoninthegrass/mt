@@ -153,7 +153,7 @@ def test_rate_limit_pending_timer_executes(api_client, test_music_files, clean_q
     """Test that pending timer actually executes the method."""
     # Add tracks to queue
     for filepath in test_music_files[:3]:
-        response = api_client.send('add_to_queue', filepath=filepath)
+        response = api_client.send('add_to_queue', files=[filepath])
         assert response['status'] == 'success'
 
     # Start playback
@@ -185,7 +185,7 @@ def test_rate_limit_pending_timer_executes(api_client, test_music_files, clean_q
 def test_rate_limit_play_pause_faster_interval(api_client, test_music_files, clean_queue):
     """Test that play_pause has faster interval (50ms vs 100ms)."""
     # Add track to queue
-    response = api_client.send('add_to_queue', filepath=test_music_files[0])
+    response = api_client.send('add_to_queue', files=[test_music_files[0]])
     assert response['status'] == 'success'
 
     # Start playback
@@ -212,7 +212,7 @@ def test_rapid_next_operations_with_rate_limiting(api_client, test_music_files, 
     """Test that rapid next() calls don't crash the app."""
     # Add tracks to queue with shuffle and loop
     for filepath in test_music_files[:10]:
-        response = api_client.send('add_to_queue', filepath=filepath)
+        response = api_client.send('add_to_queue', files=[filepath])
         assert response['status'] == 'success'
 
     # Enable shuffle and loop
