@@ -642,6 +642,7 @@ class APIServer:
                 'current_time': current_time_ms / 1000.0 if current_time_ms > 0 else 0.0,
                 'duration': duration_ms / 1000.0 if duration_ms > 0 else 0.0,
                 'current_view': getattr(self.music_player, '_current_view', 'Unknown'),
+                'current_index': getattr(self.music_player.queue_manager, 'current_index', 0),
             }
 
             # Get current track info
