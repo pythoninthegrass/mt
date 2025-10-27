@@ -9,7 +9,7 @@ import time
 from config import TEST_TIMEOUT
 
 
-@pytest.mark.order(index=-10, after=["test_unit", "test_props", "test_e2e"])
+@pytest.mark.order("last")
 def test_rapid_next_operations(api_client, test_music_files, clean_queue):
     """Test rapid consecutive next() calls don't cause race conditions.
 
@@ -51,7 +51,7 @@ def test_rapid_next_operations(api_client, test_music_files, clean_queue):
     assert queue['count'] == 10, f"Queue should still have 10 items, got {queue['count']}"
 
 
-@pytest.mark.order(index=-9, after="test_rapid_next_operations")
+@pytest.mark.order("last")
 def test_concurrent_next_and_track_end(api_client, test_music_files, clean_queue):
     """Test that next() called during track end doesn't cause race conditions.
 
@@ -99,7 +99,7 @@ def test_concurrent_next_and_track_end(api_client, test_music_files, clean_queue
     time.sleep(0.2)
 
 
-@pytest.mark.order(index=-8, after="test_concurrent_next_and_track_end")
+@pytest.mark.order("last")
 def test_rapid_play_pause_with_next(api_client, test_music_files, clean_queue):
     """Test mixing play/pause with next() operations rapidly.
 
@@ -139,7 +139,7 @@ def test_rapid_play_pause_with_next(api_client, test_music_files, clean_queue):
     time.sleep(0.2)
 
 
-@pytest.mark.order(index=-7, after="test_rapid_play_pause_with_next")
+@pytest.mark.order("last")
 def test_shuffle_toggle_during_playback(api_client, test_music_files, clean_queue):
     """Test toggling shuffle on/off during active playback with next operations.
 
@@ -186,7 +186,7 @@ def test_shuffle_toggle_during_playback(api_client, test_music_files, clean_queu
     time.sleep(0.2)
 
 
-@pytest.mark.order(index=-6, after="test_shuffle_toggle_during_playback")
+@pytest.mark.order("last")
 def test_queue_exhaustion_with_rapid_next(api_client, test_music_files, clean_queue):
     """Test rapid next() operations when queue is exhausting (loop disabled).
 
@@ -223,7 +223,7 @@ def test_queue_exhaustion_with_rapid_next(api_client, test_music_files, clean_qu
     time.sleep(0.2)
 
 
-@pytest.mark.order(index=-5, after="test_queue_exhaustion_with_rapid_next")
+@pytest.mark.order("last")
 def test_stress_test_100_rapid_next_operations(api_client, test_music_files, clean_queue):
     """Stress test: 100 rapid next() operations with shuffle+loop.
 

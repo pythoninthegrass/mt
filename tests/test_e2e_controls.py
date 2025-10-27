@@ -193,7 +193,7 @@ def test_media_key_next(api_client, test_music_files, clean_queue):
     assert new_track != initial_track, "Track should have changed"
 
 
-@pytest.mark.order(index=-4, after="test_stress_test_100_rapid_next_operations")
+@pytest.mark.order("last")
 def test_media_key_previous(api_client, test_music_files, clean_queue):
     """Test media key simulation for previous track."""
     # Add multiple tracks, play, then go to second track
@@ -208,7 +208,7 @@ def test_media_key_previous(api_client, test_music_files, clean_queue):
     assert response['status'] == 'success', "Failed to simulate previous media key"
 
 
-@pytest.mark.order(index=-3, after="test_media_key_previous")
+@pytest.mark.order("last")
 def test_media_key_invalid(api_client, clean_queue):
     """Test that invalid media key returns error."""
     response = api_client.send('media_key', key='invalid_key')
@@ -216,7 +216,7 @@ def test_media_key_invalid(api_client, clean_queue):
     assert 'invalid key' in response.get('message', '').lower(), "Error should mention invalid key"
 
 
-@pytest.mark.order(index=-2, after="test_media_key_invalid")
+@pytest.mark.order("last")
 def test_media_key_no_parameter(api_client, clean_queue):
     """Test that missing key parameter returns error."""
     response = api_client.send('media_key')

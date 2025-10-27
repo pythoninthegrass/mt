@@ -5,7 +5,7 @@ import time
 from config import TEST_TIMEOUT
 
 
-@pytest.mark.order(index=-11, after=["test_unit", "test_props", "test_e2e"])
+@pytest.mark.order("last")
 def test_stop_playback_clears_state(api_client, test_music_files, clean_queue):
     """Test that stop command properly clears playback state."""
     # Add tracks and start playback

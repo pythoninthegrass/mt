@@ -25,6 +25,26 @@ settings.register_profile("thorough", max_examples=1000, deadline=None)
 settings.load_profile("fast")  # Default to fast profile
 
 
+def pytest_collection_modifyitems(items):
+    """Automatically order tests: unit tests first, then property tests, then E2E tests.
+
+    Individual tests marked with @pytest.mark.order("last") will run at the very end.
+    """
+    for item in items:
+        # Skip if item already has explicit order marker
+        if hasattr(item, 'get_closest_marker') and item.get_closest_marker('order'):
+            continue
+
+        # Assign order based on test file name
+        test_file = str(item.fspath)
+        if 'test_unit_' in test_file:
+            item.add_marker(pytest.mark.order(1))
+        elif 'test_props_' in test_file:
+            item.add_marker(pytest.mark.order(2))
+        elif 'test_e2e_' in test_file:
+            item.add_marker(pytest.mark.order(3))
+
+
 def setup_macos_environment():
     """Setup TCL/TK environment variables for macOS."""
     env = os.environ.copy()

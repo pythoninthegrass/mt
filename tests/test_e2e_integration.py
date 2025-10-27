@@ -265,7 +265,7 @@ def test_error_recovery_workflow(api_client, test_music_files, clean_queue):
     assert final_status['status'] == 'success', "Should handle track transition"
 
 
-@pytest.mark.order(index=-1, after="test_media_key_no_parameter")
+@pytest.mark.order("last")
 def test_concurrent_operations_workflow(api_client, test_music_files, clean_queue):
     """Test rapid concurrent operations: view switching + queue ops + playback control.
 
