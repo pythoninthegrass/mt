@@ -1,10 +1,10 @@
 ---
 id: task-086
 title: Fix test suite regression - app crashes causing cascade failures
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-27 04:38'
-updated_date: '2025-10-27 04:46'
+updated_date: '2025-10-27 05:03'
 labels: []
 dependencies: []
 priority: high
@@ -17,11 +17,12 @@ The full test suite is experiencing cascading failures where the app process cra
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Investigate why app crashes during/after property tests in full suite
-- [ ] #2 Implement proper VLC cleanup between test sessions or enforce strict test ordering
-- [ ] #3 Fix property tests to handle real VLC gracefully or skip when VLC is already loaded
-- [ ] #4 Verify full test suite passes with no cascade failures (487+ tests passing)
+- [x] #1 Investigate why app crashes during/after property tests in full suite
+- [x] #2 Implement proper VLC cleanup between test sessions or enforce strict test ordering
+- [x] #3 Fix property tests to handle real VLC gracefully or skip when VLC is already loaded
+- [x] #4 Verify full test suite passes with no cascade failures (487+ tests passing)
 <!-- AC:END -->
+
 
 ## Implementation Notes
 
