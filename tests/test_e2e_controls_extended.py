@@ -150,6 +150,55 @@ def test_toggle_loop_multiple_times(api_client, clean_queue):
     assert status["data"]["loop_enabled"] == initial_loop
 
 
+
+@pytest.mark.slow
+def test_repeat_one_three_state_toggle(api_client, clean_queue):
+    """Test three-state loop toggle: OFF → LOOP ALL → REPEAT ONE → OFF."""
+    # Get initial state (should be all disabled from clean_queue)
+    status = api_client.send('get_status')
+    assert status["data"]["loop_enabled"] is False
+    assert status["data"]["repeat_one"] is False
+
+    # First toggle: OFF → LOOP ALL
+    response = api_client.send('toggle_loop')
+    assert response['status'] == 'success'
+    assert response['loop_enabled'] is True
+    assert response['repeat_one'] is False
+
+    # Verify state persisted
+    status = api_client.send('get_status')
+    assert status["data"]["loop_enabled"] is True
+    assert status["data"]["repeat_one"] is False
+
+    # Second toggle: LOOP ALL → REPEAT ONE
+    response = api_client.send('toggle_loop')
+    assert response['status'] == 'success'
+    assert response['loop_enabled'] is True
+    assert response['repeat_one'] is True
+
+    # Verify state persisted
+    status = api_client.send('get_status')
+    assert status["data"]["loop_enabled"] is True
+    assert status["data"]["repeat_one"] is True
+
+    # Third toggle: REPEAT ONE → OFF
+    response = api_client.send('toggle_loop')
+    assert response['status'] == 'success'
+    assert response['loop_enabled'] is False
+    assert response['repeat_one'] is False
+
+    # Verify state persisted
+    status = api_client.send('get_status')
+    assert status["data"]["loop_enabled"] is False
+    assert status["data"]["repeat_one"] is False
+
+    # Fourth toggle: OFF → LOOP ALL (cycle repeats)
+    response = api_client.send('toggle_loop')
+    assert response['status'] == 'success'
+    assert response['loop_enabled'] is True
+    assert response['repeat_one'] is False
+
+
 @pytest.mark.slow
 def test_toggle_shuffle_multiple_times(api_client, clean_queue):
     """Test toggling shuffle mode multiple times."""

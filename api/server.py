@@ -553,20 +553,22 @@ class APIServer:
     # === Utility Control Handlers ===
 
     def _handle_toggle_loop(self, command: dict[str, Any]) -> dict[str, Any]:
-        """Handle loop toggle command."""
+        """Handle loop toggle command (cycles through OFF → LOOP ALL → REPEAT ONE → OFF)."""
         with start_action(api_logger, "api_toggle_loop"):
-            old_state = self.music_player.player_core.loop_enabled
+            old_loop = self.music_player.player_core.loop_enabled
+            old_repeat_one = self.music_player.player_core.repeat_one
             self.music_player.player_core.toggle_loop()
-            new_state = self.music_player.player_core.loop_enabled
+            new_loop = self.music_player.player_core.loop_enabled
+            new_repeat_one = self.music_player.player_core.repeat_one
 
             log_api_request(
                 "toggle_loop",
                 trigger_source="api",
-                old_state=old_state,
-                new_state=new_state,
+                old_state={"loop": old_loop, "repeat_one": old_repeat_one},
+                new_state={"loop": new_loop, "repeat_one": new_repeat_one},
                 response_status="success"
             )
-            return {'status': 'success', 'loop_enabled': new_state}
+            return {'status': 'success', 'loop_enabled': new_loop, 'repeat_one': new_repeat_one}
 
     def _handle_toggle_shuffle(self, command: dict[str, Any]) -> dict[str, Any]:
         """Handle shuffle toggle command."""
@@ -637,6 +639,7 @@ class APIServer:
             status = {
                 'is_playing': self.music_player.player_core.is_playing,
                 'loop_enabled': self.music_player.player_core.loop_enabled,
+                'repeat_one': self.music_player.player_core.repeat_one,
                 'shuffle_enabled': self.music_player.player_core.shuffle_enabled,
                 'volume': self.music_player.player_core.get_volume(),
                 'current_time': current_time_ms / 1000.0 if current_time_ms > 0 else 0.0,
