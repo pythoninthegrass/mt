@@ -1,7 +1,7 @@
 import os
 import threading
 import vlc
-from config import BUTTON_SYMBOLS
+from config import BUTTON_SYMBOLS, MT_REPEAT_ONE_MODE
 from core.db import MusicDatabase
 from core.logging import controls_logger, log_player_action
 from core.queue import QueueManager
@@ -19,6 +19,8 @@ class PlayerCore:
         self.current_time = 0
         self.was_playing = False
         self.loop_enabled = self.db.get_loop_enabled()
+        self.repeat_one = self.db.get_repeat_one()
+        self.repeat_one_count = 0  # Track how many times current track has played
         self.shuffle_enabled = self.queue_manager.is_shuffle_enabled()
         self.stop_after_current = False  # One-time flag to stop after current track (non-persistent)
         self.progress_bar = None
@@ -262,6 +264,8 @@ class PlayerCore:
                     description=f"Playing next: {target_display}"
                 )
 
+                # Reset repeat-one counter when manually navigating
+                self.repeat_one_count = 0
                 self._play_file(filepath)
 
     def previous_song(self) -> None:
@@ -324,6 +328,8 @@ class PlayerCore:
                     description=f"Playing previous: {target_display}"
                 )
 
+                # Reset repeat-one counter when manually navigating
+                self.repeat_one_count = 0
                 self._play_file(filepath)
 
     def seek(self, position: float, source: str = "progress_bar", interaction_type: str = "click") -> None:
@@ -481,23 +487,43 @@ class PlayerCore:
                 self.on_track_change()
 
     def toggle_loop(self) -> None:
-        """Toggle loop mode."""
+        """Toggle loop mode through three states: OFF → LOOP ALL → REPEAT ONE → OFF."""
         with start_action(controls_logger, "toggle_loop"):
-            old_state = self.loop_enabled
-            new_state = not old_state
+            # Determine current state and next state
+            if not self.loop_enabled and not self.repeat_one:
+                # State 0 → State 1: Turn on loop_all
+                new_loop = True
+                new_repeat_one = False
+                description = "Loop all enabled"
+            elif self.loop_enabled and not self.repeat_one:
+                # State 1 → State 2: Turn on repeat_one
+                new_loop = True
+                new_repeat_one = True
+                description = "Repeat one enabled"
+            else:  # self.repeat_one is True
+                # State 2 → State 0: Turn off both
+                new_loop = False
+                new_repeat_one = False
+                description = "Loop disabled"
 
+            # Log the transition
             log_player_action(
                 "toggle_loop",
                 trigger_source="gui",
-                old_state=old_state,
-                new_state=new_state,
-                description=f"Loop mode {'enabled' if new_state else 'disabled'}",
+                old_state={"loop": self.loop_enabled, "repeat_one": self.repeat_one},
+                new_state={"loop": new_loop, "repeat_one": new_repeat_one},
+                description=description
             )
 
-            self.loop_enabled = new_state
-            self.db.set_loop_enabled(self.loop_enabled)
+            # Update state
+            self.loop_enabled = new_loop
+            self.repeat_one = new_repeat_one
+            self.db.set_loop_enabled(new_loop)
+            self.db.set_repeat_one(new_repeat_one)
+
+            # Update UI
             if self.progress_bar and hasattr(self.progress_bar, 'controls'):
-                self.progress_bar.controls.update_loop_button_color(self.loop_enabled)
+                self.progress_bar.controls.update_loop_button_color(new_loop, new_repeat_one)
 
             # Refresh Now Playing view to update track display based on loop state
             if hasattr(self, 'on_track_change') and callable(self.on_track_change):
@@ -667,6 +693,9 @@ class PlayerCore:
 
             # Store the filepath immediately for reliable access
             self.current_file = filepath
+
+            # Reset repeat-one counter for new track
+            self.repeat_one_count = 0
 
             # Reset play count tracking for new track
             if hasattr(self, 'play_count_updated_callback') and self.play_count_updated_callback:
@@ -885,6 +914,48 @@ class PlayerCore:
                     description="Stopped playback after current track as requested",
                 )
                 return
+
+            # Check for repeat-one mode (takes precedence over loop_all)
+            if self.repeat_one:
+                repeat_mode = MT_REPEAT_ONE_MODE
+
+                if repeat_mode == 'once':
+                    if self.repeat_one_count < 1:
+                        # Haven't repeated yet, play the same track again
+                        self.repeat_one_count += 1
+                        current_filepath = self._get_current_filepath()
+                        log_player_action(
+                            "repeat_one_replay",
+                            trigger_source="automatic",
+                            repeat_count=self.repeat_one_count,
+                            filepath=current_filepath,
+                            description=f"Repeating track (count: {self.repeat_one_count})"
+                        )
+                        if current_filepath:
+                            self._play_file(current_filepath)
+                        return
+                    else:
+                        # Already repeated once, advance to next
+                        self.repeat_one_count = 0  # Reset for next track
+                        log_player_action(
+                            "repeat_one_advance",
+                            trigger_source="automatic",
+                            description="Repeat completed, advancing to next track"
+                        )
+                        self.next_song()
+                        return
+                else:  # continuous mode
+                    # Always replay current track
+                    current_filepath = self._get_current_filepath()
+                    log_player_action(
+                        "repeat_one_continuous",
+                        trigger_source="automatic",
+                        filepath=current_filepath,
+                        description="Repeating track continuously"
+                    )
+                    if current_filepath:
+                        self._play_file(current_filepath)
+                    return
 
             if self.loop_enabled:
                 # If loop is enabled, play the next track (or first if at end)
