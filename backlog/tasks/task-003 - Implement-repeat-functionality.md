@@ -4,7 +4,7 @@ title: Implement repeat functionality
 status: Done
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2025-10-28 02:41'
+updated_date: '2025-10-28 05:09'
 labels: []
 dependencies: []
 ordinal: 9000
@@ -31,52 +31,110 @@ Add repeat modes for single track and ~~all tracks~~ (latter technically exists 
 
 ## Implementation Notes
 
-## Implementation Status: PHASE 3 COMPLETED ✅
+## Final Implementation: "Play Once More" Pattern ✅
 
-### Completed Phases (3 commits):
+### Overview
+Repeat-one implements a "play once more" pattern where the user can request the currently playing track to play one additional time after it finishes, then automatically revert to loop OFF.
 
-**Phase 1: Core State Management** ✅ (commit d3a6ee0)
-- Added `BUTTON_SYMBOLS['repeat_one'] = 'static/repeat_one.png'` to config.py
-- Added `MT_REPEAT_ONE_MODE = config('MT_REPEAT_ONE_MODE', default='once')`
-- Implemented `get_repeat_one() -> bool` and `set_repeat_one(enabled: bool)` in PreferencesManager (core/db/preferences.py)
-- Added facade methods in MusicDatabase (core/db/database.py)
+### Three-State Toggle Cycle
+- **Loop OFF** (default): Tracks play once, removed from queue after playing
+- **Loop ALL** (first click): All tracks loop in carousel mode
+- **Repeat ONE** (second click): Current track queued for one more playthrough, auto-reverts to OFF
+- Third click returns to Loop OFF
 
-**Phase 2: Player Logic** ✅ (commit f736f4c)
-- Added state variables in PlayerCore.__init__:
-  - `self.repeat_one = self.db.get_repeat_one()`
-  - `self.repeat_one_count = 0`
-- Implemented three-state toggle_loop() cycling: OFF → LOOP ALL → REPEAT ONE → OFF
-- Added repeat-one logic in _handle_track_end():
-  - `MT_REPEAT_ONE_MODE='once'`: track plays twice then advances
-  - `MT_REPEAT_ONE_MODE='continuous'`: track repeats indefinitely
-  - Comprehensive Eliot logging for all transitions
-- Reset `repeat_one_count = 0` in:
-  - `_play_file()`: when starting new track
-  - `next_song()`: when manually advancing
-  - `previous_song()`: when manually going back
-- Updated `update_loop_button_color()` callback signature to `(new_loop, new_repeat_one)`
+### Core Behavior
 
-**Phase 3: UI Updates** ✅ (commit 662885e)
-- Added `initial_repeat_one` parameter to:
-  - PlayerControls.__init__
-  - ProgressBar.__init__  
-  - MusicPlayer (passed as `initial_repeat_one=self.player_core.repeat_one`)
-- Loaded repeat_one icon variants in setup_utility_controls():
-  - `repeat_one_enabled`: 100% opacity with loop_enabled tint
-  - `repeat_one_hover`: 100% opacity with primary color tint
-- Updated initial button image selection (lines 135-141):
-  - Checks `if self.repeat_one` → use repeat_one icon
-  - Else `if self.loop_enabled` → use loop_enabled icon
-  - Else → use loop_disabled icon
-- Modified hover/leave handlers (lines 150-160):
-  - Enter: Shows `repeat_one_hover` if repeat_one, else `loop_hover`
-  - Leave: Shows `repeat_one_enabled` if repeat_one, else `loop_enabled` if loop_enabled, else `loop_disabled`
-- Updated `update_loop_button_color(loop_enabled, repeat_one)` method:
-  - Updates internal state
-  - Selects correct icon based on three states
-  - Calls `self.loop_button.configure(image=icon)`
+**When repeat-one is activated (second click):**
+1. Current playing track is **moved** (not copied) from current_index to index 0
+2. Track continues playing from current position
+3. `repeat_one_prepended_track` tracks which file was moved
 
----
+**When current track finishes (first playthrough):**
+1. Check: `repeat_one=True and pending_revert=False`
+2. Directly play track at index 0 (ignores shuffle completely)
+3. Set `current_index = 0`
+
+**When moved track starts playing at index 0:**
+1. `_play_file()` detects: `repeat_one=True and filepath == repeat_one_prepended_track`
+2. Set `repeat_one_pending_revert = True` (ready to auto-revert)
+3. Clear `repeat_one_prepended_track = None`
+
+**When track finishes second playthrough:**
+1. Check: `repeat_one=True and pending_revert=True`
+2. Auto-revert: set `repeat_one=False, loop_enabled=False`
+3. Update UI to show loop OFF
+4. Continue with loop OFF behavior (remove track, play next)
+
+**Manual navigation (next/previous) during repeat-one:**
+1. Plays track at index 0 immediately ("skip to the repeat")
+2. Reverts to loop ALL (not OFF)
+3. User gets their repeat, just earlier than natural track end
+
+### Key Implementation Details
+
+**QueueManager (core/queue.py):**
+- `move_current_to_beginning()`: Moves track from current_index to index 0 (no duplication)
+- Adjusts indices automatically
+- Invalidates shuffle when queue modified
+
+**PlayerCore (core/controls/player_core.py):**
+- State variables:
+  - `self.repeat_one`: Current repeat-one state (persisted in DB)
+  - `self.repeat_one_pending_revert`: Flag for auto-revert after second playthrough
+  - `self.repeat_one_prepended_track`: Filepath tracking for moved track
+- `toggle_loop()`: Calls `move_current_to_beginning()` when activating repeat-one
+- `_handle_track_end()`: Three-phase logic (stop_after_current, repeat-one auto-revert, repeat-one first playthrough, normal loop behavior)
+- `next_song()` / `previous_song()`: Jump to index 0, revert to loop ALL
+- `_play_file()`: Detect moved track starting, set pending_revert
+
+**API (api/server.py):**
+- `get_status`: Returns `repeat_one` state
+- `toggle_loop`: Returns both `loop_enabled` and `repeat_one`
+
+### Shuffle Override
+Repeat-one **completely overrides shuffle** - when user explicitly wants to hear a track again, shuffle is ignored:
+- Track at index 0 is always played next
+- No shuffle navigation used during repeat-one
+- Works identically with shuffle ON or OFF
+
+### Test Coverage
+
+**Unit Tests (9 tests):**
+- `TestPlayerCoreLoop` (4 tests): Three-state toggle cycle validation
+- `TestPlayerCoreRepeatOne` (5 tests):
+  - Track moved to beginning on activation
+  - Auto-revert after second playthrough
+  - Manual next/previous plays prepended track
+  - stop_after_current precedence
+
+**E2E Tests (3 tests):**
+- Three-state toggle verification
+- State persistence across API calls
+- Multi-toggle cycle correctness
+
+**Test fixture updates:**
+- `clean_queue` fixture updated to handle three-state reset
+- Loops until both `loop_enabled` and `repeat_one` are False
+
+### Commits
+1. `d3a6ee0` - Phase 1: Core state management infrastructure
+2. `f736f4c` - Phase 2: Initial playback logic (later corrected)
+3. `662885e` - Phase 3: UI with three-state icons
+4. `5ba2f80` - test: Update loop tests, add repeat-one tests
+5. `2966137` - feat: Expose repeat_one in API, add E2E test
+6. `f103818` - fix: Change to queue rotation (incorrect approach)
+7. `d321117` - fix: Implement correct "play once more" behavior
+8. `9b43eac` - fix: Track prepended track for proper auto-revert
+9. `a93956b` - fix: Override shuffle, manual nav jumps to prepended
+10. `ff32a75` - fix: Use move instead of prepend (no duplicates)
+
+### Final Result
+✅ All 61 tests pass
+✅ Works with shuffle ON/OFF
+✅ No duplicate tracks in queue
+✅ Auto-reverts correctly after second playthrough
+✅ Manual navigation jumps to repeat track
+✅ Complete "play once more" UX
 
 
 ## Remaining Implementation (Phases 4-8)
