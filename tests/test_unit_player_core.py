@@ -194,21 +194,221 @@ class TestPlayerCoreSeek:
 
 
 class TestPlayerCoreLoop:
-    """Test loop functionality."""
+    """Test loop functionality with three-state cycle: OFF → LOOP ALL → REPEAT ONE → OFF."""
 
-    def test_toggle_loop_off_to_on(self, player_core, mock_db):
-        """Test enabling loop."""
+    def test_toggle_loop_off_to_loop_all(self, player_core, mock_db):
+        """Test first toggle: OFF → LOOP ALL."""
         player_core.loop_enabled = False
+        player_core.repeat_one = False
         player_core.toggle_loop()
         assert player_core.loop_enabled is True
+        assert player_core.repeat_one is False
         mock_db.set_loop_enabled.assert_called_once_with(True)
+        mock_db.set_repeat_one.assert_called_once_with(False)
 
-    def test_toggle_loop_on_to_off(self, player_core, mock_db):
-        """Test disabling loop."""
+    def test_toggle_loop_all_to_repeat_one(self, player_core, mock_db):
+        """Test second toggle: LOOP ALL → REPEAT ONE."""
         player_core.loop_enabled = True
+        player_core.repeat_one = False
+        player_core.toggle_loop()
+        assert player_core.loop_enabled is True
+        assert player_core.repeat_one is True
+        mock_db.set_loop_enabled.assert_called_once_with(True)
+        mock_db.set_repeat_one.assert_called_once_with(True)
+
+    def test_toggle_repeat_one_to_off(self, player_core, mock_db):
+        """Test third toggle: REPEAT ONE → OFF."""
+        player_core.loop_enabled = True
+        player_core.repeat_one = True
         player_core.toggle_loop()
         assert player_core.loop_enabled is False
+        assert player_core.repeat_one is False
         mock_db.set_loop_enabled.assert_called_once_with(False)
+        mock_db.set_repeat_one.assert_called_once_with(False)
+
+    def test_toggle_loop_full_cycle(self, player_core, mock_db):
+        """Test complete cycle through all three states."""
+        # Start: OFF
+        player_core.loop_enabled = False
+        player_core.repeat_one = False
+        
+        # First toggle: OFF → LOOP ALL
+        player_core.toggle_loop()
+        assert (player_core.loop_enabled, player_core.repeat_one) == (True, False)
+        
+        # Second toggle: LOOP ALL → REPEAT ONE
+        player_core.toggle_loop()
+        assert (player_core.loop_enabled, player_core.repeat_one) == (True, True)
+        
+        # Third toggle: REPEAT ONE → OFF
+        player_core.toggle_loop()
+        assert (player_core.loop_enabled, player_core.repeat_one) == (False, False)
+        
+        # Should cycle back: OFF → LOOP ALL
+        player_core.toggle_loop()
+        assert (player_core.loop_enabled, player_core.repeat_one) == (True, False)
+
+
+class TestPlayerCoreRepeatOne:
+    """Test repeat-one functionality."""
+
+    def test_repeat_one_mode_once_first_play(self, player_core, mock_db, monkeypatch):
+        """Test repeat-one 'once' mode on first playthrough."""
+        import config
+        monkeypatch.setattr(config, 'MT_REPEAT_ONE_MODE', 'once')
+        
+        player_core.repeat_one = True
+        player_core.repeat_one_count = 0
+        player_core.is_playing = True
+        player_core.loop_enabled = False
+        
+        # Mock _get_current_filepath
+        mock_filepath = "/path/to/test.mp3"
+        monkeypatch.setattr(player_core, '_get_current_filepath', lambda: mock_filepath)
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: None)
+        
+        # First track end should repeat (count becomes 1)
+        player_core._handle_track_end()
+        
+        assert player_core.repeat_one_count == 1
+
+    def test_repeat_one_mode_once_second_play(self, player_core, mock_db, monkeypatch):
+        """Test repeat-one 'once' mode advances after second play."""
+        import config
+        monkeypatch.setattr(config, 'MT_REPEAT_ONE_MODE', 'once')
+        
+        player_core.repeat_one = True
+        player_core.repeat_one_count = 1  # Already repeated once
+        player_core.is_playing = True
+        player_core.loop_enabled = False
+        
+        # Mock next_song
+        next_called = []
+        monkeypatch.setattr(player_core, 'next_song', lambda: next_called.append(True))
+        
+        # Second track end should advance to next
+        player_core._handle_track_end()
+        
+        assert len(next_called) == 1
+        assert player_core.repeat_one_count == 0  # Reset for next track
+
+    def test_repeat_one_mode_continuous(self, player_core, mock_db, monkeypatch):
+        """Test repeat-one 'continuous' mode always repeats the same track."""
+        import config
+        # Patch the module-level import
+        monkeypatch.setattr('core.controls.player_core.MT_REPEAT_ONE_MODE', 'continuous')
+
+        player_core.repeat_one = True
+        player_core.is_playing = True
+        player_core.loop_enabled = False
+
+        # Mock _get_current_filepath and _play_file
+        mock_filepath = "/path/to/test.mp3"
+        play_calls = []
+        def mock_play(fp):
+            play_calls.append(fp)
+            player_core.is_playing = True  # Keep playing state
+
+        monkeypatch.setattr(player_core, '_get_current_filepath', lambda: mock_filepath)
+        monkeypatch.setattr(player_core, '_play_file', mock_play)
+
+        # Track end should always repeat in continuous mode
+        player_core._handle_track_end()
+        assert len(play_calls) == 1
+        assert play_calls[0] == mock_filepath
+
+    def test_repeat_one_count_reset_on_next(self, player_core, mock_db, monkeypatch):
+        """Test repeat_one_count resets when manually calling next_song."""
+        player_core.repeat_one = True
+        player_core.repeat_one_count = 5
+        player_core.is_playing = True
+        
+        # Mock necessary methods
+        monkeypatch.setattr(player_core, '_is_last_song', lambda: False)
+        monkeypatch.setattr(player_core, '_get_next_filepath', lambda: "/next.mp3")
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: None)
+        monkeypatch.setattr(player_core.queue_manager, 'advance_queue', lambda: None)
+        
+        player_core.next_song()
+        
+        assert player_core.repeat_one_count == 0
+
+    def test_repeat_one_count_reset_on_previous(self, player_core, mock_db, monkeypatch):
+        """Test repeat_one_count resets when manually calling previous_song."""
+        import os
+        player_core.repeat_one = True
+        player_core.repeat_one_count = 5
+        player_core.is_playing = True
+
+        # Set up a real queue with items
+        player_core.queue_manager.queue_items = ["/track1.mp3", "/track2.mp3"]
+        player_core.queue_manager.current_index = 1
+
+        # Mock necessary methods
+        monkeypatch.setattr(player_core, '_check_rate_limit', lambda action, limit: True)
+        monkeypatch.setattr(player_core, '_get_current_track_info', lambda: {"artist": "Test", "title": "Track"})
+        monkeypatch.setattr(player_core, '_get_previous_filepath', lambda: "/track1.mp3")
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: None)
+        monkeypatch.setattr(os.path, 'basename', lambda p: p)
+
+        player_core.previous_song()
+
+        assert player_core.repeat_one_count == 0
+
+    def test_repeat_one_count_reset_on_play_file(self, player_core, mock_db, monkeypatch):
+        """Test repeat_one_count resets when starting a new file."""
+        import os
+        player_core.repeat_one = True
+        player_core.repeat_one_count = 5
+
+        # Mock file existence
+        monkeypatch.setattr(os.path, 'exists', lambda p: True)
+
+        # Mock VLC instance methods
+        monkeypatch.setattr(player_core.player, 'media_new', lambda p: None)
+
+        # player_core._play_file will call the existing mock player methods
+        player_core._play_file("/new.mp3")
+
+        assert player_core.repeat_one_count == 0
+
+    def test_repeat_one_takes_precedence_over_loop(self, player_core, mock_db, monkeypatch):
+        """Test that repeat-one takes precedence over loop_all."""
+        import config
+        monkeypatch.setattr(config, 'MT_REPEAT_ONE_MODE', 'once')
+        
+        player_core.repeat_one = True
+        player_core.loop_enabled = True  # Both enabled
+        player_core.repeat_one_count = 0
+        player_core.is_playing = True
+        
+        # Mock methods
+        mock_filepath = "/path/to/test.mp3"
+        play_calls = []
+        monkeypatch.setattr(player_core, '_get_current_filepath', lambda: mock_filepath)
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
+        
+        # Should repeat (not advance to next like loop_all would)
+        player_core._handle_track_end()
+        
+        assert len(play_calls) == 1
+        assert player_core.repeat_one_count == 1
+
+    def test_stop_after_current_takes_precedence_over_repeat_one(self, player_core, mock_db, monkeypatch):
+        """Test that stop_after_current takes precedence over repeat-one."""
+        player_core.repeat_one = True
+        player_core.stop_after_current = True
+        player_core.is_playing = True
+        
+        # Mock stop method
+        stop_calls = []
+        monkeypatch.setattr(player_core, 'stop', lambda reason: stop_calls.append(reason))
+        
+        player_core._handle_track_end()
+        
+        assert len(stop_calls) == 1
+        assert stop_calls[0] == "stop_after_current"
+        assert player_core.stop_after_current is False
 
 
 class TestPlayerCoreShuffle:
