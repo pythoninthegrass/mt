@@ -21,6 +21,7 @@ class PlayerCore:
         self.loop_enabled = self.db.get_loop_enabled()
         self.repeat_one = self.db.get_repeat_one()
         self.repeat_one_pending_revert = False  # Flag to auto-revert after second playthrough
+        self.repeat_one_prepended_track = None  # Track prepended for repeat-one playthrough
         self.shuffle_enabled = self.queue_manager.is_shuffle_enabled()
         self.stop_after_current = False  # One-time flag to stop after current track (non-persistent)
         self.progress_bar = None
@@ -205,6 +206,7 @@ class PlayerCore:
             if self.repeat_one:
                 self.repeat_one = False
                 self.repeat_one_pending_revert = False
+                self.repeat_one_prepended_track = None  # Clear tracking
                 self.loop_enabled = True  # Revert to loop ALL
                 self.db.set_repeat_one(False)
                 self.db.set_loop_enabled(True)
@@ -295,6 +297,7 @@ class PlayerCore:
             if self.repeat_one:
                 self.repeat_one = False
                 self.repeat_one_pending_revert = False
+                self.repeat_one_prepended_track = None  # Clear tracking
                 self.loop_enabled = True  # Revert to loop ALL
                 self.db.set_repeat_one(False)
                 self.db.set_loop_enabled(True)
@@ -540,7 +543,9 @@ class PlayerCore:
                 # Immediately activate repeat-one: prepend current track to queue
                 if self.current_file and self.queue_manager.queue_items:
                     self.queue_manager.prepend_track(self.current_file)
-                    self.repeat_one_pending_revert = True
+                    # Track which file was prepended so we know when it starts playing
+                    self.repeat_one_prepended_track = self.current_file
+                    self.repeat_one_pending_revert = False
                     log_player_action(
                         "repeat_one_activated",
                         trigger_source="gui",
@@ -553,6 +558,7 @@ class PlayerCore:
                 new_repeat_one = False
                 description = "Loop disabled"
                 self.repeat_one_pending_revert = False
+                self.repeat_one_prepended_track = None  # Clear tracking
 
             # Log the transition
             log_player_action(
@@ -741,6 +747,18 @@ class PlayerCore:
 
             # Store the filepath immediately for reliable access
             self.current_file = filepath
+
+            # Check if this is the prepended track starting to play for repeat-one
+            if self.repeat_one and self.repeat_one_prepended_track == filepath:
+                # This is the second playthrough - set pending_revert so it auto-reverts when done
+                self.repeat_one_pending_revert = True
+                self.repeat_one_prepended_track = None  # Clear tracking
+                log_player_action(
+                    "repeat_one_second_playthrough",
+                    trigger_source="automatic",
+                    filepath=filepath,
+                    description="Starting repeat playthrough (will auto-revert to loop OFF when complete)"
+                )
 
             # Reset play count tracking for new track
             if hasattr(self, 'play_count_updated_callback') and self.play_count_updated_callback:

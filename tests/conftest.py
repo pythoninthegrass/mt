@@ -278,10 +278,17 @@ def clean_queue(api_client, original_volume):
                 with suppress(Exception):
                     api_client.send('stop')
 
-            # Disable loop if enabled
-            if status_data.get('loop_enabled', False):
+            # Disable loop and repeat-one (may need multiple toggles for three-state cycle)
+            # Keep toggling until both loop and repeat_one are False
+            max_attempts = 5  # Safety limit
+            for _ in range(max_attempts):
+                if not status_data.get('loop_enabled', False) and not status_data.get('repeat_one', False):
+                    break
                 with suppress(Exception):
                     api_client.send('toggle_loop')
+                # Re-check status
+                status_response = api_client.send('get_status')
+                status_data = status_response.get('data', {})
 
             # Disable shuffle if enabled
             if status_data.get('shuffle_enabled', False):

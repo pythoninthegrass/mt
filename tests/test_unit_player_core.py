@@ -273,7 +273,8 @@ class TestPlayerCoreRepeatOne:
 
         # Verify prepend was called with current file
         assert player_core.repeat_one is True
-        assert player_core.repeat_one_pending_revert is True
+        assert player_core.repeat_one_prepended_track == "/track1.mp3"
+        assert player_core.repeat_one_pending_revert is False  # Not set until prepended track plays
         mock_prepend.assert_called_once_with("/track1.mp3")
 
     def test_repeat_one_auto_reverts_after_track_end(self, player_core, mock_db, monkeypatch):
