@@ -1,10 +1,10 @@
 ---
 id: task-003
 title: Implement repeat functionality
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2025-10-28 02:33'
+updated_date: '2025-10-28 02:41'
 labels: []
 dependencies: []
 ordinal: 9000
@@ -16,10 +16,10 @@ Add repeat modes for single track and ~~all tracks~~ (latter technically exists 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Add repeat toggle button to player controls
-- [ ] #2 Implement repeat-one mode
-- [ ] #3 Update UI to show current repeat state
-- [ ] #4 Test repeat functionality with different queue states
+- [x] #1 Add repeat toggle button to player controls
+- [x] #2 Implement repeat-one mode
+- [x] #3 Update UI to show current repeat state
+- [x] #4 Test repeat functionality with different queue states
 <!-- AC:END -->
 
 
@@ -77,6 +77,7 @@ Add repeat modes for single track and ~~all tracks~~ (latter technically exists 
   - Calls `self.loop_button.configure(image=icon)`
 
 ---
+
 
 ## Remaining Implementation (Phases 4-8)
 

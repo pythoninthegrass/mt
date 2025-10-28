@@ -1,7 +1,7 @@
 import os
 import threading
 import vlc
-from config import BUTTON_SYMBOLS, MT_REPEAT_ONE_MODE
+from config import BUTTON_SYMBOLS
 from core.db import MusicDatabase
 from core.logging import controls_logger, log_player_action
 from core.queue import QueueManager
@@ -20,7 +20,6 @@ class PlayerCore:
         self.was_playing = False
         self.loop_enabled = self.db.get_loop_enabled()
         self.repeat_one = self.db.get_repeat_one()
-        self.repeat_one_count = 0  # Track how many times current track has played
         self.shuffle_enabled = self.queue_manager.is_shuffle_enabled()
         self.stop_after_current = False  # One-time flag to stop after current track (non-persistent)
         self.progress_bar = None
@@ -264,8 +263,6 @@ class PlayerCore:
                     description=f"Playing next: {target_display}"
                 )
 
-                # Reset repeat-one counter when manually navigating
-                self.repeat_one_count = 0
                 self._play_file(filepath)
 
     def previous_song(self) -> None:
@@ -328,8 +325,6 @@ class PlayerCore:
                     description=f"Playing previous: {target_display}"
                 )
 
-                # Reset repeat-one counter when manually navigating
-                self.repeat_one_count = 0
                 self._play_file(filepath)
 
     def seek(self, position: float, source: str = "progress_bar", interaction_type: str = "click") -> None:
@@ -694,9 +689,6 @@ class PlayerCore:
             # Store the filepath immediately for reliable access
             self.current_file = filepath
 
-            # Reset repeat-one counter for new track
-            self.repeat_one_count = 0
-
             # Reset play count tracking for new track
             if hasattr(self, 'play_count_updated_callback') and self.play_count_updated_callback:
                 self.play_count_updated_callback(False)
@@ -916,46 +908,30 @@ class PlayerCore:
                 return
 
             # Check for repeat-one mode (takes precedence over loop_all)
+            # Repeat-one uses carousel/rotation: move current track to end and play next
             if self.repeat_one:
-                repeat_mode = MT_REPEAT_ONE_MODE
-
-                if repeat_mode == 'once':
-                    if self.repeat_one_count < 1:
-                        # Haven't repeated yet, play the same track again
-                        self.repeat_one_count += 1
-                        current_filepath = self._get_current_filepath()
-                        log_player_action(
-                            "repeat_one_replay",
-                            trigger_source="automatic",
-                            repeat_count=self.repeat_one_count,
-                            filepath=current_filepath,
-                            description=f"Repeating track (count: {self.repeat_one_count})"
-                        )
-                        if current_filepath:
-                            self._play_file(current_filepath)
-                        return
-                    else:
-                        # Already repeated once, advance to next
-                        self.repeat_one_count = 0  # Reset for next track
-                        log_player_action(
-                            "repeat_one_advance",
-                            trigger_source="automatic",
-                            description="Repeat completed, advancing to next track"
-                        )
-                        self.next_song()
-                        return
-                else:  # continuous mode
-                    # Always replay current track
-                    current_filepath = self._get_current_filepath()
+                if not self.shuffle_enabled and self.queue_manager.queue_items:
+                    # Use atomic operation to move current track to end and get next
+                    filepath = self.queue_manager.move_current_to_end_and_get_next()
                     log_player_action(
-                        "repeat_one_continuous",
+                        "repeat_one_rotation",
                         trigger_source="automatic",
-                        filepath=current_filepath,
-                        description="Repeating track continuously"
+                        description="Repeat-one: moved current track to end, playing next"
                     )
-                    if current_filepath:
-                        self._play_file(current_filepath)
-                    return
+                else:
+                    # With shuffle enabled, use normal next navigation
+                    filepath = self._get_next_filepath()
+                    log_player_action(
+                        "repeat_one_shuffle_next",
+                        trigger_source="automatic",
+                        description="Repeat-one with shuffle: playing next track"
+                    )
+
+                if filepath:
+                    self._play_file(filepath)
+                else:
+                    self.stop("queue_exhausted")
+                return
 
             if self.loop_enabled:
                 # If loop is enabled, play the next track (or first if at end)
