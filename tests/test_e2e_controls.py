@@ -105,24 +105,29 @@ def test_seek_no_position(api_client, clean_queue):
 
 @pytest.mark.slow
 def test_toggle_loop(api_client, clean_queue):
-    """Test toggling loop mode."""
-    # Get initial loop state
+    """Test three-state loop toggle: OFF → LOOP ALL → REPEAT ONE → OFF."""
+    # Get initial state (should be OFF from clean_queue)
     initial_status = api_client.send('get_status')
-    initial_loop = initial_status['data']['loop_enabled']
+    assert initial_status['data']['loop_enabled'] is False
+    assert initial_status['data']['repeat_one'] is False
 
-    # Toggle loop
+    # First toggle: OFF → LOOP ALL
     response = api_client.send('toggle_loop')
-    assert response['status'] == 'success', "Failed to toggle loop"
-    assert response['loop_enabled'] != initial_loop, "Loop state should have changed"
+    assert response['status'] == 'success'
+    assert response['loop_enabled'] is True
+    assert response['repeat_one'] is False
 
-    # Verify via status
-    new_status = api_client.send('get_status')
-    assert new_status['data']['loop_enabled'] != initial_loop, "Loop state should be toggled"
-
-    # Toggle back
+    # Second toggle: LOOP ALL → REPEAT ONE
     response = api_client.send('toggle_loop')
-    assert response['status'] == 'success', "Failed to toggle loop back"
-    assert response['loop_enabled'] == initial_loop, "Loop should be back to initial state"
+    assert response['status'] == 'success'
+    assert response['loop_enabled'] is True
+    assert response['repeat_one'] is True
+
+    # Third toggle: REPEAT ONE → OFF
+    response = api_client.send('toggle_loop')
+    assert response['status'] == 'success'
+    assert response['loop_enabled'] is False
+    assert response['repeat_one'] is False
 
 
 @pytest.mark.slow

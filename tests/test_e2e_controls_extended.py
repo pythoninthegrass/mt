@@ -137,17 +137,22 @@ def test_previous_on_first_track(api_client, test_music_files, clean_queue):
 
 @pytest.mark.slow
 def test_toggle_loop_multiple_times(api_client, clean_queue):
-    """Test toggling loop mode multiple times."""
+    """Test toggling loop mode through full three-state cycle."""
     # Get initial state (should be disabled from clean_queue)
     status = api_client.send('get_status')
     initial_loop = status["data"]["loop_enabled"]
+    initial_repeat = status["data"]["repeat_one"]
+    assert initial_loop is False
+    assert initial_repeat is False
 
-    # Toggle twice - should return to initial state
-    api_client.send('toggle_loop')
-    api_client.send('toggle_loop')
+    # Toggle three times - should complete one cycle and return to initial state
+    api_client.send('toggle_loop')  # OFF → LOOP ALL
+    api_client.send('toggle_loop')  # LOOP ALL → REPEAT ONE
+    api_client.send('toggle_loop')  # REPEAT ONE → OFF
 
     status = api_client.send('get_status')
     assert status["data"]["loop_enabled"] == initial_loop
+    assert status["data"]["repeat_one"] == initial_repeat
 
 
 

@@ -20,6 +20,7 @@ class PlayerCore:
         self.was_playing = False
         self.loop_enabled = self.db.get_loop_enabled()
         self.repeat_one = self.db.get_repeat_one()
+        self.repeat_one_pending_revert = False  # Flag to auto-revert after second playthrough
         self.shuffle_enabled = self.queue_manager.is_shuffle_enabled()
         self.stop_after_current = False  # One-time flag to stop after current track (non-persistent)
         self.progress_bar = None
@@ -200,6 +201,24 @@ class PlayerCore:
             if not self._check_rate_limit('next_song', 0.1):
                 return
 
+            # Cancel repeat-one if active (manual navigation reverts to loop ALL)
+            if self.repeat_one:
+                self.repeat_one = False
+                self.repeat_one_pending_revert = False
+                self.loop_enabled = True  # Revert to loop ALL
+                self.db.set_repeat_one(False)
+                self.db.set_loop_enabled(True)
+
+                # Update UI
+                if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                    self.progress_bar.controls.update_loop_button_color(True, False)
+
+                log_player_action(
+                    "repeat_one_cancelled",
+                    trigger_source="manual_navigation",
+                    description="Repeat-one cancelled by manual next, reverted to loop ALL"
+                )
+
             # Defensive check: ensure queue has items
             if not self.queue_manager.queue_items:
                 log_player_action(
@@ -271,6 +290,24 @@ class PlayerCore:
             # Rate limiting: minimum 100ms between previous() calls
             if not self._check_rate_limit('previous_song', 0.1):
                 return
+
+            # Cancel repeat-one if active (manual navigation reverts to loop ALL)
+            if self.repeat_one:
+                self.repeat_one = False
+                self.repeat_one_pending_revert = False
+                self.loop_enabled = True  # Revert to loop ALL
+                self.db.set_repeat_one(False)
+                self.db.set_loop_enabled(True)
+
+                # Update UI
+                if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                    self.progress_bar.controls.update_loop_button_color(True, False)
+
+                log_player_action(
+                    "repeat_one_cancelled",
+                    trigger_source="manual_navigation",
+                    description="Repeat-one cancelled by manual previous, reverted to loop ALL"
+                )
 
             # Defensive check: ensure queue has items
             if not self.queue_manager.queue_items:
@@ -482,7 +519,11 @@ class PlayerCore:
                 self.on_track_change()
 
     def toggle_loop(self) -> None:
-        """Toggle loop mode through three states: OFF → LOOP ALL → REPEAT ONE → OFF."""
+        """Toggle loop mode through three states: OFF → LOOP ALL → REPEAT ONE → OFF.
+        
+        Repeat-one behavior: immediately prepends current track to queue, then auto-reverts
+        to loop OFF after the second playthrough completes.
+        """
         with start_action(controls_logger, "toggle_loop"):
             # Determine current state and next state
             if not self.loop_enabled and not self.repeat_one:
@@ -495,11 +536,23 @@ class PlayerCore:
                 new_loop = True
                 new_repeat_one = True
                 description = "Repeat one enabled"
+                
+                # Immediately activate repeat-one: prepend current track to queue
+                if self.current_file and self.queue_manager.queue_items:
+                    self.queue_manager.prepend_track(self.current_file)
+                    self.repeat_one_pending_revert = True
+                    log_player_action(
+                        "repeat_one_activated",
+                        trigger_source="gui",
+                        filepath=self.current_file,
+                        description=f"Prepended current track to queue for repeat playthrough"
+                    )
             else:  # self.repeat_one is True
                 # State 2 → State 0: Turn off both
                 new_loop = False
                 new_repeat_one = False
                 description = "Loop disabled"
+                self.repeat_one_pending_revert = False
 
             # Log the transition
             log_player_action(
@@ -907,31 +960,28 @@ class PlayerCore:
                 )
                 return
 
-            # Check for repeat-one mode (takes precedence over loop_all)
-            # Repeat-one uses carousel/rotation: move current track to end and play next
-            if self.repeat_one:
-                if not self.shuffle_enabled and self.queue_manager.queue_items:
-                    # Use atomic operation to move current track to end and get next
-                    filepath = self.queue_manager.move_current_to_end_and_get_next()
-                    log_player_action(
-                        "repeat_one_rotation",
-                        trigger_source="automatic",
-                        description="Repeat-one: moved current track to end, playing next"
-                    )
-                else:
-                    # With shuffle enabled, use normal next navigation
-                    filepath = self._get_next_filepath()
-                    log_player_action(
-                        "repeat_one_shuffle_next",
-                        trigger_source="automatic",
-                        description="Repeat-one with shuffle: playing next track"
-                    )
-
-                if filepath:
-                    self._play_file(filepath)
-                else:
-                    self.stop("queue_exhausted")
-                return
+            # Check for repeat-one mode with pending revert
+            # This implements "play once more" behavior
+            if self.repeat_one and self.repeat_one_pending_revert:
+                # Auto-revert to loop OFF after second playthrough
+                self.repeat_one = False
+                self.loop_enabled = False
+                self.repeat_one_pending_revert = False
+                self.db.set_repeat_one(False)
+                self.db.set_loop_enabled(False)
+                
+                # Update UI
+                if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                    self.progress_bar.controls.update_loop_button_color(False, False)
+                
+                log_player_action(
+                    "repeat_one_auto_revert",
+                    trigger_source="automatic",
+                    description="Auto-reverted to loop OFF after repeat playthrough"
+                )
+                
+                # Continue with normal loop OFF behavior (remove track and advance)
+                # Fall through to loop_enabled=False handling below
 
             if self.loop_enabled:
                 # If loop is enabled, play the next track (or first if at end)

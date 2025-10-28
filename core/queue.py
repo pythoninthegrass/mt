@@ -93,6 +93,35 @@ class QueueManager:
         # Invalidate shuffle when queue is modified
         self._shuffle_generated = False
 
+
+    def prepend_track(self, filepath: str) -> None:
+        """Prepend a track to the beginning of the queue (next to play).
+
+        Used for repeat-one mode to make current track play again next.
+
+        Args:
+            filepath: File path to prepend
+        """
+        if not filepath:
+            return
+
+        try:
+            from core.logging import log_queue_operation
+
+            log_queue_operation("prepend_track", filepath=filepath, queue_size=len(self.queue_items))
+        except ImportError:
+            pass
+
+        # Insert at the beginning (index 0)
+        self.queue_items.insert(0, filepath)
+
+        # Adjust current_index since we inserted before it
+        if self.current_index >= 0:
+            self.current_index += 1
+
+        # Invalidate shuffle when queue is modified
+        self._shuffle_generated = False
+
     def add_to_queue_end(self, filepaths: list[str]) -> None:
         """Append tracks to end of queue.
 
