@@ -584,17 +584,17 @@ class PlayerCore:
                 new_repeat_one = True
                 description = "Repeat one enabled"
                 
-                # Immediately activate repeat-one: prepend current track to queue
+                # Immediately activate repeat-one: move current track to beginning
                 if self.current_file and self.queue_manager.queue_items:
-                    self.queue_manager.prepend_track(self.current_file)
-                    # Track which file was prepended so we know when it starts playing
+                    self.queue_manager.move_current_to_beginning()
+                    # Track which file was moved so we know when it starts playing
                     self.repeat_one_prepended_track = self.current_file
                     self.repeat_one_pending_revert = False
                     log_player_action(
                         "repeat_one_activated",
                         trigger_source="gui",
                         filepath=self.current_file,
-                        description=f"Prepended current track to queue for repeat playthrough"
+                        description=f"Moved current track to beginning for repeat playthrough"
                     )
             else:  # self.repeat_one is True
                 # State 2 → State 0: Turn off both

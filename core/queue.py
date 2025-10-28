@@ -256,6 +256,45 @@ class QueueManager:
             # Return the track now at current_index (guaranteed to be within bounds)
             return self.queue_items[self.current_index] if self.queue_items else None
 
+
+    def move_current_to_beginning(self) -> None:
+        """Move the currently playing track to the beginning of the queue.
+
+        Used for repeat-one mode to queue current track for immediate replay.
+        The track is moved (not copied), avoiding duplicates.
+        """
+        with self._lock:
+            if not self.queue_items or len(self.queue_items) <= 1:
+                return
+
+            if self.current_index < 0 or self.current_index >= len(self.queue_items):
+                return
+
+            # If already at index 0, nothing to do
+            if self.current_index == 0:
+                return
+
+            try:
+                from core.logging import log_queue_operation
+
+                log_queue_operation("move_to_beginning", from_index=self.current_index, to_index=0)
+            except ImportError:
+                pass
+
+            # Remove current track and insert at beginning
+            track = self.queue_items.pop(self.current_index)
+            self.queue_items.insert(0, track)
+
+            # Current index stays the same because we removed one item before it
+            # Actually, current track moved from current_index to 0
+            # So the track that was at current_index is now gone
+            # The track that was at current_index-1 is now at current_index-1
+            # The track that was at current_index+1 is now at current_index
+            # So current_index doesn't need to change - it now points to what was next
+
+            # Invalidate shuffle when queue order changes
+            self._shuffle_generated = False
+
     def move_last_to_beginning(self) -> None:
         """Move the last track to the beginning of the queue (reverse carousel mode).
 

@@ -252,30 +252,30 @@ class TestPlayerCoreLoop:
 class TestPlayerCoreRepeatOne:
     """Test repeat-one 'play once more' functionality."""
 
-    def test_toggle_to_repeat_one_prepends_track(self, player_core, mock_db, monkeypatch):
-        """Test that activating repeat-one immediately prepends current track to queue."""
+    def test_toggle_to_repeat_one_moves_track_to_beginning(self, player_core, mock_db, monkeypatch):
+        """Test that activating repeat-one moves current track to beginning (no duplicates)."""
         from unittest.mock import Mock
         # Start in loop ALL state
         player_core.loop_enabled = True
         player_core.repeat_one = False
         player_core.current_file = "/track1.mp3"
 
-        # Set up queue
-        player_core.queue_manager.queue_items = ["/track1.mp3", "/track2.mp3", "/track3.mp3"]
-        player_core.queue_manager.current_index = 0
+        # Set up queue - track1 is at index 2
+        player_core.queue_manager.queue_items = ["/track0.mp3", "/track-1.mp3", "/track1.mp3", "/track2.mp3"]
+        player_core.queue_manager.current_index = 2
 
-        # Mock prepend_track
-        mock_prepend = Mock()
-        monkeypatch.setattr(player_core.queue_manager, 'prepend_track', mock_prepend)
+        # Mock move_current_to_beginning
+        mock_move = Mock()
+        monkeypatch.setattr(player_core.queue_manager, 'move_current_to_beginning', mock_move)
 
         # Toggle to repeat-one
         player_core.toggle_loop()
 
-        # Verify prepend was called with current file
+        # Verify move was called (track moved, not copied)
         assert player_core.repeat_one is True
         assert player_core.repeat_one_prepended_track == "/track1.mp3"
-        assert player_core.repeat_one_pending_revert is False  # Not set until prepended track plays
-        mock_prepend.assert_called_once_with("/track1.mp3")
+        assert player_core.repeat_one_pending_revert is False  # Not set until track plays at index 0
+        mock_move.assert_called_once()
 
     def test_repeat_one_auto_reverts_after_track_end(self, player_core, mock_db, monkeypatch):
         """Test that repeat-one auto-reverts to loop OFF after track ends."""
