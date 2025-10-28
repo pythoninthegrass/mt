@@ -202,24 +202,46 @@ class PlayerCore:
             if not self._check_rate_limit('next_song', 0.1):
                 return
 
-            # Cancel repeat-one if active (manual navigation reverts to loop ALL)
+            # Handle repeat-one during manual navigation
+            # User pressing next means "skip to the repeat" - play prepended track, then revert
             if self.repeat_one:
-                self.repeat_one = False
-                self.repeat_one_pending_revert = False
-                self.repeat_one_prepended_track = None  # Clear tracking
-                self.loop_enabled = True  # Revert to loop ALL
-                self.db.set_repeat_one(False)
-                self.db.set_loop_enabled(True)
+                # Play the prepended track at index 0
+                if self.queue_manager.queue_items and len(self.queue_manager.queue_items) > 0:
+                    prepended_track = self.queue_manager.queue_items[0]
+                    self.queue_manager.current_index = 0
 
-                # Update UI
-                if self.progress_bar and hasattr(self.progress_bar, 'controls'):
-                    self.progress_bar.controls.update_loop_button_color(True, False)
+                    # Revert to loop ALL after playing prepended track
+                    self.repeat_one = False
+                    self.repeat_one_pending_revert = False
+                    self.repeat_one_prepended_track = None
+                    self.loop_enabled = True
+                    self.db.set_repeat_one(False)
+                    self.db.set_loop_enabled(True)
 
-                log_player_action(
-                    "repeat_one_cancelled",
-                    trigger_source="manual_navigation",
-                    description="Repeat-one cancelled by manual next, reverted to loop ALL"
-                )
+                    # Update UI
+                    if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                        self.progress_bar.controls.update_loop_button_color(True, False)
+
+                    log_player_action(
+                        "repeat_one_skip_to_prepended",
+                        trigger_source="manual_navigation",
+                        filepath=prepended_track,
+                        description="Manual next during repeat-one: playing prepended track, then reverting to loop ALL"
+                    )
+
+                    self._play_file(prepended_track)
+                    return
+                else:
+                    # No prepended track found, just cancel repeat-one
+                    self.repeat_one = False
+                    self.repeat_one_pending_revert = False
+                    self.repeat_one_prepended_track = None
+                    self.loop_enabled = True
+                    self.db.set_repeat_one(False)
+                    self.db.set_loop_enabled(True)
+
+                    if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                        self.progress_bar.controls.update_loop_button_color(True, False)
 
             # Defensive check: ensure queue has items
             if not self.queue_manager.queue_items:
@@ -293,24 +315,46 @@ class PlayerCore:
             if not self._check_rate_limit('previous_song', 0.1):
                 return
 
-            # Cancel repeat-one if active (manual navigation reverts to loop ALL)
+            # Handle repeat-one during manual navigation
+            # User pressing previous means "skip to the repeat" - play prepended track, then revert
             if self.repeat_one:
-                self.repeat_one = False
-                self.repeat_one_pending_revert = False
-                self.repeat_one_prepended_track = None  # Clear tracking
-                self.loop_enabled = True  # Revert to loop ALL
-                self.db.set_repeat_one(False)
-                self.db.set_loop_enabled(True)
+                # Play the prepended track at index 0
+                if self.queue_manager.queue_items and len(self.queue_manager.queue_items) > 0:
+                    prepended_track = self.queue_manager.queue_items[0]
+                    self.queue_manager.current_index = 0
 
-                # Update UI
-                if self.progress_bar and hasattr(self.progress_bar, 'controls'):
-                    self.progress_bar.controls.update_loop_button_color(True, False)
+                    # Revert to loop ALL after playing prepended track
+                    self.repeat_one = False
+                    self.repeat_one_pending_revert = False
+                    self.repeat_one_prepended_track = None
+                    self.loop_enabled = True
+                    self.db.set_repeat_one(False)
+                    self.db.set_loop_enabled(True)
 
-                log_player_action(
-                    "repeat_one_cancelled",
-                    trigger_source="manual_navigation",
-                    description="Repeat-one cancelled by manual previous, reverted to loop ALL"
-                )
+                    # Update UI
+                    if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                        self.progress_bar.controls.update_loop_button_color(True, False)
+
+                    log_player_action(
+                        "repeat_one_skip_to_prepended",
+                        trigger_source="manual_navigation",
+                        filepath=prepended_track,
+                        description="Manual previous during repeat-one: playing prepended track, then reverting to loop ALL"
+                    )
+
+                    self._play_file(prepended_track)
+                    return
+                else:
+                    # No prepended track found, just cancel repeat-one
+                    self.repeat_one = False
+                    self.repeat_one_pending_revert = False
+                    self.repeat_one_prepended_track = None
+                    self.loop_enabled = True
+                    self.db.set_repeat_one(False)
+                    self.db.set_loop_enabled(True)
+
+                    if self.progress_bar and hasattr(self.progress_bar, 'controls'):
+                        self.progress_bar.controls.update_loop_button_color(True, False)
 
             # Defensive check: ensure queue has items
             if not self.queue_manager.queue_items:
@@ -978,8 +1022,7 @@ class PlayerCore:
                 )
                 return
 
-            # Check for repeat-one mode with pending revert
-            # This implements "play once more" behavior
+            # Check for repeat-one mode with pending revert (second playthrough ending)
             if self.repeat_one and self.repeat_one_pending_revert:
                 # Auto-revert to loop OFF after second playthrough
                 self.repeat_one = False
@@ -1000,6 +1043,35 @@ class PlayerCore:
                 
                 # Continue with normal loop OFF behavior (remove track and advance)
                 # Fall through to loop_enabled=False handling below
+
+            # Check for repeat-one mode without pending revert (first playthrough ending)
+            # User wants to hear this track again, so play prepended track at index 0
+            # This overrides shuffle - user explicitly requested THIS track
+            elif self.repeat_one and not self.repeat_one_pending_revert:
+                # Play the prepended track at index 0, ignoring shuffle
+                if self.queue_manager.queue_items and len(self.queue_manager.queue_items) > 0:
+                    prepended_track = self.queue_manager.queue_items[0]
+                    self.queue_manager.current_index = 0
+                    
+                    log_player_action(
+                        "repeat_one_playing_prepended",
+                        trigger_source="automatic",
+                        filepath=prepended_track,
+                        description="Playing prepended track for repeat (overrides shuffle)"
+                    )
+                    
+                    self._play_file(prepended_track)
+                    return
+                else:
+                    # No queue items, can't repeat
+                    log_player_action(
+                        "repeat_one_failed",
+                        trigger_source="automatic",
+                        reason="queue_empty",
+                        description="Cannot repeat - queue is empty"
+                    )
+                    self.stop("queue_exhausted")
+                    return
 
             if self.loop_enabled:
                 # If loop is enabled, play the next track (or first if at end)

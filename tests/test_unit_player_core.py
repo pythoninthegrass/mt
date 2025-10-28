@@ -303,61 +303,61 @@ class TestPlayerCoreRepeatOne:
         mock_db.set_repeat_one.assert_called_with(False)
         mock_db.set_loop_enabled.assert_called_with(False)
 
-    def test_manual_next_cancels_repeat_one(self, player_core, mock_db, monkeypatch):
-        """Test that manual next cancels repeat-one and reverts to loop ALL."""
+    def test_manual_next_plays_prepended_track(self, player_core, mock_db, monkeypatch):
+        """Test that manual next during repeat-one plays prepended track at index 0, then reverts to loop ALL."""
         player_core.repeat_one = True
-        player_core.repeat_one_pending_revert = True
+        player_core.repeat_one_pending_revert = False
         player_core.loop_enabled = True
         player_core.is_playing = True
 
-        # Set up queue
-        player_core.queue_manager.queue_items = ["/track1.mp3", "/track2.mp3"]
-        player_core.queue_manager.current_index = 0
+        # Set up queue with prepended track at index 0
+        player_core.queue_manager.queue_items = ["/repeat.mp3", "/track1.mp3", "/track2.mp3"]
+        player_core.queue_manager.current_index = 1  # Currently playing track1
 
         # Mock necessary methods
+        play_calls = []
         monkeypatch.setattr(player_core, '_check_rate_limit', lambda action, limit: True)
-        monkeypatch.setattr(player_core, '_get_current_track_info', lambda: {"artist": "Test", "title": "Track"})
-        monkeypatch.setattr(player_core, '_is_last_song', lambda: False)
-        monkeypatch.setattr(player_core.queue_manager, 'move_current_to_end_and_get_next', lambda: "/track2.mp3")
-        monkeypatch.setattr(player_core, '_play_file', lambda fp: None)
-        monkeypatch.setattr(player_core, '_get_next_filepath', lambda: "/track2.mp3")
-        import os
-        monkeypatch.setattr(os.path, 'basename', lambda p: p)
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
 
         # Call next
         player_core.next_song()
 
-        # Verify repeat-one was cancelled and reverted to loop ALL
+        # Verify prepended track was played
+        assert len(play_calls) == 1
+        assert play_calls[0] == "/repeat.mp3"
+
+        # Verify state after: repeat-one cancelled, reverted to loop ALL
         assert player_core.repeat_one is False
         assert player_core.loop_enabled is True
-        assert player_core.repeat_one_pending_revert is False
+        assert player_core.queue_manager.current_index == 0
 
-    def test_manual_previous_cancels_repeat_one(self, player_core, mock_db, monkeypatch):
-        """Test that manual previous cancels repeat-one and reverts to loop ALL."""
+    def test_manual_previous_plays_prepended_track(self, player_core, mock_db, monkeypatch):
+        """Test that manual previous during repeat-one plays prepended track at index 0, then reverts to loop ALL."""
         player_core.repeat_one = True
-        player_core.repeat_one_pending_revert = True
+        player_core.repeat_one_pending_revert = False
         player_core.loop_enabled = True
         player_core.is_playing = True
 
-        # Set up queue
-        player_core.queue_manager.queue_items = ["/track1.mp3", "/track2.mp3"]
-        player_core.queue_manager.current_index = 1
+        # Set up queue with prepended track at index 0
+        player_core.queue_manager.queue_items = ["/repeat.mp3", "/track1.mp3", "/track2.mp3"]
+        player_core.queue_manager.current_index = 1  # Currently playing track1
 
         # Mock necessary methods
+        play_calls = []
         monkeypatch.setattr(player_core, '_check_rate_limit', lambda action, limit: True)
-        monkeypatch.setattr(player_core, '_get_current_track_info', lambda: {"artist": "Test", "title": "Track"})
-        monkeypatch.setattr(player_core, '_get_previous_filepath', lambda: "/track1.mp3")
-        monkeypatch.setattr(player_core, '_play_file', lambda fp: None)
-        import os
-        monkeypatch.setattr(os.path, 'basename', lambda p: p)
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
 
         # Call previous
         player_core.previous_song()
 
-        # Verify repeat-one was cancelled and reverted to loop ALL
+        # Verify prepended track was played
+        assert len(play_calls) == 1
+        assert play_calls[0] == "/repeat.mp3"
+
+        # Verify state after: repeat-one cancelled, reverted to loop ALL
         assert player_core.repeat_one is False
         assert player_core.loop_enabled is True
-        assert player_core.repeat_one_pending_revert is False
+        assert player_core.queue_manager.current_index == 0
 
     def test_stop_after_current_takes_precedence_over_repeat_one(self, player_core, mock_db, monkeypatch):
         """Test that stop_after_current takes precedence over repeat-one."""
