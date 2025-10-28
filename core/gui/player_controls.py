@@ -4,7 +4,7 @@ from utils.icons import load_icon
 
 
 class PlayerControls:
-    def __init__(self, canvas, command_callbacks, initial_loop_enabled=True, initial_shuffle_enabled=False):
+    def __init__(self, canvas, command_callbacks, initial_loop_enabled=True, initial_repeat_one=False, initial_shuffle_enabled=False):
         self.canvas = canvas
         self.callbacks = command_callbacks
         self.add_button = None
@@ -13,6 +13,7 @@ class PlayerControls:
         self.favorite_button = None
         self.play_button = None
         self.loop_enabled = initial_loop_enabled
+        self.repeat_one = initial_repeat_one
         self.shuffle_enabled = initial_shuffle_enabled
         self.favorite_enabled = False
 
@@ -117,23 +118,44 @@ class PlayerControls:
         loop_hover = load_icon(
             BUTTON_SYMBOLS['loop'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary']
         )
+        # Repeat-one icon variants
+        repeat_one_enabled_icon = load_icon(
+            BUTTON_SYMBOLS['repeat_one'], size=self.utility_icon_size, opacity=1.0, tint_color=COLORS['loop_enabled']
+        )
+        repeat_one_hover = load_icon(
+            BUTTON_SYMBOLS['repeat_one'], size=self.utility_icon_size, opacity=1.0, tint_color=THEME_CONFIG['colors']['primary']
+        )
         self.icon_images['loop_normal'] = loop_normal
         self.icon_images['loop_enabled'] = loop_enabled_icon
         self.icon_images['loop_disabled'] = loop_disabled_icon
         self.icon_images['loop_hover'] = loop_hover
+        self.icon_images['repeat_one_enabled'] = repeat_one_enabled_icon
+        self.icon_images['repeat_one_hover'] = repeat_one_hover
+
+        # Determine initial icon based on three states
+        if self.repeat_one:
+            initial_loop_icon = repeat_one_enabled_icon
+        elif self.loop_enabled:
+            initial_loop_icon = loop_enabled_icon
+        else:
+            initial_loop_icon = loop_disabled_icon
 
         self.loop_button = tk.Label(
             self.canvas,
-            image=loop_enabled_icon if self.loop_enabled else loop_disabled_icon,
+            image=initial_loop_icon,
             bg="#000000",  # Pure black background like MusicBee
         )
         self.loop_button.place(x=canvas_width - 114, y=y_position)
         self.loop_button.bind('<Button-1>', lambda e: self.callbacks['loop']())
-        self.loop_button.bind('<Enter>', lambda e: self.loop_button.configure(image=self.icon_images['loop_hover']))
+        self.loop_button.bind('<Enter>', lambda e: self.loop_button.configure(
+            image=self.icon_images['repeat_one_hover'] if self.repeat_one else self.icon_images['loop_hover']
+        ))
         self.loop_button.bind(
             '<Leave>',
             lambda e: self.loop_button.configure(
-                image=self.icon_images['loop_enabled'] if self.loop_enabled else self.icon_images['loop_disabled']
+                image=self.icon_images['repeat_one_enabled'] if self.repeat_one else (
+                    self.icon_images['loop_enabled'] if self.loop_enabled else self.icon_images['loop_disabled']
+                )
             ),
         )
 
@@ -269,10 +291,20 @@ class PlayerControls:
             x_position + 15
         )  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup  # Same as initial setup
 
-    def update_loop_button_color(self, loop_enabled):
-        """Update loop button icon based on loop state."""
+    def update_loop_button_color(self, loop_enabled, repeat_one):
+        """Update loop button icon based on loop state (three states: OFF, LOOP ALL, REPEAT ONE)."""
         self.loop_enabled = loop_enabled  # Update the internal state
-        self.loop_button.configure(image=self.icon_images['loop_enabled'] if loop_enabled else self.icon_images['loop_disabled'])
+        self.repeat_one = repeat_one  # Update the internal state
+
+        # Select correct icon based on three states
+        if repeat_one:
+            icon = self.icon_images['repeat_one_enabled']
+        elif loop_enabled:
+            icon = self.icon_images['loop_enabled']
+        else:
+            icon = self.icon_images['loop_disabled']
+
+        self.loop_button.configure(image=icon)
 
     def update_shuffle_button_color(self, shuffle_enabled):
         """Update shuffle button icon based on shuffle state."""

@@ -17,11 +17,12 @@ from utils.icons import load_icon
 
 
 class ProgressBar:
-    def __init__(self, window, progress_frame, callbacks, initial_loop_enabled=True, initial_shuffle_enabled=False, initial_volume=100):
+    def __init__(self, window, progress_frame, callbacks, initial_loop_enabled=True, initial_repeat_one=False, initial_shuffle_enabled=False, initial_volume=100):
         self.window = window
         self.progress_frame = progress_frame
         self.callbacks = callbacks
         self.initial_loop_enabled = initial_loop_enabled
+        self.initial_repeat_one = initial_repeat_one
         self.initial_shuffle_enabled = initial_shuffle_enabled
         self.initial_volume = initial_volume
         self.setup_progress_bar()
@@ -37,11 +38,12 @@ class ProgressBar:
         )
         self.canvas.pack(fill=tk.X)
 
-        # Create controls with initial loop and shuffle state
+        # Create controls with initial loop, repeat, and shuffle state
         self.controls = PlayerControls(
             self.canvas,
             self.callbacks,
             initial_loop_enabled=self.initial_loop_enabled,
+            initial_repeat_one=self.initial_repeat_one,
             initial_shuffle_enabled=self.initial_shuffle_enabled,
         )
         self.controls_width = self.controls.controls_width

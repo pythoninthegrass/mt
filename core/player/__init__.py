@@ -187,6 +187,7 @@ class MusicPlayer:
                 'volume_change': self.progress_controller.volume_change,
             },
             initial_loop_enabled=self.player_core.loop_enabled,
+            initial_repeat_one=self.player_core.repeat_one,
             initial_shuffle_enabled=self.player_core.shuffle_enabled,
             initial_volume=initial_volume,
         )
