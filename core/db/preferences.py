@@ -20,6 +20,17 @@ class PreferencesManager:
         self.db_cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('loop_enabled', ?)", (int(enabled),))
         self.db_conn.commit()
 
+    def get_repeat_one(self) -> bool:
+        """Get repeat-one state from settings."""
+        self.db_cursor.execute("SELECT value FROM settings WHERE key = 'repeat_one'")
+        result = self.db_cursor.fetchone()
+        return bool(int(result[0])) if result else False
+
+    def set_repeat_one(self, enabled: bool):
+        """Set repeat-one state in settings."""
+        self.db_cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('repeat_one', ?)", (int(enabled),))
+        self.db_conn.commit()
+
     def get_shuffle_enabled(self) -> bool:
         """Get shuffle state from settings."""
         self.db_cursor.execute("SELECT value FROM settings WHERE key = 'shuffle_enabled'")

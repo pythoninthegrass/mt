@@ -9,6 +9,12 @@ RELOAD = config('MT_RELOAD', default=False, cast=bool)
 # Database Configuration
 DB_NAME = config('DB_NAME', default='mt.db')
 
+# Repeat Mode Configuration
+# Controls behavior when repeat-one mode is active
+# - 'once': Track plays twice total (original + one repeat), then advances
+# - 'continuous': Track repeats indefinitely until mode changes
+MT_REPEAT_ONE_MODE = config('MT_REPEAT_ONE_MODE', default='once')
+
 # Audio Configuration
 AUDIO_EXTENSIONS = {
     '.3gp',
@@ -271,6 +277,7 @@ BUTTON_SYMBOLS = {
     'next': '⏭',
     'add': 'static/add.png',
     'loop': 'static/repeat.png',
+    'repeat_one': 'static/repeat_one.png',
     'shuffle': 'static/shuffle.png',
     'volume': 'static/volume_up.png',
     'favorite': 'static/favorite.png',

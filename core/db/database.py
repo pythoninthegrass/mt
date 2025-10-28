@@ -59,6 +59,12 @@ class MusicDatabase:
     def set_loop_enabled(self, enabled: bool):
         self._preferences.set_loop_enabled(enabled)
 
+    def get_repeat_one(self) -> bool:
+        return self._preferences.get_repeat_one()
+
+    def set_repeat_one(self, enabled: bool):
+        self._preferences.set_repeat_one(enabled)
+
     def get_shuffle_enabled(self) -> bool:
         return self._preferences.get_shuffle_enabled()
 
