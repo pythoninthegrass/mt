@@ -69,6 +69,8 @@ omit = [
     "*/test_*.py",
     "*/__pycache__/*",
     "*/site-packages/*",
+    # Package initialization files (minimal code, not meaningful to track)
+    "*/__init__.py",
     # Development tools (not production code)
     "utils/repeater.py",
     "utils/reload.py",
