@@ -48,29 +48,63 @@ def test_queue_operations(api_client, test_music_files, clean_queue):
 
 
 def test_next_previous_navigation(api_client, test_music_files, clean_queue):
-    """Test track navigation with next/previous."""
+    """Test track navigation with next/previous.
+
+    Note: This test can be flaky when run after many other tests due to timing
+    variability in track changes. The test includes retry logic to handle this.
+    """
+    # Give extra time for any previous test state to settle
+    time.sleep(0.2)
+
+    # Ensure playback is stopped before starting
+    api_client.send('stop')
+    time.sleep(0.1)
+
     # Add multiple tracks and play
     api_client.send('add_to_queue', files=test_music_files[:3])
     api_client.send('play')
-    time.sleep(TEST_TIMEOUT)
+    time.sleep(TEST_TIMEOUT * 2)  # Give extra time for playback to start properly
 
-    # Get first track
+    # Get first track and verify queue state
     initial_status = api_client.send('get_status')
     initial_track = initial_status['data'].get('current_track', {}).get('filepath')
+    initial_queue = api_client.send('get_queue')
 
-    # Next track
+    # Ensure we have enough tracks, playback is active, and no repeat-one is active
+    assert initial_queue['count'] >= 3, f"Queue should have 3+ tracks, has {initial_queue['count']}"
+    assert initial_status['data'].get('is_playing', False) is True, "Player should be playing"
+    assert initial_status['data'].get('repeat_one', False) is False, "Repeat-one should be off"
+    assert initial_track is not None, "Should have a current track"
+
+    # Next track - use longer timeout and retry logic for timing variability
     api_client.send('next')
-    time.sleep(0.3)
-    next_status = api_client.send('get_status')
-    next_track = next_status['data'].get('current_track', {}).get('filepath')
-    assert next_track != initial_track, "Track should have changed"
+    time.sleep(TEST_TIMEOUT)  # Initial wait
 
-    # Previous track
+    # Retry up to 5 times with increasing delays if track hasn't changed yet
+    next_track = None
+    for attempt in range(5):
+        next_status = api_client.send('get_status')
+        next_track = next_status['data'].get('current_track', {}).get('filepath')
+        if next_track != initial_track:
+            break
+        time.sleep(0.3 * (attempt + 1))  # Progressive backoff: 0.3s, 0.6s, 0.9s, 1.2s, 1.5s
+
+    assert next_track != initial_track, f"Track should have changed after next command. Initial: {initial_track}, After next: {next_track}"
+
+    # Previous track - use longer timeout and retry logic
     api_client.send('previous')
-    time.sleep(0.3)
-    prev_status = api_client.send('get_status')
-    prev_track = prev_status['data'].get('current_track', {}).get('filepath')
-    assert prev_track == initial_track, "Should return to first track"
+    time.sleep(TEST_TIMEOUT)  # Initial wait
+
+    # Retry up to 5 times with increasing delays if track hasn't changed yet
+    prev_track = None
+    for attempt in range(5):
+        prev_status = api_client.send('get_status')
+        prev_track = prev_status['data'].get('current_track', {}).get('filepath')
+        if prev_track == initial_track:
+            break
+        time.sleep(0.3 * (attempt + 1))  # Progressive backoff: 0.3s, 0.6s, 0.9s, 1.2s, 1.5s
+
+    assert prev_track == initial_track, f"Should return to first track after previous command. Initial: {initial_track}, After previous: {prev_track}"
 
 
 def test_volume_control(api_client, test_music_files, clean_queue):

@@ -58,9 +58,17 @@ def mock_queue_view():
 @pytest.fixture
 def player_core(mock_vlc, mock_db, mock_queue_manager, mock_queue_view):
     """Create PlayerCore with mocked dependencies."""
-    with patch.dict('sys.modules', {'vlc': mock_vlc}):
-        from core.controls import PlayerCore
+    # Force reload to use mocked VLC even if real VLC was imported before
+    import importlib
 
+    with patch.dict('sys.modules', {'vlc': mock_vlc}):
+        # Remove cached imports to force using mocked VLC
+        if 'core.controls.player_core' in sys.modules:
+            del sys.modules['core.controls.player_core']
+        if 'core.controls' in sys.modules:
+            del sys.modules['core.controls']
+
+        from core.controls import PlayerCore
         player = PlayerCore(mock_db, mock_queue_manager, mock_queue_view)
         return player
 
@@ -159,15 +167,18 @@ class TestPlayerCoreToggleProperties:
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     @given(initial_loop=st.booleans())
     def test_loop_toggle_idempotent(self, player_core, mock_db, initial_loop):
-        """Toggling loop twice should return to original state."""
+        """Toggling loop three times should return to original state (3-state cycle)."""
         player_core.loop_enabled = initial_loop
+        player_core.repeat_one = False  # Start in known state
 
-        # Toggle twice
+        # Toggle three times to complete full cycle: OFF → LOOP ALL → REPEAT ONE → OFF
+        player_core.toggle_loop()
         player_core.toggle_loop()
         player_core.toggle_loop()
 
         # Should be back to initial state
         assert player_core.loop_enabled == initial_loop
+        assert player_core.repeat_one is False
 
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     @given(initial_shuffle=st.booleans())
@@ -191,15 +202,22 @@ class TestPlayerCoreToggleProperties:
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     @given(initial_state=st.booleans())
     def test_loop_toggle_inverts_state(self, player_core, mock_db, initial_state):
-        """Toggling loop once should invert the state."""
+        """Toggling loop cycles through 3 states: OFF → LOOP ALL → REPEAT ONE → OFF."""
         player_core.loop_enabled = initial_state
+        player_core.repeat_one = False
 
         # Toggle once
         player_core.toggle_loop()
 
-        # Should be inverted
-        assert player_core.loop_enabled != initial_state
-        assert player_core.loop_enabled == (not initial_state)
+        # State should change based on initial state
+        if not initial_state:
+            # OFF → LOOP ALL
+            assert player_core.loop_enabled is True
+            assert player_core.repeat_one is False
+        else:
+            # LOOP ALL → REPEAT ONE
+            assert player_core.loop_enabled is True
+            assert player_core.repeat_one is True
 
 
 class TestPlayerCoreTimeProperties:
