@@ -193,10 +193,18 @@ Some tests are marked with `@pytest.mark.flaky_in_suite` because they pass relia
 
 **Known Flaky Tests:**
 - `tests/test_e2e_smoke.py::test_next_previous_navigation` - Track navigation test that passes 100% in isolation but ~50% in full suite
+- `tests/test_e2e_controls.py::test_media_key_next` - Media key next test that experiences timing issues with track changes in full suite
+
+**Root Cause:**
+These tests experience persistent application state pollution after running many other E2E tests. The application's internal state (VLC player, queue manager, event handlers) doesn't fully reset between tests, causing timing-dependent failures.
 
 **To run flaky tests in isolation (reliable):**
 ```bash
+# Single test
 uv run pytest tests/test_e2e_smoke.py::test_next_previous_navigation -v
+
+# Multiple flaky tests
+uv run pytest tests/test_e2e_smoke.py::test_next_previous_navigation tests/test_e2e_controls.py::test_media_key_next -v
 ```
 
 **To skip flaky tests in full suite:**
@@ -204,7 +212,7 @@ uv run pytest tests/test_e2e_smoke.py::test_next_previous_navigation -v
 uv run pytest tests/ -m "not flaky_in_suite"
 ```
 
-The `flaky_in_suite` marker is defined in `pyproject.toml` and allows excluding these tests during CI/CD or full test suite runs while still maintaining them for isolation testing.
+**Note:** The `flaky_in_suite` marker is defined in `pyproject.toml` and allows excluding these tests during CI/CD or full test suite runs while still maintaining them for isolation testing. If you need to verify these tests work, always run them in isolation.
 
 ### Task Runner Commands
 
