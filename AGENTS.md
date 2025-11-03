@@ -156,6 +156,9 @@ uv run pytest tests/test_e2e_smoke.py
 # Fast tests (~23s) - unit + property + smoke E2E
 uv run pytest -m "not slow"
 
+# Fast, reliable tests (~20s) - exclude slow and flaky tests
+uv run pytest tests/ -m "not slow and not flaky_in_suite"
+
 # Run ONLY unit tests (fast, for development)
 uv run pytest tests/test_unit_*.py
 
@@ -212,7 +215,17 @@ uv run pytest tests/test_e2e_smoke.py::test_next_previous_navigation tests/test_
 uv run pytest tests/ -m "not flaky_in_suite"
 ```
 
+**To skip both slow and flaky tests (recommended for development):**
+```bash
+uv run pytest tests/ -m "not slow and not flaky_in_suite"
+```
+
 **Note:** The `flaky_in_suite` marker is defined in `pyproject.toml` and allows excluding these tests during CI/CD or full test suite runs while still maintaining them for isolation testing. If you need to verify these tests work, always run them in isolation.
+
+**Pytest marker syntax clarification:**
+- ❌ Wrong: `-m "not slow" -m "not flaky_in_suite"` (multiple flags don't combine correctly)
+- ✅ Correct: `-m "not slow and not flaky_in_suite"` (boolean AND expression)
+- ✅ Alternative: `-m "not (slow or flaky_in_suite)"` (boolean OR with negation)
 
 ### Task Runner Commands
 
