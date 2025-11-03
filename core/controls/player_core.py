@@ -594,7 +594,7 @@ class PlayerCore:
                         "repeat_one_activated",
                         trigger_source="gui",
                         filepath=self.current_file,
-                        description=f"Moved current track to beginning for repeat playthrough"
+                        description="Moved current track to beginning for repeat playthrough"
                     )
             else:  # self.repeat_one is True
                 # State 2 → State 0: Turn off both
