@@ -147,41 +147,17 @@ uv run ruff check --fix --respect-gitignore
 # Run formatting
 uv run ruff format --respect-gitignore
 
-# Run all tests (note: -v and -p no:pydust are configured by default)
-uv run pytest tests/
+# Test execution tiers - run different tests based on workflow stage
+uv run pytest tests/test_unit_*.py tests/test_props_*.py                      # TDD: unit+property only (~8s)
+uv run pytest tests/test_unit_*.py tests/test_props_*.py tests/test_e2e_smoke.py  # Pre-commit: +smoke (~15s)
+uv run pytest tests/ -m "not slow and not flaky_in_suite"                    # Pre-PR: fast suite (~22s)
+uv run pytest tests/                                                          # CI/pre-push: everything (~60s)
 
-# Quick smoke tests (~11s) - critical E2E tests for development
-uv run pytest tests/test_e2e_smoke.py
-
-# Fast tests (~23s) - unit + property + smoke E2E
-uv run pytest -m "not slow"
-
-# Fast, reliable tests (~20s) - exclude slow and flaky tests
-uv run pytest tests/ -m "not slow and not flaky_in_suite"
-
-# Run ONLY unit tests (fast, for development)
-uv run pytest tests/test_unit_*.py
-
-# Run ONLY property-based tests (fast, for invariant validation)
-uv run pytest tests/test_props_*.py
-
-# Run property tests with more examples (thorough)
-uv run pytest tests/test_props_*.py --hypothesis-profile=thorough
-
-# Run property tests with statistics
-uv run pytest tests/test_props_*.py --hypothesis-show-statistics
-
-# Run ONLY E2E tests (slower, for integration validation)
-uv run pytest tests/test_e2e_*.py
-
-# Run comprehensive E2E tests (marked as slow)
-uv run pytest tests/test_e2e_*.py -m slow
-
-# Run unit + property tests (fast development feedback)
-uv run pytest tests/test_unit_*.py tests/test_props_*.py
-
-# Skip flaky tests when running full suite
-uv run pytest tests/ -m "not flaky_in_suite"
+# Specialized test commands (less common)
+uv run pytest tests/test_e2e_smoke.py                                        # Quick smoke tests only
+uv run pytest tests/test_props_*.py --hypothesis-profile=thorough            # Thorough property testing
+uv run pytest tests/test_props_*.py --hypothesis-show-statistics             # Property test statistics
+uv run pytest tests/test_e2e_*.py -m slow                                    # Comprehensive E2E tests
 
 # Run pre-commit hooks
 pre-commit run --all-files
