@@ -450,3 +450,359 @@ class TestPlayerCoreTrackNavigation:
 
         # _is_last_song() just checks position, doesn't care about loop
         assert player_core._is_last_song() is True
+
+    def test_navigation_empty_queue(self, player_core, mock_queue_manager):
+        """Test navigation with empty queue."""
+        mock_queue_manager.queue_items = []
+        mock_queue_manager.current_index = 0
+        # Configure methods called by _get_next_filepath and _get_previous_filepath
+        mock_queue_manager.next_track.return_value = None
+        mock_queue_manager.previous_track.return_value = None
+
+        # Empty queue should behave gracefully
+        # _is_last_song() returns True for empty queue
+        assert player_core._is_last_song() is True
+        assert player_core._get_next_filepath() is None
+        assert player_core._get_previous_filepath() is None
+
+    def test_navigation_single_track(self, player_core, mock_queue_manager):
+        """Test navigation with single track in queue."""
+        mock_queue_manager.queue_items = ["/track.mp3"]
+        mock_queue_manager.current_index = 0
+
+        # Single track queue - is last song
+        assert player_core._is_last_song() is True
+
+        # Configure the methods that _get_next_filepath and _get_previous_filepath actually call
+        mock_queue_manager.next_track.return_value = None
+        mock_queue_manager.previous_track.return_value = None
+
+        # With loop disabled and single track, should return None
+        filepath = player_core._get_next_filepath()
+        assert filepath is None
+
+        # Same for previous
+        filepath = player_core._get_previous_filepath()
+        assert filepath is None
+
+
+class TestPlayerCoreHandleTrackEnd:
+    """Test _handle_track_end() loop and shuffle logic."""
+
+    def test_handle_track_end_not_playing(self, player_core, monkeypatch):
+        """Test that track end is ignored when not playing."""
+        player_core.is_playing = False
+
+        # Mock methods to ensure they're not called
+        stop_called = []
+        next_called = []
+        monkeypatch.setattr(player_core, 'stop', lambda reason: stop_called.append(reason))
+        monkeypatch.setattr(player_core, 'next_song', lambda: next_called.append(True))
+
+        player_core._handle_track_end()
+
+        # Should not call stop or next
+        assert len(stop_called) == 0
+        assert len(next_called) == 0
+
+    def test_handle_track_end_stop_after_current(self, player_core, monkeypatch):
+        """Test that stop_after_current takes highest priority."""
+        player_core.is_playing = True
+        player_core.stop_after_current = True
+        player_core.repeat_one = True  # Should be ignored
+        player_core.loop_enabled = True  # Should be ignored
+
+        stop_calls = []
+        monkeypatch.setattr(player_core, 'stop', lambda reason: stop_calls.append(reason))
+
+        player_core._handle_track_end()
+
+        assert len(stop_calls) == 1
+        assert stop_calls[0] == "stop_after_current"
+        assert player_core.stop_after_current is False  # Should be reset
+
+    def test_handle_track_end_loop_enabled_calls_next(self, player_core, monkeypatch):
+        """Test that loop enabled calls next_song()."""
+        player_core.is_playing = True
+        player_core.loop_enabled = True
+        player_core.repeat_one = False
+
+        next_calls = []
+        monkeypatch.setattr(player_core, 'next_song', lambda: next_calls.append(True))
+
+        player_core._handle_track_end()
+
+        assert len(next_calls) == 1
+
+    def test_handle_track_end_loop_disabled_last_song_stops(self, player_core, monkeypatch):
+        """Test that loop disabled on last song stops and removes track."""
+        player_core.is_playing = True
+        player_core.loop_enabled = False
+        player_core.repeat_one = False
+        player_core.queue_manager.current_index = 2
+
+        # Mock as last song
+        monkeypatch.setattr(player_core, '_is_last_song', lambda: True)
+
+        stop_calls = []
+        remove_calls = []
+        monkeypatch.setattr(player_core, 'stop', lambda reason: stop_calls.append(reason))
+        monkeypatch.setattr(player_core.queue_manager, 'remove_from_queue_at_index',
+                           lambda idx: remove_calls.append(idx))
+
+        player_core._handle_track_end()
+
+        assert len(remove_calls) == 1
+        assert remove_calls[0] == 2  # Should remove current index
+        assert len(stop_calls) == 1
+        assert stop_calls[0] == "end_of_queue"
+
+    def test_handle_track_end_loop_disabled_not_last_advances(self, player_core, monkeypatch):
+        """Test that loop disabled on non-last song removes track and plays next."""
+        player_core.is_playing = True
+        player_core.loop_enabled = False
+        player_core.repeat_one = False
+        player_core.queue_manager.current_index = 1
+
+        # Mock as not last song
+        monkeypatch.setattr(player_core, '_is_last_song', lambda: False)
+        monkeypatch.setattr(player_core, '_get_next_filepath', lambda: "/next.mp3")
+
+        remove_calls = []
+        play_calls = []
+        monkeypatch.setattr(player_core.queue_manager, 'remove_from_queue_at_index',
+                           lambda idx: remove_calls.append(idx))
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
+
+        player_core._handle_track_end()
+
+        assert len(remove_calls) == 1
+        assert remove_calls[0] == 1  # Should remove current index
+        assert len(play_calls) == 1
+        assert play_calls[0] == "/next.mp3"
+
+    def test_handle_track_end_loop_disabled_no_next_stops(self, player_core, monkeypatch):
+        """Test that if no next track available, player stops."""
+        player_core.is_playing = True
+        player_core.loop_enabled = False
+        player_core.repeat_one = False
+
+        monkeypatch.setattr(player_core, '_is_last_song', lambda: False)
+        monkeypatch.setattr(player_core, '_get_next_filepath', lambda: None)
+
+        stop_calls = []
+        remove_calls = []
+        monkeypatch.setattr(player_core.queue_manager, 'remove_from_queue_at_index',
+                           lambda idx: remove_calls.append(idx))
+        monkeypatch.setattr(player_core, 'stop', lambda reason: stop_calls.append(reason))
+
+        player_core._handle_track_end()
+
+        assert len(remove_calls) == 1
+        assert len(stop_calls) == 1
+        assert stop_calls[0] == "queue_exhausted"
+
+    def test_handle_track_end_repeat_one_first_playthrough(self, player_core, monkeypatch):
+        """Test repeat-one first playthrough plays prepended track."""
+        player_core.is_playing = True
+        player_core.repeat_one = True
+        player_core.repeat_one_pending_revert = False
+        player_core.loop_enabled = True
+
+        # Set up queue with prepended track at index 0
+        player_core.queue_manager.queue_items = ["/repeat.mp3", "/track2.mp3"]
+        player_core.queue_manager.current_index = 0
+
+        play_calls = []
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
+
+        player_core._handle_track_end()
+
+        # Should play prepended track at index 0
+        assert len(play_calls) == 1
+        assert play_calls[0] == "/repeat.mp3"
+        assert player_core.queue_manager.current_index == 0
+
+    def test_handle_track_end_repeat_one_empty_queue_stops(self, player_core, monkeypatch):
+        """Test repeat-one with empty queue stops playback."""
+        player_core.is_playing = True
+        player_core.repeat_one = True
+        player_core.repeat_one_pending_revert = False
+        player_core.queue_manager.queue_items = []
+
+        stop_calls = []
+        monkeypatch.setattr(player_core, 'stop', lambda reason: stop_calls.append(reason))
+
+        player_core._handle_track_end()
+
+        assert len(stop_calls) == 1
+        assert stop_calls[0] == "queue_exhausted"
+
+
+class TestPlayerCoreNavigationEdgeCases:
+    """Test edge cases in track navigation."""
+
+    def test_next_song_empty_queue(self, player_core, mock_queue_manager, monkeypatch):
+        """Test next_song with empty queue does nothing."""
+        player_core.is_playing = False
+        mock_queue_manager.queue_items = []
+        mock_queue_manager.current_index = 0
+
+        # Mock rate limit check to allow navigation
+        monkeypatch.setattr(player_core, '_check_rate_limit', lambda action, limit: True)
+
+        play_calls = []
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
+
+        player_core.next_song()
+
+        # Should not attempt to play
+        assert len(play_calls) == 0
+
+    def test_previous_song_empty_queue(self, player_core, mock_queue_manager, monkeypatch):
+        """Test previous_song with empty queue does nothing."""
+        player_core.is_playing = False
+        mock_queue_manager.queue_items = []
+        mock_queue_manager.current_index = 0
+
+        # Mock rate limit check to allow navigation
+        monkeypatch.setattr(player_core, '_check_rate_limit', lambda action, limit: True)
+
+        play_calls = []
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
+
+        player_core.previous_song()
+
+        # Should not attempt to play
+        assert len(play_calls) == 0
+
+    def test_next_song_single_track_with_loop(self, player_core, mock_queue_manager, monkeypatch):
+        """Test next_song with single track and loop enabled replays same track."""
+        player_core.is_playing = True
+        player_core.loop_enabled = True
+        mock_queue_manager.queue_items = ["/track.mp3"]
+        mock_queue_manager.current_index = 0
+        mock_queue_manager.get_next_track.return_value = "/track.mp3"  # Loops back to same track
+
+        # Mock rate limit check to allow navigation
+        monkeypatch.setattr(player_core, '_check_rate_limit', lambda action, limit: True)
+
+        play_calls = []
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
+
+        player_core.next_song()
+
+        # Should play the same track again
+        assert len(play_calls) == 1
+        assert play_calls[0] == "/track.mp3"
+
+    def test_previous_song_single_track_with_loop(self, player_core, mock_queue_manager, monkeypatch):
+        """Test previous_song with single track and loop enabled replays same track."""
+        player_core.is_playing = True
+        player_core.loop_enabled = True
+        mock_queue_manager.queue_items = ["/track.mp3"]
+        mock_queue_manager.current_index = 0
+        mock_queue_manager.previous_track.return_value = "/track.mp3"  # Loops back to same track
+
+        # Mock rate limit check to allow navigation
+        monkeypatch.setattr(player_core, '_check_rate_limit', lambda action, limit: True)
+
+        play_calls = []
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
+
+        player_core.previous_song()
+
+        # Should play the same track again
+        assert len(play_calls) == 1
+        assert play_calls[0] == "/track.mp3"
+
+
+class TestPlayerCoreStopAfterCurrent:
+    """Test stop_after_current functionality."""
+
+    def test_toggle_stop_after_current_off_to_on(self, player_core):
+        """Test enabling stop_after_current."""
+        player_core.stop_after_current = False
+        player_core.toggle_stop_after_current()
+        assert player_core.stop_after_current is True
+
+    def test_toggle_stop_after_current_on_to_off(self, player_core):
+        """Test disabling stop_after_current."""
+        player_core.stop_after_current = True
+        player_core.toggle_stop_after_current()
+        assert player_core.stop_after_current is False
+
+
+class TestPlayerCoreGetters:
+    """Test various getter methods."""
+
+    def test_get_current_filepath_no_media(self, player_core):
+        """Test getting current filepath when no media loaded."""
+        player_core.media_player.set_media(None)
+        filepath = player_core._get_current_filepath()
+        # With no media, should return None or empty string
+        assert filepath in (None, "")
+
+    def test_get_next_filepath_delegates_to_queue(self, player_core, mock_queue_manager):
+        """Test that _get_next_filepath delegates to queue_manager."""
+        mock_queue_manager.next_track.return_value = "/next/track.mp3"
+        filepath = player_core._get_next_filepath()
+        assert filepath == "/next/track.mp3"
+        mock_queue_manager.next_track.assert_called_once()
+
+    def test_get_previous_filepath_delegates_to_queue(self, player_core, mock_queue_manager):
+        """Test that _get_previous_filepath delegates to queue_manager."""
+        mock_queue_manager.previous_track.return_value = "/prev/track.mp3"
+        filepath = player_core._get_previous_filepath()
+        assert filepath == "/prev/track.mp3"
+        mock_queue_manager.previous_track.assert_called_once()
+
+
+class TestPlayerCoreCleanup:
+    """Test cleanup functionality."""
+
+    def test_cleanup_vlc_stops_playback(self, player_core):
+        """Test that cleanup stops VLC playback."""
+        player_core.is_playing = True
+        player_core.media_player._is_playing = True
+
+        player_core.cleanup_vlc()
+
+        # Should have stopped playback
+        assert player_core.media_player.is_playing() is False
+
+
+class TestPlayerCorePlayPause:
+    """Test play_pause functionality."""
+
+    def test_play_pause_starts_playback_when_stopped(self, player_core, mock_queue_manager, monkeypatch):
+        """Test that play_pause starts playback when stopped."""
+        player_core.is_playing = False
+        player_core.current_file = "/test/track.mp3"
+        mock_queue_manager.current_index = 0
+        mock_queue_manager.queue_items = ["/test/track.mp3"]
+
+        # Mock rate limit to allow
+        monkeypatch.setattr(player_core, '_check_rate_limit', lambda action, limit: True)
+
+        # Mock _play_file to avoid actual playback
+        play_calls = []
+        monkeypatch.setattr(player_core, '_play_file', lambda fp: play_calls.append(fp))
+
+        player_core.play_pause()
+
+        # Should have started playback
+        assert len(play_calls) == 1
+
+    def test_play_pause_with_no_queue(self, player_core, mock_queue_manager, monkeypatch):
+        """Test that play_pause returns early when queue is empty."""
+        player_core.is_playing = False
+        mock_queue_manager.queue_items = []
+
+        # Mock rate limit to allow
+        monkeypatch.setattr(player_core, '_check_rate_limit', lambda action, limit: True)
+
+        player_core.play_pause()
+
+        # Should not have started playing (no queue items)
+        assert player_core.is_playing is False
