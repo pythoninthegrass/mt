@@ -1,10 +1,10 @@
 ---
 id: task-088
 title: Fix test suite failures in property-based and E2E tests
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-28 05:11'
-updated_date: '2025-10-28 05:12'
+updated_date: '2025-11-03 04:41'
 labels: []
 dependencies:
   - task-003
@@ -24,3 +24,7 @@ Multiple test failures discovered in the test suite that need to be investigated
 - [ ] #4 Loop toggle tests properly verify state changes
 - [ ] #5 Time-related tests handle uninitialized media gracefully
 <!-- AC:END -->
+
+## Implementation Notes
+
+Duplicate of task-087. All work consolidated into task-087.

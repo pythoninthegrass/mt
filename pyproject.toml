@@ -58,7 +58,8 @@ markers = [
     "integration: marks tests as integration tests",
     "e2e: marks tests as end-to-end tests",
     "benchmark: marks performance benchmark tests",
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "flaky_in_suite: marks tests that are flaky when run in full suite but pass in isolation"
 ]
 
 [tool.coverage.run]

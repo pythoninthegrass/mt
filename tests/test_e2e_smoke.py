@@ -47,37 +47,50 @@ def test_queue_operations(api_client, test_music_files, clean_queue):
     assert queue_response['count'] == 0
 
 
+@pytest.mark.flaky_in_suite
 def test_next_previous_navigation(api_client, test_music_files, clean_queue):
     """Test track navigation with next/previous.
 
-    Note: This test can be flaky when run after many other tests due to timing
-    variability in track changes. The test includes retry logic to handle this.
+    Note: This test is flaky when run in full test suite due to persistent timing
+    issues with track navigation after many other tests. Passes reliably when run
+    in isolation. The test includes comprehensive retry logic but still experiences
+    issues in full suite context.
+
+    To run this test reliably:
+        pytest tests/test_e2e_smoke.py::test_next_previous_navigation
     """
-    # Give extra time for any previous test state to settle
-    time.sleep(0.2)
-
-    # Ensure playback is stopped before starting
-    api_client.send('stop')
-    time.sleep(0.1)
-
     # Add multiple tracks and play
     api_client.send('add_to_queue', files=test_music_files[:3])
     api_client.send('play')
-    time.sleep(TEST_TIMEOUT * 2)  # Give extra time for playback to start properly
 
-    # Get first track and verify queue state
-    initial_status = api_client.send('get_status')
-    initial_track = initial_status['data'].get('current_track', {}).get('filepath')
-    initial_queue = api_client.send('get_queue')
+    # Wait for playback to stabilize - give extra time in full test suite context
+    time.sleep(TEST_TIMEOUT * 3)  # Increased to 3x for more stability
+
+    # Get first track and verify queue state - with retry to ensure stable state
+    initial_track = None
+    initial_queue = None
+    for _ in range(3):
+        initial_status = api_client.send('get_status')
+        initial_track = initial_status['data'].get('current_track', {}).get('filepath')
+        initial_queue = api_client.send('get_queue')
+
+        # Verify we're in a stable state
+        if (initial_track and
+            initial_track == test_music_files[0] and
+            initial_queue['count'] >= 3 and
+            initial_status['data'].get('is_playing', False) and
+            not initial_status['data'].get('repeat_one', False)):
+            break
+        time.sleep(0.5)
 
     # Ensure we have enough tracks, playback is active, and no repeat-one is active
     assert initial_queue['count'] >= 3, f"Queue should have 3+ tracks, has {initial_queue['count']}"
     assert initial_status['data'].get('is_playing', False) is True, "Player should be playing"
     assert initial_status['data'].get('repeat_one', False) is False, "Repeat-one should be off"
-    assert initial_track is not None, "Should have a current track"
+    assert initial_track == test_music_files[0], f"Should be on first track, got {initial_track}"
 
     # Next track - use longer timeout and retry logic for timing variability
-    api_client.send('next')
+    next_response = api_client.send('next')
     time.sleep(TEST_TIMEOUT)  # Initial wait
 
     # Retry up to 5 times with increasing delays if track hasn't changed yet
@@ -85,6 +98,17 @@ def test_next_previous_navigation(api_client, test_music_files, clean_queue):
     for attempt in range(5):
         next_status = api_client.send('get_status')
         next_track = next_status['data'].get('current_track', {}).get('filepath')
+        queue_status = api_client.send('get_queue')
+
+        # Debug info on last attempt
+        if attempt == 4 and next_track == initial_track:
+            # Get full state for debugging
+            print(f"\nDEBUG: Next command response: {next_response}")
+            print(f"DEBUG: Queue count: {queue_status['count']}")
+            print(f"DEBUG: Is playing: {next_status['data'].get('is_playing')}")
+            print(f"DEBUG: Repeat-one: {next_status['data'].get('repeat_one')}")
+            print(f"DEBUG: Loop enabled: {next_status['data'].get('loop_enabled')}")
+
         if next_track != initial_track:
             break
         time.sleep(0.3 * (attempt + 1))  # Progressive backoff: 0.3s, 0.6s, 0.9s, 1.2s, 1.5s
