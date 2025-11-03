@@ -148,8 +148,8 @@ uv run ruff check --fix --respect-gitignore
 uv run ruff format --respect-gitignore
 
 # Test execution tiers - run different tests based on workflow stage
-uv run pytest tests/test_unit_*.py tests/test_props_*.py                      # TDD: unit+property only (~8s)
-uv run pytest tests/test_unit_*.py tests/test_props_*.py tests/test_e2e_smoke.py  # Pre-commit: +smoke (~15s)
+uv run pytest tests/test_unit_*.py tests/test_props_*.py                      # TDD: unit+property only (~18s)
+uv run pytest tests/test_unit_*.py tests/test_props_*.py tests/test_e2e_smoke.py  # Pre-commit: +smoke (~20s)
 uv run pytest tests/ -m "not slow and not flaky_in_suite"                    # Pre-PR: fast suite (~22s)
 uv run pytest tests/                                                          # CI/pre-push: everything (~60s)
 
