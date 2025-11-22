@@ -8,7 +8,7 @@ flask==3.1.0
     # via mt (pyproject.toml)
 itsdangerous==2.2.0
     # via flask
-jinja2==3.1.5
+jinja2==3.1.6
     # via flask
 markupsafe==3.0.2
     # via
