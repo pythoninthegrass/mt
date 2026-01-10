@@ -385,6 +385,8 @@ class MusicPlayer:
                 'on_remove_from_library': self.remove_tracks_from_library,
                 'stop_after_current': self.toggle_stop_after_current,
                 'edit_metadata': self.edit_track_metadata,
+                'get_playlists': self.get_playlists,
+                'add_to_playlist': self.add_to_playlist,
             },
         )
 
@@ -396,6 +398,8 @@ class MusicPlayer:
                 'on_queue_empty': self.on_queue_empty,
                 'on_remove_from_library': self.remove_track_from_library,
                 'on_play_track': self.play_track_at_index,
+                'get_playlists': self.get_playlists,
+                'add_track_to_playlist': self.add_track_to_playlist,
             },
             queue_manager=self.queue_manager,
             loop_enabled=True,  # Default to True; will be updated after player_core init
@@ -513,6 +517,89 @@ class MusicPlayer:
         if current_view == f"playlist:{playlist_id}":
             # Switch to Music view
             self.load_library()
+
+    def get_playlists(self) -> list[tuple[int, str]]:
+        """Get list of all custom playlists.
+
+        Returns:
+            List of (playlist_id, name) tuples
+        """
+        return self.db.list_playlists()
+
+    def add_to_playlist(self, playlist_id: int, item_ids: list[str]):
+        """Add selected tracks to a playlist.
+
+        Args:
+            playlist_id: Database ID of the playlist
+            item_ids: List of tree item IDs (need to resolve to track IDs)
+        """
+        from tkinter import messagebox
+
+        # Get track IDs from item IDs
+        track_ids = []
+        for item_id in item_ids:
+            # Get filepath from the item mapping
+            filepath = self.library_handler._item_filepath_map.get(item_id)
+            if filepath:
+                # Resolve filepath to track_id
+                track_id = self.db.get_track_id_by_filepath(filepath)
+                if track_id:
+                    track_ids.append(track_id)
+
+        if not track_ids:
+            messagebox.showwarning("No Tracks", "No valid tracks selected.")
+            return
+
+        # Add tracks to playlist
+        try:
+            added_count = self.db.add_tracks_to_playlist(playlist_id, track_ids)
+            playlist_name = self.db.get_playlist_name(playlist_id)
+
+            if added_count > 0:
+                messagebox.showinfo(
+                    "Added to Playlist",
+                    f"Added {added_count} track(s) to '{playlist_name}'."
+                )
+            else:
+                messagebox.showinfo(
+                    "Already in Playlist",
+                    f"All selected tracks are already in '{playlist_name}'."
+                )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to add tracks to playlist: {e}")
+
+    def add_track_to_playlist(self, playlist_id: int, filepath: str):
+        """Add a single track to a playlist (from Now Playing view).
+
+        Args:
+            playlist_id: Database ID of the playlist
+            filepath: File path of the track to add
+        """
+        from tkinter import messagebox
+
+        # Resolve filepath to track_id
+        track_id = self.db.get_track_id_by_filepath(filepath)
+        if not track_id:
+            messagebox.showwarning("Track Not Found", "Could not find track in library.")
+            return
+
+        # Add track to playlist
+        try:
+            added_count = self.db.add_tracks_to_playlist(playlist_id, [track_id])
+            playlist_name = self.db.get_playlist_name(playlist_id)
+
+            if added_count > 0:
+                messagebox.showinfo(
+                    "Added to Playlist",
+                    f"Added track to '{playlist_name}'."
+                )
+            else:
+                messagebox.showinfo(
+                    "Already in Playlist",
+                    f"Track is already in '{playlist_name}'."
+                )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to add track to playlist: {e}")
 
     def add_files_to_library(self):
         """Open file dialog and add selected files to library."""

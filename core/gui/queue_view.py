@@ -145,6 +145,23 @@ class QueueView:
         self.context_menu.add_command(label="Add to Queue", command=self.on_context_add_to_queue)
         self.context_menu.add_command(label="Stop After Current", command=self.on_context_stop_after_current)
         self.context_menu.add_separator()
+
+        # Create "Add to playlist" submenu
+        self.add_to_playlist_menu = tk.Menu(
+            self.context_menu,
+            tearoff=0,
+            bg=THEME_CONFIG['colors']['bg'],
+            fg=THEME_CONFIG['colors']['fg'],
+            activebackground=THEME_CONFIG['colors']['primary'],
+            activeforeground="#ffffff",
+            selectcolor=THEME_CONFIG['colors']['primary'],
+            borderwidth=1,
+            relief="flat",
+            activeborderwidth=0
+        )
+        self.context_menu.add_cascade(label="Add to playlist", menu=self.add_to_playlist_menu)
+
+        self.context_menu.add_separator()
         self.context_menu.add_command(label="Edit Tag", command=self.on_context_edit_metadata)
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Remove from Library", command=self.on_context_remove_from_library)
@@ -166,10 +183,50 @@ class QueueView:
 
         # Show menu if there's a selection
         if self.queue.selection():
+            # Refresh playlist submenu
+            self._refresh_playlist_submenu()
+
             try:
                 self.context_menu.tk_popup(event.x_root, event.y_root)
             finally:
                 self.context_menu.grab_release()
+
+    def _refresh_playlist_submenu(self):
+        """Refresh the 'Add to playlist' submenu with current playlists."""
+        # Clear existing items
+        self.add_to_playlist_menu.delete(0, 'end')
+
+        # Get playlists from database via callback
+        if 'get_playlists' in self.callbacks:
+            playlists = self.callbacks['get_playlists']()
+            if playlists:
+                for playlist_id, name in playlists:
+                    self.add_to_playlist_menu.add_command(
+                        label=name,
+                        command=lambda pid=playlist_id: self.on_add_to_playlist(pid)
+                    )
+            else:
+                # No playlists yet
+                self.add_to_playlist_menu.add_command(
+                    label="(No playlists)",
+                    state='disabled'
+                )
+        else:
+            self.add_to_playlist_menu.add_command(
+                label="(Not available)",
+                state='disabled'
+            )
+
+    def on_add_to_playlist(self, playlist_id: int):
+        """Handle 'Add to playlist' action.
+
+        Args:
+            playlist_id: Database ID of the playlist to add tracks to
+        """
+        if 'add_to_playlist' in self.callbacks:
+            tracks = self.get_selected_tracks()
+            if tracks:
+                self.callbacks['add_to_playlist'](playlist_id, tracks)
 
     def get_selected_tracks(self) -> list[str]:
         """Get filepaths of selected items.
