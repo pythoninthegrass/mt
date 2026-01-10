@@ -4,7 +4,7 @@ title: Implement playlist functionality
 status: In Progress
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2026-01-10 21:19'
+updated_date: '2026-01-10 22:15'
 labels: []
 dependencies: []
 ordinal: 2000
@@ -20,7 +20,7 @@ Add custom playlist management with create, rename, delete, add/remove tracks, d
 <!-- AC:BEGIN -->
 - [x] #1 Create playlist data structures and storage (playlists + playlist_items tables, PlaylistsManager, FK cascades)
 - [x] #2 Add playlist UI components (sidebar restructure with nav tree + divider + pill button + playlists tree, inline rename, context menus, drag-drop to sidebar, reorder within playlist)
-- [ ] #3 Test playlist functionality and persistence (DB tests for CRUD/ordering/cascades, handler tests for playlist-specific delete behavior, identifier standardization tests)
+- [x] #3 Test playlist functionality and persistence (DB tests for CRUD/ordering/cascades, handler tests for playlist-specific delete behavior, identifier standardization tests)
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -322,4 +322,66 @@ Next phases:
 - Phase 5: Drag & Drop (sidebar and internal reorder)
 - Phase 6: Delete Behavior (handle_delete for playlist view)
 - Phase 7: Tests (handler tests, identifier tests)
+
+## Post-Implementation Improvements Needed (2026-01-10)
+
+After testing the completed implementation, two UX issues were identified:
+
+### 1. No Visual Feedback During Drag-to-Playlist
+**Current behavior**: When dragging tracks to sidebar playlists, there's no visual indication that the drop target is valid. Users must:
+1. Click and hold track(s)
+2. Drag to playlist name (no hover highlight)
+3. Drop blindly
+4. Check popup message to confirm
+5. Navigate to playlist to verify
+
+**Desired behavior**: Add visual feedback during drag operation:
+- Highlight playlist row when hovering with dragged tracks
+- Change cursor to indicate valid drop target
+- Possible implementations:
+  - Background color change on hover (e.g., primary color highlight)
+  - Border/outline around playlist name
+  - Cursor change (e.g., copy cursor with +)
+
+**Implementation approach**:
+- Track drag state in QueueView (`_drag_data['dragging']`)
+- During drag motion, use `winfo_containing()` to check if cursor is over playlists_tree
+- If over custom playlist, highlight that row via tag_configure or direct item configuration
+- Clear highlight on drag end or when leaving playlist bounds
+
+### 2. Playlist View Column Sizing and Track Numbers
+**Current behavior**: 
+- Playlist views use default column widths, ignoring user's music library customizations
+- Track number column shows album track numbers (meaningless in playlist context)
+
+**Desired behavior**:
+- **Column widths**: Inherit from music library view when loading playlist
+  - User's column width preferences in Music view should apply to playlist views
+  - Preserves user's workflow/layout preferences
+- **Track numbers**: Show playlist position (1, 2, 3...) instead of album track numbers
+  - Makes sense in playlist context (reorderable list)
+  - Clear visual indicator of playlist order
+
+**Implementation approach**:
+- Modify `load_custom_playlist()` in `core/player/library.py`:
+  - Load column widths from Music view preferences before populating
+  - Apply those widths to playlist view
+  - Replace track_num with enumerate index (1-based) when populating tree
+- Database consideration: Playlist items already have `position` field for reordering
+  - Use position for display, or use enumerate for simpler 1-based numbering
+
+### Files to Modify
+**For drag feedback**:
+- `core/gui/queue_view.py`: Add hover detection in `on_drag_motion()`
+- `core/gui/library_search.py`: Add `highlight_playlist()` and `clear_highlight()` methods
+- `core/player/__init__.py`: Wire up highlight callbacks
+
+**For column sizing & track numbers**:
+- `core/player/library.py`: Update `load_custom_playlist()` to:
+  - Load music view column widths
+  - Apply to playlist columns
+  - Use enumerate for track numbers instead of album track_num
+
+### Priority
+Medium - UX improvements that make the feature more discoverable and intuitive, but functionality is complete.
 <!-- SECTION:NOTES:END -->
