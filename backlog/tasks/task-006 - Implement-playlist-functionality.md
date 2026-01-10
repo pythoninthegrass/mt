@@ -4,7 +4,7 @@ title: Implement playlist functionality
 status: In Progress
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2026-01-10 09:30'
+updated_date: '2026-01-10 21:19'
 labels: []
 dependencies: []
 ordinal: 2000
@@ -224,4 +224,102 @@ Note: Phase 2 (Sidebar UI) was partially completed earlier but needs additional 
 - ❌ Button functionality (create playlist + inline rename) - TODO
 - ❌ Context menus (rename/delete) - TODO
 - ❌ Drag-drop support - TODO
+
+## Phase 2: Playlist UI Functionality Complete (2026-01-10)
+
+### LibraryView Enhancements (core/gui/library_search.py)
+**Playlist Loading**:
+- Load custom playlists from database on startup via `_load_custom_playlists()`
+- Map tree item IDs to playlist IDs in `_playlist_items` dict
+- Add 'dynamic' and 'custom' tags for playlist type identification
+
+**Playlist Creation**:
+- "+ New playlist" button now fully functional
+- Generates unique name via `db.generate_unique_name()`
+- Creates playlist in database immediately
+- Inserts into tree after dynamic playlists (before filler items)
+- Automatically enters inline rename mode
+
+**Inline Rename Mode**:
+- Entry overlay positioned via `tree.bbox()` for pixel-perfect placement
+- Pre-fills with generated unique name, selects all text
+- Commit on Enter or FocusOut
+- Cancel on Escape (keeps playlist with generated name)
+- Validates empty names and duplicate names
+- Shows error message for duplicates, keeps editor open for correction
+- Dark themed Entry widget (#2B2B2B bg, #FFFFFF fg)
+
+**Context Menus**:
+- Right-click on custom playlists shows Rename/Delete menu
+- Dynamic playlists ignore right-click (no menu)
+- Filler items ignore right-click
+- Rename: Re-enters inline rename mode with current name
+- Delete: Confirmation dialog + cascade cleanup from database
+- If deleted playlist is active, switches to Music view
+
+**Playlist Selection**:
+- Custom playlists call `load_custom_playlist(playlist_id)` callback
+- Dynamic playlists use existing `on_section_select` routing
+- Clear opposite tree selection for UX consistency
+
+### MusicPlayer Integration (core/player/__init__.py)
+**New Callbacks**:
+- `get_database`: Lambda returning `self.db` for LibraryView database access
+- `load_custom_playlist`: Delegates to `library_handler.load_custom_playlist()`
+- `on_playlist_deleted`: Switches to Music view if deleted playlist was active
+
+**Methods Added**:
+- `load_custom_playlist(playlist_id)`: Delegation to library handler
+- `on_playlist_deleted(playlist_id)`: Active view detection and fallback
+
+### PlayerLibraryManager (core/player/library.py)
+**New Method: `load_custom_playlist(playlist_id)`**:
+- Resets to standard 5-column layout
+- Clears view and both mapping dicts (`_item_filepath_map`, `_item_track_id_map`)
+- Sets view identifier to `playlist:<id>`
+- Fetches playlist items: `(filepath, artist, title, album, track_number, date, track_id)`
+- Populates tree with formatted track numbers and metadata
+- Maps both filepath and track_id for each item (enables delete and add operations)
+- Structured logging with playlist_id and playlist_name
+- Status bar update with playlist name and track count
+
+**Mapping Enhancement**:
+- Added `_item_track_id_map` dict to track library IDs for playlist operations
+- Critical for Phase 6 (delete from playlist only, not library)
+- Critical for Phase 4 (add to playlist from selection)
+
+### Features Implemented
+✅ Create playlist with auto-unique naming ("New playlist", "New playlist (2)", etc.)
+✅ Inline rename with Entry overlay and validation
+✅ Delete playlist with confirmation and cascade cleanup
+✅ Load and display custom playlists
+✅ Context menus (Rename/Delete) on custom playlists only
+✅ Playlist selection routing (custom vs dynamic)
+✅ Database integration via callbacks
+✅ Active playlist deletion handling (fallback to Music view)
+✅ Structured logging for all playlist operations
+
+### Technical Improvements
+- Import `sqlite3` for IntegrityError handling
+- Import `messagebox` for user dialogs
+- Added `_rename_entry`, `_rename_item`, `_playlist_items` instance variables
+- Right-click bindings for both macOS (Button-2) and Linux/Windows (Button-3)
+- Proper cleanup of Entry widget on commit/cancel
+
+### Commits
+- 6f60468: feat: complete Phase 2 playlist UI functionality (task-006)
+
+### Status
+Phase 2 complete! Custom playlists can now be:
+- Created with auto-unique names
+- Renamed inline with validation
+- Deleted with confirmation
+- Loaded and displayed
+
+Next phases:
+- Phase 3: Custom selection already working! (loads via `load_custom_playlist`)
+- Phase 4: Add to Playlist (context menu integration)
+- Phase 5: Drag & Drop (sidebar and internal reorder)
+- Phase 6: Delete Behavior (handle_delete for playlist view)
+- Phase 7: Tests (handler tests, identifier tests)
 <!-- SECTION:NOTES:END -->
