@@ -1,8 +1,9 @@
 import contextlib
 import customtkinter as ctk
+import sqlite3
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 
 class LibraryView:
@@ -28,6 +29,9 @@ class LibraryView:
         self.parent = parent
         self.callbacks = callbacks
         self._filler_items = []  # Track filler item IDs for playlists tree
+        self._rename_entry = None  # Track active rename Entry widget
+        self._rename_item = None  # Track item being renamed
+        self._playlist_items = {}  # Map tree item IDs to playlist IDs
         self.setup_library_view()
 
     def setup_library_view(self):
@@ -78,13 +82,18 @@ class LibraryView:
         self.playlists_tree.tag_configure('sidebar_item', background=sidebar_bg)
 
         # Add dynamic playlists
-        self.playlists_tree.insert('', 'end', text='Liked Songs', tags=('liked_songs', 'sidebar_item'))
-        self.playlists_tree.insert('', 'end', text='Recently Added', tags=('recently_added', 'sidebar_item'))
-        self.playlists_tree.insert('', 'end', text='Recently Played', tags=('recently_played', 'sidebar_item'))
-        self.playlists_tree.insert('', 'end', text='Top 25 Most Played', tags=('top_played', 'sidebar_item'))
+        self.playlists_tree.insert('', 'end', text='Liked Songs', tags=('liked_songs', 'dynamic', 'sidebar_item'))
+        self.playlists_tree.insert('', 'end', text='Recently Added', tags=('recently_added', 'dynamic', 'sidebar_item'))
+        self.playlists_tree.insert('', 'end', text='Recently Played', tags=('recently_played', 'dynamic', 'sidebar_item'))
+        self.playlists_tree.insert('', 'end', text='Top 25 Most Played', tags=('top_played', 'dynamic', 'sidebar_item'))
+
+        # Load custom playlists from database
+        self._load_custom_playlists()
 
         self.playlists_tree.pack(expand=True, fill=tk.BOTH, padx=0, pady=0)
         self.playlists_tree.bind('<<TreeviewSelect>>', self._on_playlist_select)
+        self.playlists_tree.bind('<Button-2>', self._show_playlist_context_menu)  # Right-click (macOS)
+        self.playlists_tree.bind('<Button-3>', self._show_playlist_context_menu)  # Right-click (Linux/Windows)
 
         # Bind to Configure event to update filler items when widget is resized
         self.playlists_tree.bind('<Configure>', self._on_tree_configure)
@@ -145,9 +154,217 @@ class LibraryView:
         # Set minimum width (breakpoint) - this is the width the panel should maintain
         self.min_width = total_width + 40
 
+    def _load_custom_playlists(self):
+        """Load custom playlists from database and add to tree."""
+        if 'get_database' not in self.callbacks:
+            return
+
+        db = self.callbacks['get_database']()
+        playlists = db.list_playlists()
+
+        for playlist_id, name in playlists:
+            item_id = self.playlists_tree.insert('', 'end', text=name, tags=('custom', 'sidebar_item'))
+            self._playlist_items[item_id] = playlist_id
+
     def _on_new_playlist(self):
-        """Handle new playlist button click - placeholder for future implementation."""
-        pass
+        """Handle new playlist button click - create playlist and enter rename mode."""
+        if 'get_database' not in self.callbacks:
+            return
+
+        try:
+            db = self.callbacks['get_database']()
+
+            # Generate unique name
+            unique_name = db.generate_unique_name("New playlist")
+
+            # Create playlist in database
+            playlist_id = db.create_playlist(unique_name)
+
+            # Insert into tree after dynamic playlists (before filler items)
+            # Find position: after last non-filler item
+            all_items = self.playlists_tree.get_children()
+            insert_pos = 'end'
+            for i, item in enumerate(all_items):
+                if 'filler' in self.playlists_tree.item(item)['tags']:
+                    insert_pos = i
+                    break
+
+            if insert_pos == 'end':
+                item_id = self.playlists_tree.insert('', 'end', text=unique_name, tags=('custom', 'sidebar_item'))
+            else:
+                item_id = self.playlists_tree.insert('', insert_pos, text=unique_name, tags=('custom', 'sidebar_item'))
+
+            self._playlist_items[item_id] = playlist_id
+
+            # Update filler items
+            self._update_filler_items()
+
+            # Enter inline rename mode
+            self._start_inline_rename(item_id, playlist_id, unique_name)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to create playlist: {e}")
+
+    def _start_inline_rename(self, item_id, playlist_id, current_name):
+        """Start inline rename mode for a playlist item.
+
+        Args:
+            item_id: Tree item ID
+            playlist_id: Database playlist ID
+            current_name: Current playlist name
+        """
+        # Get item bbox for positioning
+        try:
+            bbox = self.playlists_tree.bbox(item_id)
+            if not bbox:
+                # Item not visible, scroll to it first
+                self.playlists_tree.see(item_id)
+                self.playlists_tree.update()
+                bbox = self.playlists_tree.bbox(item_id)
+                if not bbox:
+                    return
+        except tk.TclError:
+            return
+
+        x, y, width, height = bbox
+
+        # Create Entry overlay
+        self._rename_entry = tk.Entry(
+            self.playlists_tree,
+            font=('TkDefaultFont', 12),
+            bg='#2B2B2B',
+            fg='#FFFFFF',
+            insertbackground='#FFFFFF',
+            relief='solid',
+            borderwidth=1,
+        )
+        self._rename_entry.place(x=x, y=y, width=width, height=height)
+        self._rename_entry.insert(0, current_name)
+        self._rename_entry.select_range(0, tk.END)
+        self._rename_entry.focus_set()
+
+        self._rename_item = (item_id, playlist_id, current_name)
+
+        # Bind events
+        self._rename_entry.bind('<Return>', self._commit_rename)
+        self._rename_entry.bind('<Escape>', self._cancel_rename)
+        self._rename_entry.bind('<FocusOut>', self._commit_rename)
+
+    def _commit_rename(self, event=None):
+        """Commit the inline rename."""
+        if not self._rename_entry or not self._rename_item:
+            return
+
+        item_id, playlist_id, old_name = self._rename_item
+        new_name = self._rename_entry.get().strip()
+
+        # Validate name
+        if not new_name:
+            messagebox.showerror("Error", "Playlist name cannot be empty.")
+            self._rename_entry.focus_set()
+            return
+
+        if new_name == old_name:
+            # No change, just close
+            self._close_rename_entry()
+            return
+
+        # Try to rename in database
+        try:
+            db = self.callbacks['get_database']()
+            db.rename_playlist(playlist_id, new_name)
+
+            # Update tree item text
+            self.playlists_tree.item(item_id, text=new_name)
+
+            # Close rename entry
+            self._close_rename_entry()
+
+        except sqlite3.IntegrityError:
+            # Duplicate name
+            messagebox.showerror("Error", f"A playlist named '{new_name}' already exists.")
+            self._rename_entry.focus_set()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to rename playlist: {e}")
+            self._close_rename_entry()
+
+    def _cancel_rename(self, event=None):
+        """Cancel the inline rename."""
+        self._close_rename_entry()
+
+    def _close_rename_entry(self):
+        """Close and cleanup the rename Entry widget."""
+        if self._rename_entry:
+            self._rename_entry.destroy()
+            self._rename_entry = None
+        self._rename_item = None
+
+    def _show_playlist_context_menu(self, event):
+        """Show context menu for playlist items (rename/delete)."""
+        # Identify which item was clicked
+        item = self.playlists_tree.identify_row(event.y)
+        if not item:
+            return
+
+        tags = self.playlists_tree.item(item)['tags']
+
+        # Only show menu for custom playlists
+        if 'custom' not in tags or 'filler' in tags:
+            return
+
+        playlist_id = self._playlist_items.get(item)
+        if not playlist_id:
+            return
+
+        # Get current name
+        current_name = self.playlists_tree.item(item)['text']
+
+        # Create context menu
+        menu = tk.Menu(self.playlists_tree, tearoff=0)
+        menu.add_command(
+            label="Rename",
+            command=lambda: self._start_inline_rename(item, playlist_id, current_name)
+        )
+        menu.add_command(
+            label="Delete",
+            command=lambda: self._delete_playlist(item, playlist_id, current_name)
+        )
+
+        # Show menu
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def _delete_playlist(self, item_id, playlist_id, name):
+        """Delete a custom playlist.
+
+        Args:
+            item_id: Tree item ID
+            playlist_id: Database playlist ID
+            name: Playlist name
+        """
+        # Confirm deletion
+        if not messagebox.askyesno(
+            "Delete Playlist",
+            f"Are you sure you want to delete the playlist '{name}'?\n\nThis action cannot be undone."
+        ):
+            return
+
+        try:
+            db = self.callbacks['get_database']()
+            db.delete_playlist(playlist_id)
+
+            # Remove from tree
+            self.playlists_tree.delete(item_id)
+            del self._playlist_items[item_id]
+
+            # Update filler items
+            self._update_filler_items()
+
+            # If this playlist was active, switch to Music view
+            if self.callbacks.get('on_playlist_deleted'):
+                self.callbacks['on_playlist_deleted'](playlist_id)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete playlist: {e}")
 
     def _on_nav_select(self, event):
         """Handle navigation tree selection (Library, Music, Now Playing)."""
@@ -194,6 +411,15 @@ class LibraryView:
         with contextlib.suppress(Exception):
             self.nav_tree.selection_remove(self.nav_tree.selection())
 
+        # Check if this is a custom playlist
+        if 'custom' in tags:
+            # Load custom playlist
+            playlist_id = self._playlist_items.get(item)
+            if playlist_id and 'load_custom_playlist' in self.callbacks:
+                self.callbacks['load_custom_playlist'](playlist_id)
+            return
+
+        # Dynamic playlist - use existing routing
         # Temporarily set library_tree to playlists_tree so callback sees correct items
         old_library_tree = self.library_tree
         self.library_tree = self.playlists_tree

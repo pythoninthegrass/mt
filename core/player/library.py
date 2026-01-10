@@ -37,6 +37,7 @@ class PlayerLibraryManager:
         self.now_playing_view = now_playing_view
         self.refresh_colors = refresh_colors_callback
         self._item_filepath_map = {}
+        self._item_track_id_map = {}  # Maps tree item IDs to library track IDs for playlist operations
         self.active_view = 'library'
 
     def load_library(self):
@@ -259,6 +260,62 @@ class PlayerLibraryManager:
                 trigger_source="gui",
                 loaded_items=len(rows),
                 description=f"Loaded {len(rows)} recently played tracks (last 14 days)"
+            )
+
+    def load_custom_playlist(self, playlist_id: int):
+        """Load and display a custom user-created playlist.
+
+        Args:
+            playlist_id: Database ID of the playlist
+        """
+        with start_action(player_logger, "load_custom_playlist", playlist_id=playlist_id):
+            # Reset to standard 5-column layout
+            self._reset_to_standard_columns()
+
+            # Clear current view and mappings
+            for item in self.queue_view.queue.get_children():
+                self.queue_view.queue.delete(item)
+            self._item_filepath_map.clear()
+            self._item_track_id_map.clear()
+
+            # Set current view
+            self.queue_view.set_current_view(f"playlist:{playlist_id}")
+
+            # Fetch playlist items
+            rows = self.db.get_playlist_items(playlist_id)
+            if not rows:
+                playlist_name = self.db.get_playlist_name(playlist_id)
+                log_player_action(
+                    "load_custom_playlist_empty",
+                    trigger_source="gui",
+                    playlist_id=playlist_id,
+                    playlist_name=playlist_name or "Unknown",
+                    description="Playlist is empty"
+                )
+                return
+
+            # Populate rows: (filepath, artist, title, album, track_number, date, track_id)
+            for i, (filepath, artist, title, album, track_num, date, track_id) in enumerate(rows):
+                formatted_track = self._format_track_number(track_num)
+                year = self._extract_year(date)
+                row_tag = 'evenrow' if i % 2 == 0 else 'oddrow'
+                item_id = self.queue_view.queue.insert(
+                    '', 'end', values=(formatted_track, title or '', artist or '', album or '', year or ''), tags=(row_tag,)
+                )
+                self._item_filepath_map[item_id] = filepath
+                self._item_track_id_map[item_id] = track_id
+
+            self.refresh_colors()
+
+            # Get playlist name for status
+            playlist_name = self.db.get_playlist_name(playlist_id)
+            log_player_action(
+                "load_custom_playlist_complete",
+                trigger_source="gui",
+                playlist_id=playlist_id,
+                playlist_name=playlist_name or "Unknown",
+                count=len(rows),
+                description=f"Loaded {len(rows)} tracks from custom playlist '{playlist_name}'"
             )
 
     def _populate_queue_view(self, rows):

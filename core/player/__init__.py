@@ -365,6 +365,9 @@ class MusicPlayer:
             self.left_panel,
             {
                 'on_section_select': self.on_section_select,
+                'get_database': lambda: self.db,
+                'load_custom_playlist': self.load_custom_playlist,
+                'on_playlist_deleted': self.on_playlist_deleted,
             },
         )
 
@@ -490,6 +493,26 @@ class MusicPlayer:
     def load_recently_played(self):
         """Load and display recently played tracks."""
         self.library_handler.load_recently_played()
+
+    def load_custom_playlist(self, playlist_id: int):
+        """Load a custom user-created playlist.
+
+        Args:
+            playlist_id: Database ID of the playlist to load
+        """
+        self.library_handler.load_custom_playlist(playlist_id)
+
+    def on_playlist_deleted(self, playlist_id: int):
+        """Handle deletion of a custom playlist.
+
+        Args:
+            playlist_id: Database ID of the deleted playlist
+        """
+        # Check if the deleted playlist is currently active
+        current_view = self.queue_view.current_view
+        if current_view == f"playlist:{playlist_id}":
+            # Switch to Music view
+            self.load_library()
 
     def add_files_to_library(self):
         """Open file dialog and add selected files to library."""
