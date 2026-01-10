@@ -6,44 +6,121 @@ from tkinter import ttk
 
 
 class LibraryView:
+    """YouTube Music-inspired sidebar with navigation, divider, button, and playlists.
+
+    Layout:
+    ┌─────────────────────────┐
+    │  Navigation Tree        │  ← Library / Music / Now Playing (fixed height)
+    ├─────────────────────────┤
+    │  ─────────────────────  │  ← Horizontal divider
+    ├─────────────────────────┤
+    │  [+ New playlist]       │  ← CTkButton (pill-shaped)
+    ├─────────────────────────┤
+    │  Playlists Tree         │  ← Dynamic + custom playlists (expandable)
+    │  - Liked Songs          │
+    │  - Recently Added       │
+    │  - Recently Played      │
+    │  - Top 25 Most Played   │
+    └─────────────────────────┘
+    """
+
     def __init__(self, parent, callbacks):
         self.parent = parent
         self.callbacks = callbacks
+        self._filler_items = []  # Track filler item IDs for playlists tree
         self.setup_library_view()
 
     def setup_library_view(self):
-        # Create treeview for library/playlists
-        self.library_tree = ttk.Treeview(self.parent, show='tree', selectmode='browse')
-        self.library_tree.pack(expand=True, fill=tk.BOTH)
+        from config import THEME_CONFIG
 
-        # Library section
-        library_id = self.library_tree.insert('', 'end', text='Library', open=True)
-        music_item = self.library_tree.insert(library_id, 'end', text='Music', tags=('music',))
-        self.library_tree.insert(library_id, 'end', text='Now Playing', tags=('now_playing',))
+        sidebar_bg = THEME_CONFIG['colors']['bg']  # #202020
+        border_color = THEME_CONFIG['colors']['border']
+        primary_color = THEME_CONFIG['colors']['primary']
 
-        # Playlists section
-        playlists_id = self.library_tree.insert('', 'end', text='Playlists', open=True)
-        self.library_tree.insert(playlists_id, 'end', text='Liked Songs', tags=('liked_songs',))
-        self.library_tree.insert(playlists_id, 'end', text='Recently Added', tags=('recent_added',))
-        self.library_tree.insert(playlists_id, 'end', text='Recently Played', tags=('recent_played',))
-        self.library_tree.insert(playlists_id, 'end', text='Top 25 Most Played', tags=('top_played',))
+        # Container frame with dark background
+        self.container = tk.Frame(self.parent, bg=sidebar_bg)
+        self.container.pack(expand=True, fill=tk.BOTH)
+
+        # 1. Navigation tree (top section - Library, Music, Now Playing)
+        self.nav_tree = ttk.Treeview(self.container, show='tree', selectmode='browse', height=3)
+        self.nav_tree.tag_configure('sidebar_item', background=sidebar_bg)
+
+        library_id = self.nav_tree.insert('', 'end', text='Library', open=True, tags=('sidebar_item',))
+        music_item = self.nav_tree.insert(library_id, 'end', text='Music', tags=('music', 'sidebar_item'))
+        self.nav_tree.insert(library_id, 'end', text='Now Playing', tags=('now_playing', 'sidebar_item'))
+
+        self.nav_tree.pack(fill=tk.X, padx=0, pady=(0, 120))  # Increased bottom padding for visual gap
+        self.nav_tree.bind('<<TreeviewSelect>>', self._on_nav_select)
+
+        # 2. Horizontal divider
+        self.divider = ttk.Separator(self.container, orient='horizontal')
+        self.divider.pack(fill=tk.X, padx=10, pady=10)
+
+        # 3. "+ New playlist" button
+        self.new_playlist_btn = ctk.CTkButton(
+            self.container,
+            text="+ New playlist",
+            command=self._on_new_playlist,
+            corner_radius=15,
+            height=28,
+            font=("SF Pro Display", 12),
+            fg_color=border_color,
+            hover_color=primary_color,
+            text_color="#ffffff",
+            border_width=1,
+            border_color=border_color,
+            bg_color=sidebar_bg,
+        )
+        self.new_playlist_btn.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        # 4. Playlists tree (dynamic playlists only for now)
+        self.playlists_tree = ttk.Treeview(self.container, show='tree', selectmode='browse')
+        self.playlists_tree.tag_configure('sidebar_item', background=sidebar_bg)
+
+        # Add dynamic playlists
+        self.playlists_tree.insert('', 'end', text='Liked Songs', tags=('liked_songs', 'sidebar_item'))
+        self.playlists_tree.insert('', 'end', text='Recently Added', tags=('recent_added', 'sidebar_item'))
+        self.playlists_tree.insert('', 'end', text='Recently Played', tags=('recent_played', 'sidebar_item'))
+        self.playlists_tree.insert('', 'end', text='Top 25 Most Played', tags=('top_played', 'sidebar_item'))
+
+        self.playlists_tree.pack(expand=True, fill=tk.BOTH, padx=0, pady=0)
+        self.playlists_tree.bind('<<TreeviewSelect>>', self._on_playlist_select)
+
+        # Bind to Configure event to update filler items when widget is resized
+        self.playlists_tree.bind('<Configure>', self._on_tree_configure)
+
+        # Schedule initial filler update after widget is fully initialized
+        self.parent.after(100, self._update_filler_items)
 
         # Select Music by default
-        self.library_tree.selection_set(music_item)
-        self.library_tree.see(music_item)
-        # Trigger the selection event to load the library
-        self.library_tree.event_generate('<<TreeviewSelect>>')
+        self.nav_tree.selection_set(music_item)
+        self.nav_tree.see(music_item)
 
         # Calculate optimal width based on content
+        self._calculate_min_width()
+
+        # Configure the parent frame with minimum width
+        self.parent.configure(width=self.min_width)
+        self.parent.pack_propagate(False)
+
+        # Store reference for resize handling
+        self._parent_frame = self.parent
+
+        # For backwards compatibility - expose library_tree
+        # Will be swapped between nav_tree and playlists_tree in selection handlers
+        self.library_tree = self.nav_tree
+
+    def _calculate_min_width(self):
+        """Calculate minimum width based on longest text content."""
         items = [
             'Library',
             'Music',
             'Now Playing',
-            'Playlists',
             'Liked Songs',
             'Recently Added',
             'Recently Played',
             'Top 25 Most Played',
+            '+ New playlist',
         ]
 
         style = ttk.Style()
@@ -68,15 +145,125 @@ class LibraryView:
         # Set minimum width (breakpoint) - this is the width the panel should maintain
         self.min_width = total_width + 40
 
-        # Configure the parent frame with minimum width
-        self.parent.configure(width=self.min_width)
-        self.parent.pack_propagate(False)
+    def _on_new_playlist(self):
+        """Handle new playlist button click - placeholder for future implementation."""
+        pass
 
-        # Store reference for resize handling
-        self._parent_frame = self.parent
+    def _on_nav_select(self, event):
+        """Handle navigation tree selection (Library, Music, Now Playing)."""
+        selection = self.nav_tree.selection()
+        if not selection:
+            return
 
-        # Bind selection event
-        self.library_tree.bind('<<TreeviewSelect>>', self.callbacks['on_section_select'])
+        item = selection[0]
+        tags = self.nav_tree.item(item)['tags']
+
+        # Ignore spacer items
+        if 'spacer' in tags:
+            # Deselect spacer and reselect previous valid item
+            self.nav_tree.selection_remove(item)
+            return
+
+        # Clear playlist selection when nav item is selected
+        with contextlib.suppress(Exception):
+            self.playlists_tree.selection_remove(self.playlists_tree.selection())
+
+        # Temporarily set library_tree to nav_tree so callback sees correct tree
+        old_library_tree = self.library_tree
+        self.library_tree = self.nav_tree
+        try:
+            self.callbacks['on_section_select'](event)
+        finally:
+            self.library_tree = old_library_tree
+
+    def _on_playlist_select(self, event):
+        """Handle playlist tree selection."""
+        selection = self.playlists_tree.selection()
+        if not selection:
+            return
+
+        item = selection[0]
+        tags = self.playlists_tree.item(item)['tags']
+
+        # Ignore filler items
+        if 'filler' in tags:
+            self.playlists_tree.selection_remove(item)
+            return
+
+        # Clear nav selection when playlist is selected
+        with contextlib.suppress(Exception):
+            self.nav_tree.selection_remove(self.nav_tree.selection())
+
+        # Temporarily set library_tree to playlists_tree so callback sees correct items
+        old_library_tree = self.library_tree
+        self.library_tree = self.playlists_tree
+        try:
+            self.callbacks['on_section_select'](event)
+        finally:
+            self.library_tree = old_library_tree
+
+    def _on_tree_configure(self, event=None):
+        """Handle tree resize events to update filler items."""
+        # Cancel any pending update
+        if hasattr(self, '_update_timer'):
+            self.parent.after_cancel(self._update_timer)
+        # Schedule update after a short delay to avoid too many updates during resize
+        self._update_timer = self.parent.after(100, self._update_filler_items)
+
+    def _update_filler_items(self):
+        """Fill empty space below visible items with dummy items to control background color.
+
+        This workaround addresses macOS aqua theme limitation where Treeview fieldbackground
+        cannot be styled. By filling all visible space with tagged items, we ensure the
+        #202020 background color is displayed instead of the default #323232.
+        """
+        from config import THEME_CONFIG
+
+        # Get tree height in pixels
+        try:
+            tree_height = self.playlists_tree.winfo_height()
+        except tk.TclError:
+            # Widget not yet realized, skip update
+            return
+
+        if tree_height <= 1:
+            # Widget not fully initialized yet
+            return
+
+        # Estimate item height (typical row height is ~20px)
+        # We'll use a conservative estimate
+        item_height = 20
+
+        # Calculate how many rows would fill the visible area
+        visible_rows = (tree_height // item_height) + 2  # +2 for safety margin
+
+        # Count real items (non-filler items currently in the tree)
+        all_items = self.playlists_tree.get_children()
+        real_item_count = sum(1 for item in all_items if 'filler' not in self.playlists_tree.item(item)['tags'])
+
+        # Calculate needed filler items
+        # We want enough fillers to fill the visible space
+        needed_fillers = max(0, visible_rows - real_item_count)
+
+        # Remove existing filler items
+        for filler_id in self._filler_items:
+            with contextlib.suppress(tk.TclError):
+                self.playlists_tree.delete(filler_id)
+        self._filler_items.clear()
+
+        # Add new filler items at the end with the correct background color
+        sidebar_bg = THEME_CONFIG['colors']['bg']
+        for _ in range(needed_fillers):
+            # Insert empty items with sidebar_item tag for correct background
+            filler_id = self.playlists_tree.insert('', 'end', text='', tags=('filler', 'sidebar_item'))
+            self._filler_items.append(filler_id)
+
+    def _is_filler_item(self, item_id):
+        """Check if an item is a filler item."""
+        if not item_id:
+            return False
+        tags = self.playlists_tree.item(item_id).get('tags', [])
+        return 'filler' in tags
 
 
 
