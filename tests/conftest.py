@@ -68,21 +68,17 @@ def setup_macos_environment():
 
 @pytest.fixture(scope="session")
 def test_music_files():
-    """Provide paths to test music files from Dropbox directory.
+    """Provide test music files. Set MT_TEST_MUSIC_DIR env var to override default path."""
+    default_music_dir = '/Users/lance/Library/CloudStorage/Dropbox/mt/music'
+    music_dir = config('MT_TEST_MUSIC_DIR', default=default_music_dir)
 
-    Returns:
-        List of paths to MP3/M4A files for testing
-    """
-    music_dir = '/Users/lance/Library/CloudStorage/Dropbox/mt/music'
+    if not os.path.isdir(music_dir):
+        return []
 
-    # Find MP3 and M4A files
     mp3_files = glob.glob(f"{music_dir}/**/*.mp3", recursive=True)
     m4a_files = glob.glob(f"{music_dir}/**/*.m4a", recursive=True)
 
-    all_files = mp3_files + m4a_files
-
-    # Return first 10 files for testing
-    return all_files[:10]
+    return (mp3_files + m4a_files)[:10]
 
 
 @pytest.fixture(scope="session")
@@ -335,6 +331,7 @@ def monitor_resources(request):
 
     try:
         import psutil
+
         process = psutil.Process()
         memory_before = process.memory_info().rss / 1024 / 1024  # MB
         try:
@@ -361,6 +358,7 @@ def monitor_resources(request):
 
     try:
         import psutil
+
         process = psutil.Process()
         memory_after = process.memory_info().rss / 1024 / 1024  # MB
         try:
