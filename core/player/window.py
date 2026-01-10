@@ -2,6 +2,7 @@
 
 from core.logging import controls_logger, log_player_action
 from eliot import start_action
+from time import time
 
 
 class PlayerWindowManager:
@@ -20,7 +21,7 @@ class PlayerWindowManager:
         self.db = db
         self.main_container = main_container
         self.queue_view = queue_view
-        self._startup_time = None
+        self._startup_time: float = time()
         self._window_save_timer = None
 
     def load_window_position(self):
@@ -64,19 +65,8 @@ class PlayerWindowManager:
 
             # Skip saving during the first few seconds after startup to avoid
             # overriding loaded preferences
-            if not hasattr(self, '_startup_time'):
-                from time import time
-
-                self._startup_time = time()
-
-            from time import time
-
             if time() - self._startup_time < 2.0:  # Skip for first 2 seconds
                 return
-
-            # Debounce saves to avoid excessive database writes
-            if not hasattr(self, '_window_save_timer'):
-                self._window_save_timer = None
 
             if self._window_save_timer:
                 self.window.after_cancel(self._window_save_timer)
