@@ -4,7 +4,7 @@ title: Implement playlist functionality
 status: In Progress
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2026-01-10 08:56'
+updated_date: '2026-01-10 09:30'
 labels: []
 dependencies: []
 ordinal: 2000
@@ -18,7 +18,7 @@ Add custom playlist management with create, rename, delete, add/remove tracks, d
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Create playlist data structures and storage (playlists + playlist_items tables, PlaylistsManager, FK cascades)
+- [x] #1 Create playlist data structures and storage (playlists + playlist_items tables, PlaylistsManager, FK cascades)
 - [x] #2 Add playlist UI components (sidebar restructure with nav tree + divider + pill button + playlists tree, inline rename, context menus, drag-drop to sidebar, reorder within playlist)
 - [ ] #3 Test playlist functionality and persistence (DB tests for CRUD/ordering/cascades, handler tests for playlist-specific delete behavior, identifier standardization tests)
 <!-- AC:END -->
@@ -168,4 +168,60 @@ Implementation details:
 - ✅ No #323232 background visible in empty space
 - ✅ Visual spacing between Library and Playlists sections
 - ✅ Dynamic playlists (Liked Songs, etc.) are clickable and functional
+
+## Phase 1: Database Layer Complete (2026-01-10)
+
+### Identifier Standardization
+Fixed `recent_added`/`recent_played` → `recently_added`/`recently_played` throughout codebase:
+- core/gui/library_search.py: Sidebar tags
+- core/player/ui.py: View routing and logging
+
+### Database Schema
+Added two new tables to DB_TABLES (both core/db/__init__.py and core/db.py):
+- `playlists`: Stores custom playlists with unique names
+- `playlist_items`: Stores playlist tracks with position ordering and FK cascades
+
+### Foreign Key Enforcement
+Enabled `PRAGMA foreign_keys = ON` in both:
+- core/db/database.py (current facade)
+- core/db.py (legacy module)
+
+### PlaylistsManager Implementation
+Created core/db/playlists.py with full CRUD and track management:
+- CRUD: create_playlist, list_playlists, get_playlist_name, rename_playlist, delete_playlist
+- Track Management: add_tracks_to_playlist, remove_tracks_from_playlist, reorder_playlist
+- Utilities: get_track_id_by_filepath, generate_unique_name
+- Auto-reindexing of positions after removals
+
+### Database Facade Integration
+Wired PlaylistsManager into core/db/database.py:
+- Instantiated in __init__ as self._playlists
+- Added delegation methods for all PlaylistsManager operations
+- Updated docstring to include PlaylistsManager
+
+### Comprehensive Test Coverage
+Created tests/test_unit_playlists.py with 18 tests (all passing):
+- TestPlaylistCRUD: 7 tests for create, list, get, rename, delete
+- TestPlaylistTrackManagement: 5 tests for add, remove, reorder
+- TestPlaylistCascadeAndConstraints: 1 test for FK cascade
+- TestPlaylistUtilities: 4 tests for track_id lookup and unique name generation
+- TestPlaylistItemMetadata: 1 test for metadata retrieval
+
+### Commits
+- 973cdef: refactor: standardize playlist view identifiers
+- 0b8b52a: feat: add custom playlist database layer (task-006 Phase 1)
+
+### Next Steps
+Phase 1 complete! The database layer is now ready. Next phases:
+- Phase 3: Playlist Loading & Selection (load_custom_playlist, view routing)
+- Phase 4: Add to Playlist (context menu integration)
+- Phase 5: Drag & Drop (sidebar and internal reorder)
+- Phase 6: Delete Behavior (handle_delete for playlist view)
+- Phase 7: Tests (handler tests, identifier tests)
+
+Note: Phase 2 (Sidebar UI) was partially completed earlier but needs additional work:
+- ✅ UI structure (nav tree, divider, button, playlists tree) - DONE
+- ❌ Button functionality (create playlist + inline rename) - TODO
+- ❌ Context menus (rename/delete) - TODO
+- ❌ Drag-drop support - TODO
 <!-- SECTION:NOTES:END -->
