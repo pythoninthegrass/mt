@@ -20,20 +20,17 @@ mt is a desktop music player designed for large music collections, built with Py
 - NEVER use playwright for anything. This is a tkinter desktop app.
 - NEVER create *.backup files. This is a version controlled repo
 
-## MCP Servers
+## Context7
 
-ALWAYS use these MCP servers:
+Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 
-- sequential-thinking: detailed, step-by-step thinking process for problem-solving and analysis.
-- context7: when looking up library context outside the source code
-  - oaubert/python-vlc
-  - quodlibet/mutagen
-  - itamarst/eliot
-  - hypothesisworks/hypothesis
-  - spiraldb/ziggy-pydust
-  - ludo-technologies/pyscn
-  - johnwmillr/lyricsgenius
-- screencap: for screenshots of front-end changes
+- oaubert/python-vlc
+- quodlibet/mutagen
+- itamarst/eliot
+- hypothesisworks/hypothesis
+- spiraldb/ziggy-pydust
+- ludo-technologies/pyscn
+- johnwmillr/lyricsgenius
 
 ## Atomic Commit Workflow
 
