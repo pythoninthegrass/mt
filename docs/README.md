@@ -10,6 +10,7 @@ This directory contains comprehensive documentation for the MT music player proj
 - [**Theming System**](theming.md) - Theme configuration, styling, and visual customization
 - [**VLC Integration**](vlc-integration.md) - Audio playback engine integration and media controls
 - [**API Server**](api.md) - Programmatic control interface for LLMs and automation
+- [**Custom Playlists**](custom-playlists.md) - Implementation plan for user-created playlists
 - [**Current Status**](status.md) - Implementation progress, outstanding tasks, and known issues
 - [**Web Migration Guide**](web-migration.md) - Strategy for porting to FastAPI/Flask web application
 
