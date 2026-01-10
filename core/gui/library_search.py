@@ -79,8 +79,8 @@ class LibraryView:
 
         # Add dynamic playlists
         self.playlists_tree.insert('', 'end', text='Liked Songs', tags=('liked_songs', 'sidebar_item'))
-        self.playlists_tree.insert('', 'end', text='Recently Added', tags=('recent_added', 'sidebar_item'))
-        self.playlists_tree.insert('', 'end', text='Recently Played', tags=('recent_played', 'sidebar_item'))
+        self.playlists_tree.insert('', 'end', text='Recently Added', tags=('recently_added', 'sidebar_item'))
+        self.playlists_tree.insert('', 'end', text='Recently Played', tags=('recently_played', 'sidebar_item'))
         self.playlists_tree.insert('', 'end', text='Top 25 Most Played', tags=('top_played', 'sidebar_item'))
 
         self.playlists_tree.pack(expand=True, fill=tk.BOTH, padx=0, pady=0)

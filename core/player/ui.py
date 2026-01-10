@@ -201,23 +201,23 @@ class PlayerUIManager:
                         loaded_items=new_count,
                         description=f"Loaded {new_count} top played tracks",
                     )
-                elif new_section == 'recent_added':
+                elif new_section == 'recently_added':
                     load_recently_added_callback()
                     new_count = len(self.queue_view.queue.get_children())
                     log_player_action(
                         "section_switch_complete",
                         trigger_source="gui",
-                        section="recent_added",
+                        section="recently_added",
                         loaded_items=new_count,
                         description=f"Loaded {new_count} recently added tracks",
                     )
-                elif new_section == 'recent_played':
+                elif new_section == 'recently_played':
                     load_recently_played_callback()
                     new_count = len(self.queue_view.queue.get_children())
                     log_player_action(
                         "section_switch_complete",
                         trigger_source="gui",
-                        section="recent_played",
+                        section="recently_played",
                         loaded_items=new_count,
                         description=f"Loaded {new_count} recently played tracks",
                     )
