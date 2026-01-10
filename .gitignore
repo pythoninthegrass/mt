@@ -5,7 +5,9 @@
 .pyscn/
 .ruff*
 .serena/
+.task/
 CLAUDE.md
+repomix-output.md
 static/music
 
 # Byte-compiled / optimized / DLL files
