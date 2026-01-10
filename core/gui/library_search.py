@@ -428,6 +428,41 @@ class LibraryView:
         finally:
             self.library_tree = old_library_tree
 
+    def check_playlist_drop(self, widget, x_root, y_root):
+        """Check if a drop occurred on a custom playlist and return playlist ID.
+
+        Args:
+            widget: Widget under cursor
+            x_root: Root X coordinate
+            y_root: Root Y coordinate
+
+        Returns:
+            playlist_id (int) if dropped on a custom playlist, None otherwise
+        """
+        # Check if widget is the playlists tree or one of its children
+        current = widget
+        while current:
+            if current == self.playlists_tree:
+                # Convert root coordinates to widget-local coordinates
+                x_local = self.playlists_tree.winfo_pointerx() - self.playlists_tree.winfo_rootx()
+                y_local = self.playlists_tree.winfo_pointery() - self.playlists_tree.winfo_rooty()
+
+                # Identify item under cursor
+                item = self.playlists_tree.identify_row(y_local)
+                if item:
+                    tags = self.playlists_tree.item(item)['tags']
+                    # Check if this is a custom playlist (not dynamic, not filler)
+                    if 'custom' in tags and 'filler' not in tags:
+                        playlist_id = self._playlist_items.get(item)
+                        if playlist_id:
+                            return playlist_id
+                return None
+            try:
+                current = current.master
+            except AttributeError:
+                break
+        return None
+
     def _on_tree_configure(self, event=None):
         """Handle tree resize events to update filler items."""
         # Cancel any pending update

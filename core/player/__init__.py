@@ -388,6 +388,8 @@ class MusicPlayer:
                 'get_playlists': self.get_playlists,
                 'add_to_playlist': self.add_to_playlist,
                 'remove_from_playlist': self.remove_from_playlist,
+                'on_drag_to_sidebar': self.on_drag_to_sidebar,
+                'on_playlist_reorder': self.on_playlist_reorder,
             },
         )
 
@@ -651,6 +653,69 @@ class MusicPlayer:
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to remove tracks from playlist: {e}")
+
+    def on_drag_to_sidebar(self, widget, x_root, y_root, item_ids: list[str]):
+        """Handle drag-and-drop from queue to sidebar playlist.
+
+        Args:
+            widget: Widget under cursor at drop time
+            x_root: Root X coordinate
+            y_root: Root Y coordinate
+            item_ids: List of tree item IDs being dragged
+        """
+        # Check if drop occurred on a custom playlist
+        playlist_id = self.library_view.check_playlist_drop(widget, x_root, y_root)
+        if playlist_id:
+            # Add tracks to playlist
+            self.add_to_playlist(playlist_id, item_ids)
+
+    def on_playlist_reorder(self, dragged_items: list[str], target_item: str):
+        """Handle drag-and-drop reordering within a playlist.
+
+        Args:
+            dragged_items: List of item IDs being dragged
+            target_item: Item ID to drop before
+        """
+        from tkinter import messagebox
+
+        # Get current playlist_id from view
+        current_view = self.queue_view.current_view
+        if not current_view.startswith('playlist:'):
+            return
+
+        try:
+            playlist_id = int(current_view.split(':')[1])
+        except (IndexError, ValueError):
+            messagebox.showerror("Error", "Invalid playlist view.")
+            return
+
+        # Get all items in current display order
+        all_items = self.queue_view.queue.get_children()
+
+        # Build new order by removing dragged items and inserting before target
+        new_order = [item for item in all_items if item not in dragged_items]
+        target_index = new_order.index(target_item) if target_item in new_order else len(new_order)
+
+        # Insert dragged items before target
+        for i, item in enumerate(dragged_items):
+            new_order.insert(target_index + i, item)
+
+        # Map item IDs to track IDs
+        ordered_track_ids = []
+        for item_id in new_order:
+            track_id = self.library_handler._item_track_id_map.get(item_id)
+            if track_id:
+                ordered_track_ids.append(track_id)
+
+        # Persist new order to database
+        try:
+            success = self.db.reorder_playlist(playlist_id, ordered_track_ids)
+            if success:
+                # Update UI to reflect new order
+                for index, item_id in enumerate(new_order):
+                    self.queue_view.queue.move(item_id, '', index)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to reorder playlist: {e}")
 
     def add_files_to_library(self):
         """Open file dialog and add selected files to library."""

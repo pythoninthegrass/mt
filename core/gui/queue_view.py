@@ -110,6 +110,9 @@ class QueueView:
         # Setup column separator hover feedback
         self.setup_column_separator_hover()
 
+        # Setup internal drag-and-drop
+        self.setup_internal_drag_drop()
+
         # Add column resize handling with periodic check
         self._last_column_widths = self.get_column_widths()
         self._column_check_timer = None
@@ -663,6 +666,69 @@ class QueueView:
             return
 
         self.queue.bind('<Motion>', on_motion, add='+')
+
+    def setup_internal_drag_drop(self):
+        """Setup internal drag-and-drop for tracks within queue and to sidebar."""
+        # Track drag state
+        self._drag_data = {'item': None, 'start_y': 0, 'dragging': False}
+
+        def on_drag_start(event):
+            """Start drag operation on selected items."""
+            # Identify item under cursor
+            item = self.queue.identify_row(event.y)
+            if not item:
+                return
+
+            # Only start drag if item is in selection
+            if item in self.queue.selection():
+                self._drag_data['item'] = item
+                self._drag_data['start_y'] = event.y
+                self._drag_data['dragging'] = False  # Will set to True after movement threshold
+
+        def on_drag_motion(event):
+            """Handle drag motion - check if we've moved enough to start dragging."""
+            if self._drag_data['item'] and not self._drag_data['dragging']:
+                # Check if we've moved enough to start drag (5 pixel threshold)
+                if abs(event.y - self._drag_data['start_y']) > 5:
+                    self._drag_data['dragging'] = True
+
+        def on_drag_release(event):
+            """Handle drag release - check if we're over a drop target."""
+            if not self._drag_data['dragging']:
+                self._drag_data['item'] = None
+                return
+
+            # Check if we're over the queue itself (reorder within playlist)
+            target_widget = event.widget.winfo_containing(event.x_root, event.y_root)
+
+            # Check if we're reordering within the same queue (playlist view only)
+            if target_widget == self.queue and self.current_view.startswith('playlist:'):
+                # Get drop position
+                drop_y = event.widget.winfo_pointery() - event.widget.winfo_rooty()
+                target_item = self.queue.identify_row(drop_y)
+
+                if target_item:
+                    selected_items = list(self.queue.selection())
+                    # Only reorder if we have a callback and items to move
+                    if 'on_playlist_reorder' in self.callbacks and selected_items:
+                        self.callbacks['on_playlist_reorder'](selected_items, target_item)
+            else:
+                # Check if we're over the sidebar (drag to playlist)
+                if 'on_drag_to_sidebar' in self.callbacks:
+                    widget = event.widget.winfo_containing(event.x_root, event.y_root)
+                    if widget:
+                        # Call callback to check if this is a valid drop target
+                        selected_items = list(self.queue.selection())
+                        self.callbacks['on_drag_to_sidebar'](widget, event.x_root, event.y_root, selected_items)
+
+            # Reset drag state
+            self._drag_data = {'item': None, 'start_y': 0, 'dragging': False}
+
+        # Bind drag events (use Button-1 for drag, not Button-2 which is for context menu)
+        # We need to use add='+' to not interfere with existing double-click binding
+        self.queue.bind('<ButtonPress-1>', on_drag_start, add='+')
+        self.queue.bind('<B1-Motion>', on_drag_motion, add='+')
+        self.queue.bind('<ButtonRelease-1>', on_drag_release, add='+')
 
     def on_window_state_change(self, is_maximized):
         """Handle window maximize/unmaximize events to adjust column widths."""
