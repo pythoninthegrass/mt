@@ -279,6 +279,95 @@ class TestHandleDelete:
         mock_queue_view.queue.delete.assert_called_once_with(item_id)
         assert result == "break"
 
+    def test_handle_delete_from_playlist(self, event_handlers, mock_queue_view, mock_db, mock_library_handler, mock_status_bar):
+        """Should remove from playlist only when in playlist view."""
+        # Setup playlist view
+        playlist_id = 42
+        item_id = 'item1'
+        track_id = 123
+        mock_queue_view.queue.selection.return_value = [item_id]
+        mock_queue_view.queue.item.return_value = {
+            'values': [1, 'Test Song', 'Test Artist', 'Test Album', '2024']
+        }
+        mock_queue_view.current_view = f'playlist:{playlist_id}'
+        mock_library_handler._item_track_id_map = {item_id: track_id}
+
+        event = Mock()
+        result = event_handlers.handle_delete(event)
+
+        # Should remove from playlist via database
+        mock_db.remove_tracks_from_playlist.assert_called_once_with(playlist_id, [track_id])
+        # Should delete from UI
+        mock_queue_view.queue.delete.assert_called_once_with(item_id)
+        # Should NOT update statistics (not deleting from library)
+        assert not mock_status_bar.update_statistics.called
+        assert result == "break"
+
+    def test_handle_delete_from_playlist_multiple_tracks(self, event_handlers, mock_queue_view, mock_db, mock_library_handler):
+        """Should remove multiple tracks from playlist."""
+        playlist_id = 42
+        item_ids = ['item1', 'item2', 'item3']
+        track_ids = [123, 456, 789]
+        mock_queue_view.queue.selection.return_value = item_ids
+        mock_queue_view.queue.item.side_effect = [
+            {'values': [1, 'Song 1', 'Artist 1', 'Album 1', '2024']},
+            {'values': [2, 'Song 2', 'Artist 2', 'Album 2', '2023']},
+            {'values': [3, 'Song 3', 'Artist 3', 'Album 3', '2022']},
+        ]
+        mock_queue_view.current_view = f'playlist:{playlist_id}'
+        mock_library_handler._item_track_id_map = {
+            'item1': track_ids[0],
+            'item2': track_ids[1],
+            'item3': track_ids[2],
+        }
+
+        event = Mock()
+        event_handlers.handle_delete(event)
+
+        # Should remove all tracks from playlist in one call
+        mock_db.remove_tracks_from_playlist.assert_called_once_with(playlist_id, track_ids)
+        # Should delete all from UI
+        assert mock_queue_view.queue.delete.call_count == 3
+
+    def test_handle_delete_from_playlist_invalid_id(self, event_handlers, mock_queue_view, mock_db):
+        """Should handle invalid playlist ID gracefully."""
+        item_id = 'item1'
+        mock_queue_view.queue.selection.return_value = [item_id]
+        mock_queue_view.queue.item.return_value = {
+            'values': [1, 'Test Song', 'Test Artist', 'Test Album', '2024']
+        }
+        mock_queue_view.current_view = 'playlist:invalid'
+
+        event = Mock()
+        result = event_handlers.handle_delete(event)
+
+        # Should not attempt to remove from playlist
+        assert not mock_db.remove_tracks_from_playlist.called
+        # Should not delete from UI either
+        assert not mock_queue_view.queue.delete.called
+        # Should not return "break" since it returned early
+        assert result is None
+
+    def test_handle_delete_from_playlist_no_track_id(self, event_handlers, mock_queue_view, mock_db, mock_library_handler):
+        """Should handle case where track ID cannot be found."""
+        playlist_id = 42
+        item_id = 'item1'
+        mock_queue_view.queue.selection.return_value = [item_id]
+        mock_queue_view.queue.item.return_value = {
+            'values': [1, 'Test Song', 'Test Artist', 'Test Album', '2024']
+        }
+        mock_queue_view.current_view = f'playlist:{playlist_id}'
+        mock_library_handler._item_track_id_map = {}  # No mapping for this item
+
+        event = Mock()
+        result = event_handlers.handle_delete(event)
+
+        # Should still delete from UI even if track ID not found
+        mock_queue_view.queue.delete.assert_called_once_with(item_id)
+        # Should not call remove_tracks_from_playlist with empty list
+        assert not mock_db.remove_tracks_from_playlist.called
+        assert result == "break"
+
 
 class TestHandleDrop:
     """Tests for handle_drop() drag-and-drop functionality."""
