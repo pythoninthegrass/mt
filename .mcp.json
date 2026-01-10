@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "screencap": {
+      "command": "/Users/lance/.local/bin/uv",
+      "args": [
+        "--directory",
+        "/Users/lance/git/screencap",
+        "run",
+        "server.py"
+      ],
+      "env": {
+        "UV_PROJECT_ENVIRONMENT": "/Users/lance/git/screencap/.venv"
+      }
+    }
+  }
+}
