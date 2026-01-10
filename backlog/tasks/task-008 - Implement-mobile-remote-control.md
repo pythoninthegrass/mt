@@ -4,13 +4,17 @@ title: Implement mobile remote control
 status: To Do
 assignee: []
 created_date: '2025-09-17 04:10'
+updated_date: '2026-01-10 05:55'
 labels: []
 dependencies: []
+ordinal: 12000
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Add mobile app or web interface for remote control of the music player
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->

@@ -4,13 +4,17 @@ title: Implement code signing
 status: To Do
 assignee: []
 created_date: '2025-09-17 04:11'
+updated_date: '2026-01-10 05:55'
 labels: []
 dependencies: []
+ordinal: 18000
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Set up code signing for application packages and releases
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->

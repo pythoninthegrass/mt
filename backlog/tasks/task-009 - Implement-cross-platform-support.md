@@ -4,13 +4,17 @@ title: Implement cross-platform support
 status: To Do
 assignee: []
 created_date: '2025-09-17 04:10'
+updated_date: '2026-01-10 05:55'
 labels: []
 dependencies: []
+ordinal: 13000
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Add support for Linux (Ubuntu/WSL) and Windows platforms
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->

@@ -1,13 +1,13 @@
 ---
 id: task-006
 title: Implement playlist functionality
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2026-01-10 07:13'
+updated_date: '2026-01-10 07:14'
 labels: []
 dependencies: []
-ordinal: 8000
+ordinal: 2000
 ---
 
 ## Description

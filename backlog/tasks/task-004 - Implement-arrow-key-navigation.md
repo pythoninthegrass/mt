@@ -4,13 +4,17 @@ title: Implement arrow key navigation
 status: To Do
 assignee: []
 created_date: '2025-09-17 04:10'
+updated_date: '2026-01-10 05:55'
 labels: []
 dependencies: []
+ordinal: 11000
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Add keyboard navigation with arrow keys for playhead control
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->

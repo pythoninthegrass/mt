@@ -1,19 +1,21 @@
 ---
 id: task-059
 title: Migrate to Python 3.14t (free-threaded)
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2025-10-21 06:58'
-updated_date: '2025-10-26 04:53'
+updated_date: '2026-01-10 07:15'
 labels: []
 dependencies: []
 priority: high
-ordinal: 1000
+ordinal: 14500
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Incrementally upgrade Python from 3.11 to 3.14t (free-threaded), testing and fixing issues at each version step. This enables true parallelism by removing the Global Interpreter Lock (GIL).
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -25,9 +27,9 @@ Incrementally upgrade Python from 3.11 to 3.14t (free-threaded), testing and fix
 - [ ] #6 Update documentation to reflect Python 3.14t requirement
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 ## Python 3.12 Upgrade Complete (2025-10-25)
 
 ### Summary
@@ -64,7 +66,6 @@ Created follow-up tasks to address test coverage gaps discovered during migratio
 - Monitor for Python 3.13 specific changes (PEP 701 f-strings, etc.)
 - Continue validating Zig/ziggy-pydust compatibility at each step
 
-
 ## Tool Management
 
 Continue using mise for uv management:
@@ -99,3 +100,4 @@ mise use uv
 ## Reference
 
 <https://astral.sh/blog/python-3.14#free-threaded-python>
+<!-- SECTION:NOTES:END -->

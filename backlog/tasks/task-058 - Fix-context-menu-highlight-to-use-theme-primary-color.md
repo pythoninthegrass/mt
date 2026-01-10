@@ -4,13 +4,17 @@ title: Fix context menu highlight to use theme primary color
 status: To Do
 assignee: []
 created_date: '2025-10-21 06:27'
+updated_date: '2026-01-10 05:55'
 labels: []
 dependencies: []
+ordinal: 21000
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 The context menu (right-click menu) currently shows blue highlighting instead of using the theme's primary color (cyan for metro-teal theme). Investigation needed: macOS may override tk.Menu activebackground setting with native menu styling. Need to explore alternatives like using ttk.Menu or custom menu implementation.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->

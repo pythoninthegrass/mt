@@ -4,13 +4,17 @@ title: Implement Settings Menu
 status: To Do
 assignee: []
 created_date: '2025-10-12 07:56'
+updated_date: '2026-01-10 05:55'
 labels: []
 dependencies: []
+ordinal: 20000
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Create comprehensive settings menu with General, Appearance, Shortcuts, Now Playing, Library, Advanced sections including app info and maintenance
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
