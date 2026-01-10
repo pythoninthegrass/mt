@@ -161,7 +161,7 @@ class PlayerEventHandlers:
                 )
 
     def handle_delete(self, event):
-        """Handle delete key press - deletes from library or queue based on current view."""
+        """Handle delete key press - deletes from library, queue, or playlist based on current view."""
         with start_action(player_logger, "track_delete"):
             selected_items = self.queue_view.queue.selection()
             if not selected_items:
@@ -171,8 +171,26 @@ class PlayerEventHandlers:
             deleted_tracks = []
             current_view = self.queue_view.current_view
 
-            # Determine if we're deleting from library or queue
+            # Determine the view type
             is_queue_view = current_view == 'now_playing'
+            is_playlist_view = current_view.startswith('playlist:')
+
+            # Extract playlist_id if in playlist view
+            playlist_id = None
+            if is_playlist_view:
+                try:
+                    playlist_id = int(current_view.split(':')[1])
+                except (IndexError, ValueError):
+                    log_player_action(
+                        "track_delete_invalid_playlist",
+                        trigger_source="keyboard",
+                        view=current_view,
+                        reason="invalid_playlist_id",
+                    )
+                    return
+
+            # For playlist views, collect track IDs to remove
+            track_ids_to_remove = []
 
             for item in selected_items:
                 values = self.queue_view.queue.item(item)['values']
@@ -202,7 +220,21 @@ class PlayerEventHandlers:
                     }
                     deleted_tracks.append(track_info)
 
-                    if is_queue_view:
+                    if is_playlist_view:
+                        # Remove from playlist only - collect track IDs
+                        if self.library_handler and hasattr(self.library_handler, '_item_track_id_map'):
+                            track_id = self.library_handler._item_track_id_map.get(item)
+                            if track_id:
+                                track_ids_to_remove.append(track_id)
+                                log_player_action(
+                                    "track_delete_from_playlist",
+                                    trigger_source="keyboard",
+                                    playlist_id=playlist_id,
+                                    track_id=track_id,
+                                    track_info=track_info,
+                                    description=f"Removed track from playlist: {title} by {artist}",
+                                )
+                    elif is_queue_view:
                         # Delete from queue only
                         log_player_action(
                             "track_delete_from_queue",
@@ -228,6 +260,10 @@ class PlayerEventHandlers:
                     # Remove from UI
                     self.queue_view.queue.delete(item)
 
+            # Remove tracks from playlist if in playlist view
+            if is_playlist_view and track_ids_to_remove:
+                self.db.remove_tracks_from_playlist(playlist_id, track_ids_to_remove)
+
             # Log summary of deletion operation
             log_player_action(
                 "track_delete_summary",
@@ -239,7 +275,7 @@ class PlayerEventHandlers:
             )
 
             # Update statistics if deleting from library
-            if not is_queue_view:
+            if not is_queue_view and not is_playlist_view:
                 self.status_bar.update_statistics()
 
             self.refresh_colors()

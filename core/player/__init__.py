@@ -387,6 +387,7 @@ class MusicPlayer:
                 'edit_metadata': self.edit_track_metadata,
                 'get_playlists': self.get_playlists,
                 'add_to_playlist': self.add_to_playlist,
+                'remove_from_playlist': self.remove_from_playlist,
             },
         )
 
@@ -600,6 +601,56 @@ class MusicPlayer:
                 )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to add track to playlist: {e}")
+
+    def remove_from_playlist(self, item_ids: list[str]):
+        """Remove selected tracks from the current playlist.
+
+        Args:
+            item_ids: List of tree item IDs to remove from playlist
+        """
+        from tkinter import messagebox
+
+        # Get current playlist_id from view
+        current_view = self.queue_view.current_view
+        if not current_view.startswith('playlist:'):
+            messagebox.showwarning("Not a Playlist", "This operation is only available in playlist views.")
+            return
+
+        try:
+            playlist_id = int(current_view.split(':')[1])
+        except (IndexError, ValueError):
+            messagebox.showerror("Error", "Invalid playlist view.")
+            return
+
+        # Get track IDs from item IDs using the track_id map
+        track_ids = []
+        for item_id in item_ids:
+            track_id = self.library_handler._item_track_id_map.get(item_id)
+            if track_id:
+                track_ids.append(track_id)
+
+        if not track_ids:
+            messagebox.showwarning("No Tracks", "No valid tracks selected.")
+            return
+
+        # Remove tracks from playlist
+        try:
+            self.db.remove_tracks_from_playlist(playlist_id, track_ids)
+            playlist_name = self.db.get_playlist_name(playlist_id)
+
+            # Remove items from UI
+            for item_id in item_ids:
+                self.queue_view.queue.delete(item_id)
+
+            # Refresh colors
+            self.refresh_colors()
+
+            messagebox.showinfo(
+                "Removed from Playlist",
+                f"Removed {len(track_ids)} track(s) from '{playlist_name}'."
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to remove tracks from playlist: {e}")
 
     def add_files_to_library(self):
         """Open file dialog and add selected files to library."""

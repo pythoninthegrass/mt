@@ -161,6 +161,10 @@ class QueueView:
         )
         self.context_menu.add_cascade(label="Add to playlist", menu=self.add_to_playlist_menu)
 
+        # Add "Remove from playlist" option (only shown in playlist views)
+        self._remove_from_playlist_index = self.context_menu.index('end') + 1
+        self.context_menu.add_command(label="Remove from playlist", command=self.on_context_remove_from_playlist)
+
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Edit Tag", command=self.on_context_edit_metadata)
         self.context_menu.add_separator()
@@ -185,6 +189,15 @@ class QueueView:
         if self.queue.selection():
             # Refresh playlist submenu
             self._refresh_playlist_submenu()
+
+            # Show/hide "Remove from playlist" option based on current view
+            is_playlist_view = self.current_view.startswith('playlist:')
+            if is_playlist_view:
+                # Show "Remove from playlist" option in playlist views
+                self.context_menu.entryconfigure(self._remove_from_playlist_index, state='normal')
+            else:
+                # Hide it in other views
+                self.context_menu.entryconfigure(self._remove_from_playlist_index, state='disabled')
 
             try:
                 self.context_menu.tk_popup(event.x_root, event.y_root)
@@ -283,6 +296,13 @@ class QueueView:
             tracks = self.get_selected_tracks()
             if tracks:
                 self.callbacks['edit_metadata'](tracks[0])
+
+    def on_context_remove_from_playlist(self):
+        """Handle 'Remove from playlist' context menu action."""
+        if 'remove_from_playlist' in self.callbacks:
+            selected_items = self.queue.selection()
+            if selected_items:
+                self.callbacks['remove_from_playlist'](list(selected_items))
 
     def set_current_view(self, view: str):
         """Set the current view and load its column preferences."""
