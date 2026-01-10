@@ -517,111 +517,31 @@ cd src && zig build test
 - Python extensions are built to `core/` directory
 - Release-safe optimization for production builds
 
-<!-- BACKLOG.MD GUIDELINES START -->
+<!-- BACKLOG.MD MCP GUIDELINES START -->
 
-# ⚠️ CRITICAL: NEVER EDIT TASK FILES DIRECTLY
+<CRITICAL_INSTRUCTION>
 
-**ALL task operations MUST use the Backlog.md CLI commands**
+## BACKLOG WORKFLOW INSTRUCTIONS
 
-- ✅ **DO**: Use `backlog task edit` and other CLI commands
-- ✅ **DO**: Use `backlog task create` to create new tasks
-- ✅ **DO**: Use `backlog task edit <id> --check-ac <index>` to mark acceptance criteria
-  - ALWAYS mark acceptance criteria before setting it to done via `backlog task edit <id> -s Done`
-- ❌ **DON'T**: Edit markdown files directly
-- ❌ **DON'T**: Manually change checkboxes in files
-- ❌ **DON'T**: Add or modify text in task files without using CLI
+This project uses Backlog.md MCP for all task and project management activities.
 
-**Why?** Direct file editing breaks metadata synchronization, Git tracking, and task relationships.
+**CRITICAL GUIDANCE**
 
-## Essential CLI Commands
+- If your client supports MCP resources, read `backlog://workflow/overview` to understand when and how to use Backlog for this project.
+- If your client only supports tools or the above request fails, call `backlog.get_workflow_overview()` tool to load the tool-oriented overview (it lists the matching guide tools).
 
-### Task Creation Best Practices
+- **First time working here?** Read the overview resource IMMEDIATELY to learn the workflow
+- **Already familiar?** You should have the overview cached ("## Backlog.md Overview (MCP)")
+- **When to read it**: BEFORE creating tasks, or when you're unsure whether to track work
 
-**IMPORTANT: When creating new tasks, follow this two-step process:**
+These guides cover:
+- Decision framework for when to create tasks
+- Search-first workflow to avoid duplicates
+- Links to detailed guides for task creation, execution, and completion
+- MCP tools reference
 
-1. **Create the task with temporary filename** using `backlog task create`
-2. **Manually rename file and update metadata** to match nomenclature
+You MUST read the overview resource to understand the complete workflow. The information is NOT summarized here.
 
-**Example Workflow:**
-```bash
-# Step 1: Create task (will generate task-<priority>.<number> filename)
-backlog task create "Fix race condition in shuffle mode" \
-  -d "Description here" \
-  --ac "Criterion 1" \
-  --ac "Criterion 2" \
-  -p high --plain
+</CRITICAL_INSTRUCTION>
 
-# Step 2: Find highest task number
-ls -1 backlog/tasks/task-*.md | grep -E "^task-[0-9]" | sort -V | tail -1
-
-# Step 3: Rename file manually (e.g., if highest is task-076, use task-077)
-mv "backlog/tasks/task-high.01 - Title.md" "backlog/tasks/task-077 - Title.md"
-
-# Step 4: Edit frontmatter manually to update id and set priority
-# Change: id: task-high.01 → id: task-077
-# Add:    priority: high
-# Add:    ordinal: 2000
-# Remove: parent_task_id: task-high
-```
-
-**Standard Task File Format:**
-```markdown
----
-id: task-077
-title: Fix race condition in shuffle mode
-status: To Do
-assignee: []
-created_date: '2025-10-26 18:40'
-updated_date: '2025-10-26 18:40'
-labels: []
-dependencies: []
-priority: high
-ordinal: 2000
----
-
-## Description
-
-Task description here.
-
-## Acceptance Criteria
-<!-- AC:BEGIN -->
-- [ ] #1 First criterion
-- [ ] #2 Second criterion
-<!-- AC:END -->
-```
-
-### Task Management
-
-```bash
-backlog task create "Title" -d "Description" --ac "Criterion 1" --ac "Criterion 2" -p high --plain
-backlog task list --plain                    # List all tasks
-backlog task 42 --plain                      # View specific task
-backlog task edit 42 -s "In Progress" -a @myself  # Start working
-backlog task edit 42 --check-ac 1            # Mark AC complete
-backlog task edit 42 --notes "Implementation complete"  # Add notes
-backlog task edit 42 -s Done                 # Mark as done
-backlog task archive 42                      # Archive task
-```
-
-### Key Principles
-
-- **Always use `--plain` flag** for AI-friendly output when viewing/listing
-- **Never bypass the CLI** - It handles Git, metadata, file naming, and relationships
-- **Tasks live in `backlog/tasks/`** as `task-<id> - <title>.md` files
-- **Use CLI for both reading and writing** - `backlog task create`, `backlog task edit`, etc.
-
-### Quick Reference: DO vs DON'T
-
-| Action       | ✅ DO                                | ❌ DON'T                          |
-|--------------|-------------------------------------|----------------------------------|
-| View task    | `backlog task 42 --plain`           | Open and read .md file directly  |
-| List tasks   | `backlog task list --plain`         | Browse backlog/tasks folder      |
-| Check AC     | `backlog task edit 42 --check-ac 1` | Change `- [ ]` to `- [x]` in file|
-| Add notes    | `backlog task edit 42 --notes "..."`| Type notes into .md file         |
-| Change status| `backlog task edit 42 -s Done`      | Edit status in frontmatter       |
-
-**🎯 Golden Rule: If you want to change ANYTHING in a task, use the `backlog task edit` command.**
-
-Full help available: `backlog --help`
-
-<!-- BACKLOG.MD GUIDELINES END -->
+<!-- BACKLOG.MD MCP GUIDELINES END -->
