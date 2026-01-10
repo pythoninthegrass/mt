@@ -57,6 +57,25 @@ DB_TABLES = {
             UNIQUE(artist, title)
         )
     ''',
+    'playlists': '''
+        CREATE TABLE IF NOT EXISTS playlists (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''',
+    'playlist_items': '''
+        CREATE TABLE IF NOT EXISTS playlist_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            playlist_id INTEGER NOT NULL,
+            track_id INTEGER NOT NULL,
+            position INTEGER NOT NULL,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(playlist_id, track_id),
+            FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+            FOREIGN KEY (track_id) REFERENCES library(id) ON DELETE CASCADE
+        )
+    ''',
 }
 
 
@@ -66,6 +85,9 @@ class MusicDatabase:
         self.db_name = db_name
         self.db_conn = sqlite3.connect(db_name)
         self.db_cursor = self.db_conn.cursor()
+
+        # Enable foreign key constraints
+        self.db_cursor.execute("PRAGMA foreign_keys = ON")
 
         # Create tables
         for _, create_sql in db_tables.items():

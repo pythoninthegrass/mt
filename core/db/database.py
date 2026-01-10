@@ -2,6 +2,7 @@
 import sqlite3
 from core.db.favorites import FavoritesManager
 from core.db.library import LibraryManager
+from core.db.playlists import PlaylistsManager
 from core.db.preferences import PreferencesManager
 from core.db.queue import QueueManager
 
@@ -14,6 +15,7 @@ class MusicDatabase:
     - LibraryManager: Music library, tracks, metadata
     - QueueManager: Playback queue operations
     - FavoritesManager: Favorite tracks and special views
+    - PlaylistsManager: Custom playlist management
     """
 
     def __init__(self, db_name: str, db_tables: dict[str, str]):
@@ -21,6 +23,9 @@ class MusicDatabase:
         self.db_name = db_name
         self.db_conn = sqlite3.connect(db_name)
         self.db_cursor = self.db_conn.cursor()
+
+        # Enable foreign key constraints
+        self.db_cursor.execute("PRAGMA foreign_keys = ON")
 
         # Create tables
         for _, create_sql in db_tables.items():
@@ -31,6 +36,7 @@ class MusicDatabase:
         self._library = LibraryManager(self.db_conn, self.db_cursor)
         self._queue = QueueManager(self.db_conn, self.db_cursor)
         self._favorites = FavoritesManager(self.db_conn, self.db_cursor)
+        self._playlists = PlaylistsManager(self.db_conn, self.db_cursor)
 
         # Initialize settings with default values if they don't exist
         self.db_cursor.execute("SELECT COUNT(*) FROM settings WHERE key = 'loop_enabled'")
@@ -204,3 +210,37 @@ class MusicDatabase:
 
     def get_recently_played(self) -> list[tuple]:
         return self._favorites.get_recently_played()
+
+    # Playlists delegation methods
+    def create_playlist(self, name: str) -> int:
+        return self._playlists.create_playlist(name)
+
+    def list_playlists(self) -> list[tuple[int, str]]:
+        return self._playlists.list_playlists()
+
+    def get_playlist_name(self, playlist_id: int) -> str | None:
+        return self._playlists.get_playlist_name(playlist_id)
+
+    def rename_playlist(self, playlist_id: int, new_name: str) -> bool:
+        return self._playlists.rename_playlist(playlist_id, new_name)
+
+    def delete_playlist(self, playlist_id: int) -> bool:
+        return self._playlists.delete_playlist(playlist_id)
+
+    def get_playlist_items(self, playlist_id: int) -> list[tuple]:
+        return self._playlists.get_playlist_items(playlist_id)
+
+    def add_tracks_to_playlist(self, playlist_id: int, track_ids: list[int]) -> int:
+        return self._playlists.add_tracks_to_playlist(playlist_id, track_ids)
+
+    def remove_tracks_from_playlist(self, playlist_id: int, track_ids: list[int]) -> int:
+        return self._playlists.remove_tracks_from_playlist(playlist_id, track_ids)
+
+    def reorder_playlist(self, playlist_id: int, ordered_track_ids: list[int]) -> bool:
+        return self._playlists.reorder_playlist(playlist_id, ordered_track_ids)
+
+    def get_track_id_by_filepath(self, filepath: str) -> int | None:
+        return self._playlists.get_track_id_by_filepath(filepath)
+
+    def generate_unique_name(self, base_name: str = "New playlist") -> str:
+        return self._playlists.generate_unique_name(base_name)
