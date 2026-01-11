@@ -51,17 +51,16 @@ def setup_macos_environment():
     env = os.environ.copy()
 
     if sys.platform == 'darwin':
-        # Get TCL/TK paths from environment or use Homebrew defaults
-        tcl_library = config('TCL_LIBRARY', default='/opt/homebrew/opt/tcl-tk/lib/tcl8.6')
-        tk_library = config('TK_LIBRARY', default='/opt/homebrew/opt/tcl-tk/lib/tk8.6')
-        tcl_tk_bin = config('TCL_TK_BIN', default='/opt/homebrew/opt/tcl-tk/bin')
+        tcl_library = config('TCL_LIBRARY', default='')
+        tk_library = config('TK_LIBRARY', default='')
+        tcl_tk_bin = config('TCL_TK_BIN', default='')
 
-        # Set TCL/TK environment variables
-        env['TCL_LIBRARY'] = tcl_library
-        env['TK_LIBRARY'] = tk_library
-
-        # Prepend TCL/TK bin to PATH
-        env['PATH'] = f"{tcl_tk_bin}:{env.get('PATH', '')}"
+        if tcl_library:
+            env['TCL_LIBRARY'] = tcl_library
+        if tk_library:
+            env['TK_LIBRARY'] = tk_library
+        if tcl_tk_bin:
+            env['PATH'] = f"{tcl_tk_bin}:{env.get('PATH', '')}"
 
     return env
 

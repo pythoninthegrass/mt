@@ -98,17 +98,16 @@ class ReloadEventHandler(FileSystemEventHandler):
         env = os.environ.copy()
 
         if sys.platform == 'darwin':
-            # Get TCL/TK paths from environment or use Homebrew defaults
-            tcl_library = config('TCL_LIBRARY', default='/opt/homebrew/opt/tcl-tk/lib/tcl8.6')
-            tk_library = config('TK_LIBRARY', default='/opt/homebrew/opt/tcl-tk/lib/tk8.6')
-            tcl_tk_bin = config('TCL_TK_BIN', default='/opt/homebrew/opt/tcl-tk/bin')
+            tcl_library = config('TCL_LIBRARY', default='')
+            tk_library = config('TK_LIBRARY', default='')
+            tcl_tk_bin = config('TCL_TK_BIN', default='')
 
-            # Set TCL/TK environment variables
-            env['TCL_LIBRARY'] = tcl_library
-            env['TK_LIBRARY'] = tk_library
-
-            # Prepend TCL/TK bin to PATH
-            env['PATH'] = f"{tcl_tk_bin}:{env.get('PATH', '')}"
+            if tcl_library:
+                env['TCL_LIBRARY'] = tcl_library
+            if tk_library:
+                env['TK_LIBRARY'] = tk_library
+            if tcl_tk_bin:
+                env['PATH'] = f"{tcl_tk_bin}:{env.get('PATH', '')}"
 
         # Enable API server by default for development (can be overridden with env var)
         api_server_enabled = config('MT_API_SERVER_ENABLED', default='true', cast=str)
@@ -230,12 +229,8 @@ def main():
     parser.add_argument(
         "main_file", nargs="?", default="main.py", help="Path to the main Tkinter application file (default: main.py)"
     )
-    parser.add_argument(
-        "--debug", action="store_true", help="Enable debug logging to see watched files"
-    )
-    parser.add_argument(
-        "--debounce", type=float, default=0.5, help="Debounce delay in seconds (default: 0.5)"
-    )
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging to see watched files")
+    parser.add_argument("--debounce", type=float, default=0.5, help="Debounce delay in seconds (default: 0.5)")
 
     args = parser.parse_args()
 
