@@ -139,7 +139,7 @@ class QueueView:
             selectcolor=THEME_CONFIG['colors']['primary'],
             borderwidth=1,
             relief="flat",
-            activeborderwidth=0
+            activeborderwidth=0,
         )
 
         # Add menu items
@@ -160,7 +160,7 @@ class QueueView:
             selectcolor=THEME_CONFIG['colors']['primary'],
             borderwidth=1,
             relief="flat",
-            activeborderwidth=0
+            activeborderwidth=0,
         )
         self.context_menu.add_cascade(label="Add to playlist", menu=self.add_to_playlist_menu)
 
@@ -218,20 +218,13 @@ class QueueView:
             if playlists:
                 for playlist_id, name in playlists:
                     self.add_to_playlist_menu.add_command(
-                        label=name,
-                        command=lambda pid=playlist_id: self.on_add_to_playlist(pid)
+                        label=name, command=lambda pid=playlist_id: self.on_add_to_playlist(pid)
                     )
             else:
                 # No playlists yet
-                self.add_to_playlist_menu.add_command(
-                    label="(No playlists)",
-                    state='disabled'
-                )
+                self.add_to_playlist_menu.add_command(label="(No playlists)", state='disabled')
         else:
-            self.add_to_playlist_menu.add_command(
-                label="(Not available)",
-                state='disabled'
-            )
+            self.add_to_playlist_menu.add_command(label="(Not available)", state='disabled')
 
     def on_add_to_playlist(self, playlist_id: int):
         """Handle 'Add to playlist' action.
@@ -605,7 +598,9 @@ class QueueView:
 
         # Handle both font tuples and named fonts for heading
         if isinstance(heading_font_spec, (tuple, list)):
-            heading_font = tkfont.Font(family=heading_font_spec[0], size=heading_font_spec[1] if len(heading_font_spec) > 1 else 12)
+            heading_font = tkfont.Font(
+                family=heading_font_spec[0], size=heading_font_spec[1] if len(heading_font_spec) > 1 else 12
+            )
         else:
             heading_font = tkfont.nametofont(heading_font_spec)
 
@@ -658,6 +653,7 @@ class QueueView:
 
     def setup_column_separator_hover(self):
         """Setup visual feedback for hovering over column separators."""
+
         def on_motion(event):
             region = self.queue.identify_region(event.x, event.y)
             if region == 'separator':
@@ -688,12 +684,17 @@ class QueueView:
         def on_drag_motion(event):
             """Handle drag motion - check if we've moved enough to start dragging."""
             if self._drag_data['item'] and not self._drag_data['dragging']:
-                # Check if we've moved enough to start drag (5 pixel threshold)
                 if abs(event.y - self._drag_data['start_y']) > 5:
                     self._drag_data['dragging'] = True
 
+            if self._drag_data['dragging'] and 'highlight_playlist' in self.callbacks:
+                self.callbacks['highlight_playlist'](event.x_root, event.y_root)
+
         def on_drag_release(event):
             """Handle drag release - check if we're over a drop target."""
+            if 'clear_playlist_highlight' in self.callbacks:
+                self.callbacks['clear_playlist_highlight']()
+
             if not self._drag_data['dragging']:
                 self._drag_data['item'] = None
                 return

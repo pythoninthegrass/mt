@@ -1,10 +1,10 @@
 ---
 id: task-006
 title: Implement playlist functionality
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2026-01-10 22:15'
+updated_date: '2026-01-11 00:11'
 labels: []
 dependencies: []
 ordinal: 2000
@@ -384,4 +384,27 @@ After testing the completed implementation, two UX issues were identified:
 
 ### Priority
 Medium - UX improvements that make the feature more discoverable and intuitive, but functionality is complete.
+
+## UX Improvements Completed (2026-01-11)
+
+### Visual Drag-to-Playlist Feedback
+- Added `highlight_playlist_at()` and `clear_playlist_highlight()` methods to LibraryView
+- Integrated with QueueView's internal drag system via callbacks
+- Playlist rows highlight with primary color when tracks are dragged over them
+- Highlight clears automatically on drag release
+
+### Playlist View Column Sizing and Track Numbers
+- Updated `load_custom_playlist()` to show 1-based playlist position instead of album track numbers
+- Added `_apply_music_view_column_widths()` to inherit user's column width preferences from Music view
+- Playlist views now respect the user's customized column layout
+
+### Files Modified
+- `core/gui/library_search.py`: Added highlight/clear methods for drag feedback
+- `core/gui/queue_view.py`: Added highlight callbacks to drag motion/release handlers
+- `core/player/__init__.py`: Wired up highlight_playlist_at and clear_playlist_highlight callbacks
+- `core/player/library.py`: Updated load_custom_playlist for position numbers and column widths
+
+### Tests
+- All 547 unit/property tests pass
+- 25 playlist-specific tests (DB, identifiers, handler) all pass
 <!-- SECTION:NOTES:END -->

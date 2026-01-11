@@ -321,14 +321,8 @@ class LibraryView:
 
         # Create context menu
         menu = tk.Menu(self.playlists_tree, tearoff=0)
-        menu.add_command(
-            label="Rename",
-            command=lambda: self._start_inline_rename(item, playlist_id, current_name)
-        )
-        menu.add_command(
-            label="Delete",
-            command=lambda: self._delete_playlist(item, playlist_id, current_name)
-        )
+        menu.add_command(label="Rename", command=lambda: self._start_inline_rename(item, playlist_id, current_name))
+        menu.add_command(label="Delete", command=lambda: self._delete_playlist(item, playlist_id, current_name))
 
         # Show menu
         menu.tk_popup(event.x_root, event.y_root)
@@ -343,8 +337,7 @@ class LibraryView:
         """
         # Confirm deletion
         if not messagebox.askyesno(
-            "Delete Playlist",
-            f"Are you sure you want to delete the playlist '{name}'?\n\nThis action cannot be undone."
+            "Delete Playlist", f"Are you sure you want to delete the playlist '{name}'?\n\nThis action cannot be undone."
         ):
             return
 
@@ -463,6 +456,56 @@ class LibraryView:
                 break
         return None
 
+    def highlight_playlist_at(self, x_root: int, y_root: int) -> bool:
+        """Highlight playlist row during drag-to-playlist operation."""
+        from config import THEME_CONFIG
+
+        self.clear_playlist_highlight()
+
+        try:
+            widget_x = self.playlists_tree.winfo_rootx()
+            widget_y = self.playlists_tree.winfo_rooty()
+            widget_width = self.playlists_tree.winfo_width()
+            widget_height = self.playlists_tree.winfo_height()
+
+            if not (widget_x <= x_root <= widget_x + widget_width and widget_y <= y_root <= widget_y + widget_height):
+                return False
+
+            y_local = y_root - widget_y
+            item = self.playlists_tree.identify_row(y_local)
+            if not item:
+                return False
+
+            tags = self.playlists_tree.item(item)['tags']
+
+            if 'custom' in tags and 'filler' not in tags:
+                primary_color = THEME_CONFIG['colors']['primary']
+                self.playlists_tree.tag_configure('drop_highlight', background=primary_color)
+
+                self._highlighted_item = item
+                current_tags = list(tags)
+                if 'drop_highlight' not in current_tags:
+                    current_tags.append('drop_highlight')
+                    self.playlists_tree.item(item, tags=current_tags)
+                return True
+
+        except tk.TclError:
+            pass
+
+        return False
+
+    def clear_playlist_highlight(self):
+        """Clear playlist highlight from drag operation."""
+        if hasattr(self, '_highlighted_item') and self._highlighted_item:
+            try:
+                tags = list(self.playlists_tree.item(self._highlighted_item)['tags'])
+                if 'drop_highlight' in tags:
+                    tags.remove('drop_highlight')
+                    self.playlists_tree.item(self._highlighted_item, tags=tags)
+            except tk.TclError:
+                pass
+            self._highlighted_item = None
+
     def _on_tree_configure(self, event=None):
         """Handle tree resize events to update filler items."""
         # Cancel any pending update
@@ -525,8 +568,6 @@ class LibraryView:
             return False
         tags = self.playlists_tree.item(item_id).get('tags', [])
         return 'filler' in tags
-
-
 
 
 class SearchBar:

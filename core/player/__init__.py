@@ -390,6 +390,8 @@ class MusicPlayer:
                 'remove_from_playlist': self.remove_from_playlist,
                 'on_drag_to_sidebar': self.on_drag_to_sidebar,
                 'on_playlist_reorder': self.on_playlist_reorder,
+                'highlight_playlist': self.highlight_playlist_at,
+                'clear_playlist_highlight': self.clear_playlist_highlight,
             },
         )
 
@@ -559,15 +561,9 @@ class MusicPlayer:
             playlist_name = self.db.get_playlist_name(playlist_id)
 
             if added_count > 0:
-                messagebox.showinfo(
-                    "Added to Playlist",
-                    f"Added {added_count} track(s) to '{playlist_name}'."
-                )
+                messagebox.showinfo("Added to Playlist", f"Added {added_count} track(s) to '{playlist_name}'.")
             else:
-                messagebox.showinfo(
-                    "Already in Playlist",
-                    f"All selected tracks are already in '{playlist_name}'."
-                )
+                messagebox.showinfo("Already in Playlist", f"All selected tracks are already in '{playlist_name}'.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to add tracks to playlist: {e}")
 
@@ -592,15 +588,9 @@ class MusicPlayer:
             playlist_name = self.db.get_playlist_name(playlist_id)
 
             if added_count > 0:
-                messagebox.showinfo(
-                    "Added to Playlist",
-                    f"Added track to '{playlist_name}'."
-                )
+                messagebox.showinfo("Added to Playlist", f"Added track to '{playlist_name}'.")
             else:
-                messagebox.showinfo(
-                    "Already in Playlist",
-                    f"Track is already in '{playlist_name}'."
-                )
+                messagebox.showinfo("Already in Playlist", f"Track is already in '{playlist_name}'.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to add track to playlist: {e}")
 
@@ -647,10 +637,7 @@ class MusicPlayer:
             # Refresh colors
             self.refresh_colors()
 
-            messagebox.showinfo(
-                "Removed from Playlist",
-                f"Removed {len(track_ids)} track(s) from '{playlist_name}'."
-            )
+            messagebox.showinfo("Removed from Playlist", f"Removed {len(track_ids)} track(s) from '{playlist_name}'.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to remove tracks from playlist: {e}")
 
@@ -716,6 +703,12 @@ class MusicPlayer:
                     self.queue_view.queue.move(item_id, '', index)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to reorder playlist: {e}")
+
+    def highlight_playlist_at(self, x_root: int, y_root: int):
+        self.library_view.highlight_playlist_at(x_root, y_root)
+
+    def clear_playlist_highlight(self):
+        self.library_view.clear_playlist_highlight()
 
     def add_files_to_library(self):
         """Open file dialog and add selected files to library."""
