@@ -128,7 +128,7 @@ tasks:
 
   dev:
     desc: "Run Tauri in development mode"
-    deps: [":npm:install"]
+    deps: [":npm:install", "sidecar"]
     cmds:
       - npx tauri dev
     interactive: true

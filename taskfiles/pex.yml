@@ -63,8 +63,8 @@ tasks:
         mkdir -p {{.STAGING_DIR}}/backend
         cp {{.ROOT_DIR}}/backend/__init__.py {{.STAGING_DIR}}/backend/
         cp {{.ROOT_DIR}}/backend/main.py {{.STAGING_DIR}}/backend/
-        cp -r {{.ROOT_DIR}}/backend/api {{.STAGING_DIR}}/backend/
-        cp -r {{.ROOT_DIR}}/backend/core {{.STAGING_DIR}}/backend/
+        [ -d {{.ROOT_DIR}}/backend/api ] && cp -r {{.ROOT_DIR}}/backend/api {{.STAGING_DIR}}/backend/ || true
+        [ -d {{.ROOT_DIR}}/backend/core ] && cp -r {{.ROOT_DIR}}/backend/core {{.STAGING_DIR}}/backend/ || true
         echo "Staged to {{.STAGING_DIR}}"
 
   stage:
