@@ -1,0 +1,78 @@
+version: "3.0"
+
+set: ['e', 'u', 'pipefail']
+shopt: ['globstar']
+
+env:
+  NPM_CACHE_DIR: "{{.ROOT_DIR}}/.cache/npm"
+
+tasks:
+  install:
+    desc: "Install npm dependencies"
+    cmds:
+      - npm install
+    sources:
+      - "{{.ROOT_DIR}}/package.json"
+    generates:
+      - "{{.ROOT_DIR}}/node_modules/**/*"
+    status:
+      - test -d "{{.ROOT_DIR}}/node_modules"
+    silent: true
+
+  ci:
+    desc: "Clean install npm dependencies (CI mode)"
+    cmds:
+      - npm ci
+
+  update:
+    desc: "Update npm dependencies"
+    cmds:
+      - npm update
+
+  outdated:
+    desc: "Check for outdated dependencies"
+    cmds:
+      - npm outdated || true
+    silent: true
+
+  audit:
+    desc: "Run security audit"
+    cmds:
+      - npm audit
+
+  audit-fix:
+    desc: "Fix security vulnerabilities"
+    cmds:
+      - npm audit fix
+
+  clean:
+    desc: "Clean npm artifacts"
+    cmds:
+      - rm -rf {{.ROOT_DIR}}/node_modules
+      - rm -rf {{.ROOT_DIR}}/.cache/npm
+    silent: true
+
+  cache-clean:
+    desc: "Clean npm cache"
+    cmds:
+      - npm cache clean --force
+    silent: true
+
+  list:
+    desc: "List installed packages"
+    cmds:
+      - npm list --depth=0
+    silent: true
+
+  check-deps:
+    desc: "Check if npm is installed"
+    cmds:
+      - |
+        echo "Checking npm dependencies..."
+        if ! command -v npm &> /dev/null; then
+          echo "npm not found. Install Node.js from https://nodejs.org"
+          exit 1
+        fi
+        echo "npm version: $(npm --version)"
+        echo "node version: $(node --version)"
+    silent: true
