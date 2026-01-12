@@ -334,16 +334,30 @@ serde_json = "1"
 version = "2"
 ```
 
-### Python (requirements.txt)
+### Python (pyproject.toml)
 
-```
-fastapi>=0.115
-uvicorn>=0.32
-mutagen>=1.47
-aiosqlite>=0.20
-websockets>=13
-httpx>=0.28
-pex>=2.16
+```toml
+[project]
+name = "mt-backend"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "mutagen>=1.47.0",
+    "aiosqlite>=0.20",
+    "websockets>=13",
+    "httpx>=0.28",
+    "eliot>=1.17.5",
+    "eliot-tree>=24.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# PEX build: uv run pex . -o mt-backend.pex -c mt-backend
 ```
 
 ### Frontend (package.json)
