@@ -17,7 +17,6 @@ mt is a desktop music player designed for large music collections, built with Py
   - Break files with multiple changes into smaller hunks using patch mode's split feature
   - Verify each commit is not broken - ensure all necessary files/chunks are included
   - After user confirms changes are ready to push, offer to squash related atomic commits using `git rebase -i`
-- NEVER use playwright for anything. This is a tkinter desktop app.
 - NEVER create *.backup files. This is a version controlled repo
 
 ## Context7
@@ -211,6 +210,80 @@ task pre-commit # Run pre-commit hooks
 task uv:sync    # Sync dependencies
 task uv:lock    # Update lockfile
 ```
+
+### Git Worktree Management (worktrunk)
+
+The project uses [worktrunk](https://github.com/max-sixty/worktrunk) (`wt`) for managing git worktrees, enabling parallel development and isolated migration work.
+
+```bash
+# Switch to existing worktree for a branch
+wt switch feature
+
+# Create new worktree and branch from current HEAD
+wt switch --create feature
+
+# Create from specific base branch
+wt switch --create feature --base=main
+
+# Create and execute command in new worktree
+wt switch -c feature -x "cargo tauri dev"
+
+# Switch to default branch's worktree
+wt switch ^
+
+# Switch to previous worktree
+wt switch -
+```
+
+**Merge workflow:**
+```bash
+# Full merge workflow: squash, rebase, remove worktree
+wt merge
+
+# Merge to specific target branch
+wt merge --target=develop
+
+# Skip squashing (keep commit history)
+wt merge --no-squash
+
+# Merge without removing worktree
+wt merge --no-remove
+```
+
+**Granular operations:**
+```bash
+# Squash all commits into one
+wt step squash
+
+# Rebase onto target branch
+wt step rebase
+
+# Push to remote
+wt step push
+
+# Run command in all worktrees
+wt step for-each -- git status
+wt step for-each -- uv run pytest
+```
+
+**Cleanup:**
+```bash
+# Remove current worktree (prompts for branch deletion)
+wt remove
+
+# Remove specific worktree by branch name
+wt remove feature
+
+# Remove worktree but keep branch
+wt remove feature --no-delete-branch
+
+# Force delete unmerged branch
+wt remove feature -D
+```
+
+**Current worktrees:**
+- `main` - Primary development (Tkinter app)
+- `tauri-migration` - Tauri + Rust playback migration (when created)
 
 ## Architecture Overview
 
