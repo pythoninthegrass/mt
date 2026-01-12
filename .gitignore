@@ -336,3 +336,6 @@ src/pydust.build.zig
 # INCLUDE
 !**/.gitkeep
 !**/*.example
+
+# Sidecar binaries (built by task pex:build)
+src-tauri/bin/
