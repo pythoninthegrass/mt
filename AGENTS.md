@@ -215,6 +215,25 @@ task uv:lock    # Update lockfile
 
 The project uses [worktrunk](https://github.com/max-sixty/worktrunk) (`wt`) for managing git worktrees, enabling parallel development and isolated migration work.
 
+**Checking out worktrees on another computer:**
+
+```bash
+# If repository already exists, fetch latest branches
+git fetch origin
+
+# Create and switch to a worktree for a remote branch
+wt switch tauri-migration
+
+# Or if starting fresh:
+git clone https://github.com/pythoninthegrass/mt.git
+cd mt
+wt switch tauri-migration
+```
+
+Worktrunk automatically detects remote branches and creates worktrees at computed paths based on your configured template (typically `../repo.branch-name`).
+
+**Basic worktree operations:**
+
 ```bash
 # Switch to existing worktree for a branch
 wt switch feature
