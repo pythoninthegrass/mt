@@ -458,10 +458,6 @@ class LibraryView:
 
     def highlight_playlist_at(self, x_root: int, y_root: int) -> bool:
         """Highlight playlist row during drag-to-playlist operation."""
-        from config import THEME_CONFIG
-
-        self.clear_playlist_highlight()
-
         try:
             widget_x = self.playlists_tree.winfo_rootx()
             widget_y = self.playlists_tree.winfo_rooty()
@@ -469,25 +465,27 @@ class LibraryView:
             widget_height = self.playlists_tree.winfo_height()
 
             if not (widget_x <= x_root <= widget_x + widget_width and widget_y <= y_root <= widget_y + widget_height):
+                self.clear_playlist_highlight()
                 return False
 
             y_local = y_root - widget_y
             item = self.playlists_tree.identify_row(y_local)
             if not item:
+                self.clear_playlist_highlight()
                 return False
 
             tags = self.playlists_tree.item(item)['tags']
 
             if 'custom' in tags and 'filler' not in tags:
-                primary_color = THEME_CONFIG['colors']['primary']
-                self.playlists_tree.tag_configure('drop_highlight', background=primary_color)
-
-                self._highlighted_item = item
-                current_tags = list(tags)
-                if 'drop_highlight' not in current_tags:
-                    current_tags.append('drop_highlight')
-                    self.playlists_tree.item(item, tags=current_tags)
+                if not hasattr(self, '_highlighted_item') or self._highlighted_item != item:
+                    self.clear_playlist_highlight()
+                    self._highlighted_item = item
+                    self._saved_selection = self.playlists_tree.selection()
+                    self.playlists_tree.selection_set(item)
                 return True
+
+            self.clear_playlist_highlight()
+            return False
 
         except tk.TclError:
             pass
@@ -498,13 +496,13 @@ class LibraryView:
         """Clear playlist highlight from drag operation."""
         if hasattr(self, '_highlighted_item') and self._highlighted_item:
             try:
-                tags = list(self.playlists_tree.item(self._highlighted_item)['tags'])
-                if 'drop_highlight' in tags:
-                    tags.remove('drop_highlight')
-                    self.playlists_tree.item(self._highlighted_item, tags=tags)
+                self.playlists_tree.selection_remove(self._highlighted_item)
+                if hasattr(self, '_saved_selection') and self._saved_selection:
+                    self.playlists_tree.selection_set(self._saved_selection)
             except tk.TclError:
                 pass
             self._highlighted_item = None
+            self._saved_selection = None
 
     def _on_tree_configure(self, event=None):
         """Handle tree resize events to update filler items."""
