@@ -216,6 +216,9 @@ task uv:lock    # Update lockfile
 The project uses [worktrunk](https://github.com/max-sixty/worktrunk) (`wt`) for managing git worktrees, enabling parallel development and isolated migration work.
 
 ```bash
+# list existing worktrees
+wt list
+
 # Switch to existing worktree for a branch
 wt switch feature
 
