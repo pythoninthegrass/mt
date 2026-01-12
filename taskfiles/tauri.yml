@@ -1,0 +1,220 @@
+version: "3.0"
+
+set: ['e', 'u', 'pipefail']
+shopt: ['globstar']
+
+env:
+  CARGO_HOME: "{{.ROOT_DIR}}/.cache/cargo"
+  CARGO_TARGET_DIR: "{{.ROOT_DIR}}/src-tauri/target"
+
+vars:
+  APP_NAME: '{{.APP_NAME | default "mt"}}'
+  APP_VERSION: '{{.APP_VERSION | default "1.0.0"}}'
+  BUNDLE_ID: '{{.BUNDLE_ID | default "com.mt.desktop"}}'
+  TAURI_DIR: "{{.ROOT_DIR}}/src-tauri"
+  SIDECAR_DIR: "{{.TAURI_DIR}}/bin"
+  MACOS_ARM64_TARGET: "aarch64-apple-darwin"
+  MACOS_X64_TARGET: "x86_64-apple-darwin"
+
+tasks:
+  info:
+    desc: "Show Tauri build configuration"
+    cmds:
+      - |
+        cat << EOF
+        Tauri Build Configuration:
+          App Name: {{.APP_NAME}}
+          Version: {{.APP_VERSION}}
+          Bundle ID: {{.BUNDLE_ID}}
+          Tauri Directory: {{.TAURI_DIR}}
+          Sidecar Directory: {{.SIDECAR_DIR}}
+
+        Available targets:
+          - build:arm64     Build for Apple Silicon (arm64)
+          - build:x64       Build for Intel (x86_64)
+          - build           Build for current architecture
+          - dev             Run development mode
+          - sidecar:arm64   Build Python sidecar for arm64
+          - sidecar:x64     Build Python sidecar for x64
+          - sidecar         Build sidecar for current arch
+          - icons           Generate app icons from logo
+
+        Output locations:
+          - macOS app: {{.TAURI_DIR}}/target/*/release/bundle/macos/{{.APP_NAME}}.app
+          - DMG: {{.TAURI_DIR}}/target/*/release/bundle/dmg/{{.APP_NAME}}_*.dmg
+        EOF
+    silent: true
+
+  sidecar:
+    desc: "Build Python sidecar for current architecture"
+    cmds:
+      - task: :pex:build
+    sources:
+      - "{{.ROOT_DIR}}/backend/**/*.py"
+      - "{{.ROOT_DIR}}/pyproject.toml"
+
+  sidecar:arm64:
+    desc: "Build Python sidecar for Apple Silicon (arm64)"
+    cmds:
+      - task: :pex:build:arm64
+    sources:
+      - "{{.ROOT_DIR}}/backend/**/*.py"
+      - "{{.ROOT_DIR}}/pyproject.toml"
+
+  sidecar:x64:
+    desc: "Build Python sidecar for Intel (x86_64)"
+    cmds:
+      - task: :pex:build:x64
+    sources:
+      - "{{.ROOT_DIR}}/backend/**/*.py"
+      - "{{.ROOT_DIR}}/pyproject.toml"
+
+  _build:
+    internal: true
+    desc: "Internal task to build Tauri app"
+    vars:
+      TARGET: '{{.TARGET | default ""}}'
+      TARGET_FLAG: '{{if .TARGET}}--target {{.TARGET}}{{end}}'
+    cmds:
+      - |
+        echo "Building {{.APP_NAME}} v{{.APP_VERSION}}{{if .TARGET}} for {{.TARGET}}{{end}}..."
+        npx tauri build {{.TARGET_FLAG}}
+
+  build:
+    desc: "Build Tauri app for current architecture"
+    deps: [":npm:install"]
+    vars:
+      CURRENT_TARGET: '{{if eq ARCH "arm64"}}{{.MACOS_ARM64_TARGET}}{{else}}{{.MACOS_X64_TARGET}}{{end}}'
+    cmds:
+      - task: sidecar
+      - task: _build
+        vars:
+          TARGET: "{{.CURRENT_TARGET}}"
+    sources:
+      - "{{.TAURI_DIR}}/src/**/*.rs"
+      - "{{.TAURI_DIR}}/Cargo.toml"
+      - "{{.TAURI_DIR}}/tauri.conf.json"
+      - "{{.SIDECAR_DIR}}/main*"
+      - "{{.ROOT_DIR}}/pyproject.toml"
+      - "{{.ROOT_DIR}}/uv.lock"
+
+  build:arm64:
+    desc: "Build Tauri app for Apple Silicon (arm64)"
+    deps: [":npm:install"]
+    cmds:
+      - task: sidecar:arm64
+      - task: _build
+        vars:
+          TARGET: "{{.MACOS_ARM64_TARGET}}"
+    sources:
+      - "{{.TAURI_DIR}}/src/**/*.rs"
+      - "{{.TAURI_DIR}}/Cargo.toml"
+      - "{{.TAURI_DIR}}/tauri.conf.json"
+      - "{{.SIDECAR_DIR}}/main-{{.MACOS_ARM64_TARGET}}"
+
+  build:x64:
+    desc: "Build Tauri app for Intel (x86_64)"
+    deps: [":npm:install"]
+    cmds:
+      - task: sidecar:x64
+      - task: _build
+        vars:
+          TARGET: "{{.MACOS_X64_TARGET}}"
+    sources:
+      - "{{.TAURI_DIR}}/src/**/*.rs"
+      - "{{.TAURI_DIR}}/Cargo.toml"
+      - "{{.TAURI_DIR}}/tauri.conf.json"
+      - "{{.SIDECAR_DIR}}/main-{{.MACOS_X64_TARGET}}"
+
+  dev:
+    desc: "Run Tauri in development mode"
+    deps: [":npm:install"]
+    cmds:
+      - npx tauri dev
+    interactive: true
+
+  icons:
+    desc: "Generate app icons from logo"
+    cmds:
+      - npx tauri icon {{.ROOT_DIR}}/static/logo.png
+    sources:
+      - "{{.ROOT_DIR}}/static/logo.png"
+    generates:
+      - "{{.TAURI_DIR}}/icons/**/*"
+
+  clean:
+    desc: "Clean Tauri build artifacts"
+    cmds:
+      - rm -rf {{.TAURI_DIR}}/target
+      - rm -rf {{.SIDECAR_DIR}}/main*
+      - rm -rf {{.ROOT_DIR}}/build
+      - rm -rf {{.ROOT_DIR}}/dist
+    silent: true
+
+  clean:sidecar:
+    desc: "Clean only sidecar binaries"
+    cmds:
+      - rm -rf {{.SIDECAR_DIR}}/main*
+    silent: true
+
+  clean:rust:
+    desc: "Clean only Rust build artifacts"
+    cmds:
+      - cargo clean --manifest-path {{.TAURI_DIR}}/Cargo.toml
+    silent: true
+
+  test-app:
+    desc: "Launch the built macOS app"
+    vars:
+      APP_PATH: "{{.TAURI_DIR}}/target/{{.MACOS_ARM64_TARGET}}/release/bundle/macos/{{.APP_NAME}}.app"
+    cmds:
+      - open "{{.APP_PATH}}"
+    preconditions:
+      - test -d "{{.APP_PATH}}"
+
+  check-deps:
+    desc: "Check if Tauri dependencies are installed"
+    cmds:
+      - |
+        echo "Checking Tauri dependencies..."
+        missing=0
+
+        if ! command -v cargo &> /dev/null; then
+          echo "cargo not found. Install Rust from https://rustup.rs"
+          missing=1
+        else
+          echo "cargo version: $(cargo --version)"
+        fi
+
+        if ! command -v npx &> /dev/null; then
+          echo "npx not found. Install Node.js from https://nodejs.org"
+          missing=1
+        else
+          echo "npx available"
+        fi
+
+        if ! command -v uv &> /dev/null; then
+          echo "uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
+          missing=1
+        else
+          echo "uv version: $(uv --version)"
+        fi
+
+        if ! command -v pex &> /dev/null; then
+          echo "pex not found. Install with: uv pip install pex"
+          missing=1
+        else
+          echo "pex version: $(pex --version)"
+        fi
+
+        if [[ $missing -eq 0 ]]; then
+          echo "All dependencies satisfied"
+        else
+          exit 1
+        fi
+    silent: true
+
+  doctor:
+    desc: "Run Tauri doctor to check environment"
+    cmds:
+      - npx tauri info
