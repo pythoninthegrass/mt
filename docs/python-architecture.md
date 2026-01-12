@@ -217,6 +217,41 @@ Eliot-based logging architecture:
 - **Backup Strategies**: Configuration and preference preservation
 - **Migration Support**: Schema updates without data loss
 
+## Tkinter Implementation (01-11-2026)
+
+Current state of the desktop application UI built with Tkinter/ttk.
+
+### Music Library View
+![Music Library - Main library browser showing all tracks](images/mt_music_library.png)
+
+### Now Playing
+![Now Playing - Current track display with playback controls](images/mt_now_playing.png)
+
+### Adding Music
+![Add Music - Directory selection for library scanning](images/mt_add_music.png)
+
+### Smart Playlists
+
+![Liked Songs - Favorited tracks collection](images/mt_liked_songs.png)
+
+![Recently Added - Newly imported tracks](images/mt_recently_added.png)
+
+![Recently Played - Playback history](images/mt_recently_played.png)
+
+![Top 25 Most Played - Frequently played tracks](images/mt_top_25_most_played.png)
+
+### Custom Playlists
+
+![New Playlist - Creating a custom playlist](images/mt_new_playlist.png)
+
+![Custom Playlist - User-created playlist view](images/mt_custom_playlist.png)
+
+![Playlist Context Menu - Right-click actions for playlists](images/mt_playlist_context_menu.png)
+
+### Playback Modes
+
+![Repeat Once - Single track loop indicator](images/mt_repeat_once.png)
+
 ## Future Architecture Considerations
 
 ### Web Migration Readiness
