@@ -1,9 +1,10 @@
 ---
 id: task-091
 title: 'P1: Update docs/python-architecture.md for current state'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:06'
+updated_date: '2026-01-12 04:34'
 labels:
   - documentation
   - phase-1
@@ -28,9 +29,9 @@ Fix inaccuracies in the architecture doc to reflect the actual codebase structur
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Central orchestrator section updated to reference core/player/ package
-- [ ] #2 Data layer section updated to reference core/db/ package
-- [ ] #3 API server section added with command surface and threading model
-- [ ] #4 Manager composition pattern documented
-- [ ] #5 Zig extension documented
+- [x] #1 Central orchestrator section updated to reference core/player/ package
+- [x] #2 Data layer section updated to reference core/db/ package
+- [x] #3 API server section added with command surface and threading model
+- [x] #4 Manager composition pattern documented
+- [x] #5 Zig extension documented
 <!-- AC:END -->
