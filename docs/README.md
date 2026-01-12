@@ -13,6 +13,7 @@ This directory contains comprehensive documentation for the MT music player proj
 - [**Custom Playlists**](custom-playlists.md) - Implementation plan for user-created playlists
 - [**Current Status**](status.md) - Implementation progress, outstanding tasks, and known issues
 - [**Web Migration Guide**](web-migration.md) - Strategy for porting to FastAPI/Flask web application
+- [**Tauri Architecture**](tauri-architecture.md) - Target architecture for Tauri migration (Rust audio, Python sidecar, Alpine.js frontend)
 
 ## Quick Start
 
