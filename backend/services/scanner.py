@@ -39,6 +39,7 @@ def extract_metadata(filepath: str) -> dict[str, Any]:
         "track_total": None,
         "date": None,
         "duration": None,
+        "file_size": get_file_size(filepath),
     }
 
     try:

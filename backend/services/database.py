@@ -31,6 +31,7 @@ DB_TABLES = {
          track_total TEXT,
          date TEXT,
          duration REAL,
+         file_size INTEGER DEFAULT 0,
          added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
          last_played TIMESTAMP,
          play_count INTEGER DEFAULT 0)
@@ -107,6 +108,16 @@ class DatabaseService:
             for table_sql in DB_TABLES.values():
                 cursor.execute(table_sql)
             conn.commit()
+            self._run_migrations(conn)
+
+    def _run_migrations(self, conn: sqlite3.Connection) -> None:
+        """Run database migrations for schema updates."""
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(library)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "file_size" not in columns:
+            cursor.execute("ALTER TABLE library ADD COLUMN file_size INTEGER DEFAULT 0")
+            conn.commit()
 
     @contextmanager
     def get_connection(self) -> Generator[sqlite3.Connection, None, None]:
@@ -176,7 +187,7 @@ class DatabaseService:
             # Get tracks
             query = f"""
                 SELECT id, filepath, title, artist, album, album_artist,
-                       track_number, track_total, date, duration,
+                       track_number, track_total, date, duration, file_size,
                        play_count, last_played, added_date
                 FROM library
                 {where_clause}
@@ -195,7 +206,7 @@ class DatabaseService:
             cursor.execute(
                 """
                 SELECT id, filepath, title, artist, album, album_artist,
-                       track_number, track_total, date, duration,
+                       track_number, track_total, date, duration, file_size,
                        play_count, last_played, added_date
                 FROM library WHERE id = ?
             """,
@@ -211,7 +222,7 @@ class DatabaseService:
             cursor.execute(
                 """
                 SELECT id, filepath, title, artist, album, album_artist,
-                       track_number, track_total, date, duration,
+                       track_number, track_total, date, duration, file_size,
                        play_count, last_played, added_date
                 FROM library WHERE filepath = ?
             """,
@@ -232,8 +243,8 @@ class DatabaseService:
                 """
                 INSERT INTO library
                 (filepath, title, artist, album, album_artist,
-                 track_number, track_total, date, duration)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 track_number, track_total, date, duration, file_size)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     filepath,
@@ -245,6 +256,7 @@ class DatabaseService:
                     metadata.get("track_total"),
                     metadata.get("date"),
                     metadata.get("duration"),
+                    metadata.get("file_size", 0),
                 ),
             )
             conn.commit()
@@ -292,6 +304,9 @@ class DatabaseService:
             cursor.execute("SELECT COALESCE(SUM(duration), 0) FROM library")
             total_duration = int(cursor.fetchone()[0] or 0)
 
+            cursor.execute("SELECT COALESCE(SUM(file_size), 0) FROM library")
+            total_size = int(cursor.fetchone()[0] or 0)
+
             cursor.execute("SELECT COUNT(DISTINCT artist) FROM library WHERE artist IS NOT NULL")
             total_artists = cursor.fetchone()[0]
 
@@ -301,9 +316,33 @@ class DatabaseService:
             return {
                 "total_tracks": total_tracks,
                 "total_duration": total_duration,
+                "total_size": total_size,
                 "total_artists": total_artists,
                 "total_albums": total_albums,
             }
+
+    def update_file_sizes(self) -> int:
+        """Update file sizes for tracks that have file_size = 0."""
+        import os
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, filepath FROM library WHERE file_size = 0 OR file_size IS NULL")
+            tracks = cursor.fetchall()
+
+            updated = 0
+            for row in tracks:
+                filepath = row["filepath"]
+                try:
+                    if os.path.exists(filepath):
+                        size = os.path.getsize(filepath)
+                        cursor.execute("UPDATE library SET file_size = ? WHERE id = ?", (size, row["id"]))
+                        updated += 1
+                except Exception:
+                    pass
+
+            conn.commit()
+            return updated
 
     # ==================== Queue Operations ====================
 
@@ -315,7 +354,7 @@ class DatabaseService:
                 """
                 SELECT q.id as queue_id, q.filepath,
                        l.id, l.title, l.artist, l.album, l.album_artist,
-                       l.track_number, l.track_total, l.date, l.duration,
+                       l.track_number, l.track_total, l.date, l.duration, l.file_size,
                        l.play_count, l.last_played, l.added_date
                 FROM queue q
                 LEFT JOIN library l ON q.filepath = l.filepath
@@ -340,6 +379,7 @@ class DatabaseService:
                             "track_total": row_dict.get("track_total"),
                             "date": row_dict.get("date"),
                             "duration": row_dict.get("duration"),
+                            "file_size": row_dict.get("file_size", 0),
                             "play_count": row_dict.get("play_count", 0),
                             "last_played": row_dict.get("last_played"),
                             "added_date": row_dict.get("added_date"),

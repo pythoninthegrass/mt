@@ -37,6 +37,7 @@ async def get_library(
     db: DatabaseService = Depends(get_db),
 ):
     """Get all tracks in the library with optional filtering and pagination."""
+    db.update_file_sizes()
     tracks, total = db.get_all_tracks(
         search=search,
         artist=artist,

@@ -16,6 +16,7 @@ class TrackBase(BaseModel):
     track_total: str | None = None
     date: str | None = None
     duration: float | None = None
+    file_size: int = 0
 
 
 class Track(TrackBase):

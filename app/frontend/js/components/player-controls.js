@@ -262,7 +262,7 @@ export function createPlayerControls(Alpine) {
     get libraryStats() {
       const tracks = this.library.tracks;
       const count = tracks.length;
-      const totalBytes = tracks.reduce((sum, t) => sum + (t.size || 0), 0);
+      const totalBytes = tracks.reduce((sum, t) => sum + (t.file_size || 0), 0);
       const sizeStr = this.formatBytes(totalBytes);
       const totalSeconds = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
       const durationStr = this.formatDurationLong(totalSeconds);
