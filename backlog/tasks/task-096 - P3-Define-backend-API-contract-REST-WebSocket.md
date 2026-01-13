@@ -1,9 +1,10 @@
 ---
 id: task-096
 title: 'P3: Define backend API contract (REST + WebSocket)'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
+updated_date: '2026-01-13 06:08'
 labels:
   - documentation
   - api
@@ -59,8 +60,8 @@ Settings:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 API contract documented in docs/api-contract.md
-- [ ] #2 All existing api/server.py actions mapped to REST endpoints
-- [ ] #3 WebSocket event schema defined
-- [ ] #4 Request/response schemas defined (JSON)
+- [x] #1 API contract documented in docs/api-contract.md
+- [x] #2 All existing api/server.py actions mapped to REST endpoints
+- [x] #3 WebSocket event schema defined
+- [x] #4 Request/response schemas defined (JSON)
 <!-- AC:END -->
