@@ -118,9 +118,10 @@ export function createPlayerStore(Alpine) {
     
     async seek(positionMs) {
       try {
-        await invoke('audio_seek', { positionMs });
-        this.currentTime = positionMs;
-        this.progress = this.duration > 0 ? (positionMs / this.duration) * 100 : 0;
+        const pos = Math.round(positionMs);
+        await invoke('audio_seek', { position_ms: pos });
+        this.currentTime = pos;
+        this.progress = this.duration > 0 ? (pos / this.duration) * 100 : 0;
       } catch (error) {
         console.error('Failed to seek:', error);
       }

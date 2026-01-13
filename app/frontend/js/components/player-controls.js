@@ -58,16 +58,17 @@ export function createPlayerControls(Alpine) {
       return this.player.currentTrack;
     },
     
-    /**
-     * Check if there's a track loaded
-     */
     get hasTrack() {
       return !!this.currentTrack;
     },
     
-    /**
-     * Get play/pause icon
-     */
+    get trackDisplayName() {
+      if (!this.currentTrack) return '';
+      const artist = this.currentTrack.artist || 'Unknown Artist';
+      const title = this.currentTrack.title || this.currentTrack.filename || 'Unknown Track';
+      return `${artist} - ${title}`;
+    },
+    
     get playIcon() {
       return this.player.isPlaying ? 'pause' : 'play';
     },
