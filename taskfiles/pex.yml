@@ -6,24 +6,17 @@ shopt: ['globstar']
 vars:
   STAGING_DIR: "/tmp/mt-pex-staging"
   SIDECAR_DIR: "{{.ROOT_DIR}}/src-tauri/bin"
-  BACKEND_DIR: "{{.ROOT_DIR}}/app/backend"
+  BACKEND_DIR: "{{.ROOT_DIR}}/backend"
   MACOS_ARM64_TARGET: "aarch64-apple-darwin"
   MACOS_X64_TARGET: "x86_64-apple-darwin"
   PYTHON_VERSION: "3.12"
   SIDECAR_HOST: '{{.SIDECAR_HOST | default "127.0.0.1"}}'
-  SIDECAR_PORT: '{{.SIDECAR_PORT | default "5556"}}'
+  SIDECAR_PORT: '{{.SIDECAR_PORT | default "8765"}}'
   # Dependencies required by the mt backend sidecar
   PEX_DEPS: >-
-    aiosqlite
-    certifi
-    eliot
-    eliot-tree
     fastapi
-    httpx
-    lyricsgenius
-    mutagen
-    python-decouple
     uvicorn
+    pydantic
     websockets
 
 tasks:
@@ -66,8 +59,9 @@ tasks:
         mkdir -p {{.STAGING_DIR}}/backend
         cp {{.BACKEND_DIR}}/__init__.py {{.STAGING_DIR}}/backend/
         cp {{.BACKEND_DIR}}/main.py {{.STAGING_DIR}}/backend/
-        [ -d {{.BACKEND_DIR}}/api ] && cp -r {{.BACKEND_DIR}}/api {{.STAGING_DIR}}/backend/ || true
-        [ -d {{.BACKEND_DIR}}/core ] && cp -r {{.BACKEND_DIR}}/core {{.STAGING_DIR}}/backend/ || true
+        [ -d {{.BACKEND_DIR}}/models ] && cp -r {{.BACKEND_DIR}}/models {{.STAGING_DIR}}/backend/ || true
+        [ -d {{.BACKEND_DIR}}/routes ] && cp -r {{.BACKEND_DIR}}/routes {{.STAGING_DIR}}/backend/ || true
+        [ -d {{.BACKEND_DIR}}/services ] && cp -r {{.BACKEND_DIR}}/services {{.STAGING_DIR}}/backend/ || true
         echo "Staged to {{.STAGING_DIR}}"
 
   stage:
@@ -179,17 +173,22 @@ tasks:
     cmds:
       - |
         echo "Testing PEX sidecar..."
-        {{.SIDECAR_DIR}}/main-{{.MACOS_ARM64_TARGET}} &
+        MT_API_PORT={{.SIDECAR_PORT}} {{.SIDECAR_DIR}}/main-{{.MACOS_ARM64_TARGET}} &
         PID=$!
-        sleep 5
-        if curl -s http://localhost:8080/ > /dev/null; then
-          echo "Server responding OK"
-          curl -s -X POST http://localhost:8080/shutdown
-        else
-          echo "Server not responding"
-          kill $PID 2>/dev/null
-          exit 1
-        fi
+        sleep 3
+        # Poll health endpoint
+        for i in {1..10}; do
+          if curl -sf http://{{.SIDECAR_HOST}}:{{.SIDECAR_PORT}}/api/health > /dev/null 2>&1; then
+            echo "Server responding OK on port {{.SIDECAR_PORT}}"
+            kill $PID 2>/dev/null
+            exit 0
+          fi
+          echo "Waiting for server... ($i/10)"
+          sleep 1
+        done
+        echo "Server not responding after 10 attempts"
+        kill $PID 2>/dev/null
+        exit 1
     preconditions:
       - test -f "{{.SIDECAR_DIR}}/main-{{.MACOS_ARM64_TARGET}}"
     silent: true
