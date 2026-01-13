@@ -1,9 +1,10 @@
 ---
 id: task-100
 title: 'P4: Set up frontend build tooling (Vite + Tailwind + Basecoat)'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:08'
+updated_date: '2026-01-12 07:46'
 labels:
   - frontend
   - infrastructure
@@ -60,10 +61,44 @@ src/
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 npm project initialized with package.json
-- [ ] #2 Vite dev server runs and serves index.html
-- [ ] #3 Tailwind CSS compiles correctly
-- [ ] #4 Basecoat classes available
-- [ ] #5 AlpineJS initializes without errors
-- [ ] #6 Hot reload works during development
+- [x] #1 npm project initialized with package.json
+- [x] #2 Vite dev server runs and serves index.html
+- [x] #3 Tailwind CSS compiles correctly
+- [x] #4 Basecoat classes available
+- [x] #5 AlpineJS initializes without errors
+- [x] #6 Hot reload works during development
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Implementation Notes (2026-01-12)
+
+### Repo Reorganization
+Moved all business logic under `app/` directory:
+- `app/backend/` - Python FastAPI sidecar
+- `app/core/` - Python business logic
+- `app/utils/` - Python utilities
+- `app/config.py` - App config
+- `app/main.py` - Legacy Tkinter entrypoint
+- `app/src/` - Zig build files
+- `app/frontend/` - Vite + Tailwind + Alpine + Basecoat
+
+### Frontend Stack
+- **Vite** with `@tailwindcss/vite` plugin
+- **Tailwind v4** (latest)
+- **Basecoat CSS** for components
+- **AlpineJS** (ESM import, no CDN)
+- **Basecoat JS** copied to `public/js/basecoat/` (Option B approach)
+
+### Key Configuration
+- `tauri.conf.json` uses simple `npm run dev` / `npm run build` commands
+- Commands run from `app/frontend/` when using `npm --prefix app/frontend exec tauri dev`
+- `frontendDist` path: `../app/frontend/dist` (relative to src-tauri)
+
+### Verified Working
+- `task tauri:dev` launches Vite + Tauri window
+- Hot reload works
+- Basecoat buttons render correctly
+- Alpine.js initializes and binds data
+<!-- SECTION:NOTES:END -->

@@ -3,12 +3,11 @@ from __future__ import annotations
 import os
 import signal
 import sys
-from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
-
 import uvicorn
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator

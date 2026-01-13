@@ -13,6 +13,7 @@ vars:
   BUNDLE_ID: '{{.BUNDLE_ID | default "com.mt.desktop"}}'
   TAURI_DIR: "{{.ROOT_DIR}}/src-tauri"
   SIDECAR_DIR: "{{.TAURI_DIR}}/bin"
+  BACKEND_DIR: "{{.ROOT_DIR}}/app/backend"
   MACOS_ARM64_TARGET: "aarch64-apple-darwin"
   MACOS_X64_TARGET: "x86_64-apple-darwin"
 
@@ -50,7 +51,7 @@ tasks:
     cmds:
       - task: :pex:build
     sources:
-      - "{{.ROOT_DIR}}/backend/**/*.py"
+      - "{{.BACKEND_DIR}}/**/*.py"
       - "{{.ROOT_DIR}}/pyproject.toml"
 
   sidecar:arm64:
@@ -58,7 +59,7 @@ tasks:
     cmds:
       - task: :pex:build:arm64
     sources:
-      - "{{.ROOT_DIR}}/backend/**/*.py"
+      - "{{.BACKEND_DIR}}/**/*.py"
       - "{{.ROOT_DIR}}/pyproject.toml"
 
   sidecar:x64:
@@ -66,7 +67,7 @@ tasks:
     cmds:
       - task: :pex:build:x64
     sources:
-      - "{{.ROOT_DIR}}/backend/**/*.py"
+      - "{{.BACKEND_DIR}}/**/*.py"
       - "{{.ROOT_DIR}}/pyproject.toml"
 
   _build:
@@ -78,7 +79,7 @@ tasks:
     cmds:
       - |
         echo "Building {{.APP_NAME}} v{{.APP_VERSION}}{{if .TARGET}} for {{.TARGET}}{{end}}..."
-        npx tauri build {{.TARGET_FLAG}}
+        npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri build -- {{.TARGET_FLAG}}
 
   build:
     desc: "Build Tauri app for current architecture"
@@ -130,13 +131,13 @@ tasks:
     desc: "Run Tauri in development mode"
     deps: [":npm:install", "sidecar"]
     cmds:
-      - npx tauri dev
+      - npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri dev
     interactive: true
 
   icons:
     desc: "Generate app icons from logo"
     cmds:
-      - npx tauri icon {{.ROOT_DIR}}/static/logo.png
+      - npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri icon -- {{.ROOT_DIR}}/static/logo.png
     sources:
       - "{{.ROOT_DIR}}/static/logo.png"
     generates:
@@ -217,4 +218,4 @@ tasks:
   doctor:
     desc: "Run Tauri doctor to check environment"
     cmds:
-      - npx tauri info
+      - npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri info

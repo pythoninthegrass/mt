@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.mt.desktop",
   "build": {
-    "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
     "devUrl": "http://localhost:5173",
-    "frontendDist": "../dist"
+    "frontendDist": "../app/frontend/dist"
   },
   "app": {
     "withGlobalTauri": true,

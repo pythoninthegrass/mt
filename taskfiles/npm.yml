@@ -6,49 +6,58 @@ shopt: ['globstar']
 env:
   NPM_CACHE_DIR: "{{.ROOT_DIR}}/.cache/npm"
 
+vars:
+  FRONTEND_DIR: "app/frontend"
+
 tasks:
   install:
     desc: "Install npm dependencies"
+    dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm install
     sources:
-      - "{{.ROOT_DIR}}/package.json"
+      - "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}/package.json"
     generates:
-      - "{{.ROOT_DIR}}/node_modules/**/*"
+      - "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}/node_modules/**/*"
     status:
-      - test -d "{{.ROOT_DIR}}/node_modules"
+      - test -d "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}/node_modules"
     silent: true
 
   ci:
     desc: "Clean install npm dependencies (CI mode)"
+    dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm ci
 
   update:
     desc: "Update npm dependencies"
+    dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm update
 
   outdated:
     desc: "Check for outdated dependencies"
+    dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm outdated || true
     silent: true
 
   audit:
     desc: "Run security audit"
+    dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm audit
 
   audit-fix:
     desc: "Fix security vulnerabilities"
+    dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm audit fix
 
   clean:
     desc: "Clean npm artifacts"
     cmds:
-      - rm -rf {{.ROOT_DIR}}/node_modules
+      - rm -rf {{.ROOT_DIR}}/{{.FRONTEND_DIR}}/node_modules
       - rm -rf {{.ROOT_DIR}}/.cache/npm
     silent: true
 
@@ -60,6 +69,7 @@ tasks:
 
   list:
     desc: "List installed packages"
+    dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm list --depth=0
     silent: true

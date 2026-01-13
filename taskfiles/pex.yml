@@ -6,9 +6,12 @@ shopt: ['globstar']
 vars:
   STAGING_DIR: "/tmp/mt-pex-staging"
   SIDECAR_DIR: "{{.ROOT_DIR}}/src-tauri/bin"
+  BACKEND_DIR: "{{.ROOT_DIR}}/app/backend"
   MACOS_ARM64_TARGET: "aarch64-apple-darwin"
   MACOS_X64_TARGET: "x86_64-apple-darwin"
   PYTHON_VERSION: "3.12"
+  SIDECAR_HOST: '{{.SIDECAR_HOST | default "127.0.0.1"}}'
+  SIDECAR_PORT: '{{.SIDECAR_PORT | default "5556"}}'
   # Dependencies required by the mt backend sidecar
   PEX_DEPS: >-
     aiosqlite
@@ -61,10 +64,10 @@ tasks:
         echo "Staging backend files..."
         rm -rf {{.STAGING_DIR}}
         mkdir -p {{.STAGING_DIR}}/backend
-        cp {{.ROOT_DIR}}/backend/__init__.py {{.STAGING_DIR}}/backend/
-        cp {{.ROOT_DIR}}/backend/main.py {{.STAGING_DIR}}/backend/
-        [ -d {{.ROOT_DIR}}/backend/api ] && cp -r {{.ROOT_DIR}}/backend/api {{.STAGING_DIR}}/backend/ || true
-        [ -d {{.ROOT_DIR}}/backend/core ] && cp -r {{.ROOT_DIR}}/backend/core {{.STAGING_DIR}}/backend/ || true
+        cp {{.BACKEND_DIR}}/__init__.py {{.STAGING_DIR}}/backend/
+        cp {{.BACKEND_DIR}}/main.py {{.STAGING_DIR}}/backend/
+        [ -d {{.BACKEND_DIR}}/api ] && cp -r {{.BACKEND_DIR}}/api {{.STAGING_DIR}}/backend/ || true
+        [ -d {{.BACKEND_DIR}}/core ] && cp -r {{.BACKEND_DIR}}/core {{.STAGING_DIR}}/backend/ || true
         echo "Staged to {{.STAGING_DIR}}"
 
   stage:
@@ -103,7 +106,7 @@ tasks:
         vars:
           OUTPUT_NAME: "main-{{.CURRENT_TARGET}}"
     sources:
-      - "{{.ROOT_DIR}}/backend/**/*.py"
+      - "{{.BACKEND_DIR}}/**/*.py"
 
   build:arm64:
     desc: "Build PEX sidecar for Apple Silicon (arm64)"
@@ -112,7 +115,7 @@ tasks:
         vars:
           OUTPUT_NAME: "main-{{.MACOS_ARM64_TARGET}}"
     sources:
-      - "{{.ROOT_DIR}}/backend/**/*.py"
+      - "{{.BACKEND_DIR}}/**/*.py"
 
   build:x64:
     desc: "Build PEX sidecar for Intel (x86_64)"
@@ -132,7 +135,7 @@ tasks:
           --scie-platform macos-x86_64 \
           -o {{.SIDECAR_DIR}}/main-{{.MACOS_X64_TARGET}}
     sources:
-      - "{{.ROOT_DIR}}/backend/**/*.py"
+      - "{{.BACKEND_DIR}}/**/*.py"
 
   clean:
     desc: "Clean PEX staging directory"

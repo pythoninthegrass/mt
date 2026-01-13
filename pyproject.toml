@@ -141,10 +141,11 @@ dev = [
 script = "build.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app", "core", "utils"]
-artifacts = ["core/*.so"]
+packages = ["app/backend", "app/core", "app/utils"]
+sources = ["app"]
+artifacts = ["app/core/*.so"]
 include = [
-    "*.py",
+    "app/**/*.py",
     "static/",
     "themes.json",
 ]

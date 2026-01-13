@@ -4,8 +4,8 @@ Tests that ensure consistent use of 'recently_added' and 'recently_played'
 identifiers throughout the codebase (not 'recent_added' or 'recent_played').
 """
 
-import pytest
 import inspect
+import pytest
 
 
 class TestIdentifierStandardization:
