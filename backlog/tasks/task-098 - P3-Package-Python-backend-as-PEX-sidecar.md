@@ -1,10 +1,10 @@
 ---
 id: task-098
 title: 'P3: Package Python backend as PEX sidecar'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
-updated_date: '2026-01-13 06:04'
+updated_date: '2026-01-13 07:59'
 labels:
   - python
   - packaging
@@ -67,9 +67,9 @@ curl http://127.0.0.1:8765/api/health
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `task pex:build:arm64` builds successfully
-- [ ] #2 `task pex:build:x64` builds successfully (or documents cross-compile limitation)
-- [ ] #3 PEX runs standalone: `MT_API_PORT=8765 ./src-tauri/bin/main-aarch64-apple-darwin`
-- [ ] #4 Health endpoint responds: `curl http://127.0.0.1:8765/api/health`
-- [ ] #5 Environment variables configure runtime behavior
+- [x] #1 `task pex:build:arm64` builds successfully
+- [x] #2 `task pex:build:x64` builds successfully (or documents cross-compile limitation)
+- [x] #3 PEX runs standalone: `MT_API_PORT=8765 ./src-tauri/bin/main-aarch64-apple-darwin`
+- [x] #4 Health endpoint responds: `curl http://127.0.0.1:8765/api/health`
+- [x] #5 Environment variables configure runtime behavior
 <!-- AC:END -->
