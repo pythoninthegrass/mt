@@ -1,9 +1,10 @@
 ---
 id: task-102
 title: 'P4: Build library browser UI component'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:08'
+updated_date: '2026-01-13 04:32'
 labels:
   - frontend
   - ui
@@ -64,10 +65,10 @@ Implement the library browser view using AlpineJS + Basecoat.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Track list displays all library tracks
-- [ ] #2 Search filters tracks in real-time
-- [ ] #3 Column sorting works
-- [ ] #4 Double-click plays track
-- [ ] #5 Currently playing track highlighted
-- [ ] #6 Loading and empty states display correctly
+- [x] #1 Track list displays all library tracks
+- [x] #2 Search filters tracks in real-time
+- [x] #3 Column sorting works
+- [x] #4 Double-click plays track
+- [x] #5 Currently playing track highlighted
+- [x] #6 Loading and empty states display correctly
 <!-- AC:END -->

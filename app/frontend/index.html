@@ -6,11 +6,68 @@
   <title>mt</title>
   <script src="/js/basecoat/all.min.js" defer></script>
   <script type="module" src="/main.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    
+    /* Custom scrollbar for track list */
+    .track-list::-webkit-scrollbar {
+      width: 8px;
+    }
+    .track-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .track-list::-webkit-scrollbar-thumb {
+      background: hsl(var(--muted));
+      border-radius: 4px;
+    }
+    .track-list::-webkit-scrollbar-thumb:hover {
+      background: hsl(var(--muted-foreground));
+    }
+    
+    /* Context menu styles */
+    .context-menu {
+      position: fixed;
+      z-index: 100;
+      min-width: 180px;
+      background: hsl(var(--popover));
+      border: 1px solid hsl(var(--border));
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+      padding: 0.25rem;
+    }
+    .context-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .context-menu-item:hover {
+      background: hsl(var(--accent));
+    }
+    .context-menu-item.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .context-menu-item.danger {
+      color: hsl(var(--destructive));
+    }
+    .context-menu-item.danger:hover {
+      background: hsl(var(--destructive) / 0.1);
+    }
+    .context-menu-separator {
+      height: 1px;
+      background: hsl(var(--border));
+      margin: 0.25rem 0;
+    }
+  </style>
 </head>
 <body class="bg-background text-foreground min-h-screen">
   <div class="flex flex-col min-h-screen">
     <!-- Header -->
-    <header class="border-b border-border p-4">
+    <header class="border-b border-border p-4 shrink-0">
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold">mt</h1>
         <div class="flex gap-2">
@@ -41,59 +98,158 @@
     </header>
 
     <!-- Main content -->
-    <main class="flex-1 p-4 overflow-auto">
+    <main class="flex-1 overflow-hidden">
       <!-- Library View -->
-      <div x-show="$store.ui.view === 'library'" x-cloak>
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold">Library</h2>
+      <div 
+        x-show="$store.ui.view === 'library'" 
+        x-cloak
+        x-data="libraryBrowser"
+        @keydown.window="$store.ui.view === 'library' && handleKeydown($event)"
+        class="h-full flex flex-col"
+      >
+        <!-- Library header -->
+        <div class="flex items-center justify-between p-4 border-b border-border shrink-0">
+          <div class="flex items-center gap-4">
+            <h2 class="text-xl font-semibold">Library</h2>
+            <span class="text-sm text-muted-foreground">
+              <span x-text="library.filteredTracks.length"></span> tracks
+              <template x-if="library.searchQuery">
+                <span>(filtered from <span x-text="library.tracks.length"></span>)</span>
+              </template>
+            </span>
+          </div>
           <div class="flex gap-2">
-            <input 
-              type="text" 
-              class="input input-sm w-64" 
-              placeholder="Search tracks..."
-              x-model="$store.library.searchQuery"
-              @input.debounce.300ms="$store.library.search($store.library.searchQuery)"
-            >
+            <!-- Search input -->
+            <div class="relative">
+              <input 
+                type="text" 
+                class="input input-sm w-64 pl-8" 
+                placeholder="Search tracks..."
+                x-model="library.searchQuery"
+                @input.debounce.300ms="library.search(library.searchQuery)"
+              >
+              <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
             <button 
               class="btn btn-sm btn-outline"
-              @click="$store.library.loadTracks()"
-              :disabled="$store.library.loading"
+              @click="library.load()"
+              :disabled="library.loading"
             >
-              <span x-show="!$store.library.loading">Refresh</span>
-              <span x-show="$store.library.loading">Loading...</span>
+              <span x-show="!library.loading">Refresh</span>
+              <span x-show="library.loading" class="flex items-center gap-1">
+                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading...
+              </span>
             </button>
           </div>
         </div>
         
-        <!-- Track count -->
-        <p class="text-sm text-muted-foreground mb-4">
-          <span x-text="$store.library.filteredTracks.length"></span> tracks
-          <span x-show="$store.library.searchQuery">
-            (filtered from <span x-text="$store.library.tracks.length"></span>)
-          </span>
-        </p>
-        
-        <!-- Track list -->
-        <div class="space-y-1">
-          <template x-for="track in $store.library.filteredTracks.slice(0, 50)" :key="track.id">
-            <div 
-              class="flex items-center gap-4 p-2 rounded hover:bg-muted cursor-pointer"
-              @click="$store.queue.add(track.id)"
-              @dblclick="$store.player.playTrack(track)"
-            >
-              <span class="text-sm font-medium flex-1" x-text="track.title || track.filename || 'Unknown'"></span>
-              <span class="text-sm text-muted-foreground" x-text="track.artist || 'Unknown Artist'"></span>
-              <span class="text-xs text-muted-foreground" x-text="$store.player.formatTime(track.duration || 0)"></span>
+        <!-- Track table -->
+        <div class="flex-1 overflow-hidden">
+          <!-- Table header -->
+          <div class="flex items-center border-b border-border bg-muted/50 text-sm font-medium text-muted-foreground sticky top-0">
+            <template x-for="col in columns" :key="col.key">
+              <div 
+                :class="[col.width, col.sortable ? 'cursor-pointer hover:text-foreground' : '']"
+                class="px-3 py-2 select-none"
+                @click="col.sortable && handleSort(col.key)"
+              >
+                <span x-text="col.label"></span>
+                <span x-show="col.sortable" x-text="getSortIndicator(col.key)" class="ml-1"></span>
+              </div>
+            </template>
+          </div>
+          
+          <!-- Track list -->
+          <div class="track-list overflow-y-auto h-[calc(100%-2.5rem)]">
+            <!-- Loading state -->
+            <div x-show="library.loading && library.tracks.length === 0" class="flex items-center justify-center py-12">
+              <div class="text-center">
+                <svg class="animate-spin w-8 h-8 mx-auto mb-2 text-primary" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-muted-foreground">Loading library...</p>
+              </div>
             </div>
+            
+            <!-- Empty state -->
+            <div x-show="!library.loading && library.filteredTracks.length === 0" class="flex items-center justify-center py-12">
+              <div class="text-center">
+                <svg class="w-12 h-12 mx-auto mb-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                </svg>
+                <p class="text-lg font-medium" x-text="library.searchQuery ? 'No tracks found' : 'Library is empty'"></p>
+                <p class="text-sm text-muted-foreground mt-1" x-text="library.searchQuery ? 'Try a different search term' : 'Add music to your library to get started'"></p>
+              </div>
+            </div>
+            
+            <!-- Track rows -->
+            <template x-for="(track, index) in library.filteredTracks" :key="track.id">
+              <div 
+                class="flex items-center border-b border-border/50 text-sm cursor-pointer transition-colors"
+                :class="{
+                  'bg-primary/10': isPlaying(track.id),
+                  'bg-accent': isSelected(track.id) && !isPlaying(track.id),
+                  'hover:bg-muted': !isSelected(track.id) && !isPlaying(track.id)
+                }"
+                @click="handleRowClick($event, track, index)"
+                @dblclick="handleDoubleClick(track)"
+                @contextmenu="handleContextMenu($event, track, index)"
+              >
+                <!-- Title -->
+                <div class="flex-1 min-w-[200px] px-3 py-2 truncate">
+                  <span class="flex items-center gap-2">
+                    <span x-show="isPlaying(track.id)" class="text-primary">▶</span>
+                    <span x-text="track.title || track.filename || 'Unknown'"></span>
+                  </span>
+                </div>
+                <!-- Artist -->
+                <div class="w-48 px-3 py-2 truncate text-muted-foreground" x-text="track.artist || 'Unknown Artist'"></div>
+                <!-- Album -->
+                <div class="w-48 px-3 py-2 truncate text-muted-foreground" x-text="track.album || ''"></div>
+                <!-- Duration -->
+                <div class="w-20 px-3 py-2 text-right text-muted-foreground" x-text="formatDuration(track.duration)"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+        
+        <!-- Context menu -->
+        <div 
+          x-show="contextMenu" 
+          x-cloak
+          class="context-menu"
+          :style="contextMenu ? `left: ${contextMenu.x}px; top: ${contextMenu.y}px` : ''"
+          @click.outside="contextMenu = null"
+        >
+          <template x-if="contextMenu">
+            <template x-for="(item, idx) in contextMenu.items" :key="idx">
+              <template x-if="item.type === 'separator'">
+                <div class="context-menu-separator"></div>
+              </template>
+              <template x-if="item.type !== 'separator'">
+                <div 
+                  class="context-menu-item"
+                  :class="{ 'disabled': item.disabled, 'danger': item.danger }"
+                  @click="!item.disabled && item.action()"
+                >
+                  <span x-text="item.icon" class="w-4 text-center"></span>
+                  <span x-text="item.label"></span>
+                </div>
+              </template>
+            </template>
           </template>
-          <p x-show="$store.library.filteredTracks.length === 0" class="text-muted-foreground text-center py-8">
-            No tracks found. Add music to your library.
-          </p>
         </div>
       </div>
 
       <!-- Queue View -->
-      <div x-show="$store.ui.view === 'queue'" x-cloak>
+      <div x-show="$store.ui.view === 'queue'" x-cloak class="h-full flex flex-col p-4">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-semibold">Queue</h2>
           <div class="flex gap-2">
@@ -114,43 +270,56 @@
           <span x-text="$store.queue.tracks.length"></span> tracks in queue
         </p>
         
-        <div class="space-y-1">
+        <div class="flex-1 overflow-y-auto space-y-1">
           <template x-for="(track, index) in $store.queue.tracks" :key="track.id + '-' + index">
             <div 
-              class="flex items-center gap-4 p-2 rounded hover:bg-muted"
+              class="flex items-center gap-4 p-2 rounded hover:bg-muted cursor-pointer"
               :class="index === $store.queue.currentIndex ? 'bg-primary/10' : ''"
+              @dblclick="$store.player.playTrack(track)"
             >
               <span class="text-xs text-muted-foreground w-6" x-text="index + 1"></span>
-              <span class="text-sm font-medium flex-1" x-text="track.title || track.filename || 'Unknown'"></span>
-              <span class="text-sm text-muted-foreground" x-text="track.artist || ''"></span>
+              <span x-show="index === $store.queue.currentIndex" class="text-primary">▶</span>
+              <span class="text-sm font-medium flex-1 truncate" x-text="track.title || track.filename || 'Unknown'"></span>
+              <span class="text-sm text-muted-foreground truncate" x-text="track.artist || ''"></span>
               <button 
-                class="btn btn-ghost btn-xs"
+                class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100"
                 @click.stop="$store.queue.remove(index)"
               >×</button>
             </div>
           </template>
-          <p x-show="$store.queue.tracks.length === 0" class="text-muted-foreground text-center py-8">
-            Queue is empty. Add tracks from the library.
-          </p>
+          <div x-show="$store.queue.tracks.length === 0" class="flex items-center justify-center py-12">
+            <div class="text-center">
+              <svg class="w-12 h-12 mx-auto mb-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+              </svg>
+              <p class="text-lg font-medium">Queue is empty</p>
+              <p class="text-sm text-muted-foreground mt-1">Add tracks from the library</p>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Now Playing View -->
-      <div x-show="$store.ui.view === 'nowPlaying'" x-cloak>
+      <div x-show="$store.ui.view === 'nowPlaying'" x-cloak class="h-full">
         <div class="flex flex-col items-center justify-center h-full py-12">
           <template x-if="$store.player.currentTrack">
             <div class="text-center space-y-4">
-              <div class="w-48 h-48 bg-muted rounded-lg flex items-center justify-center mb-6">
-                <span class="text-6xl">🎵</span>
+              <div class="w-64 h-64 bg-muted rounded-lg flex items-center justify-center mb-6 shadow-lg">
+                <svg class="w-24 h-24 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                </svg>
               </div>
-              <h2 class="text-2xl font-bold" x-text="$store.player.currentTrack.title || 'Unknown'"></h2>
-              <p class="text-lg text-muted-foreground" x-text="$store.player.currentTrack.artist || 'Unknown Artist'"></p>
-              <p class="text-sm text-muted-foreground" x-text="$store.player.currentTrack.album || ''"></p>
+              <h2 class="text-3xl font-bold" x-text="$store.player.currentTrack.title || 'Unknown'"></h2>
+              <p class="text-xl text-muted-foreground" x-text="$store.player.currentTrack.artist || 'Unknown Artist'"></p>
+              <p class="text-lg text-muted-foreground" x-text="$store.player.currentTrack.album || ''"></p>
             </div>
           </template>
           <template x-if="!$store.player.currentTrack">
             <div class="text-center text-muted-foreground">
-              <p class="text-lg">No track playing</p>
+              <svg class="w-24 h-24 mx-auto mb-6 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+              </svg>
+              <p class="text-xl">No track playing</p>
               <p class="text-sm mt-2">Select a track from the library or queue</p>
             </div>
           </template>
@@ -159,10 +328,10 @@
     </main>
 
     <!-- Player controls footer -->
-    <footer class="border-t border-border p-4 bg-card">
+    <footer class="border-t border-border p-4 bg-card shrink-0">
       <div class="flex items-center gap-4">
         <!-- Track info -->
-        <div class="flex-1 min-w-0">
+        <div class="w-48 min-w-0">
           <template x-if="$store.player.currentTrack">
             <div>
               <p class="text-sm font-medium truncate" x-text="$store.player.currentTrack.title || 'Unknown'"></p>
@@ -180,17 +349,20 @@
             class="btn btn-ghost btn-sm"
             @click="$store.player.previous()"
             :disabled="!$store.player.currentTrack"
+            title="Previous"
           >⏮</button>
           <button 
-            class="btn btn-primary btn-sm"
+            class="btn btn-primary"
             @click="$store.player.togglePlay()"
+            title="Play/Pause"
           >
-            <span x-text="$store.player.isPlaying ? '⏸' : '▶'"></span>
+            <span x-text="$store.player.isPlaying ? '⏸' : '▶'" class="text-lg"></span>
           </button>
           <button 
             class="btn btn-ghost btn-sm"
             @click="$store.player.next()"
             :disabled="!$store.player.currentTrack"
+            title="Next"
           >⏭</button>
         </div>
         
@@ -214,6 +386,7 @@
           <button 
             class="btn btn-ghost btn-xs"
             @click="$store.player.toggleMute()"
+            title="Mute"
           >
             <span x-text="$store.player.muted || $store.player.volume === 0 ? '🔇' : '🔊'"></span>
           </button>
@@ -233,12 +406,14 @@
             class="btn btn-ghost btn-xs"
             :class="$store.queue.shuffle ? 'text-primary' : ''"
             @click="$store.queue.toggleShuffle()"
+            title="Shuffle"
           >🔀</button>
           <button 
             class="btn btn-ghost btn-xs"
             :class="$store.queue.loopMode !== 'none' ? 'text-primary' : ''"
             @click="$store.queue.cycleLoopMode()"
             x-text="$store.queue.loopMode === 'one' ? '🔂' : '🔁'"
+            title="Loop"
           ></button>
         </div>
       </div>
@@ -249,7 +424,7 @@
   <div class="fixed bottom-20 right-4 space-y-2 z-50">
     <template x-for="toast in $store.ui.toasts" :key="toast.id">
       <div 
-        class="px-4 py-2 rounded shadow-lg"
+        class="px-4 py-2 rounded shadow-lg cursor-pointer transition-opacity"
         :class="{
           'bg-primary text-primary-foreground': toast.type === 'info',
           'bg-green-500 text-white': toast.type === 'success',
@@ -270,7 +445,10 @@
     class="fixed inset-0 bg-background/80 flex items-center justify-center z-50"
   >
     <div class="text-center">
-      <div class="animate-spin text-4xl mb-2">⏳</div>
+      <svg class="animate-spin w-12 h-12 mx-auto mb-4 text-primary" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
       <p x-text="$store.ui.loadingMessage"></p>
     </div>
   </div>
