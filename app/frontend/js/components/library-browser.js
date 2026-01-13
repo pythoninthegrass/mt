@@ -18,6 +18,7 @@ export function createLibraryBrowser(Alpine) {
     
     // Column definitions
     columns: [
+      { key: 'index', label: '#', sortable: false, width: 'w-12 text-right' },
       { key: 'title', label: 'Title', sortable: true, width: 'flex-1 min-w-[200px]' },
       { key: 'artist', label: 'Artist', sortable: true, width: 'w-48' },
       { key: 'album', label: 'Album', sortable: true, width: 'w-48' },
@@ -325,12 +326,12 @@ export function createLibraryBrowser(Alpine) {
      * Format duration for display
      * @param {number} ms - Duration in milliseconds
      */
-    formatDuration(ms) {
-      if (!ms) return '--:--';
-      const totalSeconds = Math.floor(ms / 1000);
+    formatDuration(seconds) {
+      if (!seconds) return '--:--';
+      const totalSeconds = Math.floor(seconds);
       const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      const secs = totalSeconds % 60;
+      return `${minutes}:${secs.toString().padStart(2, '0')}`;
     },
     
     /**
