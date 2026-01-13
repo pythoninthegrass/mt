@@ -1,9 +1,10 @@
 ---
 id: task-094
 title: 'P2: Implement Rust audio playback engine with symphonia'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-12 04:07'
+updated_date: '2026-01-13 05:38'
 labels:
   - rust
   - audio
