@@ -1,10 +1,10 @@
 ---
 id: task-099
 title: 'P3: Implement Tauri sidecar management'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
-updated_date: '2026-01-13 06:04'
+updated_date: '2026-01-13 08:03'
 labels:
   - rust
   - tauri
@@ -84,10 +84,10 @@ fn get_backend_url(state: tauri::State<SidecarManager>) -> String {
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Sidecar spawns on app startup with `MT_API_PORT` env var
-- [ ] #2 Port allocation avoids conflicts (find available port)
-- [ ] #3 Health endpoint polling detects readiness (`GET /api/health`)
-- [ ] #4 Backend URL accessible from frontend via Tauri command
-- [ ] #5 Sidecar terminates on app close (graceful shutdown)
-- [ ] #6 Handles sidecar crash gracefully (error state, retry logic)
+- [x] #1 Sidecar spawns on app startup with `MT_API_PORT` env var
+- [x] #2 Port allocation avoids conflicts (find available port)
+- [x] #3 Health endpoint polling detects readiness (`GET /api/health`)
+- [x] #4 Backend URL accessible from frontend via Tauri command
+- [x] #5 Sidecar terminates on app close (graceful shutdown)
+- [x] #6 Handles sidecar crash gracefully (error state, retry logic)
 <!-- AC:END -->
