@@ -1,9 +1,10 @@
 ---
 id: task-101
 title: 'P4: Implement Alpine.js global stores for player state'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:08'
+updated_date: '2026-01-13 04:27'
 labels:
   - frontend
   - alpinejs
@@ -86,10 +87,10 @@ Alpine.store('ui', {
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Player store manages playback state
-- [ ] #2 Queue store syncs with backend
-- [ ] #3 Library store loads and searches tracks
-- [ ] #4 UI store manages view switching
-- [ ] #5 Stores react to Tauri events
-- [ ] #6 State persists correctly across view changes
+- [x] #1 Player store manages playback state
+- [x] #2 Queue store syncs with backend
+- [x] #3 Library store loads and searches tracks
+- [x] #4 UI store manages view switching
+- [x] #5 Stores react to Tauri events
+- [x] #6 State persists correctly across view changes
 <!-- AC:END -->

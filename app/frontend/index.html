@@ -7,15 +7,272 @@
   <script src="/js/basecoat/all.min.js" defer></script>
   <script type="module" src="/main.js"></script>
 </head>
-<body class="bg-background text-foreground min-h-screen" x-data="{ message: 'Tauri + Alpine.js + Basecoat' }">
-  <div class="flex flex-col items-center justify-center min-h-screen gap-4">
-    <h1 class="text-4xl font-bold">mt</h1>
-    <p class="text-muted-foreground" x-text="message"></p>
-    <div class="flex gap-2">
-      <button class="btn">Primary</button>
-      <button class="btn btn-outline">Outline</button>
+<body class="bg-background text-foreground min-h-screen">
+  <div class="flex flex-col min-h-screen">
+    <!-- Header -->
+    <header class="border-b border-border p-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold">mt</h1>
+        <div class="flex gap-2">
+          <!-- View switcher -->
+          <button 
+            class="btn btn-sm"
+            :class="$store.ui.view === 'library' ? 'btn-primary' : 'btn-ghost'"
+            @click="$store.ui.setView('library')"
+          >Library</button>
+          <button 
+            class="btn btn-sm"
+            :class="$store.ui.view === 'queue' ? 'btn-primary' : 'btn-ghost'"
+            @click="$store.ui.setView('queue')"
+          >Queue</button>
+          <button 
+            class="btn btn-sm"
+            :class="$store.ui.view === 'nowPlaying' ? 'btn-primary' : 'btn-ghost'"
+            @click="$store.ui.setView('nowPlaying')"
+          >Now Playing</button>
+        </div>
+        <!-- Theme toggle -->
+        <button 
+          class="btn btn-ghost btn-sm"
+          @click="$store.ui.setTheme($store.ui.effectiveTheme === 'dark' ? 'light' : 'dark')"
+          x-text="$store.ui.effectiveTheme === 'dark' ? '☀️' : '🌙'"
+        ></button>
+      </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="flex-1 p-4 overflow-auto">
+      <!-- Library View -->
+      <div x-show="$store.ui.view === 'library'" x-cloak>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold">Library</h2>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              class="input input-sm w-64" 
+              placeholder="Search tracks..."
+              x-model="$store.library.searchQuery"
+              @input.debounce.300ms="$store.library.search($store.library.searchQuery)"
+            >
+            <button 
+              class="btn btn-sm btn-outline"
+              @click="$store.library.loadTracks()"
+              :disabled="$store.library.loading"
+            >
+              <span x-show="!$store.library.loading">Refresh</span>
+              <span x-show="$store.library.loading">Loading...</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Track count -->
+        <p class="text-sm text-muted-foreground mb-4">
+          <span x-text="$store.library.filteredTracks.length"></span> tracks
+          <span x-show="$store.library.searchQuery">
+            (filtered from <span x-text="$store.library.tracks.length"></span>)
+          </span>
+        </p>
+        
+        <!-- Track list -->
+        <div class="space-y-1">
+          <template x-for="track in $store.library.filteredTracks.slice(0, 50)" :key="track.id">
+            <div 
+              class="flex items-center gap-4 p-2 rounded hover:bg-muted cursor-pointer"
+              @click="$store.queue.add(track.id)"
+              @dblclick="$store.player.playTrack(track)"
+            >
+              <span class="text-sm font-medium flex-1" x-text="track.title || track.filename || 'Unknown'"></span>
+              <span class="text-sm text-muted-foreground" x-text="track.artist || 'Unknown Artist'"></span>
+              <span class="text-xs text-muted-foreground" x-text="$store.player.formatTime(track.duration || 0)"></span>
+            </div>
+          </template>
+          <p x-show="$store.library.filteredTracks.length === 0" class="text-muted-foreground text-center py-8">
+            No tracks found. Add music to your library.
+          </p>
+        </div>
+      </div>
+
+      <!-- Queue View -->
+      <div x-show="$store.ui.view === 'queue'" x-cloak>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold">Queue</h2>
+          <div class="flex gap-2">
+            <button 
+              class="btn btn-sm btn-outline"
+              @click="$store.queue.shuffle()"
+              :disabled="$store.queue.tracks.length < 2"
+            >Shuffle</button>
+            <button 
+              class="btn btn-sm btn-outline"
+              @click="$store.queue.clear()"
+              :disabled="$store.queue.tracks.length === 0"
+            >Clear</button>
+          </div>
+        </div>
+        
+        <p class="text-sm text-muted-foreground mb-4">
+          <span x-text="$store.queue.tracks.length"></span> tracks in queue
+        </p>
+        
+        <div class="space-y-1">
+          <template x-for="(track, index) in $store.queue.tracks" :key="track.id + '-' + index">
+            <div 
+              class="flex items-center gap-4 p-2 rounded hover:bg-muted"
+              :class="index === $store.queue.currentIndex ? 'bg-primary/10' : ''"
+            >
+              <span class="text-xs text-muted-foreground w-6" x-text="index + 1"></span>
+              <span class="text-sm font-medium flex-1" x-text="track.title || track.filename || 'Unknown'"></span>
+              <span class="text-sm text-muted-foreground" x-text="track.artist || ''"></span>
+              <button 
+                class="btn btn-ghost btn-xs"
+                @click.stop="$store.queue.remove(index)"
+              >×</button>
+            </div>
+          </template>
+          <p x-show="$store.queue.tracks.length === 0" class="text-muted-foreground text-center py-8">
+            Queue is empty. Add tracks from the library.
+          </p>
+        </div>
+      </div>
+
+      <!-- Now Playing View -->
+      <div x-show="$store.ui.view === 'nowPlaying'" x-cloak>
+        <div class="flex flex-col items-center justify-center h-full py-12">
+          <template x-if="$store.player.currentTrack">
+            <div class="text-center space-y-4">
+              <div class="w-48 h-48 bg-muted rounded-lg flex items-center justify-center mb-6">
+                <span class="text-6xl">🎵</span>
+              </div>
+              <h2 class="text-2xl font-bold" x-text="$store.player.currentTrack.title || 'Unknown'"></h2>
+              <p class="text-lg text-muted-foreground" x-text="$store.player.currentTrack.artist || 'Unknown Artist'"></p>
+              <p class="text-sm text-muted-foreground" x-text="$store.player.currentTrack.album || ''"></p>
+            </div>
+          </template>
+          <template x-if="!$store.player.currentTrack">
+            <div class="text-center text-muted-foreground">
+              <p class="text-lg">No track playing</p>
+              <p class="text-sm mt-2">Select a track from the library or queue</p>
+            </div>
+          </template>
+        </div>
+      </div>
+    </main>
+
+    <!-- Player controls footer -->
+    <footer class="border-t border-border p-4 bg-card">
+      <div class="flex items-center gap-4">
+        <!-- Track info -->
+        <div class="flex-1 min-w-0">
+          <template x-if="$store.player.currentTrack">
+            <div>
+              <p class="text-sm font-medium truncate" x-text="$store.player.currentTrack.title || 'Unknown'"></p>
+              <p class="text-xs text-muted-foreground truncate" x-text="$store.player.currentTrack.artist || ''"></p>
+            </div>
+          </template>
+          <template x-if="!$store.player.currentTrack">
+            <p class="text-sm text-muted-foreground">No track selected</p>
+          </template>
+        </div>
+        
+        <!-- Playback controls -->
+        <div class="flex items-center gap-2">
+          <button 
+            class="btn btn-ghost btn-sm"
+            @click="$store.player.previous()"
+            :disabled="!$store.player.currentTrack"
+          >⏮</button>
+          <button 
+            class="btn btn-primary btn-sm"
+            @click="$store.player.togglePlay()"
+          >
+            <span x-text="$store.player.isPlaying ? '⏸' : '▶'"></span>
+          </button>
+          <button 
+            class="btn btn-ghost btn-sm"
+            @click="$store.player.next()"
+            :disabled="!$store.player.currentTrack"
+          >⏭</button>
+        </div>
+        
+        <!-- Progress -->
+        <div class="flex items-center gap-2 flex-1">
+          <span class="text-xs text-muted-foreground w-10 text-right" x-text="$store.player.formatTime($store.player.position)"></span>
+          <input 
+            type="range" 
+            class="flex-1 h-1 accent-primary"
+            min="0" 
+            :max="$store.player.duration || 100"
+            :value="$store.player.position"
+            @input="$store.player.seek($event.target.value)"
+            :disabled="!$store.player.currentTrack"
+          >
+          <span class="text-xs text-muted-foreground w-10" x-text="$store.player.formatTime($store.player.duration)"></span>
+        </div>
+        
+        <!-- Volume -->
+        <div class="flex items-center gap-2">
+          <button 
+            class="btn btn-ghost btn-xs"
+            @click="$store.player.toggleMute()"
+          >
+            <span x-text="$store.player.muted || $store.player.volume === 0 ? '🔇' : '🔊'"></span>
+          </button>
+          <input 
+            type="range" 
+            class="w-20 h-1 accent-primary"
+            min="0" 
+            max="100"
+            :value="$store.player.volume"
+            @input="$store.player.setVolume($event.target.value)"
+          >
+        </div>
+        
+        <!-- Loop/Shuffle toggles -->
+        <div class="flex items-center gap-1">
+          <button 
+            class="btn btn-ghost btn-xs"
+            :class="$store.queue.shuffle ? 'text-primary' : ''"
+            @click="$store.queue.toggleShuffle()"
+          >🔀</button>
+          <button 
+            class="btn btn-ghost btn-xs"
+            :class="$store.queue.loopMode !== 'none' ? 'text-primary' : ''"
+            @click="$store.queue.cycleLoopMode()"
+            x-text="$store.queue.loopMode === 'one' ? '🔂' : '🔁'"
+          ></button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Toast container -->
+  <div class="fixed bottom-20 right-4 space-y-2 z-50">
+    <template x-for="toast in $store.ui.toasts" :key="toast.id">
+      <div 
+        class="px-4 py-2 rounded shadow-lg"
+        :class="{
+          'bg-primary text-primary-foreground': toast.type === 'info',
+          'bg-green-500 text-white': toast.type === 'success',
+          'bg-yellow-500 text-black': toast.type === 'warning',
+          'bg-destructive text-destructive-foreground': toast.type === 'error'
+        }"
+        @click="$store.ui.dismissToast(toast.id)"
+      >
+        <span x-text="toast.message"></span>
+      </div>
+    </template>
+  </div>
+
+  <!-- Loading overlay -->
+  <div 
+    x-show="$store.ui.globalLoading" 
+    x-cloak
+    class="fixed inset-0 bg-background/80 flex items-center justify-center z-50"
+  >
+    <div class="text-center">
+      <div class="animate-spin text-4xl mb-2">⏳</div>
+      <p x-text="$store.ui.loadingMessage"></p>
     </div>
-    <p class="text-sm text-muted-foreground mt-4">Music player skeleton ready</p>
   </div>
 </body>
 </html>
