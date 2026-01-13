@@ -82,18 +82,26 @@ export function createPlayerStore(Alpine) {
       }
     },
     
-    async toggle() {
+    async togglePlay() {
       if (this.isPlaying) {
         await this.pause();
       } else if (this.currentTrack) {
         await this.resume();
       } else {
         const queue = Alpine.store('queue');
-        if (queue.tracks.length > 0) {
+        if (queue.items.length > 0) {
           const idx = queue.currentIndex >= 0 ? queue.currentIndex : 0;
           await queue.playIndex(idx);
         }
       }
+    },
+    
+    async previous() {
+      await Alpine.store('queue').playPrevious();
+    },
+    
+    async next() {
+      await Alpine.store('queue').playNext();
     },
     
     async stop() {

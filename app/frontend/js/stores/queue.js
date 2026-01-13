@@ -179,7 +179,7 @@ export function createQueueStore(Alpine) {
         this._shuffleHistory.push(index);
       }
       
-      await Alpine.store('player').play(track);
+      await Alpine.store('player').playTrack(track);
       await this.save();
     },
     
@@ -301,6 +301,13 @@ export function createQueueStore(Alpine) {
         this.loop = mode;
         await this.save();
       }
+    },
+    
+    /**
+     * Get tracks (alias for items, used by UI templates)
+     */
+    get tracks() {
+      return this.items;
     },
     
     /**
