@@ -43,13 +43,14 @@ export function createPlayerStore(Alpine) {
     },
     
     async playTrack(track) {
-      if (!track?.path) {
-        console.error('Cannot play track without path');
+      const trackPath = track?.filepath || track?.path;
+      if (!trackPath) {
+        console.error('Cannot play track without filepath/path:', track);
         return;
       }
       
       try {
-        const info = await invoke('audio_load', { path: track.path });
+        const info = await invoke('audio_load', { path: trackPath });
         this.currentTrack = { ...track, duration: info.duration_ms };
         this.duration = info.duration_ms;
         this.currentTime = 0;
