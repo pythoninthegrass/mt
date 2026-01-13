@@ -6,7 +6,11 @@
  * for library, queue, and playback operations.
  */
 
-const API_BASE = 'http://127.0.0.1:5556';
+let API_BASE = 'http://127.0.0.1:8765/api';
+
+export function setApiBase(url) {
+  API_BASE = url;
+}
 
 /**
  * Make an API request with error handling
@@ -105,15 +109,15 @@ export const api = {
     },
     
     /**
-     * Scan a directory for music files
-     * @param {string} path - Directory path to scan
+     * Scan paths for music files and add to library
+     * @param {string[]} paths - File or directory paths to scan
      * @param {boolean} [recursive=true] - Scan subdirectories
-     * @returns {Promise<{added: number, updated: number, errors: Array}>}
+     * @returns {Promise<{added: number, skipped: number, errors: number, tracks: Array}>}
      */
-    async scan(path, recursive = true) {
+    async scan(paths, recursive = true) {
       return request('/library/scan', {
         method: 'POST',
-        body: JSON.stringify({ path, recursive }),
+        body: JSON.stringify({ paths, recursive }),
       });
     },
     

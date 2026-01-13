@@ -1,10 +1,28 @@
 """Library routes for the mt music player API."""
 
 from backend.services.database import DatabaseService, get_db
+from backend.services.scanner import scan_paths
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from typing import Literal
 
 router = APIRouter(prefix="/library", tags=["library"])
+
+
+class ScanRequest(BaseModel):
+    """Request body for library scan."""
+
+    paths: list[str]
+    recursive: bool = True
+
+
+class ScanResult(BaseModel):
+    """Result of a library scan."""
+
+    added: int
+    skipped: int
+    errors: int
+    tracks: list[dict]
 
 
 @router.get("")
@@ -65,3 +83,51 @@ async def update_play_count(track_id: int, db: DatabaseService = Depends(get_db)
     if not result:
         raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
     return result
+
+
+@router.post("/scan", response_model=ScanResult)
+async def scan_library(request: ScanRequest, db: DatabaseService = Depends(get_db)):
+    """Scan paths for audio files and add them to the library.
+
+    Accepts file paths and/or directory paths. Directories are scanned
+    recursively by default. Extracts metadata from audio files and adds
+    new tracks to the library, skipping duplicates.
+    """
+    # Scan paths for audio files
+    scanned = scan_paths(request.paths, recursive=request.recursive)
+
+    added = 0
+    skipped = 0
+    errors = 0
+    added_tracks = []
+
+    for item in scanned:
+        filepath = item["filepath"]
+        metadata = item["metadata"]
+
+        try:
+            # Check if track already exists
+            existing = db.get_track_by_filepath(filepath)
+            if existing:
+                skipped += 1
+                continue
+
+            # Add to library
+            track_id = db.add_track(filepath, metadata)
+            if track_id:
+                added += 1
+                track = db.get_track_by_id(track_id)
+                if track:
+                    added_tracks.append(track)
+            else:
+                errors += 1
+        except Exception as e:
+            print(f"Error adding track {filepath}: {e}")
+            errors += 1
+
+    return ScanResult(
+        added=added,
+        skipped=skipped,
+        errors=errors,
+        tracks=added_tracks,
+    )

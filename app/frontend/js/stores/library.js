@@ -128,29 +128,51 @@ export function createLibraryStore(Alpine) {
     },
     
     /**
-     * Scan directory for music files
-     * @param {string} path - Directory path to scan
+     * Scan paths for music files
+     * @param {string[]} paths - File or directory paths to scan
+     * @param {boolean} [recursive=true] - Scan subdirectories
      */
-    async scan(path) {
+    async scan(paths, recursive = true) {
+      if (!paths || paths.length === 0) return { added: 0, skipped: 0, errors: 0 };
+      
       this.scanning = true;
       this.scanProgress = 0;
       
       try {
-        // Start scan and listen for progress
-        const result = await api.library.scan(path, (progress) => {
-          this.scanProgress = progress;
-        });
+        const result = await api.library.scan(paths, recursive);
         
-        // Reload library after scan
         await this.load();
         
         return result;
       } catch (error) {
-        console.error('Failed to scan directory:', error);
+        console.error('Failed to scan paths:', error);
         throw error;
       } finally {
         this.scanning = false;
         this.scanProgress = 0;
+      }
+    },
+    
+    async openAddMusicDialog() {
+      try {
+        const { invoke } = window.__TAURI__.core;
+        const paths = await invoke('open_add_music_dialog');
+        
+        if (paths && paths.length > 0) {
+          const result = await this.scan(paths);
+          const ui = Alpine.store('ui');
+          if (result.added > 0) {
+            ui.toast(`Added ${result.added} track${result.added === 1 ? '' : 's'} to library`, 'success');
+          } else if (result.skipped > 0) {
+            ui.toast(`All ${result.skipped} track${result.skipped === 1 ? '' : 's'} already in library`, 'info');
+          }
+          return result;
+        }
+        return null;
+      } catch (error) {
+        console.error('Failed to open add music dialog:', error);
+        Alpine.store('ui').toast('Failed to add music', 'error');
+        throw error;
       }
     },
     

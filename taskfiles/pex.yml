@@ -18,6 +18,7 @@ vars:
     uvicorn
     pydantic
     websockets
+    mutagen
 
 tasks:
   printenv:
