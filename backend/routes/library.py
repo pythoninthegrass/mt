@@ -87,14 +87,10 @@ async def update_play_count(track_id: int, db: DatabaseService = Depends(get_db)
 
 @router.post("/scan", response_model=ScanResult)
 async def scan_library(request: ScanRequest, db: DatabaseService = Depends(get_db)):
-    """Scan paths for audio files and add them to the library.
-
-    Accepts file paths and/or directory paths. Directories are scanned
-    recursively by default. Extracts metadata from audio files and adds
-    new tracks to the library, skipping duplicates.
-    """
-    # Scan paths for audio files
+    """Scan paths for audio files and add them to the library."""
+    print(f"[scan] Received request to scan {len(request.paths)} paths: {request.paths}")
     scanned = scan_paths(request.paths, recursive=request.recursive)
+    print(f"[scan] Found {len(scanned)} audio files")
 
     added = 0
     skipped = 0

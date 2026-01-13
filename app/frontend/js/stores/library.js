@@ -133,19 +133,24 @@ export function createLibraryStore(Alpine) {
      * @param {boolean} [recursive=true] - Scan subdirectories
      */
     async scan(paths, recursive = true) {
-      if (!paths || paths.length === 0) return { added: 0, skipped: 0, errors: 0 };
+      if (!paths || paths.length === 0) {
+        console.log('[library] scan: no paths provided');
+        return { added: 0, skipped: 0, errors: 0 };
+      }
       
+      console.log('[library] scan: scanning', paths.length, 'paths:', paths);
       this.scanning = true;
       this.scanProgress = 0;
       
       try {
         const result = await api.library.scan(paths, recursive);
+        console.log('[library] scan result:', result);
         
         await this.load();
         
         return result;
       } catch (error) {
-        console.error('Failed to scan paths:', error);
+        console.error('[library] scan failed:', error);
         throw error;
       } finally {
         this.scanning = false;
@@ -155,8 +160,10 @@ export function createLibraryStore(Alpine) {
     
     async openAddMusicDialog() {
       try {
+        console.log('[library] opening add music dialog...');
         const { invoke } = window.__TAURI__.core;
         const paths = await invoke('open_add_music_dialog');
+        console.log('[library] dialog returned paths:', paths);
         
         if (paths && paths.length > 0) {
           const result = await this.scan(paths);
@@ -165,12 +172,16 @@ export function createLibraryStore(Alpine) {
             ui.toast(`Added ${result.added} track${result.added === 1 ? '' : 's'} to library`, 'success');
           } else if (result.skipped > 0) {
             ui.toast(`All ${result.skipped} track${result.skipped === 1 ? '' : 's'} already in library`, 'info');
+          } else {
+            ui.toast('No audio files found', 'info');
           }
           return result;
+        } else {
+          console.log('[library] dialog cancelled or no paths selected');
         }
         return null;
       } catch (error) {
-        console.error('Failed to open add music dialog:', error);
+        console.error('[library] openAddMusicDialog failed:', error);
         Alpine.store('ui').toast('Failed to add music', 'error');
         throw error;
       }
