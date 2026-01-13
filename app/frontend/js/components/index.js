@@ -6,6 +6,7 @@
  */
 
 import { createLibraryBrowser } from './library-browser.js';
+import { createPlayerControls } from './player-controls.js';
 
 /**
  * Initialize all Alpine components
@@ -14,6 +15,7 @@ import { createLibraryBrowser } from './library-browser.js';
 export function initComponents(Alpine) {
   // Register components
   createLibraryBrowser(Alpine);
+  createPlayerControls(Alpine);
   
   console.log('[components] All components registered');
 }

@@ -1,9 +1,10 @@
 ---
 id: task-103
 title: 'P4: Build player controls bar UI component'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:08'
+updated_date: '2026-01-13 04:37'
 labels:
   - frontend
   - ui
@@ -75,11 +76,11 @@ Implement the bottom player controls bar using AlpineJS + Basecoat.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Now playing info displays current track
-- [ ] #2 Play/pause button toggles and updates icon
-- [ ] #3 Next/previous buttons work
-- [ ] #4 Progress bar shows current position
-- [ ] #5 Progress bar is seekable
-- [ ] #6 Volume slider controls audio level
-- [ ] #7 Time displays update during playback
+- [x] #1 Now playing info displays current track
+- [x] #2 Play/pause button toggles and updates icon
+- [x] #3 Next/previous buttons work
+- [x] #4 Progress bar shows current position
+- [x] #5 Progress bar is seekable
+- [x] #6 Volume slider controls audio level
+- [x] #7 Time displays update during playback
 <!-- AC:END -->
