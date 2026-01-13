@@ -90,13 +90,13 @@ export const api = {
     async getTracks(params = {}) {
       const query = new URLSearchParams();
       if (params.search) query.set('search', params.search);
-      if (params.sort) query.set('sort', params.sort);
-      if (params.order) query.set('order', params.order);
+      if (params.sort) query.set('sort_by', params.sort);
+      if (params.order) query.set('sort_order', params.order);
       if (params.limit) query.set('limit', params.limit.toString());
       if (params.offset) query.set('offset', params.offset.toString());
       
       const queryString = query.toString();
-      return request(`/library/tracks${queryString ? `?${queryString}` : ''}`);
+      return request(`/library${queryString ? `?${queryString}` : ''}`);
     },
     
     /**
@@ -105,7 +105,7 @@ export const api = {
      * @returns {Promise<object>} Track object
      */
     async getTrack(id) {
-      return request(`/library/tracks/${encodeURIComponent(id)}`);
+      return request(`/library/${encodeURIComponent(id)}`);
     },
     
     /**
@@ -135,7 +135,7 @@ export const api = {
      * @returns {Promise<void>}
      */
     async deleteTrack(id) {
-      return request(`/library/tracks/${encodeURIComponent(id)}`, {
+      return request(`/library/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
     },
@@ -202,16 +202,15 @@ export const api = {
       });
     },
     
-    /**
-     * Shuffle the queue
-     * @param {boolean} [keepCurrent=true] - Keep current track at position 0
-     * @returns {Promise<{queue: Array}>}
-     */
     async shuffle(keepCurrent = true) {
       return request('/queue/shuffle', {
         method: 'POST',
         body: JSON.stringify({ keep_current: keepCurrent }),
       });
+    },
+    
+    async save(state) {
+      console.debug('Queue save (local only):', state);
     },
   },
   

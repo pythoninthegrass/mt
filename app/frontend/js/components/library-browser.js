@@ -123,12 +123,15 @@ export function createLibraryBrowser(Alpine) {
       }
     },
     
-    /**
-     * Handle track double-click to play
-     * @param {Object} track - Track object
-     */
-    handleDoubleClick(track) {
-      this.player.playTrack(track);
+    async handleDoubleClick(track) {
+      await this.queue.clear();
+      await this.queue.add(this.library.filteredTracks, false);
+      const index = this.library.filteredTracks.findIndex(t => t.id === track.id);
+      if (index >= 0) {
+        await this.queue.playIndex(index);
+      } else {
+        await this.player.playTrack(track);
+      }
     },
     
     /**

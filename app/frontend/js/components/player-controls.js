@@ -100,32 +100,23 @@ export function createPlayerControls(Alpine) {
       return this.queue.loopMode !== 'none';
     },
     
-    /**
-     * Get progress percentage for display during drag
-     */
     get displayPosition() {
       if (this.isDraggingProgress) {
         return this.dragPosition;
       }
-      return this.player.position;
+      return this.player.currentTime;
     },
     
-    /**
-     * Get progress percentage (0-100)
-     */
     get progressPercent() {
       if (!this.player.duration) return 0;
       return (this.displayPosition / this.player.duration) * 100;
     },
     
-    /**
-     * Format time for display
-     * @param {number} seconds - Time in seconds
-     */
-    formatTime(seconds) {
-      if (!seconds || isNaN(seconds)) return '0:00';
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
+    formatTime(ms) {
+      if (!ms || isNaN(ms)) return '0:00';
+      const totalSeconds = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSeconds / 60);
+      const secs = totalSeconds % 60;
       return `${mins}:${secs.toString().padStart(2, '0')}`;
     },
     
