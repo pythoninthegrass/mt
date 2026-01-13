@@ -1,24 +1,21 @@
 pub mod audio;
 pub mod commands;
+pub mod sidecar;
 
 use commands::{
     audio_get_status, audio_get_volume, audio_load, audio_pause, audio_play, audio_seek,
     audio_set_volume, audio_stop, AudioState,
 };
-use std::sync::Mutex;
+use sidecar::{check_backend_health, get_backend_port, get_backend_url, SidecarManager};
 use tauri::Manager;
-use tauri_plugin_shell::process::CommandChild;
-use tauri_plugin_shell::ShellExt;
-
-struct SidecarState(Mutex<Option<CommandChild>>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .manage(SidecarState(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
+            // Audio commands
             audio_load,
             audio_play,
             audio_pause,
@@ -27,31 +24,30 @@ pub fn run() {
             audio_set_volume,
             audio_get_volume,
             audio_get_status,
+            // Sidecar commands
+            get_backend_url,
+            get_backend_port,
+            check_backend_health,
         ])
         .setup(|app| {
-            let shell = app.shell();
-            let sidecar = shell
-                .sidecar("main")
-                .expect("failed to create sidecar command");
-            let (mut _rx, child) = sidecar.spawn().expect("failed to spawn sidecar");
+            // Start the Python backend sidecar
+            let sidecar = SidecarManager::start(app.handle())
+                .expect("Failed to start backend sidecar");
+            println!("Backend URL: {}", sidecar.get_url());
+            app.manage(sidecar);
 
-            let state = app.state::<SidecarState>();
-            *state.0.lock().unwrap() = Some(child);
-
+            // Initialize audio engine
             app.manage(AudioState::new(app.handle().clone()));
-
-            println!("Sidecar started");
             println!("Audio engine initialized");
+
             Ok(())
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let app = window.app_handle();
-                let state = app.state::<SidecarState>();
-                let mut guard = state.0.lock().unwrap();
-                if let Some(child) = guard.take() {
-                    let _ = child.kill();
-                    println!("Sidecar stopped");
+                // Graceful sidecar shutdown handled by SidecarManager Drop impl
+                if let Some(sidecar) = app.try_state::<SidecarManager>() {
+                    sidecar.shutdown();
                 }
             }
         })
