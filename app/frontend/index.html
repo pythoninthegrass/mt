@@ -408,44 +408,44 @@
     >
       <div class="flex items-center gap-4 px-4 py-2">
         <!-- Left: Transport controls -->
-        <div class="flex items-center gap-0.5">
+        <div class="flex items-center gap-1">
           <button 
-            class="btn btn-ghost btn-sm p-1.5 text-[#8E8E93] hover:text-foreground"
+            class="p-1 text-[#8E8E93] hover:text-foreground transition-colors"
             :class="!hasTrack && 'opacity-40'"
             @click="previous()"
             :disabled="!hasTrack"
             title="Previous"
           >
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path>
             </svg>
           </button>
           
           <button 
-            class="btn btn-ghost btn-sm p-1.5 text-[#8E8E93] hover:text-foreground"
+            class="p-1 text-[#8E8E93] hover:text-foreground transition-colors"
             @click="togglePlay()"
             title="Play/Pause"
           >
             <template x-if="player.isPlaying">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path>
               </svg>
             </template>
             <template x-if="!player.isPlaying">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z"></path>
               </svg>
             </template>
           </button>
           
           <button 
-            class="btn btn-ghost btn-sm p-1.5 text-[#8E8E93] hover:text-foreground"
+            class="p-1 text-[#8E8E93] hover:text-foreground transition-colors"
             :class="!hasTrack && 'opacity-40'"
             @click="next()"
             :disabled="!hasTrack"
             title="Next"
           >
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path>
             </svg>
           </button>
@@ -474,31 +474,31 @@
         </div>
         
         <!-- Right: Volume + Action buttons + Stats -->
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-2">
           <button 
-            class="btn btn-ghost btn-sm p-1 text-[#8E8E93] hover:text-foreground"
+            class="p-1 text-[#8E8E93] hover:text-foreground transition-colors"
             @click="toggleMute()"
             title="Mute"
           >
             <template x-if="volumeIcon === 'muted'">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
               </svg>
             </template>
             <template x-if="volumeIcon === 'low'">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
               </svg>
             </template>
             <template x-if="volumeIcon === 'medium' || volumeIcon === 'high'">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
               </svg>
             </template>
           </button>
           <div 
-            class="w-16 h-1 bg-[#8E8E93]/30 rounded-full cursor-pointer relative group"
+            class="w-20 h-1 bg-[#8E8E93]/30 rounded-full cursor-pointer relative group"
             @click="handleVolumeClick($event)"
           >
             <div 
@@ -511,60 +511,60 @@
             ></div>
           </div>
           
-          <div class="w-px h-3 bg-[#8E8E93]/30 mx-1"></div>
+          <div class="w-px h-4 bg-[#8E8E93]/20 mx-1"></div>
           
           <button 
-            class="btn btn-ghost btn-sm p-1"
+            class="p-1 transition-colors"
             :class="queue.shuffle ? 'text-primary' : 'text-[#8E8E93] hover:text-foreground'"
             @click="toggleShuffle()"
             title="Shuffle"
           >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
             </svg>
           </button>
           
           <button 
-            class="btn btn-ghost btn-sm p-1"
+            class="p-1 transition-colors"
             :class="ui.view === 'queue' ? 'text-primary' : 'text-[#8E8E93] hover:text-foreground'"
             @click="toggleQueue()"
             title="Queue"
           >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
             </svg>
           </button>
           
           <button 
-            class="btn btn-ghost btn-sm p-1"
+            class="p-1 transition-colors"
             :class="isLoopActive ? 'text-primary' : 'text-[#8E8E93] hover:text-foreground'"
             @click="cycleLoop()"
             title="Loop"
           >
             <template x-if="queue.loopMode === 'one'">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                 <text x="12" y="14" font-size="8" fill="currentColor" text-anchor="middle">1</text>
               </svg>
             </template>
             <template x-if="queue.loopMode !== 'one'">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
               </svg>
             </template>
           </button>
           
           <button 
-            class="btn btn-ghost btn-sm p-1 text-foreground/50 hover:text-foreground/70"
+            class="p-1 text-[#8E8E93] hover:text-foreground transition-colors"
             @click="$store.ui.setView('library')"
             title="Add to queue"
           >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
             </svg>
           </button>
           
-          <div class="w-px h-3 bg-foreground/20 mx-1"></div>
+          <div class="w-px h-4 bg-[#8E8E93]/20 mx-1"></div>
           
           <span class="text-xs text-foreground/50 whitespace-nowrap" x-text="libraryStats"></span>
         </div>
