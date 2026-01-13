@@ -1,5 +1,10 @@
 pub mod audio;
+pub mod commands;
 
+use commands::{
+    audio_get_status, audio_get_volume, audio_load, audio_pause, audio_play, audio_seek,
+    audio_set_volume, audio_stop, AudioState,
+};
 use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandChild;
@@ -13,15 +18,30 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(SidecarState(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![
+            audio_load,
+            audio_play,
+            audio_pause,
+            audio_stop,
+            audio_seek,
+            audio_set_volume,
+            audio_get_volume,
+            audio_get_status,
+        ])
         .setup(|app| {
             let shell = app.shell();
-            let sidecar = shell.sidecar("main").expect("failed to create sidecar command");
+            let sidecar = shell
+                .sidecar("main")
+                .expect("failed to create sidecar command");
             let (mut _rx, child) = sidecar.spawn().expect("failed to spawn sidecar");
 
             let state = app.state::<SidecarState>();
             *state.0.lock().unwrap() = Some(child);
 
+            app.manage(AudioState::new(app.handle().clone()));
+
             println!("Sidecar started");
+            println!("Audio engine initialized");
             Ok(())
         })
         .on_window_event(|window, event| {

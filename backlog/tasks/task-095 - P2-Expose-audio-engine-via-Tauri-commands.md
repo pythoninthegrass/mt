@@ -1,9 +1,10 @@
 ---
 id: task-095
 title: 'P2: Expose audio engine via Tauri commands'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-12 04:07'
+updated_date: '2026-01-13 05:47'
 labels:
   - rust
   - tauri
