@@ -1,10 +1,10 @@
 ---
 id: task-095
 title: 'P2: Expose audio engine via Tauri commands'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
-updated_date: '2026-01-13 05:47'
+updated_date: '2026-01-13 05:50'
 labels:
   - rust
   - tauri
@@ -58,9 +58,9 @@ fn audio_get_status() -> Result<PlaybackStatus, String>;
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 All audio commands callable from JS via invoke()
-- [ ] #2 Progress events emit at regular intervals during playback
-- [ ] #3 Track-ended event fires when playback completes
-- [ ] #4 Error events fire on decode/playback failures
-- [ ] #5 Thread-safe access to audio engine state
+- [x] #1 All audio commands callable from JS via invoke()
+- [x] #2 Progress events emit at regular intervals during playback
+- [x] #3 Track-ended event fires when playback completes
+- [x] #4 Error events fire on decode/playback failures
+- [x] #5 Thread-safe access to audio engine state
 <!-- AC:END -->
