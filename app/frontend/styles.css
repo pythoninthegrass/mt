@@ -1,2 +1,69 @@
 @import "tailwindcss";
 @import "basecoat-css";
+
+@theme {
+  --color-itunes-red: #FA2D48;
+  --color-itunes-red-hover: #E8222E;
+  --color-itunes-sidebar: #F5F5F7;
+  --color-itunes-row-alt: #FAFAFA;
+  --color-itunes-border: #E5E5EA;
+  --color-itunes-text-secondary: #8E8E93;
+}
+
+:root {
+  --itunes-red: #FA2D48;
+  --itunes-red-hover: #E8222E;
+  --itunes-sidebar-bg: #F5F5F7;
+  --itunes-row-alt: #FAFAFA;
+  --itunes-border: #E5E5EA;
+  --itunes-text-secondary: #8E8E93;
+}
+
+.track-row-even {
+  background-color: var(--itunes-row-alt);
+}
+
+.track-row-odd {
+  background-color: white;
+}
+
+.dark .track-row-even {
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+.dark .track-row-odd {
+  background-color: transparent;
+}
+
+.track-row-selected {
+  background-color: var(--itunes-red) !important;
+  color: white !important;
+}
+
+.track-row-selected .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.sort-header {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.sort-header:hover {
+  color: hsl(var(--foreground));
+}
+
+.sort-indicator {
+  font-size: 0.65rem;
+  margin-left: 0.25rem;
+  opacity: 0.7;
+}
+
+.column-header-active {
+  font-weight: 600;
+}
+
+.column-header-active .sort-indicator {
+  opacity: 1;
+}

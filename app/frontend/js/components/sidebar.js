@@ -11,7 +11,8 @@ export function createSidebar(Alpine) {
     isCollapsed: false,
     
     sections: [
-      { id: 'all', label: 'All Music', icon: 'music' },
+      { id: 'all', label: 'Music', icon: 'music' },
+      { id: 'nowPlaying', label: 'Now Playing', icon: 'speaker' },
       { id: 'liked', label: 'Liked Songs', icon: 'heart' },
       { id: 'recent', label: 'Recently Played', icon: 'clock' },
       { id: 'added', label: 'Recently Added', icon: 'sparkles' },
@@ -62,6 +63,9 @@ export function createSidebar(Alpine) {
           this.library.sortOrder = 'asc';
           await this.library.load();
           break;
+        case 'nowPlaying':
+          this.ui.setView('nowPlaying');
+          return;
         case 'liked':
           // TODO: Filter to liked/favorited tracks
           this.library.searchQuery = '';

@@ -75,7 +75,7 @@ export function createLibraryBrowser(Alpine) {
      */
     getSortIndicator(key) {
       if (this.library.sortBy !== key) return '';
-      return this.library.sortOrder === 'asc' ? '↑' : '↓';
+      return this.library.sortOrder === 'asc' ? '▲' : '▼';
     },
     
     /**

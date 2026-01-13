@@ -254,6 +254,38 @@ export function createPlayerControls(Alpine) {
     showNowPlaying() {
       this.ui.setView('nowPlaying');
     },
+    
+    get library() {
+      return this.$store.library;
+    },
+    
+    get libraryStats() {
+      const tracks = this.library.tracks;
+      const count = tracks.length;
+      const totalBytes = tracks.reduce((sum, t) => sum + (t.size || 0), 0);
+      const sizeStr = this.formatBytes(totalBytes);
+      const totalSeconds = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+      const durationStr = this.formatDurationLong(totalSeconds);
+      return `${count} files  ${sizeStr}  ${durationStr}`;
+    },
+    
+    formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      const value = bytes / Math.pow(1024, i);
+      return `${value.toFixed(1)} ${units[i]}`;
+    },
+    
+    formatDurationLong(seconds) {
+      if (!seconds || isNaN(seconds)) return '0m';
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      if (days > 0) return `${days}d ${hours}h ${mins}m`;
+      if (hours > 0) return `${hours}h ${mins}m`;
+      return `${mins}m`;
+    },
   }));
 }
 
