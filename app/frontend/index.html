@@ -97,16 +97,123 @@
       </div>
     </header>
 
-    <!-- Main content -->
-    <main class="flex-1 overflow-hidden">
-      <!-- Library View -->
-      <div 
-        x-show="$store.ui.view === 'library'" 
-        x-cloak
-        x-data="libraryBrowser"
-        @keydown.window="$store.ui.view === 'library' && handleKeydown($event)"
-        class="h-full flex flex-col"
+    <!-- Main content area with sidebar -->
+    <div class="flex-1 flex overflow-hidden">
+      <!-- Sidebar -->
+      <aside 
+        x-data="sidebar"
+        class="w-56 border-r border-border bg-card/50 flex flex-col shrink-0 overflow-hidden"
+        :class="isCollapsed ? 'w-14' : 'w-56'"
       >
+        <!-- Sidebar header -->
+        <div class="p-3 border-b border-border flex items-center justify-between">
+          <span x-show="!isCollapsed" class="text-sm font-semibold">Navigation</span>
+          <button 
+            class="btn btn-ghost btn-xs p-1"
+            @click="toggleCollapse()"
+            :title="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" :class="isCollapsed ? 'rotate-180' : ''">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <!-- Sidebar content -->
+        <nav class="flex-1 overflow-y-auto p-2 space-y-4">
+          <!-- Library section -->
+          <div>
+            <h3 x-show="!isCollapsed" class="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">Library</h3>
+            <ul class="space-y-0.5">
+              <template x-for="section in sections" :key="section.id">
+                <li>
+                  <button 
+                    class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors"
+                    :class="isActive(section.id) ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'"
+                    @click="loadSection(section.id)"
+                    :title="isCollapsed ? section.label : ''"
+                  >
+                    <!-- Icons -->
+                    <template x-if="section.icon === 'music'">
+                      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                      </svg>
+                    </template>
+                    <template x-if="section.icon === 'heart'">
+                      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                      </svg>
+                    </template>
+                    <template x-if="section.icon === 'clock'">
+                      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                    </template>
+                    <template x-if="section.icon === 'sparkles'">
+                      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                      </svg>
+                    </template>
+                    <template x-if="section.icon === 'fire'">
+                      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path>
+                      </svg>
+                    </template>
+                    <span x-show="!isCollapsed" x-text="section.label" class="truncate"></span>
+                  </button>
+                </li>
+              </template>
+            </ul>
+          </div>
+          
+          <!-- Playlists section -->
+          <div x-show="!isCollapsed">
+            <div class="flex items-center justify-between px-2 mb-2">
+              <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Playlists</h3>
+              <button 
+                class="btn btn-ghost btn-xs p-0.5"
+                @click="createPlaylist()"
+                title="New Playlist"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+              </button>
+            </div>
+            <ul class="space-y-0.5">
+              <template x-for="playlist in playlists" :key="playlist.id">
+                <li>
+                  <button 
+                    class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors"
+                    :class="isActive(playlist.id) ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'"
+                    @click="loadPlaylist(playlist.id)"
+                  >
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+                    </svg>
+                    <span x-text="playlist.name" class="truncate"></span>
+                  </button>
+                </li>
+              </template>
+              <li x-show="playlists.length === 0">
+                <p class="text-xs text-muted-foreground px-2 py-1">No playlists yet</p>
+              </li>
+            </ul>
+          </div>
+        </nav>
+      </aside>
+      
+      <!-- Main content -->
+      <main class="flex-1 overflow-hidden">
+        <!-- Library View -->
+        <div 
+          x-show="$store.ui.view === 'library'" 
+          x-cloak
+          x-data="libraryBrowser"
+          @keydown.window="$store.ui.view === 'library' && handleKeydown($event)"
+          class="h-full flex flex-col"
+        >
         <!-- Library header -->
         <div class="flex items-center justify-between p-4 border-b border-border shrink-0">
           <div class="flex items-center gap-4">
@@ -326,6 +433,7 @@
         </div>
       </div>
     </main>
+    </div>
 
     <!-- Player controls footer -->
     <footer 
