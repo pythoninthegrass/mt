@@ -13,7 +13,7 @@ vars:
   BUNDLE_ID: '{{.BUNDLE_ID | default "com.mt.desktop"}}'
   TAURI_DIR: "{{.ROOT_DIR}}/src-tauri"
   SIDECAR_DIR: "{{.TAURI_DIR}}/bin"
-  BACKEND_DIR: "{{.ROOT_DIR}}/app/backend"
+  BACKEND_DIR: "{{.ROOT_DIR}}/backend"
   MACOS_ARM64_TARGET: "aarch64-apple-darwin"
   MACOS_X64_TARGET: "x86_64-apple-darwin"
 
@@ -133,6 +133,7 @@ tasks:
     cmds:
       - npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri dev
     interactive: true
+    ignore_error: true
 
   icons:
     desc: "Generate app icons from logo"
