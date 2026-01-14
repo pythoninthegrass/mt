@@ -289,14 +289,37 @@
             </div>
             
             <!-- Empty state -->
-            <div x-show="!library.loading && library.filteredTracks.length === 0" class="flex items-center justify-center py-12">
-              <div class="text-center">
-                <svg class="w-12 h-12 mx-auto mb-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
-                </svg>
-                <p class="text-lg font-medium" x-text="library.searchQuery ? 'No tracks found' : 'Library is empty'"></p>
-                <p class="text-sm text-muted-foreground mt-1" x-text="library.searchQuery ? 'Try a different search term' : 'Add music to your library to get started'"></p>
-              </div>
+            <div x-show="!library.loading && library.filteredTracks.length === 0" class="flex items-center justify-center h-full">
+              <!-- Liked Songs empty state -->
+              <template x-if="library.currentSection === 'liked' && !library.searchQuery">
+                <div class="text-center">
+                  <svg class="w-24 h-24 mx-auto mb-6 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                  </svg>
+                  <p class="text-lg font-medium">Liked Songs is empty</p>
+                  <p class="text-sm text-muted-foreground mt-1">Favorite a track to get started</p>
+                </div>
+              </template>
+              <!-- Search empty state -->
+              <template x-if="library.searchQuery">
+                <div class="text-center">
+                  <svg class="w-24 h-24 mx-auto mb-6 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                  </svg>
+                  <p class="text-lg font-medium">No tracks found</p>
+                  <p class="text-sm text-muted-foreground mt-1">Try a different search term</p>
+                </div>
+              </template>
+              <!-- Library empty state -->
+              <template x-if="library.currentSection !== 'liked' && !library.searchQuery">
+                <div class="text-center">
+                  <svg class="w-24 h-24 mx-auto mb-6 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                  </svg>
+                  <p class="text-lg font-medium">Library is empty</p>
+                  <p class="text-sm text-muted-foreground mt-1">Add music to your library to get started</p>
+                </div>
+              </template>
             </div>
             
             <!-- Track rows -->
@@ -568,6 +591,25 @@
           
           <div class="w-px h-4 bg-[#8E8E93]/20 mx-1"></div>
           
+          <button 
+            class="p-1 transition-colors"
+            :class="isFavorite ? 'text-red-500' : 'text-[#8E8E93] hover:text-foreground'"
+            @click="toggleFavorite()"
+            :disabled="!hasTrack"
+            :title="isFavorite ? 'Remove from Liked Songs' : 'Add to Liked Songs'"
+          >
+            <template x-if="isFavorite">
+              <svg class="w-4 h-4" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+              </svg>
+            </template>
+            <template x-if="!isFavorite">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+              </svg>
+            </template>
+          </button>
+          
           <button
             class="p-1 transition-colors"
             :class="queue.shuffle ? 'text-primary' : 'text-[#8E8E93] hover:text-foreground'"
@@ -576,17 +618,6 @@
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-            </svg>
-          </button>
-          
-          <button 
-            class="p-1 transition-colors"
-            :class="ui.view === 'queue' ? 'text-primary' : 'text-[#8E8E93] hover:text-foreground'"
-            @click="toggleQueue()"
-            title="Queue"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
             </svg>
           </button>
           
