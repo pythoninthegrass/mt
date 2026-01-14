@@ -231,7 +231,7 @@ export function createLibraryStore(Alpine) {
      */
     async remove(trackId) {
       try {
-        await api.library.removeTrack(trackId);
+        await api.library.deleteTrack(trackId);
         
         // Update local state
         this.tracks = this.tracks.filter(t => t.id !== trackId);

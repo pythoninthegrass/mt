@@ -1,6 +1,7 @@
 use std::net::TcpListener;
 use std::sync::Mutex;
 use std::time::Duration;
+use tauri::Manager;
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 use thiserror::Error;
@@ -39,13 +40,27 @@ impl SidecarManager {
         let port = find_available_port(PORT_RANGE_START, PORT_RANGE_END)?;
         println!("Sidecar: Found available port {}", port);
 
-        // 2. Spawn sidecar with MT_API_PORT env var
+        // 2. Spawn sidecar with environment variables
         let shell = app.shell();
         let sidecar = shell
             .sidecar("main")
             .map_err(|e| SidecarError::SpawnFailed(e.to_string()))?;
 
-        let sidecar_with_env = sidecar.env("MT_API_PORT", port.to_string());
+        // Get database path - use app data dir for consistency
+        let db_path = app
+            .path()
+            .app_data_dir()
+            .map(|p| p.join("mt.db"))
+            .unwrap_or_else(|_| std::path::PathBuf::from("mt.db"));
+        
+        // Ensure parent directory exists
+        if let Some(parent) = db_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
+        let sidecar_with_env = sidecar
+            .env("MT_API_PORT", port.to_string())
+            .env("MT_DB_PATH", db_path.to_string_lossy().to_string());
 
         let (_rx, child) = sidecar_with_env
             .spawn()
