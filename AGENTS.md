@@ -31,7 +31,6 @@ Always use Context7 MCP when I need library/API documentation, code generation, 
 - quodlibet/mutagen
 - spiraldb/ziggy-pydust
 - websites/rs_tauri_2_9_5
-- johnwmillr/lyricsgenius
 
 ## Atomic Commit Workflow
 
@@ -66,6 +65,7 @@ git stash save --patch   # Stash specific hunks
 ```
 
 **Interactive Mode Commands** (`git add -i`):
+
 - `s` or `1`: View status (staged vs unstaged changes)
 - `u` or `2`: Stage files (equivalent to `git add <file>`)
 - `r` or `3`: Unstage files (equivalent to `git rm --cached <file>`)
@@ -74,6 +74,7 @@ git stash save --patch   # Stash specific hunks
 - `d` or `6`: View diff of staged files
 
 **Patch Mode Commands** (after selecting `p` or using `git add -p`):
+
 - `y`: Stage this hunk
 - `n`: Don't stage this hunk
 - `s`: Split the hunk into smaller hunks ⭐ (most useful!)
@@ -169,6 +170,7 @@ task pyclean
 Some tests are marked with `@pytest.mark.flaky_in_suite` because they pass reliably in isolation but experience timing issues when run in the full test suite due to persistent application state pollution:
 
 **Known Flaky Tests:**
+
 - `tests/test_e2e_smoke.py::test_next_previous_navigation` - Track navigation test that passes 100% in isolation but ~50% in full suite
 - `tests/test_e2e_controls.py::test_media_key_next` - Media key next test that experiences timing issues with track changes in full suite
 
@@ -197,6 +199,7 @@ uv run pytest tests/ -m "not slow and not flaky_in_suite"
 **Note:** The `flaky_in_suite` marker is defined in `pyproject.toml` and allows excluding these tests during CI/CD or full test suite runs while still maintaining them for isolation testing. If you need to verify these tests work, always run them in isolation.
 
 **Pytest marker syntax clarification:**
+
 - ❌ Wrong: `-m "not slow" -m "not flaky_in_suite"` (multiple flags don't combine correctly)
 - ✅ Correct: `-m "not slow and not flaky_in_suite"` (boolean AND expression)
 - ✅ Alternative: `-m "not (slow or flaky_in_suite)"` (boolean OR with negation)
@@ -303,6 +306,7 @@ wt remove feature -D
 ```
 
 **Current worktrees:**
+
 - `main` - Primary development (Tkinter app)
 - `tauri-migration` - Tauri + Rust playback migration (when created)
 
@@ -629,6 +633,7 @@ This project uses Backlog.md MCP for all task and project management activities.
 - **When to read it**: BEFORE creating tasks, or when you're unsure whether to track work
 
 These guides cover:
+
 - Decision framework for when to create tasks
 - Search-first workflow to avoid duplicates
 - Links to detailed guides for task creation, execution, and completion
@@ -639,3 +644,65 @@ You MUST read the overview resource to understand the complete workflow. The inf
 </CRITICAL_INSTRUCTION>
 
 <!-- BACKLOG.MD MCP GUIDELINES END -->
+
+<!-- MANTIC SEARCH GUIDELINES START -->
+
+<CRITICAL_INSTRUCTION>
+
+## SEARCH CAPABILITY (MANTIC v1.0.21)
+
+This project uses Mantic for intelligent code search. Use it before resorting to grep/find commands.
+
+**Basic Search:**
+```bash
+npx mantic.sh "your query here"
+```
+
+**Advanced Features:**
+
+**Zero-Query Mode (Context Detection):**
+```bash
+npx mantic.sh ""  # Shows modified files, suggestions, impact
+```
+
+**Context Carryover (Session Mode):**
+```bash
+npx mantic.sh "query" --session "session-name"
+```
+
+**Output Formats:**
+```bash
+npx mantic.sh "query" --json        # Full metadata
+npx mantic.sh "query" --files        # Paths only
+npx mantic.sh "query" --markdown    # Pretty output
+```
+
+**Impact Analysis:**
+```bash
+npx mantic.sh "query" --impact      # Shows blast radius
+```
+
+**File Type Filters:**
+```bash
+npx mantic.sh "query" --code        # Code files only
+npx mantic.sh "query" --test        # Test files only
+npx mantic.sh "query" --config       # Config files only
+```
+
+### Search Quality (v1.0.21)
+
+- CamelCase detection: "ScriptController" finds script_controller.h
+- Exact filename matching: "download_manager.cc" returns exact file first
+- Path sequence: "blink renderer core dom" matches directory structure
+- Word boundaries: "script" won't match "javascript"
+- Directory boosting: "gpu" prioritizes files in gpu/ directories
+
+### Best Practices
+
+**DO NOT use grep/find blindly. Use Mantic first.**
+
+Mantic provides brain-inspired scoring that prioritizes business logic over boilerplate, making it more effective for finding relevant code than traditional text search tools.
+
+</CRITICAL_INSTRUCTION>
+
+<!-- MANTIC SEARCH GUIDELINES END -->

@@ -1,5 +1,13 @@
 {
   "mcpServers": {
+    "mantic": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mantic.sh@latest",
+        "server"
+      ]
+    },
     "screencap": {
       "command": "/Users/lance/.local/bin/uv",
       "args": [
