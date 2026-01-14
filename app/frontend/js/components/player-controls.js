@@ -70,6 +70,15 @@ export function createPlayerControls(Alpine) {
       return !!this.currentTrack;
     },
     
+    get isFavorite() {
+      return this.player.isFavorite;
+    },
+    
+    toggleFavorite() {
+      if (!this.hasTrack) return;
+      this.player.toggleFavorite();
+    },
+    
     get trackDisplayName() {
       if (!this.currentTrack) return '';
       const artist = this.currentTrack.artist || 'Unknown Artist';

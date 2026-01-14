@@ -215,6 +215,36 @@ export const api = {
   },
   
   // ============================================
+  // Favorites endpoints
+  // ============================================
+  
+  favorites: {
+    async get(params = {}) {
+      const query = new URLSearchParams();
+      if (params.limit) query.set('limit', params.limit.toString());
+      if (params.offset) query.set('offset', params.offset.toString());
+      const queryString = query.toString();
+      return request(`/favorites${queryString ? `?${queryString}` : ''}`);
+    },
+    
+    async check(trackId) {
+      return request(`/favorites/${encodeURIComponent(trackId)}`);
+    },
+    
+    async add(trackId) {
+      return request(`/favorites/${encodeURIComponent(trackId)}`, {
+        method: 'POST',
+      });
+    },
+    
+    async remove(trackId) {
+      return request(`/favorites/${encodeURIComponent(trackId)}`, {
+        method: 'DELETE',
+      });
+    },
+  },
+  
+  // ============================================
   // Playback endpoints (if sidecar handles playback state)
   // ============================================
   

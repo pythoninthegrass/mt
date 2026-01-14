@@ -55,6 +55,7 @@ export function createSidebar(Alpine) {
       this.save();
       
       this.ui.setView('library');
+      this.library.setSection(sectionId);
       
       switch (sectionId) {
         case 'all':
@@ -67,9 +68,10 @@ export function createSidebar(Alpine) {
           this.ui.setView('nowPlaying');
           return;
         case 'liked':
-          // TODO: Filter to liked/favorited tracks
           this.library.searchQuery = '';
-          await this.library.load();
+          this.library.sortBy = 'artist';
+          this.library.sortOrder = 'asc';
+          await this.library.loadFavorites();
           break;
         case 'recent':
           this.library.searchQuery = '';

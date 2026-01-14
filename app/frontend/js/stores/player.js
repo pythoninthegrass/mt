@@ -1,3 +1,5 @@
+import { api } from '../api.js';
+
 const { invoke } = window.__TAURI__?.core ?? { invoke: async () => console.warn('Tauri not available') };
 const { listen } = window.__TAURI__?.event ?? { listen: async () => () => {} };
 
@@ -11,6 +13,7 @@ export function createPlayerStore(Alpine) {
     volume: 100,
     muted: false,
     isSeeking: false,
+    isFavorite: false,
     
     _progressListener: null,
     _trackEndedListener: null,
@@ -61,6 +64,8 @@ export function createPlayerStore(Alpine) {
         
         await invoke('audio_play');
         this.isPlaying = true;
+        
+        await this.checkFavoriteStatus();
       } catch (error) {
         console.error('Failed to play track:', error);
         this.isPlaying = false;
@@ -167,6 +172,39 @@ export function createPlayerStore(Alpine) {
         this._previousVolume = this.volume;
         await this.setVolume(0);
         this.muted = true;
+      }
+    },
+    
+    async checkFavoriteStatus() {
+      if (!this.currentTrack?.id) {
+        this.isFavorite = false;
+        return;
+      }
+      
+      try {
+        const result = await api.favorites.check(this.currentTrack.id);
+        this.isFavorite = result.is_favorite;
+      } catch (error) {
+        console.error('Failed to check favorite status:', error);
+        this.isFavorite = false;
+      }
+    },
+    
+    async toggleFavorite() {
+      if (!this.currentTrack?.id) return;
+      
+      try {
+        if (this.isFavorite) {
+          await api.favorites.remove(this.currentTrack.id);
+          this.isFavorite = false;
+        } else {
+          await api.favorites.add(this.currentTrack.id);
+          this.isFavorite = true;
+        }
+        
+        Alpine.store('library').refreshIfLikedSongs();
+      } catch (error) {
+        console.error('Failed to toggle favorite:', error);
       }
     },
     

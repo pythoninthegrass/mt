@@ -17,6 +17,7 @@ export function createLibraryStore(Alpine) {
     searchQuery: '',
     sortBy: 'artist',    // 'artist', 'album', 'title', 'dateAdded', 'duration'
     sortOrder: 'asc',    // 'asc', 'desc'
+    currentSection: 'all',
     
     // Loading state
     loading: false,
@@ -37,9 +38,6 @@ export function createLibraryStore(Alpine) {
       await this.load();
     },
     
-    /**
-     * Load all tracks from backend
-     */
     async load() {
       this.loading = true;
       try {
@@ -52,6 +50,31 @@ export function createLibraryStore(Alpine) {
         console.error('Failed to load library:', error);
       } finally {
         this.loading = false;
+      }
+    },
+    
+    async loadFavorites() {
+      this.loading = true;
+      try {
+        const data = await api.favorites.get({ limit: 1000 });
+        this.tracks = data.tracks || [];
+        this.totalTracks = this.tracks.length;
+        this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+        this.applyFilters();
+      } catch (error) {
+        console.error('Failed to load favorites:', error);
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    setSection(section) {
+      this.currentSection = section;
+    },
+    
+    refreshIfLikedSongs() {
+      if (this.currentSection === 'liked') {
+        this.loadFavorites();
       }
     },
     
@@ -161,12 +184,27 @@ export function createLibraryStore(Alpine) {
     async openAddMusicDialog() {
       try {
         console.log('[library] opening add music dialog...');
-        const { invoke } = window.__TAURI__.core;
-        const paths = await invoke('open_add_music_dialog');
+        
+        if (!window.__TAURI__) {
+          throw new Error('Tauri not available');
+        }
+        
+        const { open } = window.__TAURI__.dialog;
+        if (!open) {
+          throw new Error('Tauri dialog.open not available');
+        }
+        
+        const paths = await open({
+          directory: true,
+          multiple: true,
+          title: 'Select folders to add to your library'
+        });
+        
         console.log('[library] dialog returned paths:', paths);
         
-        if (paths && paths.length > 0) {
-          const result = await this.scan(paths);
+        if (paths && (Array.isArray(paths) ? paths.length > 0 : paths)) {
+          const pathArray = Array.isArray(paths) ? paths : [paths];
+          const result = await this.scan(pathArray);
           const ui = Alpine.store('ui');
           if (result.added > 0) {
             ui.toast(`Added ${result.added} track${result.added === 1 ? '' : 's'} to library`, 'success');
