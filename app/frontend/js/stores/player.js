@@ -18,6 +18,7 @@ export function createPlayerStore(Alpine) {
     
     _progressListener: null,
     _trackEndedListener: null,
+    _mediaKeyListeners: [],
     _previousVolume: 100,
     _seekDebounce: null,
     _playCountUpdated: false,
@@ -45,6 +46,15 @@ export function createPlayerStore(Alpine) {
         Alpine.store('queue').playNext();
       });
       
+      this._mediaKeyListeners = await Promise.all([
+        listen('mediakey://play', () => this.resume()),
+        listen('mediakey://pause', () => this.pause()),
+        listen('mediakey://toggle', () => this.togglePlay()),
+        listen('mediakey://next', () => this.next()),
+        listen('mediakey://previous', () => this.previous()),
+        listen('mediakey://stop', () => this.stop()),
+      ]);
+      
       try {
         const status = await invoke('audio_get_status');
         this.volume = Math.round(status.volume * 100);
@@ -56,6 +66,7 @@ export function createPlayerStore(Alpine) {
     destroy() {
       if (this._progressListener) this._progressListener();
       if (this._trackEndedListener) this._trackEndedListener();
+      this._mediaKeyListeners.forEach(unlisten => unlisten());
     },
     
     async playTrack(track) {
@@ -78,6 +89,8 @@ export function createPlayerStore(Alpine) {
         
         await this.checkFavoriteStatus();
         await this.loadArtwork();
+        await this._updateNowPlayingMetadata();
+        await this._updateNowPlayingState();
       } catch (error) {
         console.error('Failed to play track:', error);
         this.isPlaying = false;
@@ -88,6 +101,7 @@ export function createPlayerStore(Alpine) {
       try {
         await invoke('audio_pause');
         this.isPlaying = false;
+        await this._updateNowPlayingState();
       } catch (error) {
         console.error('Failed to pause:', error);
       }
@@ -97,6 +111,7 @@ export function createPlayerStore(Alpine) {
       try {
         await invoke('audio_play');
         this.isPlaying = true;
+        await this._updateNowPlayingState();
       } catch (error) {
         console.error('Failed to resume:', error);
       }
@@ -112,6 +127,11 @@ export function createPlayerStore(Alpine) {
         if (queue.items.length > 0) {
           const idx = queue.currentIndex >= 0 ? queue.currentIndex : 0;
           await queue.playIndex(idx);
+        } else {
+          const library = Alpine.store('library');
+          if (library.filteredTracks.length > 0) {
+            await queue.add(library.filteredTracks, true);
+          }
         }
       }
     },
@@ -131,6 +151,7 @@ export function createPlayerStore(Alpine) {
         this.progress = 0;
         this.currentTime = 0;
         this.currentTrack = null;
+        await invoke('media_set_stopped').catch(() => {});
       } catch (error) {
         console.error('Failed to stop:', error);
       }
@@ -242,6 +263,34 @@ export function createPlayerStore(Alpine) {
         await api.library.updatePlayCount(this.currentTrack.id);
       } catch (error) {
         console.error('Failed to update play count:', error);
+      }
+    },
+    
+    async _updateNowPlayingMetadata() {
+      if (!this.currentTrack) return;
+      
+      try {
+        await invoke('media_set_metadata', {
+          title: this.currentTrack.title || null,
+          artist: this.currentTrack.artist || null,
+          album: this.currentTrack.album || null,
+          durationMs: this.duration || null,
+          coverUrl: null,
+        });
+      } catch (error) {
+        console.warn('Failed to update Now Playing metadata:', error);
+      }
+    },
+    
+    async _updateNowPlayingState() {
+      try {
+        if (this.isPlaying) {
+          await invoke('media_set_playing', { progressMs: this.currentTime || null });
+        } else {
+          await invoke('media_set_paused', { progressMs: this.currentTime || null });
+        }
+      } catch (error) {
+        console.warn('Failed to update Now Playing state:', error);
       }
     },
     
