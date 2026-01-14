@@ -14,6 +14,7 @@ dependencies = [
     "eliot>=1.17.5",
     "lyricsgenius>=3.7.2",
     "mutagen>=1.47.0",
+    "pex>=2.80.0",
     "pillow>=11.3.0",
     'pyobjc-framework-Cocoa; platform_system == "Darwin"',
     'pyobjc-framework-Quartz; sys_platform == "darwin"',

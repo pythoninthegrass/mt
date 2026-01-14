@@ -374,6 +374,7 @@ dependencies = [
     { name = "eliot-tree" },
     { name = "lyricsgenius" },
     { name = "mutagen" },
+    { name = "pex" },
     { name = "pillow" },
     { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
     { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
@@ -434,6 +435,7 @@ requires-dist = [
     { name = "lyricsgenius", marker = "extra == 'sidecar'", specifier = ">=3.7.2" },
     { name = "mutagen", specifier = ">=1.47.0" },
     { name = "mutagen", marker = "extra == 'sidecar'", specifier = ">=1.47.0" },
+    { name = "pex", specifier = ">=2.80.0" },
     { name = "pillow", specifier = ">=11.3.0" },
     { name = "pyclean", marker = "extra == 'dev'", specifier = ">=3.1.0" },
     { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
@@ -519,6 +521,16 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ca/bc/f35b8446f4531a7cb215605d100cd88b7ac6f44ab3fc94870c120ab3adbf/pathspec-0.12.1.tar.gz", hash = "sha256:a482d51503a1ab33b1c67a6c3813a26953dbdc71c31dacaef9a838c4e29f5712", size = 51043, upload-time = "2023-12-10T22:30:45Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl", hash = "sha256:a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08", size = 31191, upload-time = "2023-12-10T22:30:43.14Z" },
+]
+
+[[package]]
+name = "pex"
+version = "2.80.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/70/9a6e5afbd96296263c3078540cff1ec7f1fbf7aee5d2ffc8759c85877873/pex-2.80.0.tar.gz", hash = "sha256:9c3df335465bfbf9a2a9679c9b608429ca38045a37aa1f4c184168acbdf89ab2", size = 5230273, upload-time = "2026-01-14T01:17:49.36Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c5/5e/5ca69340bbc7f05b8adea5f9d11b3314fd24b5c2d1cba74c6b1d8e035b4f/pex-2.80.0-py2.py35.py36.py37.py38.py39.py310.py311-none-any.whl", hash = "sha256:38c4a8f771c5a834c516e904a8df89fde83793f33c2476d5fdce28ffa697728f", size = 3934500, upload-time = "2026-01-14T01:17:46.316Z" },
+    { url = "https://files.pythonhosted.org/packages/99/4b/1922d77172c03d9a3ff4d6f7e3856b98d19d2cbc33ec893a4989a5a29647/pex-2.80.0-py3.py312-none-any.whl", hash = "sha256:b973cc60214335b3a74a60abf7766f66959e5540686203062dce6696dda085cd", size = 1734904, upload-time = "2026-01-14T01:17:47.909Z" },
 ]
 
 [[package]]
