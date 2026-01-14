@@ -1,10 +1,10 @@
 ---
 id: task-126
 title: 'Tauri UI: Fix Recently Added dynamic playlist (added timestamp + API query)'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-14 02:31'
-updated_date: '2026-01-14 04:18'
+updated_date: '2026-01-14 05:36'
 labels:
   - tauri
   - frontend
@@ -22,9 +22,9 @@ The Alpine.js/Tauri “Recently Added” view should be a true dynamic playlist 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Recently Added view shows a visible “Added” column (timestamp or humanized time) matching design expectations.
-- [ ] #2 Recently Added view is populated only with tracks whose added timestamp is within the configured recency window (default: last 14 days).
-- [ ] #3 The list ordering is descending by added timestamp.
-- [ ] #4 Library scan/import sets added timestamps correctly for new tracks.
-- [ ] #5 When a track is removed from the library, its added/play metadata is removed as well so it cannot appear in dynamic playlists.
+- [x] #1 Recently Added view shows a visible “Added” column (timestamp or humanized time) matching design expectations.
+- [x] #2 Recently Added view is populated only with tracks whose added timestamp is within the configured recency window (default: last 14 days).
+- [x] #3 The list ordering is descending by added timestamp.
+- [x] #4 Library scan/import sets added timestamps correctly for new tracks.
+- [x] #5 When a track is removed from the library, its added/play metadata is removed as well so it cannot appear in dynamic playlists.
 <!-- AC:END -->
