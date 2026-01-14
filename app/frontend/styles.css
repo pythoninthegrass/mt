@@ -67,3 +67,31 @@
 .column-header-active .sort-indicator {
   opacity: 1;
 }
+
+.queue-item-wrapper {
+  transition: transform 0.15s ease-out;
+}
+
+.queue-item-wrapper.shift-up {
+  transform: translateY(-100%);
+}
+
+.queue-item-wrapper.shift-down {
+  transform: translateY(100%);
+}
+
+.queue-item {
+  position: relative;
+  transition: background-color 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.queue-item.dragging-item {
+  background-color: hsl(var(--card));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  opacity: 1;
+}
+
+.queue-item.other-dragging {
+  opacity: 0.5;
+}
