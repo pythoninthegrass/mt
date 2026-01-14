@@ -313,9 +313,6 @@ export function createLibraryBrowser(Alpine) {
       this.contextMenu = null;
     },
     
-    /**
-     * Remove selected tracks from library
-     */
     async removeSelected() {
       const tracks = this.getSelectedTracks();
       if (tracks.length === 0) return;
@@ -324,14 +321,20 @@ export function createLibraryBrowser(Alpine) {
         ? `Remove "${tracks[0].title}" from library?`
         : `Remove ${tracks.length} tracks from library?`;
       
-      if (confirm(confirmMsg)) {
+      this.contextMenu = null;
+      
+      const confirmed = await window.__TAURI__?.dialog?.confirm(confirmMsg, {
+        title: 'Remove from Library',
+        kind: 'warning',
+      }) ?? window.confirm(confirmMsg);
+      
+      if (confirmed) {
         for (const track of tracks) {
           await this.library.remove(track.id);
         }
         this.selectedTracks.clear();
         this.$store.ui.toast(`Removed ${tracks.length} track${tracks.length > 1 ? 's' : ''}`, 'success');
       }
-      this.contextMenu = null;
     },
     
     /**
