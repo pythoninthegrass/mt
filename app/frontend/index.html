@@ -328,9 +328,10 @@
                 class="flex items-center border-b border-border/30 text-sm cursor-pointer transition-colors select-none"
                 :class="[
                   isSelected(track.id) ? 'track-row-selected' : (index % 2 === 0 ? 'track-row-even' : 'track-row-odd'),
-                  isPlaying(track.id) && !isSelected(track.id) ? 'bg-primary/10' : '',
+                  isPlaying(track.id) && !isSelected(track.id) ? 'bg-primary/15 border-l-2 border-l-primary' : '',
                   !isSelected(track.id) && !isPlaying(track.id) ? 'hover:bg-muted/50' : ''
                 ]"
+                :data-track-id="track.id"
                 @click="handleRowClick($event, track, index)"
                 @dblclick="handleDoubleClick(track)"
                 @contextmenu="handleContextMenu($event, track, index)"

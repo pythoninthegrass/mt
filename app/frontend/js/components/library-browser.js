@@ -25,26 +25,35 @@ export function createLibraryBrowser(Alpine) {
       { key: 'duration', label: 'Duration', sortable: true, width: 'w-20 text-right' },
     ],
     
-    /**
-     * Initialize component
-     */
     init() {
-      // Load library on init if not already loaded
       if (this.$store.library.tracks.length === 0) {
         this.$store.library.load();
       }
       
-      // Close context menu on click outside
       document.addEventListener('click', (e) => {
         if (this.contextMenu && !e.target.closest('.context-menu')) {
           this.contextMenu = null;
         }
       });
       
-      // Close context menu on escape
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && this.contextMenu) {
           this.contextMenu = null;
+        }
+      });
+      
+      this.$watch('$store.player.currentTrack', (newTrack) => {
+        if (newTrack?.id) {
+          this.scrollToTrack(newTrack.id);
+        }
+      });
+    },
+    
+    scrollToTrack(trackId) {
+      this.$nextTick(() => {
+        const trackRow = document.querySelector(`[data-track-id="${trackId}"]`);
+        if (trackRow) {
+          trackRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       });
     },
