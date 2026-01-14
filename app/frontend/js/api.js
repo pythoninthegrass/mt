@@ -139,6 +139,22 @@ export const api = {
         method: 'DELETE',
       });
     },
+    
+    /**
+     * Get album artwork for a track
+     * @param {string} id - Track ID
+     * @returns {Promise<{data: string, mime_type: string, source: string}|null>}
+     */
+    async getArtwork(id) {
+      try {
+        return await request(`/library/${encodeURIComponent(id)}/artwork`);
+      } catch (error) {
+        if (error.status === 404) {
+          return null;
+        }
+        throw error;
+      }
+    },
   },
   
   // ============================================

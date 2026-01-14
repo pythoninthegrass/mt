@@ -437,17 +437,28 @@
 
       <!-- Now Playing View -->
       <div x-show="$store.ui.view === 'nowPlaying'" x-cloak class="h-full">
-        <div class="flex flex-col items-center justify-center h-full py-12">
+        <div class="flex items-center justify-center h-full py-12 px-8">
           <template x-if="$store.player.currentTrack">
-            <div class="text-center space-y-4">
-              <div class="w-64 h-64 bg-muted rounded-lg flex items-center justify-center mb-6 shadow-lg">
-                <svg class="w-24 h-24 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
-                </svg>
+            <div class="flex items-center gap-12 max-w-4xl">
+              <div class="w-64 h-64 bg-muted rounded-lg flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <template x-if="$store.player.artwork">
+                  <img 
+                    :src="'data:' + $store.player.artwork.mime_type + ';base64,' + $store.player.artwork.data"
+                    alt="Album artwork"
+                    class="w-full h-full object-cover"
+                  >
+                </template>
+                <template x-if="!$store.player.artwork">
+                  <svg class="w-24 h-24 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                  </svg>
+                </template>
               </div>
-              <h2 class="text-3xl font-bold" x-text="$store.player.currentTrack.title || 'Unknown'"></h2>
-              <p class="text-xl text-muted-foreground" x-text="$store.player.currentTrack.artist || 'Unknown Artist'"></p>
-              <p class="text-lg text-muted-foreground" x-text="$store.player.currentTrack.album || ''"></p>
+              <div class="space-y-4">
+                <h2 class="text-3xl font-bold" x-text="$store.player.currentTrack.title || 'Unknown'"></h2>
+                <p class="text-xl text-muted-foreground" x-text="$store.player.currentTrack.artist || 'Unknown Artist'"></p>
+                <p class="text-lg text-muted-foreground" x-text="$store.player.currentTrack.album || ''"></p>
+              </div>
             </div>
           </template>
           <template x-if="!$store.player.currentTrack">

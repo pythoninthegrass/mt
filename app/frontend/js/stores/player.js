@@ -14,6 +14,7 @@ export function createPlayerStore(Alpine) {
     muted: false,
     isSeeking: false,
     isFavorite: false,
+    artwork: null,
     
     _progressListener: null,
     _trackEndedListener: null,
@@ -66,6 +67,7 @@ export function createPlayerStore(Alpine) {
         this.isPlaying = true;
         
         await this.checkFavoriteStatus();
+        await this.loadArtwork();
       } catch (error) {
         console.error('Failed to play track:', error);
         this.isPlaying = false;
@@ -205,6 +207,20 @@ export function createPlayerStore(Alpine) {
         Alpine.store('library').refreshIfLikedSongs();
       } catch (error) {
         console.error('Failed to toggle favorite:', error);
+      }
+    },
+    
+    async loadArtwork() {
+      if (!this.currentTrack?.id) {
+        this.artwork = null;
+        return;
+      }
+      
+      try {
+        this.artwork = await api.library.getArtwork(this.currentTrack.id);
+      } catch (error) {
+        console.error('Failed to load artwork:', error);
+        this.artwork = null;
       }
     },
     

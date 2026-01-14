@@ -1,5 +1,6 @@
 """Library routes for the mt music player API."""
 
+from backend.services.artwork import get_artwork
 from backend.services.database import DatabaseService, get_db
 from backend.services.scanner import scan_paths
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -68,6 +69,28 @@ async def get_track(track_id: int, db: DatabaseService = Depends(get_db)):
     if not track:
         raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
     return track
+
+
+@router.get("/{track_id}/artwork")
+async def get_track_artwork(track_id: int, db: DatabaseService = Depends(get_db)):
+    """Get album artwork for a track.
+
+    Returns base64-encoded image data with mime type.
+    Tries embedded artwork first, then folder-based artwork.
+    """
+    track = db.get_track_by_id(track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
+
+    filepath = track.get("filepath")
+    if not filepath:
+        raise HTTPException(status_code=404, detail="Track has no filepath")
+
+    artwork = get_artwork(filepath)
+    if not artwork:
+        raise HTTPException(status_code=404, detail="No artwork found for this track")
+
+    return artwork
 
 
 @router.delete("/{track_id}", status_code=204)
