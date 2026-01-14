@@ -41,9 +41,9 @@ export function createLibraryStore(Alpine) {
     async load() {
       this.loading = true;
       try {
-        const data = await api.library.getTracks();
+        const data = await api.library.getTracks({ limit: 10000 });
         this.tracks = data.tracks || [];
-        this.totalTracks = this.tracks.length;
+        this.totalTracks = data.total || this.tracks.length;
         this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
         this.applyFilters();
       } catch (error) {
@@ -189,16 +189,9 @@ export function createLibraryStore(Alpine) {
           throw new Error('Tauri not available');
         }
         
-        const { open } = window.__TAURI__.dialog;
-        if (!open) {
-          throw new Error('Tauri dialog.open not available');
-        }
-        
-        const paths = await open({
-          directory: true,
-          multiple: true,
-          title: 'Select folders to add to your library'
-        });
+        // Use Rust command instead of JS plugin API for better reliability
+        const { invoke } = window.__TAURI__.core;
+        const paths = await invoke('open_add_music_dialog');
         
         console.log('[library] dialog returned paths:', paths);
         
