@@ -33,7 +33,7 @@ async def get_library(
     album: str | None = None,
     sort_by: Literal["title", "artist", "album", "added_date", "play_count"] = "added_date",
     sort_order: Literal["asc", "desc"] = "desc",
-    limit: int = Query(100, ge=1, le=1000),
+    limit: int = Query(100, ge=1, le=10000),
     offset: int = Query(0, ge=0),
     db: DatabaseService = Depends(get_db),
 ):

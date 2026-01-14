@@ -26,7 +26,7 @@ export function createLibraryBrowser(Alpine) {
     ],
     
     init() {
-      if (this.$store.library.tracks.length === 0) {
+      if (this.$store.library.tracks.length === 0 && !this.$store.library.loading) {
         this.$store.library.load();
       }
       

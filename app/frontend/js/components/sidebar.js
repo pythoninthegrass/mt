@@ -30,7 +30,6 @@ export function createSidebar(Alpine) {
           // ignore
         }
       }
-      
       this.loadPlaylists();
       this.loadSection(this.activeSection);
     },

@@ -6,9 +6,6 @@ import './styles.css';
 
 window.Alpine = Alpine;
 
-initStores(Alpine);
-initComponents(Alpine);
-
 window.handleFileDrop = async function(event) {
   console.log('[main] Browser drop event (Tauri handles via native events)');
 };
@@ -90,10 +87,11 @@ window.testDialog = async function() {
   }
 };
 
-Promise.all([
-  initBackendUrl(),
-  initTauriDragDrop()
-]).then(() => {
+// Initialize backend URL first, then register stores and start Alpine
+initBackendUrl().then(() => {
+  initStores(Alpine);
+  initComponents(Alpine);
+  initTauriDragDrop();
   Alpine.start();
   console.log('[main] Alpine started with stores and components');
   console.log('[main] Test dialog with: testDialog()');
