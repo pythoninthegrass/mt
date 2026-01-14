@@ -26,6 +26,11 @@ tokio = { version = "1", features = ["full"] }
 rodio = { version = "0.21", features = ["flac", "mp3", "mp4", "vorbis", "wav"] }
 parking_lot = "0.12"
 thiserror = "2"
+tauri-plugin-devtools = { version = "2", optional = true }
+
+[features]
+default = ["devtools"]
+devtools = ["dep:tauri-plugin-devtools"]
 
 [profile.release]
 panic = "abort"

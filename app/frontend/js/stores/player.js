@@ -10,13 +10,16 @@ export function createPlayerStore(Alpine) {
     duration: 0,
     volume: 100,
     muted: false,
+    isSeeking: false,
     
     _progressListener: null,
     _trackEndedListener: null,
     _previousVolume: 100,
+    _seekDebounce: null,
     
     async init() {
       this._progressListener = await listen('audio://progress', (event) => {
+        if (this.isSeeking) return;
         const { position_ms, duration_ms, state } = event.payload;
         this.currentTime = position_ms;
         this.duration = duration_ms;
@@ -117,14 +120,25 @@ export function createPlayerStore(Alpine) {
     },
     
     async seek(positionMs) {
-      try {
-        const pos = Math.round(positionMs);
-        await invoke('audio_seek', { position_ms: pos });
-        this.currentTime = pos;
-        this.progress = this.duration > 0 ? (pos / this.duration) * 100 : 0;
-      } catch (error) {
-        console.error('Failed to seek:', error);
+      if (this._seekDebounce) {
+        clearTimeout(this._seekDebounce);
       }
+      
+      const pos = Math.round(positionMs);
+      this.isSeeking = true;
+      this.currentTime = pos;
+      this.progress = this.duration > 0 ? (pos / this.duration) * 100 : 0;
+      
+      this._seekDebounce = setTimeout(async () => {
+        try {
+          await invoke('audio_seek', { positionMs: pos });
+        } catch (error) {
+          console.error('[seek] Failed to seek:', error);
+        } finally {
+          this.isSeeking = false;
+          this._seekDebounce = null;
+        }
+      }, 50);
     },
     
     async seekPercent(percent) {

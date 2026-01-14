@@ -1,12 +1,9 @@
 use crate::audio::error::AudioError;
-use rodio::source::EmptyCallback;
 use rodio::{Decoder, OutputStream, OutputStreamBuilder, Sink, Source};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,7 +30,6 @@ pub struct Progress {
 
 struct PlayerHandle {
     sink: Sink,
-    track_finished: Arc<AtomicBool>,
 }
 
 pub struct AudioEngine {
@@ -77,14 +73,7 @@ impl AudioEngine {
 
         let sink = Sink::connect_new(self.stream.mixer());
         sink.set_volume(self.volume);
-
-        let track_finished = Arc::new(AtomicBool::new(false));
-        let finished_flag = track_finished.clone();
-
         sink.append(source);
-        sink.append(EmptyCallback::new(Box::new(move || {
-            finished_flag.store(true, Ordering::SeqCst);
-        })));
         sink.pause();
 
         let track_info = TrackInfo {
@@ -94,10 +83,7 @@ impl AudioEngine {
             channels,
         };
 
-        self.player_handle = Some(PlayerHandle {
-            sink,
-            track_finished,
-        });
+        self.player_handle = Some(PlayerHandle { sink });
         self.current_track = Some(track_info.clone());
         self.state = PlaybackState::Paused;
 
@@ -133,6 +119,21 @@ impl AudioEngine {
     }
 
     pub fn seek(&mut self, position_ms: u64) -> Result<(), AudioError> {
+        let current_pos = self.player_handle
+            .as_ref()
+            .map(|h| h.sink.get_pos().as_millis() as u64)
+            .unwrap_or(0);
+        
+        let is_backward = position_ms < current_pos;
+        
+        if is_backward {
+            self.seek_by_reload(position_ms)
+        } else {
+            self.seek_forward(position_ms)
+        }
+    }
+    
+    fn seek_forward(&mut self, position_ms: u64) -> Result<(), AudioError> {
         if let Some(ref handle) = self.player_handle {
             let duration = Duration::from_millis(position_ms);
             handle.sink.try_seek(duration)
@@ -141,6 +142,39 @@ impl AudioEngine {
         } else {
             Err(AudioError::NoTrack)
         }
+    }
+    
+    fn seek_by_reload(&mut self, position_ms: u64) -> Result<(), AudioError> {
+        let track_info = self.current_track.clone().ok_or(AudioError::NoTrack)?;
+        let was_playing = self.state == PlaybackState::Playing;
+        
+        let file = File::open(&track_info.path)?;
+        let reader = BufReader::new(file);
+        let source = Decoder::new(reader)
+            .map_err(|e| AudioError::Decode(e.to_string()))?;
+        
+        if let Some(handle) = self.player_handle.take() {
+            handle.sink.stop();
+        }
+        
+        let sink = Sink::connect_new(self.stream.mixer());
+        sink.set_volume(self.volume);
+        sink.append(source);
+        
+        let duration = Duration::from_millis(position_ms);
+        sink.try_seek(duration)
+            .map_err(|e| AudioError::Seek(format!("{:?}", e)))?;
+        
+        if was_playing {
+            sink.play();
+            self.state = PlaybackState::Playing;
+        } else {
+            sink.pause();
+            self.state = PlaybackState::Paused;
+        }
+        
+        self.player_handle = Some(PlayerHandle { sink });
+        Ok(())
     }
 
     pub fn set_volume(&mut self, volume: f32) {
@@ -190,7 +224,9 @@ impl AudioEngine {
 
     pub fn is_finished(&self) -> bool {
         if let Some(ref handle) = self.player_handle {
-            handle.track_finished.load(Ordering::SeqCst)
+            // Track is finished when sink is empty (all sources consumed)
+            // and we were previously playing
+            handle.sink.empty() && self.state == PlaybackState::Playing
         } else {
             false
         }
