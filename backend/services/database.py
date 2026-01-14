@@ -128,6 +128,8 @@ class DatabaseService:
         """
         conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
+        # Enable foreign key constraints for CASCADE behavior
+        conn.execute("PRAGMA foreign_keys = ON")
         try:
             yield conn
         finally:
@@ -263,12 +265,11 @@ class DatabaseService:
             return cursor.lastrowid or 0
 
     def delete_track(self, track_id: int) -> bool:
-        """Delete a track from the library."""
+        """Delete a track from the library and all related metadata."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            # Delete from favorites first
             cursor.execute("DELETE FROM favorites WHERE track_id = ?", (track_id,))
-            # Delete from library
+            cursor.execute("DELETE FROM playlist_items WHERE track_id = ?", (track_id,))
             cursor.execute("DELETE FROM library WHERE id = ?", (track_id,))
             conn.commit()
             return cursor.rowcount > 0

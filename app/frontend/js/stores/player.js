@@ -20,6 +20,8 @@ export function createPlayerStore(Alpine) {
     _trackEndedListener: null,
     _previousVolume: 100,
     _seekDebounce: null,
+    _playCountUpdated: false,
+    _playCountThreshold: 0.75,
     
     async init() {
       this._progressListener = await listen('audio://progress', (event) => {
@@ -29,6 +31,13 @@ export function createPlayerStore(Alpine) {
         this.duration = duration_ms;
         this.progress = duration_ms > 0 ? (position_ms / duration_ms) * 100 : 0;
         this.isPlaying = state === 'Playing';
+        
+        if (!this._playCountUpdated && duration_ms > 0 && this.currentTrack?.id) {
+          const ratio = position_ms / duration_ms;
+          if (ratio >= this._playCountThreshold) {
+            this._updatePlayCount();
+          }
+        }
       });
       
       this._trackEndedListener = await listen('audio://track-ended', () => {
@@ -62,6 +71,7 @@ export function createPlayerStore(Alpine) {
         this.duration = info.duration_ms;
         this.currentTime = 0;
         this.progress = 0;
+        this._playCountUpdated = false;
         
         await invoke('audio_play');
         this.isPlaying = true;
@@ -221,6 +231,17 @@ export function createPlayerStore(Alpine) {
       } catch (error) {
         console.error('Failed to load artwork:', error);
         this.artwork = null;
+      }
+    },
+    
+    async _updatePlayCount() {
+      if (this._playCountUpdated || !this.currentTrack?.id) return;
+      
+      this._playCountUpdated = true;
+      try {
+        await api.library.updatePlayCount(this.currentTrack.id);
+      } catch (error) {
+        console.error('Failed to update play count:', error);
       }
     },
     

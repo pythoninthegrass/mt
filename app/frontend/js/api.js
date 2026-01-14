@@ -141,6 +141,17 @@ export const api = {
     },
     
     /**
+     * Update play count for a track (increment by 1)
+     * @param {string} id - Track ID
+     * @returns {Promise<{id: number, play_count: number, last_played: string}>}
+     */
+    async updatePlayCount(id) {
+      return request(`/library/${encodeURIComponent(id)}/play-count`, {
+        method: 'PUT',
+      });
+    },
+    
+    /**
      * Get album artwork for a track
      * @param {string} id - Track ID
      * @returns {Promise<{data: string, mime_type: string, source: string}|null>}
