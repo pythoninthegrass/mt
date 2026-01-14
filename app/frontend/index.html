@@ -540,16 +540,29 @@
             </template>
           </button>
           <div 
-            class="w-20 h-1 bg-[#8E8E93]/30 rounded-full cursor-pointer relative group"
+            class="w-20 h-1 bg-[#8E8E93]/30 rounded-full cursor-pointer relative group select-none"
+            x-ref="volumeBar"
             @click="handleVolumeClick($event)"
+            @mousedown.prevent="handleVolumeDragStart($event)"
+            @mouseenter="showVolumeTooltip = true"
+            @mouseleave="showVolumeTooltip = false"
           >
             <div 
               class="absolute inset-y-0 left-0 bg-[#8E8E93] rounded-full"
-              :style="`width: ${player.volume}%`"
+              :style="`width: ${displayVolume}%`"
             ></div>
             <div 
-              class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              :style="`left: calc(${player.volume}% - 5px)`"
+              class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-foreground rounded-full transition-opacity"
+              :class="isDraggingVolume ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+              :style="`left: calc(${displayVolume}% - 5px)`"
+            ></div>
+            <div 
+              x-show="showVolumeTooltip || isDraggingVolume"
+              x-transition:enter="transition ease-out duration-100"
+              x-transition:enter-start="opacity-0 -translate-y-1"
+              x-transition:enter-end="opacity-100 translate-y-0"
+              class="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-foreground text-background text-xs rounded whitespace-nowrap pointer-events-none"
+              x-text="volumeTooltipText"
             ></div>
           </div>
           

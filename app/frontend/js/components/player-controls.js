@@ -15,18 +15,26 @@ export function createPlayerControls(Alpine) {
     isDraggingProgress: false,
     isDraggingVolume: false,
     dragPosition: 0,
+    dragVolume: 0,
+    showVolumeTooltip: false,
+    _volumeDebounce: null,
     
-    /**
-     * Initialize component
-     */
     init() {
-      // Handle mouse up anywhere to stop dragging
       document.addEventListener('mouseup', () => {
         if (this.isDraggingProgress) {
           this.isDraggingProgress = false;
           this.player.seek(this.dragPosition);
         }
-        this.isDraggingVolume = false;
+        if (this.isDraggingVolume) {
+          this.isDraggingVolume = false;
+          this.commitVolume(this.dragVolume);
+        }
+      });
+      
+      document.addEventListener('mousemove', (event) => {
+        if (this.isDraggingVolume) {
+          this.updateDragVolume(event);
+        }
       });
     },
     
@@ -188,24 +196,49 @@ export function createPlayerControls(Alpine) {
       this.dragPosition = percent * this.player.duration;
     },
     
-    /**
-     * Handle volume change
-     * @param {Event} event
-     */
     handleVolumeChange(event) {
       const value = parseInt(event.target.value, 10);
-      this.player.setVolume(value);
+      this.commitVolume(value);
     },
     
-    /**
-     * Handle volume slider click
-     * @param {MouseEvent} event
-     */
     handleVolumeClick(event) {
       const rect = event.currentTarget.getBoundingClientRect();
-      const percent = (event.clientX - rect.left) / rect.width;
+      const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
       const volume = Math.round(percent * 100);
-      this.player.setVolume(volume);
+      this.commitVolume(volume);
+    },
+    
+    handleVolumeDragStart(event) {
+      this.isDraggingVolume = true;
+      this.updateDragVolume(event);
+    },
+    
+    updateDragVolume(event) {
+      const volumeBar = this.$refs.volumeBar;
+      if (!volumeBar) return;
+      
+      const rect = volumeBar.getBoundingClientRect();
+      const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      this.dragVolume = Math.round(percent * 100);
+    },
+    
+    commitVolume(volume) {
+      if (this._volumeDebounce) {
+        clearTimeout(this._volumeDebounce);
+      }
+      
+      this._volumeDebounce = setTimeout(() => {
+        this.player.setVolume(volume);
+        this._volumeDebounce = null;
+      }, 30);
+    },
+    
+    get displayVolume() {
+      return this.isDraggingVolume ? this.dragVolume : this.player.volume;
+    },
+    
+    get volumeTooltipText() {
+      return `${this.displayVolume}%`;
     },
     
     /**
