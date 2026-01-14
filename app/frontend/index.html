@@ -346,9 +346,15 @@
                   </span>
                 </div>
                 <!-- Artist -->
-                <div class="w-48 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="track.artist || 'Unknown Artist'"></div>
+                <div class="w-40 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="track.artist || 'Unknown Artist'"></div>
                 <!-- Album -->
-                <div class="w-48 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="track.album || ''"></div>
+                <div class="w-40 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="track.album || ''"></div>
+                <!-- Last Played (for Recently Played) -->
+                <div x-show="library.currentSection === 'recent'" class="w-32 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="formatRelativeTime(track.last_played)"></div>
+                <!-- Added Date (for Recently Added) -->
+                <div x-show="library.currentSection === 'added'" class="w-32 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="formatRelativeTime(track.added_date)"></div>
+                <!-- Play Count (for Top 25) -->
+                <div x-show="library.currentSection === 'top25'" class="w-16 px-3 py-1.5 text-right tabular-nums" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="track.play_count || 0"></div>
                 <!-- Duration -->
                 <div class="w-20 px-3 py-1.5 text-right tabular-nums" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="formatDuration(track.duration)"></div>
               </div>

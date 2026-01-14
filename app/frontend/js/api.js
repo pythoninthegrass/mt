@@ -269,6 +269,26 @@ export const api = {
         method: 'DELETE',
       });
     },
+    
+    async getTop25() {
+      return request('/favorites/top25');
+    },
+    
+    async getRecentlyPlayed(params = {}) {
+      const query = new URLSearchParams();
+      if (params.days) query.set('days', params.days.toString());
+      if (params.limit) query.set('limit', params.limit.toString());
+      const queryString = query.toString();
+      return request(`/favorites/recently-played${queryString ? `?${queryString}` : ''}`);
+    },
+    
+    async getRecentlyAdded(params = {}) {
+      const query = new URLSearchParams();
+      if (params.days) query.set('days', params.days.toString());
+      if (params.limit) query.set('limit', params.limit.toString());
+      const queryString = query.toString();
+      return request(`/favorites/recently-added${queryString ? `?${queryString}` : ''}`);
+    },
   },
   
   // ============================================

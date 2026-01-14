@@ -76,19 +76,19 @@ export function createSidebar(Alpine) {
           this.library.searchQuery = '';
           this.library.sortBy = 'lastPlayed';
           this.library.sortOrder = 'desc';
-          await this.library.load();
+          await this.library.loadRecentlyPlayed(14);
           break;
         case 'added':
           this.library.searchQuery = '';
           this.library.sortBy = 'dateAdded';
           this.library.sortOrder = 'desc';
-          await this.library.load();
+          await this.library.loadRecentlyAdded(14);
           break;
         case 'top25':
           this.library.searchQuery = '';
           this.library.sortBy = 'playCount';
           this.library.sortOrder = 'desc';
-          await this.library.load();
+          await this.library.loadTop25();
           break;
       }
     },

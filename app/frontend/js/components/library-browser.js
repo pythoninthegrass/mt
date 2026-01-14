@@ -16,14 +16,33 @@ export function createLibraryBrowser(Alpine) {
     lastSelectedIndex: -1,
     contextMenu: null,
     
-    // Column definitions
-    columns: [
+    // Base column definitions
+    baseColumns: [
       { key: 'index', label: '#', sortable: false, width: 'w-12 text-right' },
       { key: 'title', label: 'Title', sortable: true, width: 'flex-1 min-w-[200px]' },
-      { key: 'artist', label: 'Artist', sortable: true, width: 'w-48' },
-      { key: 'album', label: 'Album', sortable: true, width: 'w-48' },
-      { key: 'duration', label: 'Duration', sortable: true, width: 'w-20 text-right' },
+      { key: 'artist', label: 'Artist', sortable: true, width: 'w-40' },
+      { key: 'album', label: 'Album', sortable: true, width: 'w-40' },
     ],
+    
+    // Extra columns for dynamic playlists
+    extraColumns: {
+      recent: { key: 'lastPlayed', label: 'Last Played', sortable: true, width: 'w-32' },
+      added: { key: 'dateAdded', label: 'Added', sortable: true, width: 'w-32' },
+      top25: { key: 'playCount', label: 'Plays', sortable: true, width: 'w-16 text-right' },
+    },
+    
+    // Computed columns based on current section
+    get columns() {
+      const section = this.library.currentSection;
+      const cols = [...this.baseColumns];
+      
+      if (this.extraColumns[section]) {
+        cols.push(this.extraColumns[section]);
+      }
+      
+      cols.push({ key: 'duration', label: 'Duration', sortable: true, width: 'w-20 text-right' });
+      return cols;
+    },
     
     init() {
       if (this.$store.library.tracks.length === 0 && !this.$store.library.loading) {
@@ -337,16 +356,29 @@ export function createLibraryBrowser(Alpine) {
       }
     },
     
-    /**
-     * Format duration for display
-     * @param {number} ms - Duration in milliseconds
-     */
     formatDuration(seconds) {
       if (!seconds) return '--:--';
       const totalSeconds = Math.floor(seconds);
       const minutes = Math.floor(totalSeconds / 60);
       const secs = totalSeconds % 60;
       return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    },
+    
+    formatRelativeTime(timestamp) {
+      if (!timestamp) return '--';
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+      
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     },
     
     /**

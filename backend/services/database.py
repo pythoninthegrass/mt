@@ -175,7 +175,7 @@ class DatabaseService:
             where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
             # Validate sort column
-            valid_sort_columns = {"title", "artist", "album", "added_date", "play_count", "duration"}
+            valid_sort_columns = {"title", "artist", "album", "added_date", "play_count", "duration", "last_played"}
             if sort_by not in valid_sort_columns:
                 sort_by = "added_date"
 
@@ -577,6 +577,54 @@ class DatabaseService:
                 ORDER BY play_count DESC, last_played DESC
                 LIMIT 25
             """
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_recently_played(self, days: int = 14, limit: int = 100) -> list[dict[str, Any]]:
+        """Get tracks played within the last N days.
+
+        Args:
+            days: Number of days to look back (default 14)
+            limit: Maximum number of tracks to return (default 100)
+
+        Returns:
+            List of tracks ordered by last_played descending
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM library
+                WHERE last_played IS NOT NULL
+                  AND last_played >= datetime('now', ?)
+                ORDER BY last_played DESC
+                LIMIT ?
+            """,
+                (f"-{days} days", limit),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_recently_added(self, days: int = 14, limit: int = 100) -> list[dict[str, Any]]:
+        """Get tracks added within the last N days.
+
+        Args:
+            days: Number of days to look back (default 14)
+            limit: Maximum number of tracks to return (default 100)
+
+        Returns:
+            List of tracks ordered by added_date descending
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM library
+                WHERE added_date IS NOT NULL
+                  AND added_date >= datetime('now', ?)
+                ORDER BY added_date DESC
+                LIMIT ?
+            """,
+                (f"-{days} days", limit),
             )
             return [dict(row) for row in cursor.fetchall()]
 

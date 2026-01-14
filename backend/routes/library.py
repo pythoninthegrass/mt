@@ -31,7 +31,7 @@ async def get_library(
     search: str | None = None,
     artist: str | None = None,
     album: str | None = None,
-    sort_by: Literal["title", "artist", "album", "added_date", "play_count"] = "added_date",
+    sort_by: Literal["title", "artist", "album", "added_date", "play_count", "last_played"] = "added_date",
     sort_order: Literal["asc", "desc"] = "desc",
     limit: int = Query(100, ge=1, le=10000),
     offset: int = Query(0, ge=0),

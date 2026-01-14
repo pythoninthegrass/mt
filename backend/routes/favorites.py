@@ -29,6 +29,28 @@ async def get_top_25(db: DatabaseService = Depends(get_db)):
     return {"tracks": tracks}
 
 
+@router.get("/recently-played")
+async def get_recently_played(
+    days: int = Query(14, ge=1, le=365),
+    limit: int = Query(100, ge=1, le=1000),
+    db: DatabaseService = Depends(get_db),
+):
+    """Get tracks played within the last N days."""
+    tracks = db.get_recently_played(days=days, limit=limit)
+    return {"tracks": tracks, "days": days}
+
+
+@router.get("/recently-added")
+async def get_recently_added(
+    days: int = Query(14, ge=1, le=365),
+    limit: int = Query(100, ge=1, le=1000),
+    db: DatabaseService = Depends(get_db),
+):
+    """Get tracks added within the last N days."""
+    tracks = db.get_recently_added(days=days, limit=limit)
+    return {"tracks": tracks, "days": days}
+
+
 @router.get("/{track_id}")
 async def check_favorite(track_id: int, db: DatabaseService = Depends(get_db)):
     """Check if a track is favorited."""

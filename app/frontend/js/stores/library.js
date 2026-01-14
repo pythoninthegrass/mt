@@ -68,6 +68,51 @@ export function createLibraryStore(Alpine) {
       }
     },
     
+    async loadRecentlyPlayed(days = 14) {
+      this.loading = true;
+      try {
+        const data = await api.favorites.getRecentlyPlayed({ days, limit: 100 });
+        this.tracks = data.tracks || [];
+        this.totalTracks = this.tracks.length;
+        this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+        this.applyFilters();
+      } catch (error) {
+        console.error('Failed to load recently played:', error);
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    async loadRecentlyAdded(days = 14) {
+      this.loading = true;
+      try {
+        const data = await api.favorites.getRecentlyAdded({ days, limit: 100 });
+        this.tracks = data.tracks || [];
+        this.totalTracks = this.tracks.length;
+        this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+        this.applyFilters();
+      } catch (error) {
+        console.error('Failed to load recently added:', error);
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    async loadTop25() {
+      this.loading = true;
+      try {
+        const data = await api.favorites.getTop25();
+        this.tracks = data.tracks || [];
+        this.totalTracks = this.tracks.length;
+        this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+        this.applyFilters();
+      } catch (error) {
+        console.error('Failed to load top 25:', error);
+      } finally {
+        this.loading = false;
+      }
+    },
+    
     setSection(section) {
       this.currentSection = section;
     },
@@ -112,14 +157,24 @@ export function createLibraryStore(Alpine) {
       }
       
       // Apply sorting
+      const sortKeyMap = {
+        dateAdded: 'added_date',
+        lastPlayed: 'last_played',
+        playCount: 'play_count',
+      };
+      const sortKey = sortKeyMap[this.sortBy] || this.sortBy;
+      
       result.sort((a, b) => {
-        let aVal = a[this.sortBy] || '';
-        let bVal = b[this.sortBy] || '';
+        let aVal = a[sortKey] || '';
+        let bVal = b[sortKey] || '';
         
-        // Handle numeric fields
-        if (this.sortBy === 'duration' || this.sortBy === 'dateAdded') {
+        // Handle numeric and date fields
+        if (['duration', 'play_count'].includes(sortKey)) {
           aVal = Number(aVal) || 0;
           bVal = Number(bVal) || 0;
+        } else if (['added_date', 'last_played'].includes(sortKey)) {
+          aVal = aVal ? new Date(aVal).getTime() : 0;
+          bVal = bVal ? new Date(bVal).getTime() : 0;
         } else {
           aVal = String(aVal).toLowerCase();
           bVal = String(bVal).toLowerCase();
