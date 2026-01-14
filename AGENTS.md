@@ -23,12 +23,14 @@ mt is a desktop music player designed for large music collections, built with Py
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 
+- hypothesisworks/hypothesis
+- itamarst/eliot
+- johnwmillr/lyricsgenius
+- ludo-technologies/pyscn
 - oaubert/python-vlc
 - quodlibet/mutagen
-- itamarst/eliot
-- hypothesisworks/hypothesis
 - spiraldb/ziggy-pydust
-- ludo-technologies/pyscn
+- websites/rs_tauri_2_9_5
 - johnwmillr/lyricsgenius
 
 ## Atomic Commit Workflow
