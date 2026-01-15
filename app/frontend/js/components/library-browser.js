@@ -9,13 +9,13 @@ const DEFAULT_COLUMN_WIDTHS = {
   lastPlayed: 120,
   dateAdded: 120,
   playCount: 60,
-  duration: 56,
+  duration: 40,  // 30px content + 10px padding (pl-[3px] pr-[10px] but content is 30px not 25px)
 };
 
 // Only Title and Time enforce minimum widths
 const MIN_OTHER_COLUMN_WIDTH = 1;
 const MIN_TITLE_WIDTH = 120;
-const MIN_DURATION_WIDTH = 60;
+const MIN_DURATION_WIDTH = 40;  // Compact Time column (30px content + 10px right padding)
 
 // Storage key for column settings
 const COLUMN_SETTINGS_KEY = 'mt:column-settings';
@@ -45,6 +45,10 @@ export function createLibraryBrowser(Alpine) {
     columnDragX: 0,
     columnDragStartX: 0,
     wasColumnDragging: false,
+
+    // Container width for dynamic Title column sizing
+    containerWidth: 0,
+    resizeObserver: null,
 
     // Column customization state
     columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
@@ -84,13 +88,13 @@ export function createLibraryBrowser(Alpine) {
     getColumnDef(key) {
       const baseDef = this.baseColumns.find(c => c.key === key);
       if (baseDef) return baseDef;
-      
+
       for (const extra of Object.values(this.extraColumns)) {
         if (extra.key === key) return extra;
       }
-      
+
       if (key === 'duration') {
-        return { key: 'duration', label: 'Time', sortable: true, minWidth: 60, canHide: true };
+        return { key: 'duration', label: 'Time', sortable: true, minWidth: 40, canHide: true };
       }
       return null;
     },
@@ -98,7 +102,7 @@ export function createLibraryBrowser(Alpine) {
     get columns() {
       const section = this.library.currentSection;
       const availableKeys = new Set(['index', 'title', 'artist', 'album', 'duration']);
-      
+
       if (this.extraColumns[section]) {
         availableKeys.add(this.extraColumns[section].key);
       }
@@ -112,7 +116,7 @@ export function createLibraryBrowser(Alpine) {
     get allColumns() {
       const section = this.library.currentSection;
       const availableKeys = new Set(['index', 'title', 'artist', 'album', 'duration']);
-      
+
       if (this.extraColumns[section]) {
         availableKeys.add(this.extraColumns[section].key);
       }
@@ -136,14 +140,33 @@ export function createLibraryBrowser(Alpine) {
     },
 
     getGridTemplateColumns() {
-      return this.columns.map((col, index) => {
+      // Calculate total width of fixed columns (non-title)
+      const fixedColumnsWidth = this.columns.reduce((total, col) => {
+        if (col.key === 'title') return total;
+        const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
+        const minWidth = this.getMinWidth(col.key);
+        return total + Math.max(width, minWidth);
+      }, 0);
+
+      // Calculate Title column width to fill remaining space
+      const titleMinWidth = Math.max(
+        this.columnWidths.title || DEFAULT_COLUMN_WIDTHS.title || 320,
+        MIN_TITLE_WIDTH,
+      );
+      const availableForTitle = this.containerWidth - fixedColumnsWidth;
+      const titleWidth = Math.max(titleMinWidth, availableForTitle);
+
+      return this.columns.map((col) => {
         const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
         const minWidth = this.getMinWidth(col.key);
         const actualWidth = Math.max(width, minWidth);
-        // Last column uses minmax to fill remaining space but respect its width
-        if (index === this.columns.length - 1) {
-          return `minmax(${actualWidth}px, 1fr)`;
+
+        // Title column uses calculated width to fill container
+        if (col.key === 'title') {
+          return `${titleWidth}px`;
         }
+
+        // All other columns use fixed widths for Excel-style resizing
         return `${actualWidth}px`;
       }).join(' ');
     },
@@ -192,6 +215,20 @@ export function createLibraryBrowser(Alpine) {
       }
 
       this.loadPlaylists();
+
+      // Set up ResizeObserver to track container width for dynamic Title column sizing
+      this.$nextTick(() => {
+        const container = this.$refs.scrollContainer;
+        if (container) {
+          this.containerWidth = container.clientWidth;
+          this.resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+              this.containerWidth = entry.contentRect.width;
+            }
+          });
+          this.resizeObserver.observe(container);
+        }
+      });
 
       document.addEventListener('click', (e) => {
         if (this.contextMenu && !e.target.closest('.context-menu')) {
@@ -322,23 +359,23 @@ export function createLibraryBrowser(Alpine) {
 
     startColumnDrag(col, event) {
       if (this.resizingColumn) return;
-      
+
       event.preventDefault();
-      
+
       const header = document.querySelector('[data-testid="library-header"]');
       if (!header) return;
-      
+
       const cells = header.querySelectorAll(':scope > div');
       const colIdx = this.columns.findIndex(c => c.key === col.key);
       if (colIdx === -1 || !cells[colIdx]) return;
-      
+
       const rect = cells[colIdx].getBoundingClientRect();
       this.columnDragStartX = rect.left + rect.width / 2;
       this.columnDragX = event.clientX;
-      
+
       this.draggingColumnKey = col.key;
       this.dragOverColumnIdx = null;
-      
+
       let hasMoved = false;
       const startX = event.clientX;
 
@@ -419,7 +456,7 @@ export function createLibraryBrowser(Alpine) {
           this.wasColumnDragging = false;
         }, 100);
       }
-      
+
       this.draggingColumnKey = null;
       this.dragOverColumnIdx = null;
       this.columnDragStartX = 0;
@@ -428,24 +465,24 @@ export function createLibraryBrowser(Alpine) {
     reorderColumnByIndex(fromIdx, toIdx) {
       const fromKey = this.columns[fromIdx]?.key;
       if (!fromKey) return;
-      
+
       const visibleKeys = this.columns.map(c => c.key);
       const targetKey = toIdx < visibleKeys.length ? visibleKeys[toIdx] : visibleKeys[visibleKeys.length - 1];
-      
+
       const fromOrderIdx = this.columnOrder.indexOf(fromKey);
       const toOrderIdx = this.columnOrder.indexOf(targetKey);
-      
+
       if (fromOrderIdx === -1 || toOrderIdx === -1) return;
 
       const newOrder = [...this.columnOrder];
       newOrder.splice(fromOrderIdx, 1);
-      
+
       let insertIdx = toOrderIdx;
       if (fromOrderIdx < toOrderIdx) {
         insertIdx = toOrderIdx;
       }
       newOrder.splice(insertIdx, 0, fromKey);
-      
+
       this.columnOrder = newOrder;
       this.saveColumnSettings();
     },
@@ -460,7 +497,7 @@ export function createLibraryBrowser(Alpine) {
 
     getColumnShiftDirection(colIdx) {
       if (this.draggingColumnKey === null || this.dragOverColumnIdx === null) return 'none';
-      
+
       const dragIdx = this.columns.findIndex(c => c.key === this.draggingColumnKey);
       if (colIdx === dragIdx) return 'none';
 
@@ -481,7 +518,7 @@ export function createLibraryBrowser(Alpine) {
 
     getColumnDragTransform(key) {
       if (this.draggingColumnKey !== key) return '';
-      
+
       const offsetX = this.columnDragX - this.columnDragStartX;
       return `translateX(${offsetX}px)`;
     },

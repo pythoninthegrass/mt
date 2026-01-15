@@ -322,11 +322,11 @@
           class="h-full flex flex-col min-h-0"
         >
         <!-- Track table - single scroll container for both vertical and horizontal -->
-        <div class="flex-1 min-h-0 w-full overflow-auto">
+        <div class="flex-1 min-h-0 w-full overflow-auto" x-ref="scrollContainer">
                 <!-- Table header (CSS Grid) - sticky at top of scroll container -->
                 <div
                   data-testid="library-header"
-                  class="grid border-b border-border text-sm font-medium text-muted-foreground relative min-w-full sticky top-0 z-10 bg-background"
+                  class="grid border-b border-border text-sm font-medium text-muted-foreground relative sticky top-0 z-10 bg-background"
                   :class="{ 'resizing-columns': resizingColumn }"
                   :style="`grid-template-columns: ${getGridTemplateColumns()}`"
                   @contextmenu.prevent="handleHeaderContextMenu($event)"
@@ -460,7 +460,7 @@
             <!-- Track rows (CSS Grid matching header) -->
             <template x-for="(track, index) in library.filteredTracks" :key="track.id">
               <div
-                class="grid border-b border-border/30 text-sm cursor-default transition-colors select-none min-w-full"
+                class="grid border-b border-border/30 text-sm cursor-default transition-colors select-none"
                 :style="`grid-template-columns: ${getGridTemplateColumns()}`"
                 :class="[
                   isSelected(track.id) ? 'track-row-selected' : (index % 2 === 0 ? 'track-row-even' : 'track-row-odd'),
