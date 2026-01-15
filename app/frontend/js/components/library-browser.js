@@ -1,9 +1,9 @@
 import { api } from '../api.js';
 
-// Default column widths in pixels
+// Default column widths in pixels (all columns have explicit widths for grid layout)
 const DEFAULT_COLUMN_WIDTHS = {
   index: 48,
-  title: 0, // 0 means flex-1 (takes remaining space)
+  title: 320,
   artist: 160,
   album: 160,
   lastPlayed: 128,
@@ -14,6 +14,7 @@ const DEFAULT_COLUMN_WIDTHS = {
 
 // Minimum column widths to prevent unusable columns
 const MIN_COLUMN_WIDTH = 40;
+const MIN_TITLE_WIDTH = 120;
 
 // Storage key for column settings
 const COLUMN_SETTINGS_KEY = 'mt:column-settings';
@@ -35,6 +36,7 @@ export function createLibraryBrowser(Alpine) {
     resizingColumn: null,
     resizeStartX: 0,
     resizeStartWidth: 0,
+    wasResizing: false,
 
     // Column customization state
     columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
@@ -110,14 +112,18 @@ export function createLibraryBrowser(Alpine) {
       return cols;
     },
 
-    // Get column width style
     getColumnStyle(col) {
-      const width = this.columnWidths[col.key];
-      if (width === 0 || col.key === 'title') {
-        // Flex column takes remaining space
-        return 'flex: 1 1 0%; min-width: 200px;';
-      }
-      return `width: ${width}px; flex-shrink: 0;`;
+      const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
+      const minWidth = col.key === 'title' ? MIN_TITLE_WIDTH : (col.minWidth || MIN_COLUMN_WIDTH);
+      return `width: ${Math.max(width, minWidth)}px; min-width: ${minWidth}px;`;
+    },
+
+    getGridTemplateColumns() {
+      return this.columns.map(col => {
+        const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
+        const minWidth = col.key === 'title' ? MIN_TITLE_WIDTH : (col.minWidth || MIN_COLUMN_WIDTH);
+        return `${Math.max(width, minWidth)}px`;
+      }).join(' ');
     },
 
     // Check if column is visible
@@ -245,8 +251,6 @@ export function createLibraryBrowser(Alpine) {
     },
 
     startColumnResize(col, event) {
-      if (col.key === 'title') return;
-
       event.preventDefault();
       event.stopPropagation();
 
@@ -263,7 +267,7 @@ export function createLibraryBrowser(Alpine) {
 
       const delta = event.clientX - this.resizeStartX;
       const col = this.allColumns.find((c) => c.key === this.resizingColumn);
-      const minWidth = col?.minWidth || MIN_COLUMN_WIDTH;
+      const minWidth = col?.key === 'title' ? MIN_TITLE_WIDTH : (col?.minWidth || MIN_COLUMN_WIDTH);
       const newWidth = Math.max(minWidth, this.resizeStartWidth + delta);
 
       this.columnWidths[this.resizingColumn] = newWidth;
@@ -276,24 +280,29 @@ export function createLibraryBrowser(Alpine) {
       document.body.style.userSelect = '';
 
       this.saveColumnSettings();
+      this.wasResizing = true;
       this.resizingColumn = null;
+      // Clear wasResizing after click event would have fired
+      setTimeout(() => {
+        this.wasResizing = false;
+      }, 100);
     },
 
     autoFitColumn(col, event) {
-      if (col.key === 'title') return;
-
       event.preventDefault();
       event.stopPropagation();
 
       const rows = document.querySelectorAll(`[data-column="${col.key}"]`);
-      let maxWidth = col.minWidth || MIN_COLUMN_WIDTH;
+      const minWidth = col.key === 'title' ? MIN_TITLE_WIDTH : (col.minWidth || MIN_COLUMN_WIDTH);
+      let maxWidth = minWidth;
 
       rows.forEach((row) => {
         const textWidth = this.measureTextWidth(row.textContent || '', row);
         maxWidth = Math.max(maxWidth, textWidth + 24);
       });
 
-      maxWidth = Math.min(maxWidth, 400);
+      const maxAllowed = col.key === 'title' ? 600 : 400;
+      maxWidth = Math.min(maxWidth, maxAllowed);
 
       this.columnWidths[col.key] = maxWidth;
       this.saveColumnSettings();
@@ -399,11 +408,11 @@ export function createLibraryBrowser(Alpine) {
       return this.library.sortOrder === 'asc' ? '▲' : '▼';
     },
 
-    /**
-     * Handle column header click for sorting
-     * @param {string} key - Column key
-     */
     handleSort(key) {
+      const col = this.allColumns.find(c => c.key === key);
+      if (!col?.sortable || this.wasResizing) {
+        return;
+      }
       this.library.setSortBy(key);
     },
 

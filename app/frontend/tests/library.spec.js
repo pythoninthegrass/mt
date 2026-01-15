@@ -193,13 +193,11 @@ test.describe('Sorting', () => {
   });
 
   test('should show sort indicator on active column', async ({ page }) => {
-    // Click title header
-    const titleHeader = page.locator('text=Title').first();
-    await titleHeader.click();
+    const titleHeaderCell = page.locator('[data-testid="library-header"] > div').filter({ hasText: 'Title' }).first();
+    await titleHeaderCell.click();
     await page.waitForTimeout(300);
 
-    // Verify sort indicator (▲ or ▼)
-    const headerText = await titleHeader.textContent();
+    const headerText = await titleHeaderCell.textContent();
     const hasSortIndicator = headerText.includes('▲') || headerText.includes('▼') || headerText.includes('↑') || headerText.includes('↓');
     expect(hasSortIndicator).toBe(true);
   });
@@ -292,15 +290,12 @@ test.describe('Context Menu', () => {
   });
 
   test('should show context menu on right-click', async ({ page }) => {
-    // Right-click first track
     const firstTrack = page.locator('[data-track-id]').first();
     await firstTrack.click({ button: 'right' });
 
-    // Wait for context menu
-    await page.waitForSelector('.context-menu', { state: 'visible' });
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
 
-    // Verify context menu is visible
-    const contextMenu = page.locator('.context-menu');
+    const contextMenu = page.locator('[data-testid="track-context-menu"]');
     await expect(contextMenu).toBeVisible();
   });
 
@@ -308,45 +303,40 @@ test.describe('Context Menu', () => {
     const firstTrack = page.locator('[data-track-id]').first();
     await firstTrack.click({ button: 'right' });
 
-    await page.waitForSelector('.context-menu', { state: 'visible' });
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+    await page.waitForSelector('[data-testid="track-context-menu"] .context-menu-item', { state: 'visible', timeout: 5000 });
 
-    // Verify menu items exist
-    const menuItems = page.locator('.context-menu-item');
+    const menuItems = page.locator('[data-testid="track-context-menu"] .context-menu-item');
+    await expect(menuItems.first()).toBeVisible();
     const count = await menuItems.count();
     expect(count).toBeGreaterThan(0);
 
-    // Common menu items
     const menuTexts = await menuItems.allTextContents();
     const hasPlayOption = menuTexts.some((text) => text.toLowerCase().includes('play'));
     expect(hasPlayOption).toBe(true);
   });
 
   test('should close context menu when clicking outside', async ({ page }) => {
-    // Open context menu
     const firstTrack = page.locator('[data-track-id]').first();
     await firstTrack.click({ button: 'right' });
-    await page.waitForSelector('.context-menu', { state: 'visible' });
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
 
-    // Click outside menu
     await page.click('body', { position: { x: 10, y: 10 } });
 
-    // Verify menu is hidden
-    const contextMenu = page.locator('.context-menu');
+    const contextMenu = page.locator('[data-testid="track-context-menu"]');
     await expect(contextMenu).not.toBeVisible();
   });
 
   test('should perform action when clicking menu item', async ({ page }) => {
-    // Open context menu
     const firstTrack = page.locator('[data-track-id]').first();
     await firstTrack.click({ button: 'right' });
-    await page.waitForSelector('.context-menu', { state: 'visible' });
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+    await page.waitForSelector('[data-testid="track-context-menu"] .context-menu-item', { state: 'visible' });
 
-    // Click "Play" menu item (or first available action)
-    const playMenuItem = page.locator('.context-menu-item').first();
+    const playMenuItem = page.locator('[data-testid="track-context-menu"] .context-menu-item').first();
     await playMenuItem.click();
 
-    // Verify menu closes
-    const contextMenu = page.locator('.context-menu');
+    const contextMenu = page.locator('[data-testid="track-context-menu"]');
     await expect(contextMenu).not.toBeVisible();
 
     // Verify action was performed (depends on which menu item was clicked)
@@ -447,27 +437,16 @@ test.describe('Column Customization', () => {
   });
 
   test('should show resize cursor on column header edge', async ({ page }) => {
-    // Excel-style: resize handle on left edge of Album resizes Artist column
-    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
-    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
+    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
     
     await expect(resizeHandle).toBeVisible();
     
-    const handleBox = await resizeHandle.boundingBox();
-    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
-    
-    const cursor = await page.evaluate((pos) => {
-      const el = document.elementFromPoint(pos.x, pos.y);
-      return el ? window.getComputedStyle(el).cursor : null;
-    }, { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 });
-    
-    expect(['col-resize', 'default', 'pointer']).toContain(cursor);
+    const cursor = await resizeHandle.evaluate(el => window.getComputedStyle(el).cursor);
+    expect(cursor).toBe('col-resize');
   });
 
   test('should resize column by dragging', async ({ page }) => {
-    // Excel-style: dragging left edge of Album resizes Artist column
-    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
-    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
+    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
     
     await expect(resizeHandle).toBeVisible();
     const handleBox = await resizeHandle.boundingBox();
@@ -488,9 +467,7 @@ test.describe('Column Customization', () => {
   });
 
   test('should auto-fit column width on double-click', async ({ page }) => {
-    // Excel-style: double-click left edge of Album auto-fits Artist column
-    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
-    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
+    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
     
     await expect(resizeHandle).toBeVisible();
     await resizeHandle.dblclick();
@@ -504,28 +481,41 @@ test.describe('Column Customization', () => {
     expect(componentData.columnWidths.artist).toBeDefined();
   });
 
-  test('should pause sorting during column resize', async ({ page }) => {
-    // Excel-style: left edge of Album resizes Artist
-    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
-    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
+  test('should not trigger sort when resizing column', async ({ page }) => {
+    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
     
     await expect(resizeHandle).toBeVisible();
     const handleBox = await resizeHandle.boundingBox();
     
-    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
-    await page.mouse.down();
+    const initialSortBy = await page.evaluate(() => {
+      return window.Alpine.store('library').sortBy;
+    });
     
-    // During resize, sort-header class should be removed (sorting disabled)
-    const artistHeader = page.locator('[data-testid="library-header"] div:has(> span:text("Artist"))').first();
-    const hasSortHeader = await artistHeader.evaluate(el => el.classList.contains('sort-header'));
-    expect(hasSortHeader).toBe(false);
+    // Use dispatchEvent to trigger mousedown on the resizer element
+    await resizeHandle.dispatchEvent('mousedown', { bubbles: true });
     
-    await page.mouse.up();
-    await page.waitForTimeout(100);
+    // Verify resizingColumn is set during drag
+    const resizingDuringDrag = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).resizingColumn;
+    });
+    expect(resizingDuringDrag).toBe('artist');
     
-    // After resize, sort-header class should be restored
-    const hasSortHeaderAfter = await artistHeader.evaluate(el => el.classList.contains('sort-header'));
-    expect(hasSortHeaderAfter).toBe(true);
+    // Move mouse to simulate drag (into Album column area)
+    await page.mouse.move(handleBox.x + 50, handleBox.y + handleBox.height / 2);
+    
+    // Trigger mouseup on document (simulates releasing mouse)
+    await page.evaluate(() => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    
+    await page.waitForTimeout(150);
+    
+    const finalSortBy = await page.evaluate(() => {
+      return window.Alpine.store('library').sortBy;
+    });
+    
+    expect(finalSortBy).toBe(initialSortBy);
   });
 
   test('should show header context menu on right-click', async ({ page }) => {
@@ -628,9 +618,7 @@ test.describe('Column Customization', () => {
   });
 
   test('should enforce minimum column width', async ({ page }) => {
-    // Excel-style: left edge of Album resizes Artist
-    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
-    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
+    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
     
     await expect(resizeHandle).toBeVisible();
     const handleBox = await resizeHandle.boundingBox();

@@ -74,19 +74,37 @@
       margin: 0.25rem 0;
     }
     
-    /* Column resize styles */
-    .sort-header {
-      cursor: pointer;
-    }
-    .sort-header:hover {
-      background: hsl(var(--muted) / 0.5);
-    }
+    /* Column header styles */
     .column-header-active {
       background: hsl(var(--muted) / 0.3);
     }
     .sort-indicator {
       font-size: 0.65rem;
       opacity: 0.7;
+    }
+    
+    /* Column resizer - positioned at right edge of each column */
+    .column-resizer {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      transform: translateX(50%);
+      cursor: col-resize;
+      z-index: 10;
+      background: transparent;
+    }
+    .column-resizer:hover {
+      background: hsl(var(--primary) / 0.3);
+    }
+    
+    /* Disable header clicks during column resize */
+    .resizing-columns > div {
+      pointer-events: none;
+    }
+    .resizing-columns .column-resizer {
+      pointer-events: auto;
     }
   </style>
 </head>
@@ -266,50 +284,44 @@
           class="h-full flex flex-col min-h-0"
         >
         <!-- Track table -->
-        <div class="flex-1 flex flex-col min-h-0">
-          <!-- Table header -->
-          <div 
-            data-testid="library-header"
-            class="flex items-center border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0 relative"
-            @contextmenu.prevent="handleHeaderContextMenu($event)"
-          >
-            <template x-for="(col, colIndex) in columns" :key="col.key">
-              <div 
-                :style="getColumnStyle(col)"
-                :class="[
-                  col.sortable && !resizingColumn ? 'sort-header' : '',
-                  library.sortBy === col.key ? 'column-header-active text-foreground' : '',
-                  col.key === 'index' || col.key === 'duration' || col.key === 'playCount' ? 'text-right' : ''
-                ]"
-                class="px-3 py-2 select-none flex items-center relative group"
-                @click="col.sortable && !resizingColumn && handleSort(col.key)"
-                @dblclick.self="autoFitColumn(col, $event)"
-              >
-                <!-- Left resize handle (resizes previous column, Excel-style) -->
-                <div 
-                  x-show="colIndex > 0 && columns[colIndex - 1]?.key !== 'title'"
-                  class="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/50 transition-colors z-10"
-                  style="transform: translateX(-50%)"
-                  @mousedown.stop="startColumnResize(columns[colIndex - 1], $event)"
-                  @dblclick.stop="autoFitColumn(columns[colIndex - 1], $event)"
-                ></div>
-                <span x-text="col.label" class="truncate"></span>
-                <span 
-                  x-show="col.sortable && library.sortBy === col.key" 
-                  x-text="getSortIndicator(col.key)" 
-                  class="sort-indicator ml-1"
-                ></span>
-              </div>
-            </template>
-            <!-- Right resize handle for last column -->
+        <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <!-- Table container with horizontal scroll -->
+          <div class="flex-1 flex flex-col min-h-0 overflow-x-auto">
+            <!-- Table header (CSS Grid) -->
             <div 
-              x-show="columns.length > 0 && columns[columns.length - 1]?.key !== 'title'"
-              class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/50 transition-colors z-10"
-              style="transform: translateX(50%)"
-              @mousedown.stop="startColumnResize(columns[columns.length - 1], $event)"
-              @dblclick.stop="autoFitColumn(columns[columns.length - 1], $event)"
-            ></div>
-          </div>
+              data-testid="library-header"
+              class="grid border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0 relative"
+              :class="{ 'resizing-columns': resizingColumn }"
+              :style="`grid-template-columns: ${getGridTemplateColumns()}`"
+              @contextmenu.prevent="handleHeaderContextMenu($event)"
+            >
+              <template x-for="(col, colIndex) in columns" :key="col.key">
+                <div 
+                  :class="[
+                    col.sortable ? 'cursor-default' : '',
+                    library.sortBy === col.key ? 'column-header-active text-foreground' : '',
+                    col.key === 'index' || col.key === 'duration' || col.key === 'playCount' ? 'text-right' : ''
+                  ]"
+                  class="px-3 py-2 select-none flex items-center relative overflow-hidden"
+                  @click="handleSort(col.key)"
+                >
+                  <span x-text="col.label" class="truncate"></span>
+                  <span 
+                    x-show="col.sortable && library.sortBy === col.key" 
+                    x-text="getSortIndicator(col.key)" 
+                    class="sort-indicator ml-1 shrink-0"
+                  ></span>
+                  <!-- Border resizer (Excel-style: resizes THIS column) -->
+                  <div 
+                    class="column-resizer"
+                    :data-testid="`col-resizer-${col.key}`"
+                    @mousedown.stop.prevent="startColumnResize(col, $event)"
+                    @dblclick.stop.prevent="autoFitColumn(col, $event)"
+                    @click.stop.prevent
+                  ></div>
+                </div>
+              </template>
+            </div>
           
           <!-- Header context menu for column visibility -->
           <div 
@@ -392,10 +404,11 @@
               </template>
             </div>
             
-            <!-- Track rows -->
+            <!-- Track rows (CSS Grid matching header) -->
             <template x-for="(track, index) in library.filteredTracks" :key="track.id">
               <div 
-                class="flex items-center border-b border-border/30 text-sm cursor-default transition-colors select-none"
+                class="grid border-b border-border/30 text-sm cursor-default transition-colors select-none"
+                :style="`grid-template-columns: ${getGridTemplateColumns()}`"
                 :class="[
                   isSelected(track.id) ? 'track-row-selected' : (index % 2 === 0 ? 'track-row-even' : 'track-row-odd'),
                   isPlaying(track.id) && !isSelected(track.id) ? 'bg-primary/15 border-l-2 border-l-primary' : '',
@@ -406,83 +419,47 @@
                 @dblclick="handleDoubleClick(track)"
                 @contextmenu="handleContextMenu($event, track, index)"
               >
-                <!-- Index column -->
-                <div 
-                  x-show="isColumnVisible('index')"
-                  :style="getColumnStyle({key: 'index'})"
-                  class="px-3 py-1.5 text-right tabular-nums shrink-0" 
-                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
-                  data-column="index"
-                  x-text="index + 1"
-                ></div>
-                <!-- Title column -->
-                <div 
-                  x-show="isColumnVisible('title')"
-                  :style="getColumnStyle({key: 'title'})"
-                  class="px-3 py-1.5 min-w-[200px]"
-                  data-column="title"
-                >
-                  <span class="flex items-center gap-2 truncate">
-                    <span x-show="isPlaying(track.id)" class="text-primary shrink-0">▶</span>
-                    <span class="truncate" x-text="track.title || track.filename || 'Unknown'"></span>
-                  </span>
-                </div>
-                <!-- Artist column -->
-                <div 
-                  x-show="isColumnVisible('artist')"
-                  :style="getColumnStyle({key: 'artist'})"
-                  class="px-3 py-1.5 truncate shrink-0" 
-                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
-                  data-column="artist"
-                  x-text="track.artist || 'Unknown Artist'"
-                ></div>
-                <!-- Album column -->
-                <div 
-                  x-show="isColumnVisible('album')"
-                  :style="getColumnStyle({key: 'album'})"
-                  class="px-3 py-1.5 truncate shrink-0" 
-                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
-                  data-column="album"
-                  x-text="track.album || ''"
-                ></div>
-                <!-- Last Played column (for Recently Played) -->
-                <div 
-                  x-show="library.currentSection === 'recent' && isColumnVisible('lastPlayed')"
-                  :style="getColumnStyle({key: 'lastPlayed'})"
-                  class="px-3 py-1.5 truncate shrink-0" 
-                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
-                  data-column="lastPlayed"
-                  x-text="formatRelativeTime(track.last_played)"
-                ></div>
-                <!-- Added Date column (for Recently Added) -->
-                <div 
-                  x-show="library.currentSection === 'added' && isColumnVisible('dateAdded')"
-                  :style="getColumnStyle({key: 'dateAdded'})"
-                  class="px-3 py-1.5 truncate shrink-0" 
-                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
-                  data-column="dateAdded"
-                  x-text="formatRelativeTime(track.added_date)"
-                ></div>
-                <!-- Play Count column (for Top 25) -->
-                <div 
-                  x-show="library.currentSection === 'top25' && isColumnVisible('playCount')"
-                  :style="getColumnStyle({key: 'playCount'})"
-                  class="px-3 py-1.5 text-right tabular-nums shrink-0" 
-                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
-                  data-column="playCount"
-                  x-text="track.play_count || 0"
-                ></div>
-                <!-- Duration column -->
-                <div 
-                  x-show="isColumnVisible('duration')"
-                  :style="getColumnStyle({key: 'duration'})"
-                  class="px-3 py-1.5 text-right tabular-nums shrink-0" 
-                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
-                  data-column="duration"
-                  x-text="formatDuration(track.duration)"
-                ></div>
+                <template x-for="col in columns" :key="col.key">
+                  <div 
+                    :class="[
+                      'px-3 py-1.5 overflow-hidden text-ellipsis whitespace-nowrap',
+                      col.key === 'index' || col.key === 'duration' || col.key === 'playCount' ? 'text-right tabular-nums' : '',
+                      col.key !== 'title' && !isSelected(track.id) ? 'text-muted-foreground' : ''
+                    ]"
+                    :data-column="col.key"
+                  >
+                    <template x-if="col.key === 'index'">
+                      <span x-text="index + 1"></span>
+                    </template>
+                    <template x-if="col.key === 'title'">
+                      <span class="flex items-center gap-2">
+                        <span x-show="isPlaying(track.id)" class="text-primary shrink-0">▶</span>
+                        <span class="truncate" x-text="track.title || track.filename || 'Unknown'"></span>
+                      </span>
+                    </template>
+                    <template x-if="col.key === 'artist'">
+                      <span x-text="track.artist || 'Unknown Artist'"></span>
+                    </template>
+                    <template x-if="col.key === 'album'">
+                      <span x-text="track.album || ''"></span>
+                    </template>
+                    <template x-if="col.key === 'lastPlayed'">
+                      <span x-text="formatRelativeTime(track.last_played)"></span>
+                    </template>
+                    <template x-if="col.key === 'dateAdded'">
+                      <span x-text="formatRelativeTime(track.added_date)"></span>
+                    </template>
+                    <template x-if="col.key === 'playCount'">
+                      <span x-text="track.play_count || 0"></span>
+                    </template>
+                    <template x-if="col.key === 'duration'">
+                      <span x-text="formatDuration(track.duration)"></span>
+                    </template>
+                  </div>
+                </template>
               </div>
             </template>
+          </div>
           </div>
         </div>
         
@@ -490,26 +467,31 @@
         <div 
           x-show="contextMenu" 
           x-cloak
-          class="context-menu"
+          class="context-menu track-context-menu"
+          data-testid="track-context-menu"
           :style="contextMenu ? `left: ${contextMenu.x}px; top: ${contextMenu.y}px` : ''"
           @click.outside="contextMenu = null"
         >
           <template x-if="contextMenu">
-            <template x-for="(item, idx) in contextMenu.items" :key="idx">
-              <template x-if="item.type === 'separator'">
-                <div class="context-menu-separator"></div>
-              </template>
-              <template x-if="item.type !== 'separator'">
-                <div 
-                  class="context-menu-item"
-                  :class="{ 'disabled': item.disabled, 'danger': item.danger }"
-                  @click="!item.disabled && item.action()"
-                >
-                  <span x-text="item.icon" class="w-4 text-center"></span>
-                  <span x-text="item.label"></span>
+            <div>
+              <template x-for="(item, idx) in contextMenu.items" :key="idx">
+                <div>
+                  <template x-if="item.type === 'separator'">
+                    <div class="context-menu-separator"></div>
+                  </template>
+                  <template x-if="item.type !== 'separator'">
+                    <div 
+                      class="context-menu-item"
+                      :class="{ 'disabled': item.disabled, 'danger': item.danger }"
+                      @click="if (!item.disabled && !item.hasSubmenu) { item.action(); contextMenu = null; } else if (!item.disabled) { item.action(); }"
+                    >
+                      <span x-text="item.icon" class="w-4 text-center"></span>
+                      <span x-text="item.label"></span>
+                    </div>
+                  </template>
                 </div>
               </template>
-            </template>
+            </div>
           </template>
         </div>
       </div>
