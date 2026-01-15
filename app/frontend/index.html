@@ -270,36 +270,45 @@
           <!-- Table header -->
           <div 
             data-testid="library-header"
-            class="flex items-center border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0"
+            class="flex items-center border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0 relative"
             @contextmenu.prevent="handleHeaderContextMenu($event)"
           >
-            <template x-for="col in columns" :key="col.key">
+            <template x-for="(col, colIndex) in columns" :key="col.key">
               <div 
                 :style="getColumnStyle(col)"
                 :class="[
-                  col.sortable ? 'sort-header' : '',
+                  col.sortable && !resizingColumn ? 'sort-header' : '',
                   library.sortBy === col.key ? 'column-header-active text-foreground' : '',
                   col.key === 'index' || col.key === 'duration' || col.key === 'playCount' ? 'text-right' : ''
                 ]"
                 class="px-3 py-2 select-none flex items-center relative group"
-                @click="col.sortable && handleSort(col.key)"
-                @dblclick="autoFitColumn(col, $event)"
+                @click="col.sortable && !resizingColumn && handleSort(col.key)"
+                @dblclick.self="autoFitColumn(col, $event)"
               >
+                <!-- Left resize handle (resizes previous column, Excel-style) -->
+                <div 
+                  x-show="colIndex > 0 && columns[colIndex - 1]?.key !== 'title'"
+                  class="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/50 transition-colors z-10"
+                  style="transform: translateX(-50%)"
+                  @mousedown.stop="startColumnResize(columns[colIndex - 1], $event)"
+                  @dblclick.stop="autoFitColumn(columns[colIndex - 1], $event)"
+                ></div>
                 <span x-text="col.label" class="truncate"></span>
                 <span 
                   x-show="col.sortable && library.sortBy === col.key" 
                   x-text="getSortIndicator(col.key)" 
                   class="sort-indicator ml-1"
                 ></span>
-                <!-- Resize handle -->
-                <div 
-                  x-show="col.key !== 'title'"
-                  class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
-                  @mousedown="startColumnResize(col, $event)"
-                  @dblclick.stop="autoFitColumn(col, $event)"
-                ></div>
               </div>
             </template>
+            <!-- Right resize handle for last column -->
+            <div 
+              x-show="columns.length > 0 && columns[columns.length - 1]?.key !== 'title'"
+              class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/50 transition-colors z-10"
+              style="transform: translateX(50%)"
+              @mousedown.stop="startColumnResize(columns[columns.length - 1], $event)"
+              @dblclick.stop="autoFitColumn(columns[columns.length - 1], $event)"
+            ></div>
           </div>
           
           <!-- Header context menu for column visibility -->

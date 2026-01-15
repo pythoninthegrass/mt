@@ -447,11 +447,10 @@ test.describe('Column Customization', () => {
   });
 
   test('should show resize cursor on column header edge', async ({ page }) => {
-    // Find the column header container that has the Artist text
-    const artistHeaderContainer = page.locator('.bg-muted\\/30 > template + div, .bg-muted\\/30 div:has(> span:text("Artist"))').first();
-    const resizeHandle = artistHeaderContainer.locator('.cursor-col-resize');
+    // Excel-style: resize handle on left edge of Album resizes Artist column
+    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
+    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
     
-    // Wait for the resize handle to be visible
     await expect(resizeHandle).toBeVisible();
     
     const handleBox = await resizeHandle.boundingBox();
@@ -466,9 +465,9 @@ test.describe('Column Customization', () => {
   });
 
   test('should resize column by dragging', async ({ page }) => {
-    // Find the Artist column header container
-    const artistHeaderContainer = page.locator('.bg-muted\\/30 div:has(> span:text("Artist"))').first();
-    const resizeHandle = artistHeaderContainer.locator('.cursor-col-resize');
+    // Excel-style: dragging left edge of Album resizes Artist column
+    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
+    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
     
     await expect(resizeHandle).toBeVisible();
     const handleBox = await resizeHandle.boundingBox();
@@ -485,13 +484,13 @@ test.describe('Column Customization', () => {
       return window.Alpine.$data(el);
     });
     
-    expect(componentData.columnWidths).toBeDefined();
+    expect(componentData.columnWidths.artist).toBeDefined();
   });
 
   test('should auto-fit column width on double-click', async ({ page }) => {
-    // Find the Artist column header container
-    const artistHeaderContainer = page.locator('.bg-muted\\/30 div:has(> span:text("Artist"))').first();
-    const resizeHandle = artistHeaderContainer.locator('.cursor-col-resize');
+    // Excel-style: double-click left edge of Album auto-fits Artist column
+    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
+    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
     
     await expect(resizeHandle).toBeVisible();
     await resizeHandle.dblclick();
@@ -503,6 +502,30 @@ test.describe('Column Customization', () => {
     });
     
     expect(componentData.columnWidths.artist).toBeDefined();
+  });
+
+  test('should pause sorting during column resize', async ({ page }) => {
+    // Excel-style: left edge of Album resizes Artist
+    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
+    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
+    
+    await expect(resizeHandle).toBeVisible();
+    const handleBox = await resizeHandle.boundingBox();
+    
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+    await page.mouse.down();
+    
+    // During resize, sort-header class should be removed (sorting disabled)
+    const artistHeader = page.locator('[data-testid="library-header"] div:has(> span:text("Artist"))').first();
+    const hasSortHeader = await artistHeader.evaluate(el => el.classList.contains('sort-header'));
+    expect(hasSortHeader).toBe(false);
+    
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+    
+    // After resize, sort-header class should be restored
+    const hasSortHeaderAfter = await artistHeader.evaluate(el => el.classList.contains('sort-header'));
+    expect(hasSortHeaderAfter).toBe(true);
   });
 
   test('should show header context menu on right-click', async ({ page }) => {
@@ -605,8 +628,9 @@ test.describe('Column Customization', () => {
   });
 
   test('should enforce minimum column width', async ({ page }) => {
-    const artistHeaderContainer = page.locator('.bg-muted\\/30 div:has(> span:text("Artist"))').first();
-    const resizeHandle = artistHeaderContainer.locator('.cursor-col-resize');
+    // Excel-style: left edge of Album resizes Artist
+    const albumHeaderContainer = page.locator('[data-testid="library-header"] div:has(> span:text("Album"))').first();
+    const resizeHandle = albumHeaderContainer.locator('.cursor-col-resize');
     
     await expect(resizeHandle).toBeVisible();
     const handleBox = await resizeHandle.boundingBox();
