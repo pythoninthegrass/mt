@@ -35,8 +35,10 @@ export function createLibraryBrowser(Alpine) {
 
     // Column resize state
     resizingColumn: null,
+    resizingNeighbor: null,
     resizeStartX: 0,
     resizeStartWidth: 0,
+    resizeNeighborStartWidth: 0,
     wasResizing: false,
 
     // Column drag/reorder state
@@ -49,6 +51,10 @@ export function createLibraryBrowser(Alpine) {
     // Container width for dynamic Title column sizing
     containerWidth: 0,
     resizeObserver: null,
+    // Lock Title width during column resize to prevent cascade effect
+    lockedTitleWidth: null,
+    // Track if Title should auto-fill (false once manually resized/auto-fit)
+    titleAutoFill: true,
 
     // Column customization state
     columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
@@ -148,13 +154,31 @@ export function createLibraryBrowser(Alpine) {
         return total + Math.max(width, minWidth);
       }, 0);
 
-      // Calculate Title column width to fill remaining space
-      const titleMinWidth = Math.max(
+      // Calculate Title column width
+      let titleWidth;
+      const titleIsBeingResized = this.resizingColumn === 'title' || this.resizingNeighbor === 'title';
+      const titleStoredWidth = Math.max(
         this.columnWidths.title || DEFAULT_COLUMN_WIDTHS.title || 320,
         MIN_TITLE_WIDTH,
       );
-      const availableForTitle = this.containerWidth - fixedColumnsWidth;
-      const titleWidth = Math.max(titleMinWidth, availableForTitle);
+
+      if (titleIsBeingResized) {
+        // When Title is being resized, use its direct columnWidth value
+        titleWidth = titleStoredWidth;
+      } else if (this.lockedTitleWidth !== null) {
+        // Use locked width during non-Title column resize to prevent cascade
+        titleWidth = this.lockedTitleWidth;
+      } else if (!this.titleAutoFill) {
+        // Title was manually resized/auto-fit - use stored width
+        titleWidth = titleStoredWidth;
+      } else {
+        // Auto-fill mode: Title fills remaining space
+        const availableForTitle = this.containerWidth - fixedColumnsWidth;
+        titleWidth = Math.max(titleStoredWidth, availableForTitle);
+      }
+
+      // Store the calculated total for min-width styling
+      this._calculatedGridWidth = fixedColumnsWidth + titleWidth;
 
       return this.columns.map((col) => {
         const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
@@ -169,6 +193,12 @@ export function createLibraryBrowser(Alpine) {
         // All other columns use fixed widths for Excel-style resizing
         return `${actualWidth}px`;
       }).join(' ');
+    },
+
+    getGridMinWidth() {
+      // Ensure grid is at least as wide as the sum of all columns
+      // This enables horizontal scroll when columns exceed container width
+      return this._calculatedGridWidth || this.getTotalColumnsWidth();
     },
 
     getTotalColumnsWidth() {
@@ -324,23 +354,70 @@ export function createLibraryBrowser(Alpine) {
       event.preventDefault();
       event.stopPropagation();
 
+      // Find the column index and its neighbor
+      const colIndex = this.columns.findIndex((c) => c.key === col.key);
+      const neighborIndex = colIndex + 1;
+      const neighborCol = this.columns[neighborIndex];
+
+      // Can't resize if there's no neighbor to trade width with
+      if (!neighborCol) return;
+
       this.resizingColumn = col.key;
+      this.resizingNeighbor = neighborCol.key;
       this.resizeStartX = event.clientX;
       this.resizeStartWidth = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
+      this.resizeNeighborStartWidth = this.columnWidths[neighborCol.key] || DEFAULT_COLUMN_WIDTHS[neighborCol.key] || 100;
+
+      // Lock Title width during resize ONLY if Title is not being resized
+      // This prevents cascade effect on other columns while allowing Title to be resized
+      if (col.key !== 'title' && neighborCol.key !== 'title') {
+        const fixedColumnsWidth = this.columns.reduce((total, c) => {
+          if (c.key === 'title') return total;
+          const width = this.columnWidths[c.key] || DEFAULT_COLUMN_WIDTHS[c.key] || 100;
+          const minWidth = this.getMinWidth(c.key);
+          return total + Math.max(width, minWidth);
+        }, 0);
+        const titleMinWidth = Math.max(
+          this.columnWidths.title || DEFAULT_COLUMN_WIDTHS.title || 320,
+          MIN_TITLE_WIDTH,
+        );
+        this.lockedTitleWidth = Math.max(titleMinWidth, this.containerWidth - fixedColumnsWidth);
+      }
 
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     },
 
     handleColumnResize(event) {
-      if (!this.resizingColumn) return;
+      if (!this.resizingColumn || !this.resizingNeighbor) return;
 
       const delta = event.clientX - this.resizeStartX;
-      const col = this.allColumns.find((c) => c.key === this.resizingColumn);
-      const minWidth = col?.key === 'title' ? MIN_TITLE_WIDTH : (col?.minWidth || MIN_COLUMN_WIDTH);
-      const newWidth = Math.max(minWidth, this.resizeStartWidth + delta);
+
+      // Get min widths for both columns
+      const colMinWidth = this.getMinWidth(this.resizingColumn);
+      const neighborMinWidth = this.getMinWidth(this.resizingNeighbor);
+
+      // Calculate new widths - zero-sum trade between the two columns
+      let newWidth = this.resizeStartWidth + delta;
+      let newNeighborWidth = this.resizeNeighborStartWidth - delta;
+
+      // Enforce minimum widths
+      if (newWidth < colMinWidth) {
+        newWidth = colMinWidth;
+        newNeighborWidth = this.resizeStartWidth + this.resizeNeighborStartWidth - colMinWidth;
+      }
+      if (newNeighborWidth < neighborMinWidth) {
+        newNeighborWidth = neighborMinWidth;
+        newWidth = this.resizeStartWidth + this.resizeNeighborStartWidth - neighborMinWidth;
+      }
 
       this.columnWidths[this.resizingColumn] = newWidth;
+      this.columnWidths[this.resizingNeighbor] = newNeighborWidth;
+
+      // If Title was resized, disable auto-fill
+      if (this.resizingColumn === 'title' || this.resizingNeighbor === 'title') {
+        this.titleAutoFill = false;
+      }
     },
 
     finishColumnResize() {
@@ -349,9 +426,14 @@ export function createLibraryBrowser(Alpine) {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
 
+      // Unlock Title width so it can dynamically resize with window again
+      this.lockedTitleWidth = null;
+
       this.saveColumnSettings();
       this.wasResizing = true;
       this.resizingColumn = null;
+      this.resizingNeighbor = null;
+      this.resizeNeighborStartWidth = 0;
       setTimeout(() => {
         this.wasResizing = false;
       }, 100);
@@ -359,7 +441,6 @@ export function createLibraryBrowser(Alpine) {
 
     startColumnDrag(col, event) {
       if (this.resizingColumn) return;
-      // Don't start drag if context menu is open
       if (this.headerContextMenu) {
         this.headerContextMenu = null;
         return;
@@ -375,30 +456,34 @@ export function createLibraryBrowser(Alpine) {
       if (colIdx === -1 || !cells[colIdx]) return;
 
       const rect = cells[colIdx].getBoundingClientRect();
-      this.columnDragStartX = rect.left + rect.width / 2;
-      this.columnDragX = event.clientX;
-
-      this.draggingColumnKey = col.key;
-      this.dragOverColumnIdx = null;
-
-      let hasMoved = false;
+      const dragStartX = rect.left + rect.width / 2;
       const startX = event.clientX;
+      let hasMoved = false;
 
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
 
       const onMove = (e) => {
-        if (Math.abs(e.clientX - startX) > 5) {
+        if (!hasMoved && Math.abs(e.clientX - startX) > 5) {
           hasMoved = true;
+          this.draggingColumnKey = col.key;
+          this.columnDragStartX = dragStartX;
+          this.dragOverColumnIdx = null;
         }
-        this.columnDragX = e.clientX;
-        this.updateColumnDropTarget(e.clientX);
+        if (hasMoved) {
+          this.columnDragX = e.clientX;
+          this.updateColumnDropTarget(e.clientX);
+        }
       };
 
       const onEnd = () => {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onEnd);
-        this.finishColumnDrag(hasMoved);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        if (hasMoved) {
+          this.finishColumnDrag(true);
+        }
       };
 
       document.addEventListener('mousemove', onMove);
@@ -445,9 +530,6 @@ export function createLibraryBrowser(Alpine) {
     },
 
     finishColumnDrag(hasMoved = false) {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-
       if (this.draggingColumnKey !== null && this.dragOverColumnIdx !== null) {
         const fromIdx = this.columns.findIndex(c => c.key === this.draggingColumnKey);
         if (fromIdx !== -1 && fromIdx !== this.dragOverColumnIdx) {
@@ -532,16 +614,43 @@ export function createLibraryBrowser(Alpine) {
       event.preventDefault();
       event.stopPropagation();
 
+      const colIndex = this.columns.findIndex((c) => c.key === col.key);
+      const neighborCol = this.columns[colIndex + 1];
+
+      if (!neighborCol) return;
+
       const rows = document.querySelectorAll(`[data-column="${col.key}"]`);
       const minWidth = this.getMinWidth(col.key);
-      let maxWidth = minWidth;
+      let idealWidth = minWidth;
 
       rows.forEach((row) => {
-        const textWidth = this.measureTextWidth(row.textContent || '', row);
-        maxWidth = Math.max(maxWidth, textWidth + 24);
+        const text = (row.textContent || '').trim();
+        const textWidth = this.measureTextWidth(text, row);
+        idealWidth = Math.max(idealWidth, textWidth + 24);
       });
 
-      this.columnWidths[col.key] = maxWidth;
+      const currentWidth = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
+      const neighborWidth = this.columnWidths[neighborCol.key] || DEFAULT_COLUMN_WIDTHS[neighborCol.key] || 100;
+      const neighborMinWidth = this.getMinWidth(neighborCol.key);
+
+      const delta = idealWidth - currentWidth;
+      let newNeighborWidth = neighborWidth - delta;
+
+      if (newNeighborWidth < neighborMinWidth) {
+        newNeighborWidth = neighborMinWidth;
+        idealWidth = currentWidth + neighborWidth - neighborMinWidth;
+      }
+
+      this.columnWidths = {
+        ...this.columnWidths,
+        [col.key]: idealWidth,
+        [neighborCol.key]: newNeighborWidth,
+      };
+
+      if (col.key === 'title' || neighborCol.key === 'title') {
+        this.titleAutoFill = false;
+      }
+
       this.saveColumnSettings();
     },
 
@@ -585,6 +694,7 @@ export function createLibraryBrowser(Alpine) {
     resetColumnWidths() {
       this.columnWidths = { ...DEFAULT_COLUMN_WIDTHS };
       this.columnOrder = ['index', 'title', 'artist', 'album', 'lastPlayed', 'dateAdded', 'playCount', 'duration'];
+      this.titleAutoFill = true;  // Restore auto-fill behavior for Title column
       this.saveColumnSettings();
       this.headerContextMenu = null;
     },

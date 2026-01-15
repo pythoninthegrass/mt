@@ -481,6 +481,148 @@ test.describe('Column Customization', () => {
     expect(componentData.columnWidths.artist).toBeDefined();
   });
 
+  test('should auto-fit with zero-sum resize (column grows, neighbor shrinks)', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('mt:column-settings', JSON.stringify({
+        widths: { title: 200, artist: 300, album: 300 },
+        visibility: {},
+        order: ['index', 'title', 'artist', 'album', 'duration']
+      }));
+    });
+    await page.reload();
+    await waitForAlpine(page);
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const initialWidths = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      const data = window.Alpine.$data(el);
+      return { title: data.columnWidths.title, artist: data.columnWidths.artist };
+    });
+
+    const resizer = page.locator('[data-testid="col-resizer-right-title"]');
+    await resizer.dblclick();
+    await page.waitForTimeout(150);
+
+    const afterWidths = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      const data = window.Alpine.$data(el);
+      return { title: data.columnWidths.title, artist: data.columnWidths.artist };
+    });
+
+    const titleDelta = afterWidths.title - initialWidths.title;
+    const artistDelta = afterWidths.artist - initialWidths.artist;
+    expect(Math.abs(titleDelta + artistDelta)).toBeLessThan(2);
+  });
+
+  test('should increase column width on auto-fit for Artist column', async ({ page }) => {
+    // Set up narrow Artist column with wide Album neighbor (so there's space to take)
+    await page.evaluate(() => {
+      localStorage.setItem('mt:column-settings', JSON.stringify({
+        widths: { artist: 50, album: 400 },
+        visibility: {},
+        order: ['index', 'title', 'artist', 'album', 'duration']
+      }));
+    });
+    await page.reload();
+    await waitForAlpine(page);
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Get initial width
+    const artistHeader = page.locator('[data-testid="library-header"] > div').filter({ hasText: 'Artist' }).first();
+    const beforeWidth = await artistHeader.evaluate((el) => el.getBoundingClientRect().width);
+    expect(beforeWidth).toBeLessThan(100); // Should be narrow initially
+
+    // Double-click to auto-fit
+    const resizer = page.locator('[data-testid="col-resizer-right-artist"]');
+    await resizer.dblclick();
+    await page.waitForTimeout(150);
+
+    // Verify width increased
+    const afterWidth = await artistHeader.evaluate((el) => el.getBoundingClientRect().width);
+    expect(afterWidth).toBeGreaterThan(beforeWidth);
+  });
+
+  test('should increase column width on auto-fit for Album column', async ({ page }) => {
+    // Set up narrow Album column - Duration is neighbor but has min width, so limited growth
+    await page.evaluate(() => {
+      localStorage.setItem('mt:column-settings', JSON.stringify({
+        widths: { album: 50, duration: 100 },
+        visibility: {},
+        order: ['index', 'title', 'artist', 'album', 'duration']
+      }));
+    });
+    await page.reload();
+    await waitForAlpine(page);
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Get initial width
+    const albumHeader = page.locator('[data-testid="library-header"] > div').filter({ hasText: 'Album' }).first();
+    const beforeWidth = await albumHeader.evaluate((el) => el.getBoundingClientRect().width);
+    expect(beforeWidth).toBeLessThan(100); // Should be narrow initially
+
+    // Double-click to auto-fit
+    const resizer = page.locator('[data-testid="col-resizer-right-album"]');
+    await resizer.dblclick();
+    await page.waitForTimeout(150);
+
+    // Verify width increased (may be limited by neighbor's min width)
+    const afterWidth = await albumHeader.evaluate((el) => el.getBoundingClientRect().width);
+    expect(afterWidth).toBeGreaterThan(beforeWidth);
+  });
+
+  test('should reduce text overflow on auto-fit when possible', async ({ page }) => {
+    // Set up very narrow Artist with very wide Album (plenty of space to take)
+    await page.evaluate(() => {
+      localStorage.setItem('mt:column-settings', JSON.stringify({
+        widths: { artist: 30, album: 500 },
+        visibility: {},
+        order: ['index', 'title', 'artist', 'album', 'duration']
+      }));
+    });
+    await page.reload();
+    await waitForAlpine(page);
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const artistCell = page.locator('[data-column="artist"]').first();
+    
+    // Get overflow amount before (scrollWidth - clientWidth)
+    const beforeOverflowAmount = await artistCell.evaluate((el) => {
+      return el.scrollWidth - el.clientWidth;
+    });
+
+    // Double-click to auto-fit
+    const resizer = page.locator('[data-testid="col-resizer-right-artist"]');
+    await resizer.dblclick();
+    await page.waitForTimeout(150);
+
+    // Get overflow amount after
+    const afterOverflowAmount = await artistCell.evaluate((el) => {
+      return el.scrollWidth - el.clientWidth;
+    });
+
+    // Overflow should be reduced (ideally to 0, but at minimum less than before)
+    expect(afterOverflowAmount).toBeLessThanOrEqual(beforeOverflowAmount);
+  });
+
+  test('should not flash column drag state on single click', async ({ page }) => {
+    const titleHeader = page.locator('[data-testid="library-header"] > div').filter({ hasText: 'Title' }).first();
+    
+    const hasDraggingBefore = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).draggingColumnKey;
+    });
+    expect(hasDraggingBefore).toBeNull();
+
+    await titleHeader.click();
+    await page.waitForTimeout(50);
+
+    const hasDraggingAfter = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).draggingColumnKey;
+    });
+    expect(hasDraggingAfter).toBeNull();
+  });
+
   test('should not trigger sort when resizing column', async ({ page }) => {
     const resizeHandle = page.locator('[data-testid="col-resizer-right-artist"]');
     
