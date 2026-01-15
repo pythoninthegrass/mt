@@ -107,7 +107,26 @@
       pointer-events: auto;
     }
     
-    /* Column drag cursor */
+    /* Column drag styles */
+    .column-header-cell {
+      transition: transform 0.15s ease-out, opacity 0.15s ease, box-shadow 0.15s ease;
+    }
+    .column-header-cell.shift-left {
+      transform: translateX(-100%);
+    }
+    .column-header-cell.shift-right {
+      transform: translateX(100%);
+    }
+    .column-header-cell.dragging-column {
+      background-color: hsl(var(--card));
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      z-index: 50;
+      opacity: 0.95;
+    }
+    .column-header-cell.other-dragging {
+      opacity: 0.6;
+    }
     .cursor-grab {
       cursor: grab;
     }
@@ -306,13 +325,18 @@
               <template x-for="(col, colIndex) in columns" :key="col.key">
                 <div 
                   :class="[
+                    'column-header-cell',
                     col.sortable ? 'cursor-grab' : '',
                     library.sortBy === col.key ? 'column-header-active text-foreground' : '',
                     colIndex < columns.length - 1 ? 'border-r border-border' : '',
                     col.key === 'index' ? 'px-2' : 'px-4',
-                    getColumnDragClass(col.key)
+                    isColumnDragging(col.key) ? 'dragging-column' : '',
+                    isOtherColumnDragging(col.key) ? 'other-dragging' : '',
+                    getColumnShiftDirection(colIndex) === 'left' ? 'shift-left' : '',
+                    getColumnShiftDirection(colIndex) === 'right' ? 'shift-right' : ''
                   ]"
-                  class="py-2 select-none flex items-center relative overflow-hidden transition-all"
+                  class="py-2 select-none flex items-center relative overflow-visible"
+                  :style="isColumnDragging(col.key) ? 'transform:' + getColumnDragTransform(col.key) + '; z-index: 50;' : ''"
                   @mousedown="if (!$event.target.closest('.column-resizer')) startColumnDrag(col, $event)"
                   @click="if (!draggingColumnKey && !wasResizing) handleSort(col.key)"
                 >

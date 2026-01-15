@@ -40,8 +40,9 @@ export function createLibraryBrowser(Alpine) {
 
     // Column drag/reorder state
     draggingColumnKey: null,
-    dragOverColumnKey: null,
+    dragOverColumnIdx: null,
     columnDragX: 0,
+    columnDragStartX: 0,
 
     // Column customization state
     columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
@@ -307,9 +308,20 @@ export function createLibraryBrowser(Alpine) {
       if (this.resizingColumn) return;
       
       event.preventDefault();
-      this.draggingColumnKey = col.key;
-      this.dragOverColumnKey = null;
+      
+      const header = document.querySelector('[data-testid="library-header"]');
+      if (!header) return;
+      
+      const cells = header.querySelectorAll(':scope > div');
+      const colIdx = this.columns.findIndex(c => c.key === col.key);
+      if (colIdx === -1 || !cells[colIdx]) return;
+      
+      const rect = cells[colIdx].getBoundingClientRect();
+      this.columnDragStartX = rect.left + rect.width / 2;
       this.columnDragX = event.clientX;
+      
+      this.draggingColumnKey = col.key;
+      this.dragOverColumnIdx = null;
 
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
@@ -334,52 +346,68 @@ export function createLibraryBrowser(Alpine) {
       if (!header) return;
 
       const cells = header.querySelectorAll(':scope > div');
-      let targetKey = null;
+      const dragIdx = this.columns.findIndex(c => c.key === this.draggingColumnKey);
+      let newOverIdx = null;
 
-      for (const cell of cells) {
-        const rect = cell.getBoundingClientRect();
+      for (let i = 0; i < cells.length; i++) {
+        if (i === dragIdx) continue;
+        
+        const rect = cells[i].getBoundingClientRect();
         const midX = rect.left + rect.width / 2;
         
         if (x < midX) {
-          const colIndex = Array.from(cells).indexOf(cell);
-          if (colIndex >= 0 && colIndex < this.columns.length) {
-            targetKey = this.columns[colIndex].key;
-          }
+          newOverIdx = i;
           break;
         }
       }
 
-      if (targetKey === null && this.columns.length > 0) {
-        targetKey = this.columns[this.columns.length - 1].key;
+      if (newOverIdx === null) {
+        newOverIdx = this.columns.length;
       }
 
-      if (targetKey !== this.draggingColumnKey) {
-        this.dragOverColumnKey = targetKey;
+      if (newOverIdx > dragIdx) {
+        newOverIdx = Math.min(newOverIdx, this.columns.length);
       }
+
+      this.dragOverColumnIdx = newOverIdx;
     },
 
     finishColumnDrag() {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
 
-      if (this.draggingColumnKey && this.dragOverColumnKey && 
-          this.draggingColumnKey !== this.dragOverColumnKey) {
-        this.reorderColumn(this.draggingColumnKey, this.dragOverColumnKey);
+      if (this.draggingColumnKey !== null && this.dragOverColumnIdx !== null) {
+        const fromIdx = this.columns.findIndex(c => c.key === this.draggingColumnKey);
+        if (fromIdx !== -1 && fromIdx !== this.dragOverColumnIdx) {
+          this.reorderColumnByIndex(fromIdx, this.dragOverColumnIdx);
+        }
       }
 
       this.draggingColumnKey = null;
-      this.dragOverColumnKey = null;
+      this.dragOverColumnIdx = null;
+      this.columnDragStartX = 0;
     },
 
-    reorderColumn(fromKey, toKey) {
-      const fromIdx = this.columnOrder.indexOf(fromKey);
-      const toIdx = this.columnOrder.indexOf(toKey);
+    reorderColumnByIndex(fromIdx, toIdx) {
+      const fromKey = this.columns[fromIdx]?.key;
+      if (!fromKey) return;
       
-      if (fromIdx === -1 || toIdx === -1) return;
+      const visibleKeys = this.columns.map(c => c.key);
+      const targetKey = toIdx < visibleKeys.length ? visibleKeys[toIdx] : visibleKeys[visibleKeys.length - 1];
+      
+      const fromOrderIdx = this.columnOrder.indexOf(fromKey);
+      const toOrderIdx = this.columnOrder.indexOf(targetKey);
+      
+      if (fromOrderIdx === -1 || toOrderIdx === -1) return;
 
       const newOrder = [...this.columnOrder];
-      newOrder.splice(fromIdx, 1);
-      newOrder.splice(toIdx, 0, fromKey);
+      newOrder.splice(fromOrderIdx, 1);
+      
+      let insertIdx = toOrderIdx;
+      if (fromOrderIdx < toOrderIdx) {
+        insertIdx = toOrderIdx;
+      }
+      newOrder.splice(insertIdx, 0, fromKey);
       
       this.columnOrder = newOrder;
       this.saveColumnSettings();
@@ -389,11 +417,36 @@ export function createLibraryBrowser(Alpine) {
       return this.draggingColumnKey === key;
     },
 
-    getColumnDragClass(key) {
-      if (!this.draggingColumnKey) return '';
-      if (key === this.draggingColumnKey) return 'opacity-50';
-      if (key === this.dragOverColumnKey) return 'border-l-2 border-l-primary';
-      return '';
+    isOtherColumnDragging(key) {
+      return this.draggingColumnKey !== null && this.draggingColumnKey !== key;
+    },
+
+    getColumnShiftDirection(colIdx) {
+      if (this.draggingColumnKey === null || this.dragOverColumnIdx === null) return 'none';
+      
+      const dragIdx = this.columns.findIndex(c => c.key === this.draggingColumnKey);
+      if (colIdx === dragIdx) return 'none';
+
+      const overIdx = this.dragOverColumnIdx;
+
+      if (dragIdx < overIdx) {
+        if (colIdx > dragIdx && colIdx < overIdx) {
+          return 'left';
+        }
+      } else {
+        if (colIdx >= overIdx && colIdx < dragIdx) {
+          return 'right';
+        }
+      }
+
+      return 'none';
+    },
+
+    getColumnDragTransform(key) {
+      if (this.draggingColumnKey !== key) return '';
+      
+      const offsetX = this.columnDragX - this.columnDragStartX;
+      return `translateX(${offsetX}px)`;
     },
 
     autoFitColumn(col, event) {
