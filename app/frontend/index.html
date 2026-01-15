@@ -298,7 +298,6 @@
                   :class="[
                     col.sortable ? 'cursor-default' : '',
                     library.sortBy === col.key ? 'column-header-active text-foreground' : '',
-                    col.key === 'index' || col.key === 'duration' || col.key === 'playCount' ? 'text-right' : '',
                     colIndex < columns.length - 1 ? 'border-r border-border' : ''
                   ]"
                   class="px-3 py-2 select-none flex items-center relative overflow-hidden"
@@ -422,7 +421,6 @@
                   <div 
                     :class="[
                       'px-3 py-1.5 overflow-hidden text-ellipsis whitespace-nowrap',
-                      col.key === 'index' || col.key === 'duration' || col.key === 'playCount' ? 'text-right tabular-nums' : '',
                       col.key !== 'title' && !isSelected(track.id) ? 'text-muted-foreground' : ''
                     ]"
                     :data-column="col.key"
