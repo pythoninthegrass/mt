@@ -696,4 +696,65 @@ test.describe('Column Customization', () => {
     expect(componentData.columnVisibility.album).toBe(true);
     expect(componentData.columnVisibility.artist).toBe(true);
   });
+
+  test('should reorder columns by dragging', async ({ page }) => {
+    const headerRow = page.locator('[data-testid="library-header"]');
+    await expect(headerRow).toBeVisible();
+
+    const initialOrder = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).columns.map(c => c.key);
+    });
+
+    expect(initialOrder).toContain('artist');
+    expect(initialOrder).toContain('album');
+    const artistIdx = initialOrder.indexOf('artist');
+    const albumIdx = initialOrder.indexOf('album');
+    expect(artistIdx).toBeLessThan(albumIdx);
+
+    const artistHeader = headerRow.locator('div').filter({ hasText: 'Artist' }).first();
+    const albumHeader = headerRow.locator('div').filter({ hasText: 'Album' }).first();
+    
+    const artistBox = await artistHeader.boundingBox();
+    const albumBox = await albumHeader.boundingBox();
+
+    await page.mouse.move(artistBox.x + artistBox.width / 2, artistBox.y + artistBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(albumBox.x + albumBox.width - 10, albumBox.y + albumBox.height / 2, { steps: 5 });
+    await page.mouse.up();
+
+    await page.waitForTimeout(100);
+
+    const newOrder = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).columns.map(c => c.key);
+    });
+
+    const newArtistIdx = newOrder.indexOf('artist');
+    const newAlbumIdx = newOrder.indexOf('album');
+    expect(newArtistIdx).toBeGreaterThan(newAlbumIdx);
+  });
+
+  test('should persist column order to localStorage', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('mt:column-settings', JSON.stringify({
+        widths: {},
+        visibility: {},
+        order: ['index', 'title', 'album', 'artist', 'duration']
+      }));
+    });
+
+    await page.reload();
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+
+    const columnOrder = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).columns.map(c => c.key);
+    });
+
+    const albumIdx = columnOrder.indexOf('album');
+    const artistIdx = columnOrder.indexOf('artist');
+    expect(albumIdx).toBeLessThan(artistIdx);
+  });
 });

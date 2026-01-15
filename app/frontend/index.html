@@ -106,6 +106,14 @@
     .resizing-columns .column-resizer {
       pointer-events: auto;
     }
+    
+    /* Column drag cursor */
+    .cursor-grab {
+      cursor: grab;
+    }
+    .cursor-grab:active {
+      cursor: grabbing;
+    }
   </style>
 </head>
 <body class="bg-background text-foreground h-screen overflow-hidden">
@@ -298,13 +306,15 @@
               <template x-for="(col, colIndex) in columns" :key="col.key">
                 <div 
                   :class="[
-                    col.sortable ? 'cursor-default' : '',
+                    col.sortable ? 'cursor-grab' : '',
                     library.sortBy === col.key ? 'column-header-active text-foreground' : '',
                     colIndex < columns.length - 1 ? 'border-r border-border' : '',
-                    col.key === 'index' ? 'px-2' : 'px-4'
+                    col.key === 'index' ? 'px-2' : 'px-4',
+                    getColumnDragClass(col.key)
                   ]"
-                  class="py-2 select-none flex items-center relative overflow-hidden"
-                  @click="handleSort(col.key)"
+                  class="py-2 select-none flex items-center relative overflow-hidden transition-all"
+                  @mousedown="if (!$event.target.closest('.column-resizer')) startColumnDrag(col, $event)"
+                  @click="if (!draggingColumnKey && !wasResizing) handleSort(col.key)"
                 >
                   <span x-text="col.label" class="truncate"></span>
                   <span 
@@ -312,7 +322,6 @@
                     x-text="getSortIndicator(col.key)" 
                     class="sort-indicator ml-1 shrink-0"
                   ></span>
-                  <!-- Border resizer (Excel-style: resizes THIS column) -->
                   <div 
                     class="column-resizer"
                     :data-testid="`col-resizer-${col.key}`"

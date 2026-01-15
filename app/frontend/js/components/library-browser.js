@@ -38,6 +38,11 @@ export function createLibraryBrowser(Alpine) {
     resizeStartWidth: 0,
     wasResizing: false,
 
+    // Column drag/reorder state
+    draggingColumnKey: null,
+    dragOverColumnKey: null,
+    columnDragX: 0,
+
     // Column customization state
     columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
     columnVisibility: {
@@ -50,6 +55,7 @@ export function createLibraryBrowser(Alpine) {
       playCount: true,
       duration: true,
     },
+    columnOrder: ['index', 'title', 'artist', 'album', 'lastPlayed', 'dateAdded', 'playCount', 'duration'],
 
     // Base column definitions
     baseColumns: [
@@ -72,44 +78,46 @@ export function createLibraryBrowser(Alpine) {
       top25: { key: 'playCount', label: 'Plays', sortable: true, minWidth: 50, canHide: true },
     },
 
-    // Computed columns based on current section (only visible columns)
-    get columns() {
-      const section = this.library.currentSection;
-      const cols = [...this.baseColumns];
-
-      if (this.extraColumns[section]) {
-        cols.push(this.extraColumns[section]);
+    getColumnDef(key) {
+      const baseDef = this.baseColumns.find(c => c.key === key);
+      if (baseDef) return baseDef;
+      
+      for (const extra of Object.values(this.extraColumns)) {
+        if (extra.key === key) return extra;
       }
-
-      cols.push({
-        key: 'duration',
-        label: 'Time',
-        sortable: true,
-        minWidth: 60,
-        canHide: true,
-      });
-
-      // Filter to only visible columns
-      return cols.filter((col) => this.columnVisibility[col.key] !== false);
+      
+      if (key === 'duration') {
+        return { key: 'duration', label: 'Time', sortable: true, minWidth: 60, canHide: true };
+      }
+      return null;
     },
 
-    // All columns for the current section (including hidden, for context menu)
-    get allColumns() {
+    get columns() {
       const section = this.library.currentSection;
-      const cols = [...this.baseColumns];
-
+      const availableKeys = new Set(['index', 'title', 'artist', 'album', 'duration']);
+      
       if (this.extraColumns[section]) {
-        cols.push(this.extraColumns[section]);
+        availableKeys.add(this.extraColumns[section].key);
       }
 
-      cols.push({
-        key: 'duration',
-        label: 'Time',
-        sortable: true,
-        minWidth: 60,
-        canHide: true,
-      });
-      return cols;
+      return this.columnOrder
+        .filter(key => availableKeys.has(key) && this.columnVisibility[key] !== false)
+        .map(key => this.getColumnDef(key))
+        .filter(Boolean);
+    },
+
+    get allColumns() {
+      const section = this.library.currentSection;
+      const availableKeys = new Set(['index', 'title', 'artist', 'album', 'duration']);
+      
+      if (this.extraColumns[section]) {
+        availableKeys.add(this.extraColumns[section].key);
+      }
+
+      return this.columnOrder
+        .filter(key => availableKeys.has(key))
+        .map(key => this.getColumnDef(key))
+        .filter(Boolean);
     },
 
     getColumnStyle(col) {
@@ -234,6 +242,9 @@ export function createLibraryBrowser(Alpine) {
           if (data.visibility) {
             this.columnVisibility = { ...this.columnVisibility, ...data.visibility };
           }
+          if (data.order && Array.isArray(data.order)) {
+            this.columnOrder = data.order;
+          }
         }
       } catch (e) {
         console.warn('Failed to load column settings:', e);
@@ -247,6 +258,7 @@ export function createLibraryBrowser(Alpine) {
           JSON.stringify({
             widths: this.columnWidths,
             visibility: this.columnVisibility,
+            order: this.columnOrder,
           }),
         );
       } catch (e) {
@@ -286,10 +298,102 @@ export function createLibraryBrowser(Alpine) {
       this.saveColumnSettings();
       this.wasResizing = true;
       this.resizingColumn = null;
-      // Clear wasResizing after click event would have fired
       setTimeout(() => {
         this.wasResizing = false;
       }, 100);
+    },
+
+    startColumnDrag(col, event) {
+      if (this.resizingColumn) return;
+      
+      event.preventDefault();
+      this.draggingColumnKey = col.key;
+      this.dragOverColumnKey = null;
+      this.columnDragX = event.clientX;
+
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+
+      const onMove = (e) => {
+        this.columnDragX = e.clientX;
+        this.updateColumnDropTarget(e.clientX);
+      };
+
+      const onEnd = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onEnd);
+        this.finishColumnDrag();
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onEnd);
+    },
+
+    updateColumnDropTarget(x) {
+      const header = document.querySelector('[data-testid="library-header"]');
+      if (!header) return;
+
+      const cells = header.querySelectorAll(':scope > div');
+      let targetKey = null;
+
+      for (const cell of cells) {
+        const rect = cell.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+        
+        if (x < midX) {
+          const colIndex = Array.from(cells).indexOf(cell);
+          if (colIndex >= 0 && colIndex < this.columns.length) {
+            targetKey = this.columns[colIndex].key;
+          }
+          break;
+        }
+      }
+
+      if (targetKey === null && this.columns.length > 0) {
+        targetKey = this.columns[this.columns.length - 1].key;
+      }
+
+      if (targetKey !== this.draggingColumnKey) {
+        this.dragOverColumnKey = targetKey;
+      }
+    },
+
+    finishColumnDrag() {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+
+      if (this.draggingColumnKey && this.dragOverColumnKey && 
+          this.draggingColumnKey !== this.dragOverColumnKey) {
+        this.reorderColumn(this.draggingColumnKey, this.dragOverColumnKey);
+      }
+
+      this.draggingColumnKey = null;
+      this.dragOverColumnKey = null;
+    },
+
+    reorderColumn(fromKey, toKey) {
+      const fromIdx = this.columnOrder.indexOf(fromKey);
+      const toIdx = this.columnOrder.indexOf(toKey);
+      
+      if (fromIdx === -1 || toIdx === -1) return;
+
+      const newOrder = [...this.columnOrder];
+      newOrder.splice(fromIdx, 1);
+      newOrder.splice(toIdx, 0, fromKey);
+      
+      this.columnOrder = newOrder;
+      this.saveColumnSettings();
+    },
+
+    isColumnDragging(key) {
+      return this.draggingColumnKey === key;
+    },
+
+    getColumnDragClass(key) {
+      if (!this.draggingColumnKey) return '';
+      if (key === this.draggingColumnKey) return 'opacity-50';
+      if (key === this.dragOverColumnKey) return 'border-l-2 border-l-primary';
+      return '';
     },
 
     autoFitColumn(col, event) {
@@ -351,6 +455,7 @@ export function createLibraryBrowser(Alpine) {
 
     resetColumnWidths() {
       this.columnWidths = { ...DEFAULT_COLUMN_WIDTHS };
+      this.columnOrder = ['index', 'title', 'artist', 'album', 'lastPlayed', 'dateAdded', 'playCount', 'duration'];
       this.saveColumnSettings();
       this.headerContextMenu = null;
     },
