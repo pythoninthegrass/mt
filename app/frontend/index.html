@@ -73,6 +73,21 @@
       background: hsl(var(--border));
       margin: 0.25rem 0;
     }
+    
+    /* Column resize styles */
+    .sort-header {
+      cursor: pointer;
+    }
+    .sort-header:hover {
+      background: hsl(var(--muted) / 0.5);
+    }
+    .column-header-active {
+      background: hsl(var(--muted) / 0.3);
+    }
+    .sort-indicator {
+      font-size: 0.65rem;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body class="bg-background text-foreground h-screen overflow-hidden">
@@ -253,23 +268,70 @@
         <!-- Track table -->
         <div class="flex-1 flex flex-col min-h-0">
           <!-- Table header -->
-          <div class="flex items-center border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0">
+          <div 
+            data-testid="library-header"
+            class="flex items-center border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0"
+            @contextmenu.prevent="handleHeaderContextMenu($event)"
+          >
             <template x-for="col in columns" :key="col.key">
               <div 
+                :style="getColumnStyle(col)"
                 :class="[
-                  col.width, 
                   col.sortable ? 'sort-header' : '',
-                  library.sortBy === col.key ? 'column-header-active text-foreground' : ''
+                  library.sortBy === col.key ? 'column-header-active text-foreground' : '',
+                  col.key === 'index' || col.key === 'duration' || col.key === 'playCount' ? 'text-right' : ''
                 ]"
-                class="px-3 py-2 select-none flex items-center"
+                class="px-3 py-2 select-none flex items-center relative group"
                 @click="col.sortable && handleSort(col.key)"
+                @dblclick="autoFitColumn(col, $event)"
               >
-                <span x-text="col.label"></span>
+                <span x-text="col.label" class="truncate"></span>
                 <span 
                   x-show="col.sortable && library.sortBy === col.key" 
                   x-text="getSortIndicator(col.key)" 
-                  class="sort-indicator"
+                  class="sort-indicator ml-1"
                 ></span>
+                <!-- Resize handle -->
+                <div 
+                  x-show="col.key !== 'title'"
+                  class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+                  @mousedown="startColumnResize(col, $event)"
+                  @dblclick.stop="autoFitColumn(col, $event)"
+                ></div>
+              </div>
+            </template>
+          </div>
+          
+          <!-- Header context menu for column visibility -->
+          <div 
+            x-show="headerContextMenu" 
+            x-cloak
+            class="header-context-menu context-menu"
+            :style="headerContextMenu ? `left: ${headerContextMenu.x}px; top: ${headerContextMenu.y}px` : ''"
+            @click.outside="headerContextMenu = null"
+          >
+            <template x-if="headerContextMenu">
+              <div>
+                <div class="px-2 py-1 text-xs text-muted-foreground font-medium">Show Columns</div>
+                <template x-for="item in headerContextMenu.items" :key="item.key">
+                  <div 
+                    class="context-menu-item"
+                    :class="{ 'opacity-50 cursor-not-allowed': !item.canToggle && item.visible }"
+                    @click="item.canToggle && toggleColumnVisibility(item.key)"
+                  >
+                    <span class="w-4 text-center" x-text="item.visible ? '✓' : ''"></span>
+                    <span x-text="item.label"></span>
+                  </div>
+                </template>
+                <div class="context-menu-separator"></div>
+                <div class="context-menu-item" @click="resetColumnWidths()">
+                  <span class="w-4"></span>
+                  <span>Reset Column Widths</span>
+                </div>
+                <div class="context-menu-item" @click="showAllColumns()">
+                  <span class="w-4"></span>
+                  <span>Show All Columns</span>
+                </div>
               </div>
             </template>
           </div>
@@ -335,27 +397,81 @@
                 @dblclick="handleDoubleClick(track)"
                 @contextmenu="handleContextMenu($event, track, index)"
               >
-                <!-- # -->
-                <div class="w-12 px-3 py-1.5 text-right tabular-nums" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="index + 1"></div>
-                <!-- Title -->
-                <div class="flex-1 min-w-[200px] px-3 py-1.5">
+                <!-- Index column -->
+                <div 
+                  x-show="isColumnVisible('index')"
+                  :style="getColumnStyle({key: 'index'})"
+                  class="px-3 py-1.5 text-right tabular-nums shrink-0" 
+                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
+                  data-column="index"
+                  x-text="index + 1"
+                ></div>
+                <!-- Title column -->
+                <div 
+                  x-show="isColumnVisible('title')"
+                  :style="getColumnStyle({key: 'title'})"
+                  class="px-3 py-1.5 min-w-[200px]"
+                  data-column="title"
+                >
                   <span class="flex items-center gap-2 truncate">
                     <span x-show="isPlaying(track.id)" class="text-primary shrink-0">▶</span>
                     <span class="truncate" x-text="track.title || track.filename || 'Unknown'"></span>
                   </span>
                 </div>
-                <!-- Artist -->
-                <div class="w-40 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="track.artist || 'Unknown Artist'"></div>
-                <!-- Album -->
-                <div class="w-40 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="track.album || ''"></div>
-                <!-- Last Played (for Recently Played) -->
-                <div x-show="library.currentSection === 'recent'" class="w-32 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="formatRelativeTime(track.last_played)"></div>
-                <!-- Added Date (for Recently Added) -->
-                <div x-show="library.currentSection === 'added'" class="w-32 px-3 py-1.5 truncate" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="formatRelativeTime(track.added_date)"></div>
-                <!-- Play Count (for Top 25) -->
-                <div x-show="library.currentSection === 'top25'" class="w-16 px-3 py-1.5 text-right tabular-nums" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="track.play_count || 0"></div>
-                <!-- Duration -->
-                <div class="w-20 px-3 py-1.5 text-right tabular-nums" :class="isSelected(track.id) ? '' : 'text-muted-foreground'" x-text="formatDuration(track.duration)"></div>
+                <!-- Artist column -->
+                <div 
+                  x-show="isColumnVisible('artist')"
+                  :style="getColumnStyle({key: 'artist'})"
+                  class="px-3 py-1.5 truncate shrink-0" 
+                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
+                  data-column="artist"
+                  x-text="track.artist || 'Unknown Artist'"
+                ></div>
+                <!-- Album column -->
+                <div 
+                  x-show="isColumnVisible('album')"
+                  :style="getColumnStyle({key: 'album'})"
+                  class="px-3 py-1.5 truncate shrink-0" 
+                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
+                  data-column="album"
+                  x-text="track.album || ''"
+                ></div>
+                <!-- Last Played column (for Recently Played) -->
+                <div 
+                  x-show="library.currentSection === 'recent' && isColumnVisible('lastPlayed')"
+                  :style="getColumnStyle({key: 'lastPlayed'})"
+                  class="px-3 py-1.5 truncate shrink-0" 
+                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
+                  data-column="lastPlayed"
+                  x-text="formatRelativeTime(track.last_played)"
+                ></div>
+                <!-- Added Date column (for Recently Added) -->
+                <div 
+                  x-show="library.currentSection === 'added' && isColumnVisible('dateAdded')"
+                  :style="getColumnStyle({key: 'dateAdded'})"
+                  class="px-3 py-1.5 truncate shrink-0" 
+                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
+                  data-column="dateAdded"
+                  x-text="formatRelativeTime(track.added_date)"
+                ></div>
+                <!-- Play Count column (for Top 25) -->
+                <div 
+                  x-show="library.currentSection === 'top25' && isColumnVisible('playCount')"
+                  :style="getColumnStyle({key: 'playCount'})"
+                  class="px-3 py-1.5 text-right tabular-nums shrink-0" 
+                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
+                  data-column="playCount"
+                  x-text="track.play_count || 0"
+                ></div>
+                <!-- Duration column -->
+                <div 
+                  x-show="isColumnVisible('duration')"
+                  :style="getColumnStyle({key: 'duration'})"
+                  class="px-3 py-1.5 text-right tabular-nums shrink-0" 
+                  :class="isSelected(track.id) ? '' : 'text-muted-foreground'" 
+                  data-column="duration"
+                  x-text="formatDuration(track.duration)"
+                ></div>
               </div>
             </template>
           </div>
