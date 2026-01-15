@@ -9,12 +9,13 @@ const DEFAULT_COLUMN_WIDTHS = {
   lastPlayed: 120,
   dateAdded: 120,
   playCount: 60,
-  duration: 64,
+  duration: 56,
 };
 
-// Minimum column widths to prevent unusable columns
-const MIN_COLUMN_WIDTH = 40;
+// Only Title and Time enforce minimum widths
+const MIN_OTHER_COLUMN_WIDTH = 1;
 const MIN_TITLE_WIDTH = 120;
+const MIN_DURATION_WIDTH = 60;
 
 // Storage key for column settings
 const COLUMN_SETTINGS_KEY = 'mt:column-settings';
@@ -43,6 +44,7 @@ export function createLibraryBrowser(Alpine) {
     dragOverColumnIdx: null,
     columnDragX: 0,
     columnDragStartX: 0,
+    wasColumnDragging: false,
 
     // Column customization state
     columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
@@ -123,23 +125,37 @@ export function createLibraryBrowser(Alpine) {
 
     getColumnStyle(col) {
       const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
-      const minWidth = col.key === 'title' ? MIN_TITLE_WIDTH : (col.minWidth || MIN_COLUMN_WIDTH);
+      const minWidth = this.getMinWidth(col.key);
       return `width: ${Math.max(width, minWidth)}px; min-width: ${minWidth}px;`;
     },
 
+    getMinWidth(colKey) {
+      if (colKey === 'title') return MIN_TITLE_WIDTH;
+      if (colKey === 'duration') return MIN_DURATION_WIDTH;
+      return MIN_OTHER_COLUMN_WIDTH;
+    },
+
     getGridTemplateColumns() {
-      return this.columns.map(col => {
+      return this.columns.map((col, index) => {
         const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
-        const minWidth = col.key === 'title' ? MIN_TITLE_WIDTH : (col.minWidth || MIN_COLUMN_WIDTH);
+        const minWidth = this.getMinWidth(col.key);
         const actualWidth = Math.max(width, minWidth);
-        if (col.key === 'title') {
+        // Last column uses minmax to fill remaining space but respect its width
+        if (index === this.columns.length - 1) {
           return `minmax(${actualWidth}px, 1fr)`;
         }
         return `${actualWidth}px`;
       }).join(' ');
     },
 
-    // Check if column is visible
+    getTotalColumnsWidth() {
+      return this.columns.reduce((total, col) => {
+        const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
+        const minWidth = this.getMinWidth(col.key);
+        return total + Math.max(width, minWidth);
+      }, 0);
+    },
+
     isColumnVisible(key) {
       return this.columnVisibility[key] !== false;
     },
@@ -322,11 +338,17 @@ export function createLibraryBrowser(Alpine) {
       
       this.draggingColumnKey = col.key;
       this.dragOverColumnIdx = null;
+      
+      let hasMoved = false;
+      const startX = event.clientX;
 
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
 
       const onMove = (e) => {
+        if (Math.abs(e.clientX - startX) > 5) {
+          hasMoved = true;
+        }
         this.columnDragX = e.clientX;
         this.updateColumnDropTarget(e.clientX);
       };
@@ -334,7 +356,7 @@ export function createLibraryBrowser(Alpine) {
       const onEnd = () => {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onEnd);
-        this.finishColumnDrag();
+        this.finishColumnDrag(hasMoved);
       };
 
       document.addEventListener('mousemove', onMove);
@@ -347,32 +369,40 @@ export function createLibraryBrowser(Alpine) {
 
       const cells = header.querySelectorAll(':scope > div');
       const dragIdx = this.columns.findIndex(c => c.key === this.draggingColumnKey);
-      let newOverIdx = null;
+      let newOverIdx = dragIdx;
 
-      for (let i = 0; i < cells.length; i++) {
-        if (i === dragIdx) continue;
-        
+      const edgeThreshold = 0.05;
+
+      // Check columns to the right - only swap with immediate neighbor
+      for (let i = dragIdx + 1; i < cells.length; i++) {
         const rect = cells[i].getBoundingClientRect();
-        const midX = rect.left + rect.width / 2;
-        
-        if (x < midX) {
-          newOverIdx = i;
-          break;
+        const triggerX = rect.left + rect.width * edgeThreshold;
+        if (x > triggerX) {
+          newOverIdx = i;  // Swap with this column (not i+1)
+          break;  // Only swap with immediate next column
+        } else {
+          break;  // Cursor hasn't reached this column, stop
         }
       }
 
-      if (newOverIdx === null) {
-        newOverIdx = this.columns.length;
-      }
-
-      if (newOverIdx > dragIdx) {
-        newOverIdx = Math.min(newOverIdx, this.columns.length);
+      // Check columns to the left - only if we haven't moved right
+      if (newOverIdx === dragIdx) {
+        for (let i = dragIdx - 1; i >= 0; i--) {
+          const rect = cells[i].getBoundingClientRect();
+          const triggerX = rect.right - rect.width * edgeThreshold;
+          if (x < triggerX) {
+            newOverIdx = i;  // Swap with this column
+            break;  // Only swap with immediate next column
+          } else {
+            break;  // Cursor hasn't reached this column, stop
+          }
+        }
       }
 
       this.dragOverColumnIdx = newOverIdx;
     },
 
-    finishColumnDrag() {
+    finishColumnDrag(hasMoved = false) {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
 
@@ -383,6 +413,13 @@ export function createLibraryBrowser(Alpine) {
         }
       }
 
+      if (hasMoved) {
+        this.wasColumnDragging = true;
+        setTimeout(() => {
+          this.wasColumnDragging = false;
+        }, 100);
+      }
+      
       this.draggingColumnKey = null;
       this.dragOverColumnIdx = null;
       this.columnDragStartX = 0;
@@ -454,16 +491,13 @@ export function createLibraryBrowser(Alpine) {
       event.stopPropagation();
 
       const rows = document.querySelectorAll(`[data-column="${col.key}"]`);
-      const minWidth = col.key === 'title' ? MIN_TITLE_WIDTH : (col.minWidth || MIN_COLUMN_WIDTH);
+      const minWidth = this.getMinWidth(col.key);
       let maxWidth = minWidth;
 
       rows.forEach((row) => {
         const textWidth = this.measureTextWidth(row.textContent || '', row);
         maxWidth = Math.max(maxWidth, textWidth + 24);
       });
-
-      const maxAllowed = col.key === 'title' ? 600 : 400;
-      maxWidth = Math.min(maxWidth, maxAllowed);
 
       this.columnWidths[col.key] = maxWidth;
       this.saveColumnSettings();

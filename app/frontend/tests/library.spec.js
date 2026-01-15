@@ -437,7 +437,7 @@ test.describe('Column Customization', () => {
   });
 
   test('should show resize cursor on column header edge', async ({ page }) => {
-    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
+    const resizeHandle = page.locator('[data-testid="col-resizer-right-artist"]');
     
     await expect(resizeHandle).toBeVisible();
     
@@ -446,7 +446,7 @@ test.describe('Column Customization', () => {
   });
 
   test('should resize column by dragging', async ({ page }) => {
-    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
+    const resizeHandle = page.locator('[data-testid="col-resizer-right-artist"]');
     
     await expect(resizeHandle).toBeVisible();
     const handleBox = await resizeHandle.boundingBox();
@@ -467,7 +467,7 @@ test.describe('Column Customization', () => {
   });
 
   test('should auto-fit column width on double-click', async ({ page }) => {
-    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
+    const resizeHandle = page.locator('[data-testid="col-resizer-right-artist"]');
     
     await expect(resizeHandle).toBeVisible();
     await resizeHandle.dblclick();
@@ -482,7 +482,7 @@ test.describe('Column Customization', () => {
   });
 
   test('should not trigger sort when resizing column', async ({ page }) => {
-    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
+    const resizeHandle = page.locator('[data-testid="col-resizer-right-artist"]');
     
     await expect(resizeHandle).toBeVisible();
     const handleBox = await resizeHandle.boundingBox();
@@ -516,6 +516,33 @@ test.describe('Column Customization', () => {
     });
     
     expect(finalSortBy).toBe(initialSortBy);
+  });
+
+  test('should resize previous column when dragging left border (Excel behavior)', async ({ page }) => {
+    const leftResizer = page.locator('[data-testid="col-resizer-left-artist"]');
+    
+    await expect(leftResizer).toBeVisible();
+    
+    const initialTitleWidth = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).columnWidths.title;
+    });
+    
+    const handleBox = await leftResizer.boundingBox();
+    
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handleBox.x - 50, handleBox.y + handleBox.height / 2);
+    await page.mouse.up();
+    
+    await page.waitForTimeout(100);
+    
+    const componentData = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el);
+    });
+    
+    expect(componentData.columnWidths.title).toBeLessThan(initialTitleWidth);
   });
 
   test('should show header context menu on right-click', async ({ page }) => {
@@ -618,14 +645,14 @@ test.describe('Column Customization', () => {
   });
 
   test('should enforce minimum column width', async ({ page }) => {
-    const resizeHandle = page.locator('[data-testid="col-resizer-artist"]');
+    const titleResizer = page.locator('[data-testid="col-resizer-right-title"]');
     
-    await expect(resizeHandle).toBeVisible();
-    const handleBox = await resizeHandle.boundingBox();
+    await expect(titleResizer).toBeVisible();
+    const handleBox = await titleResizer.boundingBox();
     
     await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
     await page.mouse.down();
-    await page.mouse.move(handleBox.x - 200, handleBox.y + handleBox.height / 2);
+    await page.mouse.move(handleBox.x - 300, handleBox.y + handleBox.height / 2);
     await page.mouse.up();
     
     await page.waitForTimeout(100);
@@ -635,7 +662,7 @@ test.describe('Column Customization', () => {
       return window.Alpine.$data(el);
     });
     
-    expect(componentData.columnWidths.artist).toBeGreaterThanOrEqual(40);
+    expect(componentData.columnWidths.title).toBeGreaterThanOrEqual(120);
   });
 
   test('should reset column widths from context menu', async ({ page }) => {
@@ -733,6 +760,75 @@ test.describe('Column Customization', () => {
     const newArtistIdx = newOrder.indexOf('artist');
     const newAlbumIdx = newOrder.indexOf('album');
     expect(newArtistIdx).toBeGreaterThan(newAlbumIdx);
+  });
+
+  test('should not overshoot when dragging column back to original position', async ({ page }) => {
+    const headerRow = page.locator('[data-testid="library-header"]');
+    await expect(headerRow).toBeVisible();
+
+    // Get initial order: [#, Title, Artist, Album, Time]
+    const initialOrder = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).columns.map(c => c.key);
+    });
+
+    const initialArtistIdx = initialOrder.indexOf('artist');
+    const initialAlbumIdx = initialOrder.indexOf('album');
+    expect(initialArtistIdx).toBeLessThan(initialAlbumIdx);
+
+    // Step 1: Drag Album left to swap with Artist
+    const albumHeader1 = headerRow.locator('div').filter({ hasText: 'Album' }).first();
+    const artistHeader1 = headerRow.locator('div').filter({ hasText: 'Artist' }).first();
+
+    const albumBox1 = await albumHeader1.boundingBox();
+    const artistBox1 = await artistHeader1.boundingBox();
+
+    await page.mouse.move(albumBox1.x + albumBox1.width / 2, albumBox1.y + albumBox1.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(artistBox1.x + 10, artistBox1.y + artistBox1.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+
+    // Verify Album is now before Artist: [#, Title, Album, Artist, Time]
+    const orderAfterStep1 = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).columns.map(c => c.key);
+    });
+    const albumIdxStep1 = orderAfterStep1.indexOf('album');
+    const artistIdxStep1 = orderAfterStep1.indexOf('artist');
+    expect(albumIdxStep1).toBeLessThan(artistIdxStep1);
+
+    // Step 2: Drag Album back right to swap with Artist (return to original position)
+    // This tests the bug fix - Album should not overshoot and jump over Time
+    const albumHeader2 = headerRow.locator('div').filter({ hasText: 'Album' }).first();
+    const artistHeader2 = headerRow.locator('div').filter({ hasText: 'Artist' }).first();
+
+    const albumBox2 = await albumHeader2.boundingBox();
+    const artistBox2 = await artistHeader2.boundingBox();
+
+    await page.mouse.move(albumBox2.x + albumBox2.width / 2, albumBox2.y + albumBox2.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(artistBox2.x + artistBox2.width - 10, artistBox2.y + artistBox2.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+
+    // Verify we're back to original order: [#, Title, Artist, Album, Time]
+    // Album should be right after Artist, NOT after Time (which would be overshooting)
+    const finalOrder = await page.evaluate(() => {
+      const el = document.querySelector('[x-data="libraryBrowser"]');
+      return window.Alpine.$data(el).columns.map(c => c.key);
+    });
+
+    const finalArtistIdx = finalOrder.indexOf('artist');
+    const finalAlbumIdx = finalOrder.indexOf('album');
+    const finalDurationIdx = finalOrder.indexOf('duration');
+
+    // Artist should be before Album
+    expect(finalArtistIdx).toBeLessThan(finalAlbumIdx);
+    // Album should be before Time/Duration (not after it - that would be overshooting)
+    expect(finalAlbumIdx).toBeLessThan(finalDurationIdx);
+    // Verify exact positions: Artist at original-1, Album at original (since we moved left then right)
+    expect(finalAlbumIdx - finalArtistIdx).toBe(1);
   });
 
   test('should persist column order to localStorage', async ({ page }) => {
