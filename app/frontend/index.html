@@ -284,15 +284,17 @@
           class="h-full flex flex-col min-h-0"
         >
         <!-- Track table -->
-        <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <!-- Table header (CSS Grid) -->
-          <div 
-            data-testid="library-header"
-            class="grid border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0 relative"
-            :class="{ 'resizing-columns': resizingColumn }"
-            :style="`grid-template-columns: ${getGridTemplateColumns()}`"
-            @contextmenu.prevent="handleHeaderContextMenu($event)"
-          >
+        <div class="flex-1 flex flex-col min-h-0 overflow-x-auto">
+          <!-- Table content wrapper for synchronized horizontal scroll -->
+          <div class="flex flex-col min-h-0 min-w-max">
+            <!-- Table header (CSS Grid) -->
+            <div 
+              data-testid="library-header"
+              class="grid border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0 relative"
+              :class="{ 'resizing-columns': resizingColumn }"
+              :style="`grid-template-columns: ${getGridTemplateColumns()}`"
+              @contextmenu.prevent="handleHeaderContextMenu($event)"
+            >
               <template x-for="(col, colIndex) in columns" :key="col.key">
                 <div 
                   :class="[
@@ -458,6 +460,7 @@
                 </template>
               </div>
             </template>
+          </div>
           </div>
         </div>
         
