@@ -299,7 +299,7 @@
                     col.sortable ? 'cursor-default' : '',
                     library.sortBy === col.key ? 'column-header-active text-foreground' : '',
                     colIndex < columns.length - 1 ? 'border-r border-border' : '',
-                    col.key === 'index' ? 'px-2' : 'px-3'
+                    col.key === 'index' ? 'px-2' : 'px-4'
                   ]"
                   class="py-2 select-none flex items-center relative overflow-hidden"
                   @click="handleSort(col.key)"
@@ -422,7 +422,7 @@
                   <div 
                     :class="[
                       'py-1.5 overflow-hidden text-ellipsis whitespace-nowrap',
-                      col.key === 'index' ? 'px-2' : 'px-3',
+                      col.key === 'index' ? 'px-2' : 'px-4',
                       col.key !== 'title' && !isSelected(track.id) ? 'text-muted-foreground' : ''
                     ]"
                     :data-column="col.key"
