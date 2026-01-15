@@ -431,8 +431,8 @@
                       <span x-text="index + 1"></span>
                     </template>
                     <template x-if="col.key === 'title'">
-                      <span class="flex items-center gap-2">
-                        <span x-show="isPlaying(track.id)" class="text-primary shrink-0">▶</span>
+                      <span class="flex items-center">
+                        <span x-show="isPlaying(track.id)" class="text-primary shrink-0 mr-2">▶</span>
                         <span class="truncate" x-text="track.title || track.filename || 'Unknown'"></span>
                       </span>
                     </template>
