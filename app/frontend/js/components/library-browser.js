@@ -122,7 +122,11 @@ export function createLibraryBrowser(Alpine) {
       return this.columns.map(col => {
         const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
         const minWidth = col.key === 'title' ? MIN_TITLE_WIDTH : (col.minWidth || MIN_COLUMN_WIDTH);
-        return `${Math.max(width, minWidth)}px`;
+        const actualWidth = Math.max(width, minWidth);
+        if (col.key === 'title') {
+          return `minmax(${actualWidth}px, 1fr)`;
+        }
+        return `${actualWidth}px`;
       }).join(' ');
     },
 
