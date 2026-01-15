@@ -9,28 +9,26 @@
   <style>
     [x-cloak] { display: none !important; }
     
-    /* Custom scrollbar for track list - always visible when content overflows */
-    .track-list {
-      overflow-y: scroll !important;
+    /* Custom scrollbar for vertical scroll container */
+    .library-scroll-container {
       scrollbar-width: thin;
       scrollbar-color: hsl(var(--muted-foreground) / 0.5) hsl(var(--muted) / 0.3);
     }
-    /* Force scrollbar to always show on WebKit browsers */
-    .track-list::-webkit-scrollbar {
+    .library-scroll-container::-webkit-scrollbar {
       -webkit-appearance: none;
       width: 10px;
     }
-    .track-list::-webkit-scrollbar-track {
+    .library-scroll-container::-webkit-scrollbar-track {
       background: hsl(var(--muted) / 0.3);
       border-radius: 5px;
     }
-    .track-list::-webkit-scrollbar-thumb {
+    .library-scroll-container::-webkit-scrollbar-thumb {
       background: hsl(var(--muted-foreground) / 0.5);
       border-radius: 5px;
       border: 2px solid transparent;
       background-clip: content-box;
     }
-    .track-list::-webkit-scrollbar-thumb:hover {
+    .library-scroll-container::-webkit-scrollbar-thumb:hover {
       background: hsl(var(--muted-foreground));
       background-clip: content-box;
     }
@@ -83,27 +81,40 @@
       opacity: 0.7;
     }
     
-    /* Column resizer - positioned at right edge of each column */
-    .column-resizer {
+    /* Column resizers - right edge resizes current column, left edge resizes previous column */
+    .column-resizer-right,
+    .column-resizer-left {
       position: absolute;
-      right: 0;
       top: 0;
       bottom: 0;
-      width: 8px;
-      transform: translateX(50%);
+      width: 6px;
       cursor: col-resize;
-      z-index: 10;
       background: transparent;
     }
-    .column-resizer:hover {
+    .column-resizer-right {
+      right: -3px;
+      z-index: 11;
+    }
+    .column-resizer-left {
+      left: -3px;
+      z-index: 10;
+    }
+    .column-resizer-right:hover,
+    .column-resizer-left:hover {
       background: hsl(var(--primary) / 0.3);
+    }
+    
+    /* Clip resizer overflow to prevent horizontal scrollbar */
+    .library-header-container {
+      overflow-x: clip;
     }
     
     /* Disable header clicks during column resize */
     .resizing-columns > div {
       pointer-events: none;
     }
-    .resizing-columns .column-resizer {
+    .resizing-columns .column-resizer-right,
+    .resizing-columns .column-resizer-left {
       pointer-events: auto;
     }
     
@@ -310,53 +321,61 @@
           @keydown.window="$store.ui.view === 'library' && handleKeydown($event)"
           class="h-full flex flex-col min-h-0"
         >
-        <!-- Track table -->
-        <div class="flex-1 flex flex-col min-h-0 overflow-x-auto">
-          <!-- Table content wrapper for synchronized horizontal scroll -->
-          <div class="flex flex-col min-h-0 min-w-max">
-            <!-- Table header (CSS Grid) -->
-            <div 
-              data-testid="library-header"
-              class="grid border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0 relative"
-              :class="{ 'resizing-columns': resizingColumn }"
-              :style="`grid-template-columns: ${getGridTemplateColumns()}`"
-              @contextmenu.prevent="handleHeaderContextMenu($event)"
-            >
-              <template x-for="(col, colIndex) in columns" :key="col.key">
-                <div 
-                  :class="[
-                    'column-header-cell',
-                    col.sortable ? 'cursor-grab' : '',
-                    library.sortBy === col.key ? 'column-header-active text-foreground' : '',
-                    colIndex < columns.length - 1 ? 'border-r border-border' : '',
-                    col.key === 'index' ? 'px-2' : 'px-4',
-                    isColumnDragging(col.key) ? 'dragging-column' : '',
-                    isOtherColumnDragging(col.key) ? 'other-dragging' : '',
-                    getColumnShiftDirection(colIndex) === 'left' ? 'shift-left' : '',
-                    getColumnShiftDirection(colIndex) === 'right' ? 'shift-right' : ''
-                  ]"
-                  class="py-2 select-none flex items-center relative overflow-visible"
-                  :style="isColumnDragging(col.key) ? 'transform:' + getColumnDragTransform(col.key) + '; z-index: 50;' : ''"
-                  @mousedown="if (!$event.target.closest('.column-resizer')) startColumnDrag(col, $event)"
-                  @click="if (!draggingColumnKey && !wasResizing) handleSort(col.key)"
+        <!-- Track table - single scroll container for both vertical and horizontal -->
+        <div class="flex-1 min-h-0 w-full overflow-auto">
+                <!-- Table header (CSS Grid) - sticky at top of scroll container -->
+                <div
+                  data-testid="library-header"
+                  class="grid border-b border-border text-sm font-medium text-muted-foreground relative min-w-full sticky top-0 z-10 bg-background"
+                  :class="{ 'resizing-columns': resizingColumn }"
+                  :style="`grid-template-columns: ${getGridTemplateColumns()}`"
+                  @contextmenu.prevent="handleHeaderContextMenu($event)"
                 >
-                  <span x-text="col.label" class="truncate"></span>
-                  <span 
-                    x-show="col.sortable && library.sortBy === col.key" 
-                    x-text="getSortIndicator(col.key)" 
-                    class="sort-indicator ml-1 shrink-0"
-                  ></span>
-                  <div 
-                    class="column-resizer"
-                    :data-testid="`col-resizer-${col.key}`"
-                    @mousedown.stop.prevent="startColumnResize(col, $event)"
-                    @dblclick.stop.prevent="autoFitColumn(col, $event)"
-                    @click.stop.prevent
-                  ></div>
-                </div>
-              </template>
-            </div>
-          
+                <template x-for="(col, colIndex) in columns" :key="col.key">
+                  <div
+                    :class="[
+                      'column-header-cell',
+                      col.sortable ? 'cursor-grab' : '',
+                      library.sortBy === col.key ? 'column-header-active text-foreground' : '',
+                      colIndex < columns.length - 1 ? 'border-r border-border' : '',
+                      col.key === 'index' ? 'px-2' : (col.key === 'duration' ? 'pl-[3px] pr-[10px]' : 'px-4'),
+                      isColumnDragging(col.key) ? 'dragging-column' : '',
+                      isOtherColumnDragging(col.key) ? 'other-dragging' : '',
+                      getColumnShiftDirection(colIndex) === 'left' ? 'shift-left' : '',
+                      getColumnShiftDirection(colIndex) === 'right' ? 'shift-right' : ''
+                    ]"
+                    class="py-2 select-none flex items-center relative overflow-visible"
+                    :style="isColumnDragging(col.key) ? 'transform:' + getColumnDragTransform(col.key) + '; z-index: 50;' : ''"
+                    @mousedown="if (!$event.target.closest('.column-resizer-left') && !$event.target.closest('.column-resizer-right')) startColumnDrag(col, $event)"
+                    @click="if (!draggingColumnKey && !wasResizing && !wasColumnDragging) handleSort(col.key)"
+                  >
+                    <span x-text="col.label" class="truncate"></span>
+                    <span 
+                      x-show="col.sortable && library.sortBy === col.key" 
+                      x-text="getSortIndicator(col.key)" 
+                      class="sort-indicator ml-1 shrink-0"
+                    ></span>
+                    <!-- Left resizer (resizes previous column) - not on first column -->
+                    <div 
+                      x-show="colIndex > 0"
+                      class="column-resizer-left"
+                      :data-testid="`col-resizer-left-${col.key}`"
+                      @mousedown.stop.prevent="startColumnResize(columns[colIndex - 1], $event)"
+                      @dblclick.stop.prevent="autoFitColumn(columns[colIndex - 1], $event)"
+                      @click.stop.prevent
+                    ></div>
+                    <!-- Right resizer (resizes current column) -->
+                    <div 
+                      class="column-resizer-right"
+                      :data-testid="`col-resizer-right-${col.key}`"
+                      @mousedown.stop.prevent="startColumnResize(col, $event)"
+                      @dblclick.stop.prevent="autoFitColumn(col, $event)"
+                      @click.stop.prevent
+                    ></div>
+                  </div>
+                </template>
+              </div>
+
           <!-- Header context menu for column visibility -->
           <div 
             x-show="headerContextMenu" 
@@ -391,8 +410,8 @@
             </template>
           </div>
           
-          <!-- Track list -->
-          <div class="track-list flex-1 min-h-0" style="overflow-y: scroll;">
+                <!-- Track list - no scroll, parent handles both -->
+                <div class="track-list flex-1 min-h-0 w-full">
             <!-- Loading state -->
             <div x-show="library.loading && library.tracks.length === 0" class="flex items-center justify-center py-12">
               <div class="text-center">
@@ -440,8 +459,8 @@
             
             <!-- Track rows (CSS Grid matching header) -->
             <template x-for="(track, index) in library.filteredTracks" :key="track.id">
-              <div 
-                class="grid border-b border-border/30 text-sm cursor-default transition-colors select-none"
+              <div
+                class="grid border-b border-border/30 text-sm cursor-default transition-colors select-none min-w-full"
                 :style="`grid-template-columns: ${getGridTemplateColumns()}`"
                 :class="[
                   isSelected(track.id) ? 'track-row-selected' : (index % 2 === 0 ? 'track-row-even' : 'track-row-odd'),
@@ -454,10 +473,10 @@
                 @contextmenu="handleContextMenu($event, track, index)"
               >
                 <template x-for="col in columns" :key="col.key">
-                  <div 
+                  <div
                     :class="[
                       'py-1.5 overflow-hidden text-ellipsis whitespace-nowrap',
-                      col.key === 'index' ? 'px-2' : 'px-4',
+                      col.key === 'index' ? 'px-2' : (col.key === 'duration' ? 'pl-[3px] pr-[10px]' : 'px-4'),
                       col.key !== 'title' && !isSelected(track.id) ? 'text-muted-foreground' : ''
                     ]"
                     :data-column="col.key"
@@ -493,10 +512,9 @@
                 </template>
               </div>
             </template>
-          </div>
-          </div>
-        </div>
-        
+                </div>
+              </div>
+
         <!-- Context menu -->
         <div 
           x-show="contextMenu" 
