@@ -664,7 +664,7 @@ test.describe('Column Customization', () => {
       return window.Alpine.$data(el);
     });
     
-    expect(componentData.columnWidths.artist).toBe(160);
+    expect(componentData.columnWidths.artist).toBe(180);
   });
 
   test('should show all columns from context menu', async ({ page }) => {

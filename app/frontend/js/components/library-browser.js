@@ -4,12 +4,12 @@ import { api } from '../api.js';
 const DEFAULT_COLUMN_WIDTHS = {
   index: 48,
   title: 320,
-  artist: 160,
-  album: 160,
-  lastPlayed: 128,
-  dateAdded: 128,
-  playCount: 64,
-  duration: 80,
+  artist: 180,
+  album: 180,
+  lastPlayed: 120,
+  dateAdded: 120,
+  playCount: 60,
+  duration: 64,
 };
 
 // Minimum column widths to prevent unusable columns
@@ -83,7 +83,7 @@ export function createLibraryBrowser(Alpine) {
 
       cols.push({
         key: 'duration',
-        label: 'Duration',
+        label: 'Time',
         sortable: true,
         minWidth: 60,
         canHide: true,
@@ -104,7 +104,7 @@ export function createLibraryBrowser(Alpine) {
 
       cols.push({
         key: 'duration',
-        label: 'Duration',
+        label: 'Time',
         sortable: true,
         minWidth: 60,
         canHide: true,
@@ -122,7 +122,12 @@ export function createLibraryBrowser(Alpine) {
       return this.columns.map(col => {
         const width = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
         const minWidth = col.key === 'title' ? MIN_TITLE_WIDTH : (col.minWidth || MIN_COLUMN_WIDTH);
-        return `${Math.max(width, minWidth)}px`;
+        const actualWidth = Math.max(width, minWidth);
+        // Title column uses minmax to fill available space, others are fixed
+        if (col.key === 'title') {
+          return `minmax(${actualWidth}px, 1fr)`;
+        }
+        return `${actualWidth}px`;
       }).join(' ');
     },
 

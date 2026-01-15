@@ -83,6 +83,11 @@
       opacity: 0.7;
     }
     
+    /* Apple Music style column borders - header only */
+    [data-testid="library-header"] > div:not(:last-child) {
+      border-right: 1px solid hsl(var(--border) / 0.5);
+    }
+    
     /* Column resizer - positioned at right edge of each column */
     .column-resizer {
       position: absolute;
@@ -285,16 +290,14 @@
         >
         <!-- Track table -->
         <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <!-- Table container with horizontal scroll -->
-          <div class="flex-1 flex flex-col min-h-0 overflow-x-auto">
-            <!-- Table header (CSS Grid) -->
-            <div 
-              data-testid="library-header"
-              class="grid border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0 relative"
-              :class="{ 'resizing-columns': resizingColumn }"
-              :style="`grid-template-columns: ${getGridTemplateColumns()}`"
-              @contextmenu.prevent="handleHeaderContextMenu($event)"
-            >
+          <!-- Table header (CSS Grid) -->
+          <div 
+            data-testid="library-header"
+            class="grid border-b border-border bg-muted/30 text-sm font-medium text-muted-foreground shrink-0 relative"
+            :class="{ 'resizing-columns': resizingColumn }"
+            :style="`grid-template-columns: ${getGridTemplateColumns()}`"
+            @contextmenu.prevent="handleHeaderContextMenu($event)"
+          >
               <template x-for="(col, colIndex) in columns" :key="col.key">
                 <div 
                   :class="[
@@ -459,7 +462,6 @@
                 </template>
               </div>
             </template>
-          </div>
           </div>
         </div>
         
