@@ -298,9 +298,10 @@
                   :class="[
                     col.sortable ? 'cursor-default' : '',
                     library.sortBy === col.key ? 'column-header-active text-foreground' : '',
-                    colIndex < columns.length - 1 ? 'border-r border-border' : ''
+                    colIndex < columns.length - 1 ? 'border-r border-border' : '',
+                    col.key === 'index' ? 'px-2' : 'px-3'
                   ]"
-                  class="px-3 py-2 select-none flex items-center relative overflow-hidden"
+                  class="py-2 select-none flex items-center relative overflow-hidden"
                   @click="handleSort(col.key)"
                 >
                   <span x-text="col.label" class="truncate"></span>
@@ -420,7 +421,8 @@
                 <template x-for="col in columns" :key="col.key">
                   <div 
                     :class="[
-                      'px-3 py-1.5 overflow-hidden text-ellipsis whitespace-nowrap',
+                      'py-1.5 overflow-hidden text-ellipsis whitespace-nowrap',
+                      col.key === 'index' ? 'px-2' : 'px-3',
                       col.key !== 'title' && !isSelected(track.id) ? 'text-muted-foreground' : ''
                     ]"
                     :data-column="col.key"
