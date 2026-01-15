@@ -83,11 +83,6 @@
       opacity: 0.7;
     }
     
-    /* Apple Music style column borders - header only */
-    [data-testid="library-header"] > div:not(:last-child) {
-      border-right: 1px solid hsl(var(--border));
-    }
-    
     /* Column resizer - positioned at right edge of each column */
     .column-resizer {
       position: absolute;
@@ -303,7 +298,8 @@
                   :class="[
                     col.sortable ? 'cursor-default' : '',
                     library.sortBy === col.key ? 'column-header-active text-foreground' : '',
-                    col.key === 'index' || col.key === 'duration' || col.key === 'playCount' ? 'text-right' : ''
+                    col.key === 'index' || col.key === 'duration' || col.key === 'playCount' ? 'text-right' : '',
+                    colIndex < columns.length - 1 ? 'border-r border-border' : ''
                   ]"
                   class="px-3 py-2 select-none flex items-center relative overflow-hidden"
                   @click="handleSort(col.key)"
