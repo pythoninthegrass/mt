@@ -359,6 +359,11 @@ export function createLibraryBrowser(Alpine) {
 
     startColumnDrag(col, event) {
       if (this.resizingColumn) return;
+      // Don't start drag if context menu is open
+      if (this.headerContextMenu) {
+        this.headerContextMenu = null;
+        return;
+      }
 
       event.preventDefault();
 
@@ -642,6 +647,11 @@ export function createLibraryBrowser(Alpine) {
     },
 
     handleSort(key) {
+      // Don't sort if context menu is open (click should just close the menu)
+      if (this.headerContextMenu) {
+        this.headerContextMenu = null;
+        return;
+      }
       const col = this.allColumns.find(c => c.key === key);
       if (!col?.sortable || this.wasResizing) {
         return;

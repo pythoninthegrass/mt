@@ -38,7 +38,7 @@
       position: fixed;
       z-index: 100;
       min-width: 180px;
-      background: hsl(var(--popover));
+      background: hsl(var(--background));
       border: 1px solid hsl(var(--border));
       border-radius: 0.5rem;
       box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
@@ -377,12 +377,12 @@
               </div>
 
           <!-- Header context menu for column visibility -->
-          <div 
-            x-show="headerContextMenu" 
+          <div
+            x-show="headerContextMenu"
             x-cloak
-            class="header-context-menu context-menu"
+            class="header-context-menu fixed z-100 min-w-45 border border-border rounded-lg shadow-lg p-1 bg-card"
             :style="headerContextMenu ? `left: ${headerContextMenu.x}px; top: ${headerContextMenu.y}px` : ''"
-            @click.outside="headerContextMenu = null"
+            @click.away="headerContextMenu = null"
           >
             <template x-if="headerContextMenu">
               <div>
