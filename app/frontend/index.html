@@ -259,6 +259,8 @@
                     class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
                     :class="isActive(playlist.id) ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
                     @click="loadPlaylist(playlist.id)"
+                    @contextmenu="showPlaylistContextMenu($event, playlist)"
+                    :data-testid="'playlist-' + playlist.playlistId"
                   >
                     <svg class="w-4 h-4 shrink-0" :class="isActive(playlist.id) ? 'text-primary' : 'text-foreground/50'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
@@ -271,6 +273,32 @@
                 <p class="text-xs text-foreground/40 px-2 py-1">No playlists yet</p>
               </li>
             </ul>
+            
+            <!-- Playlist Context Menu -->
+            <div 
+              x-show="contextMenuPlaylist"
+              x-cloak
+              @click.away="hidePlaylistContextMenu()"
+              @keydown.escape.window="hidePlaylistContextMenu()"
+              class="fixed z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[140px]"
+              :style="`left: ${contextMenuX}px; top: ${contextMenuY}px;`"
+              data-testid="playlist-context-menu"
+            >
+              <button 
+                class="w-full px-3 py-1.5 text-sm text-left hover:bg-muted transition-colors"
+                @click="renamePlaylist()"
+                data-testid="playlist-rename"
+              >
+                Rename
+              </button>
+              <button 
+                class="w-full px-3 py-1.5 text-sm text-left hover:bg-muted text-destructive transition-colors"
+                @click="deletePlaylist()"
+                data-testid="playlist-delete"
+              >
+                Delete
+              </button>
+            </div>
           </div>
           
         </nav>

@@ -1,8 +1,4 @@
-/**
- * Sidebar Navigation Component
- * 
- * Left sidebar with library sections and playlists navigation.
- */
+import { api } from '../api.js';
 
 export function createSidebar(Alpine) {
   Alpine.data('sidebar', () => ({
@@ -94,24 +90,52 @@ export function createSidebar(Alpine) {
     },
     
     async loadPlaylists() {
-      // TODO: Load playlists from backend
-      this.playlists = [
-        { id: 'playlist-1', name: 'Chill Vibes' },
-        { id: 'playlist-2', name: 'Workout Mix' },
-        { id: 'playlist-3', name: 'Focus Music' },
-      ];
+      try {
+        const playlists = await api.playlists.getAll();
+        this.playlists = playlists.map(p => ({
+          id: `playlist-${p.id}`,
+          playlistId: p.id,
+          name: p.name,
+        }));
+      } catch (error) {
+        console.error('Failed to load playlists:', error);
+        this.playlists = [];
+      }
     },
     
-    async loadPlaylist(playlistId) {
-      this.activeSection = playlistId;
+    async loadPlaylist(sectionId) {
+      this.activeSection = sectionId;
       this.save();
       this.ui.setView('library');
-      // TODO: Load playlist tracks
-      this.ui.toast('Playlists coming soon!', 'info');
+      this.library.setSection(sectionId);
+      
+      const playlistId = parseInt(sectionId.replace('playlist-', ''), 10);
+      if (isNaN(playlistId)) {
+        this.ui.toast('Invalid playlist', 'error');
+        return;
+      }
+      
+      this.library.searchQuery = '';
+      this.library.sortBy = 'title';
+      this.library.sortOrder = 'asc';
+      await this.library.loadPlaylist(playlistId);
     },
     
-    createPlaylist() {
-      this.ui.openModal('createPlaylist');
+    async createPlaylist() {
+      const name = prompt('Enter playlist name:');
+      if (!name || !name.trim()) {
+        return;
+      }
+      
+      try {
+        const playlist = await api.playlists.create(name.trim());
+        this.ui.toast(`Created playlist "${playlist.name}"`, 'success');
+        await this.loadPlaylists();
+        this.loadPlaylist(`playlist-${playlist.id}`);
+      } catch (error) {
+        console.error('Failed to create playlist:', error);
+        this.ui.toast('Failed to create playlist', 'error');
+      }
     },
     
     toggleCollapse() {
@@ -121,6 +145,64 @@ export function createSidebar(Alpine) {
     
     isActive(sectionId) {
       return this.activeSection === sectionId;
+    },
+    
+    contextMenuPlaylist: null,
+    contextMenuX: 0,
+    contextMenuY: 0,
+    
+    showPlaylistContextMenu(event, playlist) {
+      event.preventDefault();
+      this.contextMenuPlaylist = playlist;
+      this.contextMenuX = event.clientX;
+      this.contextMenuY = event.clientY;
+    },
+    
+    hidePlaylistContextMenu() {
+      this.contextMenuPlaylist = null;
+    },
+    
+    async renamePlaylist() {
+      if (!this.contextMenuPlaylist) return;
+      
+      const newName = prompt('Enter new name:', this.contextMenuPlaylist.name);
+      if (!newName || !newName.trim() || newName.trim() === this.contextMenuPlaylist.name) {
+        this.hidePlaylistContextMenu();
+        return;
+      }
+      
+      try {
+        await api.playlists.rename(this.contextMenuPlaylist.playlistId, newName.trim());
+        this.ui.toast(`Renamed to "${newName.trim()}"`, 'success');
+        await this.loadPlaylists();
+      } catch (error) {
+        console.error('Failed to rename playlist:', error);
+        this.ui.toast('Failed to rename playlist', 'error');
+      }
+      this.hidePlaylistContextMenu();
+    },
+    
+    async deletePlaylist() {
+      if (!this.contextMenuPlaylist) return;
+      
+      const confirmed = confirm(`Delete playlist "${this.contextMenuPlaylist.name}"?`);
+      if (!confirmed) {
+        this.hidePlaylistContextMenu();
+        return;
+      }
+      
+      try {
+        await api.playlists.delete(this.contextMenuPlaylist.playlistId);
+        this.ui.toast(`Deleted "${this.contextMenuPlaylist.name}"`, 'success');
+        await this.loadPlaylists();
+        if (this.activeSection === this.contextMenuPlaylist.id) {
+          this.loadSection('all');
+        }
+      } catch (error) {
+        console.error('Failed to delete playlist:', error);
+        this.ui.toast('Failed to delete playlist', 'error');
+      }
+      this.hidePlaylistContextMenu();
     },
   }));
 }

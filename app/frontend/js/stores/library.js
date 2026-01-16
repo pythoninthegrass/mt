@@ -113,6 +113,23 @@ export function createLibraryStore(Alpine) {
       }
     },
     
+    async loadPlaylist(playlistId) {
+      this.loading = true;
+      try {
+        const data = await api.playlists.get(playlistId);
+        this.tracks = data.tracks || [];
+        this.totalTracks = this.tracks.length;
+        this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+        this.applyFilters();
+        return data;
+      } catch (error) {
+        console.error('Failed to load playlist:', error);
+        return null;
+      } finally {
+        this.loading = false;
+      }
+    },
+    
     setSection(section) {
       this.currentSection = section;
     },

@@ -366,6 +366,79 @@ test.describe('Playlists Section', () => {
 
     expect(sidebarData.activeSection).toBe('playlist-1');
   });
+
+  test('should show context menu on right-click (task-147)', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'Test Playlist' },
+      ];
+    });
+
+    await page.waitForTimeout(300);
+
+    const playlistButton = page.locator('aside button:has-text("Test Playlist")');
+    await playlistButton.click({ button: 'right' });
+
+    await page.waitForTimeout(200);
+
+    const contextMenu = page.locator('[data-testid="playlist-context-menu"]');
+    await expect(contextMenu).toBeVisible();
+
+    const renameOption = page.locator('[data-testid="playlist-rename"]');
+    await expect(renameOption).toBeVisible();
+
+    const deleteOption = page.locator('[data-testid="playlist-delete"]');
+    await expect(deleteOption).toBeVisible();
+  });
+
+  test('should hide context menu when clicking away (task-147)', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'Test Playlist' },
+      ];
+    });
+
+    await page.waitForTimeout(300);
+
+    const playlistButton = page.locator('aside button:has-text("Test Playlist")');
+    await playlistButton.click({ button: 'right' });
+
+    await page.waitForTimeout(200);
+
+    const contextMenu = page.locator('[data-testid="playlist-context-menu"]');
+    await expect(contextMenu).toBeVisible();
+
+    await page.click('main');
+    await page.waitForTimeout(200);
+
+    await expect(contextMenu).not.toBeVisible();
+  });
+
+  test('should hide context menu on escape key (task-147)', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'Test Playlist' },
+      ];
+    });
+
+    await page.waitForTimeout(300);
+
+    const playlistButton = page.locator('aside button:has-text("Test Playlist")');
+    await playlistButton.click({ button: 'right' });
+
+    await page.waitForTimeout(200);
+
+    const contextMenu = page.locator('[data-testid="playlist-context-menu"]');
+    await expect(contextMenu).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+
+    await expect(contextMenu).not.toBeVisible();
+  });
 });
 
 test.describe('Sidebar Responsiveness', () => {

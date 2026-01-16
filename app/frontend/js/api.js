@@ -364,6 +364,57 @@ export const api = {
       });
     },
   },
+  
+  playlists: {
+    async getAll() {
+      return request('/playlists');
+    },
+    
+    async create(name) {
+      return request('/playlists', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      });
+    },
+    
+    async get(playlistId) {
+      return request(`/playlists/${playlistId}`);
+    },
+    
+    async rename(playlistId, name) {
+      return request(`/playlists/${playlistId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name }),
+      });
+    },
+    
+    async delete(playlistId) {
+      return request(`/playlists/${playlistId}`, {
+        method: 'DELETE',
+      });
+    },
+    
+    async addTracks(playlistId, trackIds) {
+      return request(`/playlists/${playlistId}/tracks`, {
+        method: 'POST',
+        body: JSON.stringify({ track_ids: trackIds }),
+      });
+    },
+    
+    async removeTracks(playlistId, trackIds) {
+      return request(`/playlists/${playlistId}/tracks`, {
+        method: 'DELETE',
+        body: JSON.stringify({ track_ids: trackIds }),
+      });
+    },
+    
+    async reorder(playlistId, trackIds) {
+      return request(`/playlists/${playlistId}/reorder`, {
+        method: 'POST',
+        body: JSON.stringify({ track_ids: trackIds }),
+      });
+    },
+  },
 };
 
 export default api;
