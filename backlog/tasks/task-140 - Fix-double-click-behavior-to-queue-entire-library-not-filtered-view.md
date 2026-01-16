@@ -1,9 +1,10 @@
 ---
 id: task-140
 title: Fix double-click behavior to queue entire library (not filtered view)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-16 04:03'
+updated_date: '2026-01-16 04:16'
 labels:
   - bug
   - queue
@@ -58,3 +59,9 @@ async handleDoubleClick(track) {
 - [ ] #3 Existing Playwright tests pass or are updated
 - [ ] #4 Manual verification passes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Completed: Changed handleDoubleClick() to use library.tracks instead of library.filteredTracks. Both the queue.add() and findIndex() calls now use the full library. All 96 tests pass (67 library + 29 stores).
+<!-- SECTION:NOTES:END -->
