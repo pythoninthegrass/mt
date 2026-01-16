@@ -15,7 +15,7 @@ export function createLibraryStore(Alpine) {
     
     // Search and filter state
     searchQuery: '',
-    sortBy: 'artist',    // 'artist', 'album', 'title', 'dateAdded', 'duration'
+    sortBy: 'default',   // 'default', 'artist', 'album', 'title', 'index', 'dateAdded', 'duration'
     sortOrder: 'asc',    // 'asc', 'desc'
     currentSection: 'all',
     
@@ -180,34 +180,43 @@ export function createLibraryStore(Alpine) {
         lastPlayed: 'last_played',
         playCount: 'play_count',
       };
-      const sortKey = sortKeyMap[this.sortBy] || this.sortBy;
       
-      result.sort((a, b) => {
-        let aVal = a[sortKey] || '';
-        let bVal = b[sortKey] || '';
-        
-        // Handle numeric and date fields
-        if (sortKey === 'track_number') {
-          // Parse track number (handles "5" or "5/12" format)
-          aVal = parseInt(String(aVal).split('/')[0], 10) || 999999;
-          bVal = parseInt(String(bVal).split('/')[0], 10) || 999999;
-        } else if (['duration', 'play_count'].includes(sortKey)) {
+      const parseTrackNumber = (val) => parseInt(String(val || '').split('/')[0], 10) || 999999;
+      
+      const compareValues = (aVal, bVal, key) => {
+        if (key === 'track_number') {
+          aVal = parseTrackNumber(aVal);
+          bVal = parseTrackNumber(bVal);
+        } else if (['duration', 'play_count'].includes(key)) {
           aVal = Number(aVal) || 0;
           bVal = Number(bVal) || 0;
-        } else if (['added_date', 'last_played'].includes(sortKey)) {
+        } else if (['added_date', 'last_played'].includes(key)) {
           aVal = aVal ? new Date(aVal).getTime() : 0;
           bVal = bVal ? new Date(bVal).getTime() : 0;
         } else {
-          aVal = String(aVal).toLowerCase();
-          bVal = String(bVal).toLowerCase();
+          aVal = String(aVal || '').toLowerCase();
+          bVal = String(bVal || '').toLowerCase();
         }
-        
-        let comparison = 0;
-        if (aVal < bVal) comparison = -1;
-        if (aVal > bVal) comparison = 1;
-        
-        return this.sortOrder === 'desc' ? -comparison : comparison;
-      });
+        if (aVal < bVal) return -1;
+        if (aVal > bVal) return 1;
+        return 0;
+      };
+      
+      if (this.sortBy === 'default') {
+        result.sort((a, b) => {
+          let cmp = compareValues(a.album, b.album, 'album');
+          if (cmp !== 0) return cmp;
+          cmp = compareValues(a.artist, b.artist, 'artist');
+          if (cmp !== 0) return cmp;
+          return compareValues(a.track_number, b.track_number, 'track_number');
+        });
+      } else {
+        const sortKey = sortKeyMap[this.sortBy] || this.sortBy;
+        result.sort((a, b) => {
+          const cmp = compareValues(a[sortKey], b[sortKey], sortKey);
+          return this.sortOrder === 'desc' ? -cmp : cmp;
+        });
+      }
       
       this.filteredTracks = result;
     },

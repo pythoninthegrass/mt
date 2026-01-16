@@ -64,7 +64,7 @@ export function createLibraryBrowser(Alpine) {
       playCount: true,
       duration: true,
     },
-    columnOrder: ['index', 'title', 'artist', 'album', 'lastPlayed', 'dateAdded', 'playCount', 'duration'],
+    columnOrder: ['index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'],
 
     // Base column definitions
     baseColumns: [
