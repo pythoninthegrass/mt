@@ -29,6 +29,8 @@ export function createLibraryBrowser(Alpine) {
     playlists: [],
     showPlaylistSubmenu: false,
     submenuOnLeft: false,
+    submenuY: 0,
+    submenuCloseTimeout: null,
     currentPlaylistId: null,
     draggingIndex: null,
     dragOverIndex: null,
@@ -928,6 +930,8 @@ export function createLibraryBrowser(Alpine) {
 
       const menuHeight = 320;
       const menuWidth = 200;
+      const submenuWidth = 200;
+      const submenuGap = 8;
       let x = event.clientX;
       let y = event.clientY;
 
@@ -945,7 +949,7 @@ export function createLibraryBrowser(Alpine) {
         items: menuItems,
       };
       this.showPlaylistSubmenu = false;
-      this.submenuOnLeft = false;
+      this.submenuOnLeft = (x + menuWidth + submenuWidth) > window.innerWidth;
     },
 
     /**

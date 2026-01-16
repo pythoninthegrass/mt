@@ -117,7 +117,7 @@ export function createLibraryStore(Alpine) {
       this.loading = true;
       try {
         const data = await api.playlists.get(playlistId);
-        this.tracks = data.tracks || [];
+        this.tracks = (data.tracks || []).map(item => item.track || item);
         this.totalTracks = this.tracks.length;
         this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
         this.applyFilters();
@@ -132,6 +132,7 @@ export function createLibraryStore(Alpine) {
     
     setSection(section) {
       this.currentSection = section;
+      window.dispatchEvent(new CustomEvent('mt:section-change', { detail: { section } }));
     },
     
     refreshIfLikedSongs() {

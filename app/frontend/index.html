@@ -38,7 +38,6 @@
       position: fixed;
       z-index: 100;
       min-width: 180px;
-      background: hsl(var(--background));
       border: 1px solid hsl(var(--border));
       border-radius: 0.5rem;
       box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
@@ -54,7 +53,7 @@
       font-size: 0.875rem;
     }
     .context-menu-item:hover {
-      background: hsl(var(--accent));
+      background: #DFDFDF;
     }
     .context-menu-item.disabled {
       opacity: 0.5;
@@ -64,7 +63,7 @@
       color: hsl(var(--destructive));
     }
     .context-menu-item.danger:hover {
-      background: hsl(var(--destructive) / 0.1);
+      background: #DFDFDF;
     }
     .context-menu-separator {
       height: 1px;
@@ -279,7 +278,7 @@
                         isPlaylistDragOver(playlist.playlistId) ? 'ring-2 ring-primary ring-inset bg-primary/10' : ''
                       ]"
                       @click="loadPlaylist(playlist.id)"
-                      @contextmenu="showPlaylistContextMenu($event, playlist)"
+                      @contextmenu.prevent="showPlaylistContextMenu($event, playlist)"
                       @dragover="handlePlaylistDragOver($event, playlist)"
                       @dragleave="handlePlaylistDragLeave()"
                       @drop="handlePlaylistDrop($event, playlist)"
@@ -309,14 +308,14 @@
               data-testid="playlist-context-menu"
             >
               <button 
-                class="w-full px-3 py-1.5 text-sm text-left hover:bg-muted transition-colors"
+                class="context-menu-item w-full justify-start"
                 @click="renamePlaylist()"
                 data-testid="playlist-rename"
               >
                 Rename
               </button>
               <button 
-                class="w-full px-3 py-1.5 text-sm text-left hover:bg-muted text-destructive transition-colors"
+                class="context-menu-item w-full justify-start text-destructive"
                 @click="deletePlaylist()"
                 data-testid="playlist-delete"
               >
@@ -589,7 +588,7 @@
         <div 
           x-show="contextMenu" 
           x-cloak
-          class="context-menu track-context-menu"
+          class="context-menu track-context-menu bg-card"
           data-testid="track-context-menu"
           :style="contextMenu ? `left: ${contextMenu.x}px; top: ${contextMenu.y}px` : ''"
           @click.outside="contextMenu = null; showPlaylistSubmenu = false"
@@ -606,11 +605,12 @@
                       class="context-menu-item relative"
                       :class="{ 'disabled': item.disabled, 'danger': item.danger }"
                       @click="if (!item.disabled && !item.hasSubmenu) { item.action(); contextMenu = null; } else if (!item.disabled) { item.action(); }"
-                      @mouseenter="if (item.hasSubmenu) showPlaylistSubmenu = true"
+                      @mouseenter="if (item.hasSubmenu) { showPlaylistSubmenu = true; submenuY = $el.getBoundingClientRect().top; if (submenuCloseTimeout) { clearTimeout(submenuCloseTimeout); submenuCloseTimeout = null; } } else { showPlaylistSubmenu = false; }"
+                      @mouseleave="if (item.hasSubmenu) { submenuCloseTimeout = setTimeout(() => { showPlaylistSubmenu = false; }, 150); }"
                     >
                       <span x-text="item.icon" class="w-4 text-center"></span>
                       <span x-text="item.label" class="flex-1"></span>
-                      <span x-show="item.hasSubmenu" class="text-muted-foreground">▶</span>
+                      <span x-show="item.hasSubmenu" class="text-muted-foreground" x-text="submenuOnLeft ? '◀' : '▶'"></span>
                     </div>
                   </template>
                 </div>
@@ -623,9 +623,10 @@
         <div 
           x-show="contextMenu && showPlaylistSubmenu" 
           x-cloak
-          class="context-menu"
+          class="context-menu bg-card"
           data-testid="playlist-submenu"
-          :style="contextMenu ? `left: ${contextMenu.x + 180}px; top: ${contextMenu.y + 80}px` : ''"
+          :style="contextMenu ? `left: ${submenuOnLeft ? contextMenu.x - 180 : contextMenu.x + 180}px; top: ${submenuY}px` : ''"
+          @mouseenter="if (submenuCloseTimeout) { clearTimeout(submenuCloseTimeout); submenuCloseTimeout = null; }"
           @mouseleave="showPlaylistSubmenu = false"
         >
           <div 

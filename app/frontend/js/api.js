@@ -407,17 +407,16 @@ export const api = {
       });
     },
     
-    async removeTracks(playlistId, trackIds) {
-      return request(`/playlists/${playlistId}/tracks`, {
+    async removeTrack(playlistId, position) {
+      return request(`/playlists/${playlistId}/tracks/${position}`, {
         method: 'DELETE',
-        body: JSON.stringify({ track_ids: trackIds }),
       });
     },
     
-    async reorder(playlistId, trackIds) {
-      return request(`/playlists/${playlistId}/reorder`, {
+    async reorder(playlistId, fromPosition, toPosition) {
+      return request(`/playlists/${playlistId}/tracks/reorder`, {
         method: 'POST',
-        body: JSON.stringify({ track_ids: trackIds }),
+        body: JSON.stringify({ from_position: fromPosition, to_position: toPosition }),
       });
     },
   },

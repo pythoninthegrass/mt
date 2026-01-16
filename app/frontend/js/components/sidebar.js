@@ -132,6 +132,9 @@ export function createSidebar(Alpine) {
         const playlist = await api.playlists.create(uniqueName);
         await this.loadPlaylists();
         
+        // Notify other components (e.g., context menu) that playlists changed
+        window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
+        
         const newPlaylist = this.playlists.find(p => p.playlistId === playlist.id);
         if (newPlaylist) {
           this.startInlineRename(newPlaylist, true);
@@ -296,17 +299,31 @@ export function createSidebar(Alpine) {
     async deletePlaylist() {
       if (!this.contextMenuPlaylist) return;
       
-      const confirmed = confirm(`Delete playlist "${this.contextMenuPlaylist.name}"?`);
+      const playlistName = this.contextMenuPlaylist.name;
+      const playlistId = this.contextMenuPlaylist.playlistId;
+      const sectionId = this.contextMenuPlaylist.id;
+      
+      let confirmed = false;
+      if (window.__TAURI__?.dialog?.confirm) {
+        confirmed = await window.__TAURI__.dialog.confirm(
+          `Delete playlist "${playlistName}"?`,
+          { title: 'Delete Playlist', kind: 'warning' }
+        );
+      } else {
+        confirmed = confirm(`Delete playlist "${playlistName}"?`);
+      }
+      
       if (!confirmed) {
         this.hidePlaylistContextMenu();
         return;
       }
       
       try {
-        await api.playlists.delete(this.contextMenuPlaylist.playlistId);
-        this.ui.toast(`Deleted "${this.contextMenuPlaylist.name}"`, 'success');
+        await api.playlists.delete(playlistId);
+        this.ui.toast(`Deleted "${playlistName}"`, 'success');
         await this.loadPlaylists();
-        if (this.activeSection === this.contextMenuPlaylist.id) {
+        window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
+        if (this.activeSection === sectionId) {
           this.loadSection('all');
         }
       } catch (error) {

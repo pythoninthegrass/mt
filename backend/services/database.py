@@ -859,7 +859,7 @@ class DatabaseService:
 
             suffix = 2
             while True:
-                candidate = f"{base} {suffix}"
+                candidate = f"{base} ({suffix})"
                 cursor.execute("SELECT name FROM playlists WHERE name = ?", (candidate,))
                 if not cursor.fetchone():
                     return candidate

@@ -305,12 +305,12 @@ test.describe('Playlists Section', () => {
   });
 
   test('should list playlists when available', async ({ page }) => {
-    // Add mock playlists
+    // Add mock playlists with correct data structure (id for section, playlistId for API)
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
       sidebar.playlists = [
-        { id: 'playlist-1', name: 'Test Playlist 1' },
-        { id: 'playlist-2', name: 'Test Playlist 2' },
+        { id: 'playlist-1', playlistId: 1, name: 'Test Playlist 1' },
+        { id: 'playlist-2', playlistId: 2, name: 'Test Playlist 2' },
       ];
     });
 
@@ -323,43 +323,36 @@ test.describe('Playlists Section', () => {
   });
 
   test('should highlight active playlist', async ({ page }) => {
-    // Add mock playlists
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
       sidebar.playlists = [
-        { id: 'playlist-1', name: 'Test Playlist 1' },
+        { id: 'playlist-1', playlistId: 1, name: 'Test Playlist 1' },
       ];
       sidebar.activeSection = 'playlist-1';
     });
 
     await page.waitForTimeout(300);
 
-    // Find playlist button
     const playlistButton = page.locator('aside button:has-text("Test Playlist 1")');
-
-    // Verify it's highlighted
     const classes = await playlistButton.getAttribute('class');
     expect(classes).toContain('bg-primary');
   });
 
   test('should navigate to playlist when clicked', async ({ page }) => {
-    // Add mock playlists
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
       sidebar.playlists = [
-        { id: 'playlist-1', name: 'Test Playlist 1' },
+        { id: 'playlist-1', playlistId: 1, name: 'Test Playlist 1' },
       ];
     });
 
     await page.waitForTimeout(300);
 
-    // Click playlist
     const playlistButton = page.locator('aside button:has-text("Test Playlist 1")');
     await playlistButton.click();
 
     await page.waitForTimeout(300);
 
-    // Verify navigation occurred
     const sidebarData = await page.evaluate(() => {
       return window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
     });
