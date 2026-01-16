@@ -95,3 +95,11 @@
 .queue-item.other-dragging {
   opacity: 0.5;
 }
+
+.playlist-shift-up {
+  transform: translateY(-100%);
+}
+
+.playlist-shift-down {
+  transform: translateY(100%);
+}

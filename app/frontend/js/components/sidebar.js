@@ -11,6 +11,9 @@ export function createSidebar(Alpine) {
     editingIsNew: false,
     dragOverPlaylistId: null,
     
+    reorderDraggingIndex: null,
+    reorderDragOverIndex: null,
+    
     sections: [
       { id: 'all', label: 'Music', icon: 'music' },
       { id: 'nowPlaying', label: 'Now Playing', icon: 'speaker' },
@@ -227,6 +230,7 @@ export function createSidebar(Alpine) {
     },
     
     handlePlaylistDragOver(event, playlist) {
+      if (this.reorderDraggingIndex !== null) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
       this.dragOverPlaylistId = playlist.playlistId;
@@ -237,6 +241,7 @@ export function createSidebar(Alpine) {
     },
     
     async handlePlaylistDrop(event, playlist) {
+      if (this.reorderDraggingIndex !== null) return;
       event.preventDefault();
       this.dragOverPlaylistId = null;
       
@@ -262,6 +267,101 @@ export function createSidebar(Alpine) {
     
     isPlaylistDragOver(playlistId) {
       return this.dragOverPlaylistId === playlistId;
+    },
+    
+    startPlaylistReorder(index, event) {
+      event.preventDefault();
+      this.reorderDraggingIndex = index;
+      this.reorderDragOverIndex = null;
+
+      const onMove = (e) => {
+        const y = e.clientY || e.touches?.[0]?.clientY;
+        if (y === undefined) return;
+        this.updatePlaylistReorderTarget(y);
+      };
+
+      const onEnd = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onEnd);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onEnd);
+        this.finishPlaylistReorder();
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onEnd);
+      document.addEventListener('touchmove', onMove, { passive: true });
+      document.addEventListener('touchend', onEnd);
+    },
+
+    updatePlaylistReorderTarget(y) {
+      const buttons = document.querySelectorAll('[data-playlist-reorder-index]');
+      let newOverIdx = null;
+
+      for (let i = 0; i < buttons.length; i++) {
+        if (i === this.reorderDraggingIndex) continue;
+        const rect = buttons[i].getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (y < midY) {
+          newOverIdx = i;
+          break;
+        }
+      }
+
+      if (newOverIdx === null) {
+        newOverIdx = this.playlists.length;
+      }
+
+      if (newOverIdx > this.reorderDraggingIndex) {
+        newOverIdx = Math.min(newOverIdx, this.playlists.length);
+      }
+
+      this.reorderDragOverIndex = newOverIdx;
+    },
+
+    async finishPlaylistReorder() {
+      if (
+        this.reorderDraggingIndex !== null && this.reorderDragOverIndex !== null &&
+        this.reorderDraggingIndex !== this.reorderDragOverIndex
+      ) {
+        let toPosition = this.reorderDragOverIndex;
+        if (this.reorderDraggingIndex < toPosition) {
+          toPosition--;
+        }
+
+        if (this.reorderDraggingIndex !== toPosition) {
+          try {
+            await api.playlists.reorderPlaylists(this.reorderDraggingIndex, toPosition);
+            await this.loadPlaylists();
+          } catch (error) {
+            console.error('Failed to reorder playlists:', error);
+            this.ui.toast('Failed to reorder playlists', 'error');
+          }
+        }
+      }
+
+      this.reorderDraggingIndex = null;
+      this.reorderDragOverIndex = null;
+    },
+    
+    getPlaylistReorderClass(index) {
+      if (this.reorderDraggingIndex === null || this.reorderDragOverIndex === null) return '';
+      if (index === this.reorderDraggingIndex) return '';
+      
+      if (this.reorderDraggingIndex < this.reorderDragOverIndex) {
+        if (index > this.reorderDraggingIndex && index < this.reorderDragOverIndex) {
+          return 'playlist-shift-up';
+        }
+      } else {
+        if (index >= this.reorderDragOverIndex && index < this.reorderDraggingIndex) {
+          return 'playlist-shift-down';
+        }
+      }
+      return '';
+    },
+    
+    isPlaylistDragging(index) {
+      return this.reorderDraggingIndex === index;
     },
     
     toggleCollapse() {

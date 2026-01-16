@@ -253,7 +253,7 @@
               </button>
             </div>
             <ul class="space-y-0.5">
-              <template x-for="playlist in playlists" :key="playlist.id">
+              <template x-for="(playlist, index) in playlists" :key="playlist.id">
                 <li>
                   <template x-if="editingPlaylist?.playlistId === playlist.playlistId">
                     <div class="flex items-center gap-2 px-2 py-1">
@@ -272,17 +272,22 @@
                   </template>
                   <template x-if="editingPlaylist?.playlistId !== playlist.playlistId">
                     <button 
-                      class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
+                      draggable="true"
+                      class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all duration-150 select-none"
                       :class="[
                         isActive(playlist.id) ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80',
-                        isPlaylistDragOver(playlist.playlistId) ? 'ring-2 ring-primary ring-inset bg-primary/10' : ''
+                        isPlaylistDragOver(playlist.playlistId) ? 'ring-2 ring-primary ring-inset bg-primary/10' : '',
+                        isPlaylistDragging(index) ? 'opacity-50' : '',
+                        getPlaylistReorderClass(index)
                       ]"
                       @click="loadPlaylist(playlist.id)"
                       @contextmenu.prevent="showPlaylistContextMenu($event, playlist)"
+                      @mousedown="startPlaylistReorder(index, $event)"
                       @dragover="handlePlaylistDragOver($event, playlist)"
                       @dragleave="handlePlaylistDragLeave()"
                       @drop="handlePlaylistDrop($event, playlist)"
                       :data-testid="'playlist-' + playlist.playlistId"
+                      :data-playlist-reorder-index="index"
                     >
                       <svg class="w-4 h-4 shrink-0" :class="isActive(playlist.id) ? 'text-primary' : 'text-foreground/50'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>

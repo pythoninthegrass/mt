@@ -612,6 +612,109 @@ test.describe('Playlist Feature Parity (task-150)', () => {
 
     expect(afterRightClick).toBe('all');
   });
+
+  test('playlist buttons should have reorder index attribute', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
+        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
+      ];
+    });
+
+    await page.waitForTimeout(300);
+
+    const playlistButton = page.locator('[data-testid="playlist-1"]');
+    const reorderIndex = await playlistButton.getAttribute('data-playlist-reorder-index');
+    expect(reorderIndex).toBe('0');
+  });
+
+  test('playlist should shift down when dragging from above', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
+        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
+        { id: 'playlist-3', playlistId: 3, name: 'Playlist C' },
+      ];
+      sidebar.reorderDraggingIndex = 0;
+      sidebar.reorderDragOverIndex = 2;
+    });
+
+    await page.waitForTimeout(300);
+
+    const playlistB = page.locator('[data-testid="playlist-2"]');
+    const classes = await playlistB.getAttribute('class');
+    expect(classes).toContain('playlist-shift-up');
+  });
+
+  test('playlist should shift up when dragging from below', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
+        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
+        { id: 'playlist-3', playlistId: 3, name: 'Playlist C' },
+      ];
+      sidebar.reorderDraggingIndex = 2;
+      sidebar.reorderDragOverIndex = 0;
+    });
+
+    await page.waitForTimeout(300);
+
+    const playlistA = page.locator('[data-testid="playlist-1"]');
+    const playlistB = page.locator('[data-testid="playlist-2"]');
+    const classesA = await playlistA.getAttribute('class');
+    const classesB = await playlistB.getAttribute('class');
+    expect(classesA).toContain('playlist-shift-down');
+    expect(classesB).toContain('playlist-shift-down');
+  });
+
+  test('dragging playlist should show opacity change', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
+        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
+      ];
+      sidebar.reorderDraggingIndex = 0;
+    });
+
+    await page.waitForTimeout(300);
+
+    const playlistButton = page.locator('[data-testid="playlist-1"]');
+    const classes = await playlistButton.getAttribute('class');
+    expect(classes).toContain('opacity-50');
+  });
+
+  test('sidebar has reorder handlers defined', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
+        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
+      ];
+    });
+
+    await page.waitForTimeout(300);
+
+    const result = await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      return {
+        hasStartReorder: typeof sidebar.startPlaylistReorder === 'function',
+        hasUpdateTarget: typeof sidebar.updatePlaylistReorderTarget === 'function',
+        hasFinishReorder: typeof sidebar.finishPlaylistReorder === 'function',
+        hasGetReorderClass: typeof sidebar.getPlaylistReorderClass === 'function',
+        hasIsDragging: typeof sidebar.isPlaylistDragging === 'function',
+      };
+    });
+
+    expect(result.hasStartReorder).toBe(true);
+    expect(result.hasUpdateTarget).toBe(true);
+    expect(result.hasFinishReorder).toBe(true);
+    expect(result.hasGetReorderClass).toBe(true);
+    expect(result.hasIsDragging).toBe(true);
+  });
 });
 
 test.describe('Sidebar Responsiveness', () => {

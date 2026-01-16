@@ -35,6 +35,13 @@ class PlaylistReorderRequest(BaseModel):
     to_position: int = Field(ge=0)
 
 
+class PlaylistsReorderRequest(BaseModel):
+    """Request to reorder playlists in the sidebar."""
+
+    from_position: int = Field(ge=0)
+    to_position: int = Field(ge=0)
+
+
 @router.get("")
 async def get_playlists(db: DatabaseService = Depends(get_db)):
     """Get all playlists."""
@@ -56,6 +63,18 @@ async def create_playlist(request: PlaylistCreateRequest, db: DatabaseService = 
     if not playlist:
         raise HTTPException(status_code=409, detail=f"Playlist with name '{request.name}' already exists")
     return playlist
+
+
+@router.post("/reorder")
+async def reorder_playlists(
+    request: PlaylistsReorderRequest,
+    db: DatabaseService = Depends(get_db),
+):
+    """Reorder playlists in the sidebar."""
+    if not db.reorder_playlists(request.from_position, request.to_position):
+        raise HTTPException(status_code=400, detail="Invalid positions")
+
+    return {"success": True}
 
 
 @router.get("/{playlist_id}")

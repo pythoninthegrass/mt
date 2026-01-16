@@ -419,6 +419,13 @@ export const api = {
         body: JSON.stringify({ from_position: fromPosition, to_position: toPosition }),
       });
     },
+    
+    async reorderPlaylists(fromPosition, toPosition) {
+      return request('/playlists/reorder', {
+        method: 'POST',
+        body: JSON.stringify({ from_position: fromPosition, to_position: toPosition }),
+      });
+    },
   },
 };
 

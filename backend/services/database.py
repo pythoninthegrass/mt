@@ -67,6 +67,7 @@ DB_TABLES = {
         CREATE TABLE IF NOT EXISTS playlists (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
+            position INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """,
@@ -113,10 +114,23 @@ class DatabaseService:
     def _run_migrations(self, conn: sqlite3.Connection) -> None:
         """Run database migrations for schema updates."""
         cursor = conn.cursor()
+
+        # Migration: Add file_size column to library table
         cursor.execute("PRAGMA table_info(library)")
-        columns = {row[1] for row in cursor.fetchall()}
-        if "file_size" not in columns:
+        library_columns = {row[1] for row in cursor.fetchall()}
+        if "file_size" not in library_columns:
             cursor.execute("ALTER TABLE library ADD COLUMN file_size INTEGER DEFAULT 0")
+            conn.commit()
+
+        # Migration: Add position column to playlists table
+        cursor.execute("PRAGMA table_info(playlists)")
+        playlist_columns = {row[1] for row in cursor.fetchall()}
+        if "position" not in playlist_columns:
+            cursor.execute("ALTER TABLE playlists ADD COLUMN position INTEGER DEFAULT 0")
+            # Initialize positions based on creation order
+            cursor.execute("SELECT id FROM playlists ORDER BY created_at ASC")
+            for pos, row in enumerate(cursor.fetchall()):
+                cursor.execute("UPDATE playlists SET position = ? WHERE id = ?", (pos, row[0]))
             conn.commit()
 
     @contextmanager
@@ -667,12 +681,12 @@ class DatabaseService:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT p.id, p.name, p.created_at,
+                SELECT p.id, p.name, p.position, p.created_at,
                        COUNT(pi.id) as track_count
                 FROM playlists p
                 LEFT JOIN playlist_items pi ON p.id = pi.playlist_id
                 GROUP BY p.id
-                ORDER BY p.created_at ASC
+                ORDER BY p.position ASC, p.created_at ASC
             """
             )
             return [dict(row) for row in cursor.fetchall()]
@@ -848,6 +862,29 @@ class DatabaseService:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM playlist_items WHERE playlist_id = ?", (playlist_id,))
             return cursor.fetchone()[0]
+
+    def reorder_playlists(self, from_position: int, to_position: int) -> bool:
+        """Reorder playlists in the sidebar."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT id FROM playlists ORDER BY position ASC, created_at ASC")
+            items = list(cursor.fetchall())
+
+            if from_position < 0 or from_position >= len(items):
+                return False
+            if to_position < 0 or to_position >= len(items):
+                return False
+
+            playlist_ids = [item["id"] for item in items]
+            moved = playlist_ids.pop(from_position)
+            playlist_ids.insert(to_position, moved)
+
+            for pos, playlist_id in enumerate(playlist_ids):
+                cursor.execute("UPDATE playlists SET position = ? WHERE id = ?", (pos, playlist_id))
+
+            conn.commit()
+            return True
 
     def generate_unique_playlist_name(self, base: str = "New playlist") -> str:
         """Generate a unique playlist name by appending a number if needed."""
