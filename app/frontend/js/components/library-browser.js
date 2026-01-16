@@ -704,10 +704,10 @@ export function createLibraryBrowser(Alpine) {
       this.headerContextMenu = { x, y, items: menuItems };
     },
 
-    resetColumnWidths() {
+    resetColumnDefaults() {
       this._baseColumnWidths = { ...DEFAULT_COLUMN_WIDTHS };
       this.columnWidths = { ...DEFAULT_COLUMN_WIDTHS };
-      this.columnOrder = ['index', 'title', 'artist', 'album', 'lastPlayed', 'dateAdded', 'playCount', 'duration'];
+      this.columnOrder = ['index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'];
       this.distributeExtraWidth();
       this.saveColumnSettings();
       this.headerContextMenu = null;

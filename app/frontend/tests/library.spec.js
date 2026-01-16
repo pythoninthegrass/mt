@@ -1155,7 +1155,7 @@ test.describe('Column Customization', () => {
     await headerRow.click({ button: 'right' });
     await page.waitForSelector('.header-context-menu', { state: 'visible', timeout: 5000 });
     
-    const resetMenuItem = page.locator('.header-context-menu .context-menu-item:has-text("Reset Column Widths")');
+    const resetMenuItem = page.locator('.header-context-menu .context-menu-item:has-text("Reset Columns to Defaults")');
     await resetMenuItem.click();
     
     await page.waitForTimeout(100);
