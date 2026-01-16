@@ -441,6 +441,111 @@ test.describe('Playlists Section', () => {
   });
 });
 
+test.describe('Playlist Feature Parity (task-150)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('aside[x-data="sidebar"]', { state: 'visible' });
+  });
+
+  test('AC#1-2: should show inline rename input when creating playlist', async ({ page }) => {
+    const createButton = page.locator('[data-testid="create-playlist"]');
+    await createButton.click();
+    await page.waitForTimeout(500);
+
+    const renameInput = page.locator('[data-testid="playlist-rename-input"]');
+    await expect(renameInput).toBeVisible();
+    await expect(renameInput).toBeFocused();
+  });
+
+  test('AC#1-2: should commit rename on Enter key', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [{ id: 'playlist-1', playlistId: 1, name: 'Test Playlist' }];
+      sidebar.editingPlaylist = sidebar.playlists[0];
+      sidebar.editingName = 'Test Playlist';
+    });
+
+    await page.waitForTimeout(300);
+
+    const renameInput = page.locator('[data-testid="playlist-rename-input"]');
+    await renameInput.fill('Renamed Playlist');
+    await renameInput.press('Enter');
+
+    await page.waitForTimeout(300);
+    await expect(renameInput).not.toBeVisible();
+  });
+
+  test('AC#1-2: should cancel rename on Escape key', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [{ id: 'playlist-1', playlistId: 1, name: 'Test Playlist' }];
+      sidebar.editingPlaylist = sidebar.playlists[0];
+      sidebar.editingName = 'Test Playlist';
+    });
+
+    await page.waitForTimeout(300);
+
+    const renameInput = page.locator('[data-testid="playlist-rename-input"]');
+    await renameInput.fill('Changed Name');
+    await renameInput.press('Escape');
+
+    await page.waitForTimeout(300);
+    await expect(renameInput).not.toBeVisible();
+  });
+
+  test('AC#4-5: playlist should highlight on drag over', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [{ id: 'playlist-1', playlistId: 1, name: 'Test Playlist' }];
+      sidebar.dragOverPlaylistId = 1;
+    });
+
+    await page.waitForTimeout(300);
+
+    const playlistButton = page.locator('[data-testid="playlist-1"]');
+    const classes = await playlistButton.getAttribute('class');
+    expect(classes).toContain('ring-2');
+    expect(classes).toContain('ring-primary');
+  });
+
+  test('AC#6: should show drag handle in playlist view', async ({ page }) => {
+    await page.evaluate(() => {
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.currentPlaylistId = 1;
+      
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+    });
+
+    await page.waitForTimeout(300);
+
+    const dragHandle = page.locator('[data-track-id="1"] .cursor-grab');
+    await expect(dragHandle).toBeVisible();
+  });
+
+  test('AC#6: should hide drag handle outside playlist view', async ({ page }) => {
+    await page.evaluate(() => {
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.currentPlaylistId = null;
+      
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+    });
+
+    await page.waitForTimeout(300);
+
+    const dragHandle = page.locator('[data-track-id="1"] .cursor-grab');
+    await expect(dragHandle).not.toBeVisible();
+  });
+});
+
 test.describe('Sidebar Responsiveness', () => {
   test('should adjust sidebar width based on collapse state', async ({ page }) => {
     await page.goto('/');

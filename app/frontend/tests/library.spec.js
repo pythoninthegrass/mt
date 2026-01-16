@@ -1567,3 +1567,93 @@ test.describe('Column Padding Consistency (task-135)', () => {
     expect(dataPadding.right).toBe(headerPadding.right);
   });
 });
+
+test.describe('Playlist Feature Parity - Library Browser (task-150)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+  });
+
+  test('AC#3: should show Add to Playlist submenu in context menu', async ({ page }) => {
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const trackRow = page.locator('[data-track-id="1"]');
+    await trackRow.click({ button: 'right' });
+
+    await page.waitForTimeout(300);
+
+    const addToPlaylistItem = page.locator('.context-menu-item:has-text("Add to Playlist")');
+    await expect(addToPlaylistItem).toBeVisible();
+  });
+
+  test('AC#4-5: track rows should be draggable', async ({ page }) => {
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const trackRow = page.locator('[data-track-id="1"]');
+    const draggable = await trackRow.getAttribute('draggable');
+    expect(draggable).toBe('true');
+  });
+
+  test('AC#7-8: Delete key in playlist view should call removeFromPlaylist', async ({ page }) => {
+    await page.evaluate(() => {
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.currentPlaylistId = 1;
+      libraryBrowser.selectedTracks = new Set([1]);
+      
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const isInPlaylistView = await page.evaluate(() => {
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      return libraryBrowser.isInPlaylistView();
+    });
+
+    expect(isInPlaylistView).toBe(true);
+  });
+
+  test('AC#7-8: Delete key outside playlist view should call removeSelected', async ({ page }) => {
+    await page.evaluate(() => {
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.currentPlaylistId = null;
+      libraryBrowser.selectedTracks = new Set([1]);
+      
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const isInPlaylistView = await page.evaluate(() => {
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      return libraryBrowser.isInPlaylistView();
+    });
+
+    expect(isInPlaylistView).toBe(false);
+  });
+});

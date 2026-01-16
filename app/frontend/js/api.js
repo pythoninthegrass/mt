@@ -367,7 +367,13 @@ export const api = {
   
   playlists: {
     async getAll() {
-      return request('/playlists');
+      const response = await request('/playlists');
+      return Array.isArray(response) ? response : (response.playlists || []);
+    },
+    
+    async generateName(base = 'New playlist') {
+      const query = new URLSearchParams({ base });
+      return request(`/playlists/generate-name?${query}`);
     },
     
     async create(name) {

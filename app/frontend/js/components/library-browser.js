@@ -727,7 +727,7 @@ export function createLibraryBrowser(Alpine) {
     async loadPlaylists() {
       try {
         const data = await api.playlists.getAll();
-        this.playlists = data.playlists || [];
+        this.playlists = Array.isArray(data) ? data : [];
       } catch (error) {
         console.error('Failed to load playlists:', error);
         this.playlists = [];
@@ -832,6 +832,29 @@ export function createLibraryBrowser(Alpine) {
         await this.player.playTrack(track);
       }
     },
+
+    handleTrackDragStart(event, track) {
+      if (!this.selectedTracks.has(track.id)) {
+        this.selectedTracks.clear();
+        this.selectedTracks.add(track.id);
+      }
+      
+      const trackIds = Array.from(this.selectedTracks);
+      event.dataTransfer.setData('application/json', JSON.stringify(trackIds));
+      event.dataTransfer.effectAllowed = 'copy';
+      
+      const count = trackIds.length;
+      const dragEl = document.createElement('div');
+      dragEl.className = 'fixed bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium shadow-lg pointer-events-none';
+      dragEl.textContent = count === 1 ? '1 track' : `${count} tracks`;
+      dragEl.style.position = 'absolute';
+      dragEl.style.top = '-1000px';
+      document.body.appendChild(dragEl);
+      event.dataTransfer.setDragImage(dragEl, 0, 0);
+      setTimeout(() => dragEl.remove(), 0);
+    },
+
+    handleTrackDragEnd() {},
 
     /**
      * Handle right-click context menu
@@ -1214,10 +1237,13 @@ export function createLibraryBrowser(Alpine) {
         this.playSelected();
       }
 
-      // Delete/Backspace: Remove selected
       if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectedTracks.size > 0) {
         event.preventDefault();
-        this.removeSelected();
+        if (this.isInPlaylistView()) {
+          this.removeFromPlaylist();
+        } else {
+          this.removeSelected();
+        }
       }
     },
 

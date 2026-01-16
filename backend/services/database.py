@@ -849,6 +849,22 @@ class DatabaseService:
             cursor.execute("SELECT COUNT(*) FROM playlist_items WHERE playlist_id = ?", (playlist_id,))
             return cursor.fetchone()[0]
 
+    def generate_unique_playlist_name(self, base: str = "New playlist") -> str:
+        """Generate a unique playlist name by appending a number if needed."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM playlists WHERE name = ?", (base,))
+            if not cursor.fetchone():
+                return base
+
+            suffix = 2
+            while True:
+                candidate = f"{base} {suffix}"
+                cursor.execute("SELECT name FROM playlists WHERE name = ?", (candidate,))
+                if not cursor.fetchone():
+                    return candidate
+                suffix += 1
+
     # ==================== Settings Operations ====================
 
     def get_all_settings(self) -> dict[str, Any]:

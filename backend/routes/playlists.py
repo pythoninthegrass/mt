@@ -42,6 +42,13 @@ async def get_playlists(db: DatabaseService = Depends(get_db)):
     return {"playlists": playlists}
 
 
+@router.get("/generate-name")
+async def generate_playlist_name(base: str = "New playlist", db: DatabaseService = Depends(get_db)):
+    """Generate a unique playlist name."""
+    name = db.generate_unique_playlist_name(base)
+    return {"name": name}
+
+
 @router.post("", status_code=201)
 async def create_playlist(request: PlaylistCreateRequest, db: DatabaseService = Depends(get_db)):
     """Create a new playlist."""

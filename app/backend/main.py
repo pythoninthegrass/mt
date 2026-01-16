@@ -3,21 +3,20 @@ from __future__ import annotations
 import os
 import signal
 import sys
-from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
-
 import uvicorn
+from contextlib import asynccontextmanager
+from core.db import DB_TABLES, MusicDatabase
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
-from core.db import DB_TABLES, MusicDatabase
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
 HOST = os.getenv("MT_SIDECAR_HOST", "127.0.0.1")
-PORT = int(os.getenv("MT_SIDECAR_PORT", "5556"))
+# MT_API_PORT is set by Tauri sidecar, MT_SIDECAR_PORT is legacy/dev fallback
+PORT = int(os.getenv("MT_API_PORT", os.getenv("MT_SIDECAR_PORT", "5556")))
 DB_PATH = os.getenv("MT_DB_PATH", os.path.expanduser("~/.mt/mt.db"))
 
 # Database instance (initialized in lifespan)
@@ -63,7 +62,7 @@ app = FastAPI(title="MT Sidecar", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:*", "http://127.0.0.1:*", "tauri://localhost"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -105,6 +104,15 @@ async def create_playlist(data: PlaylistCreate) -> dict:
         return {"id": playlist_id, "name": data.name}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.get("/api/playlists/generate-name")
+async def generate_playlist_name(base: str = "New playlist") -> dict:
+    """Generate a unique playlist name with auto-suffix if needed."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Database not initialized")
+    name = db.generate_unique_name(base)
+    return {"name": name}
 
 
 @app.get("/api/playlists/{playlist_id}")
@@ -188,7 +196,7 @@ async def reorder_playlist(playlist_id: int, data: PlaylistReorder) -> dict:
 
 def main() -> None:
     uvicorn.run(
-        "backend.main:app",
+        app,
         host=HOST,
         port=PORT,
         log_level="info",
