@@ -1,10 +1,10 @@
 ---
 id: task-044
 title: Fix cyan highlight of playing track
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-10-12 07:56'
-updated_date: '2026-01-10 05:55'
+updated_date: '2026-01-16 22:04'
 labels: []
 dependencies: []
 ordinal: 19000

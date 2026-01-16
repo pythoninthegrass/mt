@@ -1,15 +1,17 @@
 ---
 id: task-151
 title: Add scrolling to context menu submenus when they exceed vertical viewport
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-16 21:01'
+updated_date: '2026-01-16 22:21'
 labels:
   - frontend
   - ux
   - context-menu
 dependencies: []
 priority: low
+ordinal: 26500
 ---
 
 ## Description

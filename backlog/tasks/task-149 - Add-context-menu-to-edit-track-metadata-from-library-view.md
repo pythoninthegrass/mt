@@ -4,14 +4,14 @@ title: Add context menu to edit track metadata from library view
 status: In Progress
 assignee: []
 created_date: '2026-01-16 06:29'
-updated_date: '2026-01-16 08:13'
+updated_date: '2026-01-16 22:06'
 labels:
   - feature
   - ui
   - metadata
 dependencies: []
 priority: medium
-ordinal: 1000
+ordinal: 250
 ---
 
 ## Description

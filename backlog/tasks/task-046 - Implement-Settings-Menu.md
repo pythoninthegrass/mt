@@ -1,13 +1,13 @@
 ---
 id: task-046
 title: Implement Settings Menu
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2025-10-12 07:56'
-updated_date: '2026-01-10 05:55'
+updated_date: '2026-01-16 22:06'
 labels: []
 dependencies: []
-ordinal: 20000
+ordinal: 125
 ---
 
 ## Description

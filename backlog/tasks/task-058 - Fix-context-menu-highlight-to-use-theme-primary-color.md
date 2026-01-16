@@ -1,10 +1,10 @@
 ---
 id: task-058
 title: Fix context menu highlight to use theme primary color
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-10-21 06:27'
-updated_date: '2026-01-10 05:55'
+updated_date: '2026-01-16 22:05'
 labels: []
 dependencies: []
 ordinal: 21000
