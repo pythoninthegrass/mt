@@ -1,9 +1,10 @@
 ---
 id: task-148
 title: Fix playback issues with tracks missing duration metadata
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-16 05:31'
+updated_date: '2026-01-16 05:35'
 labels:
   - bug
   - playback
@@ -44,3 +45,37 @@ Tracks 182-185 (including "Une Vie à Peindre" at 11:00) exhibit multiple issues
 - [ ] #3 Seeking on progress bar works without crashing for all tracks
 - [ ] #4 No app freeze when interacting with tracks missing metadata
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Completion Notes (2026-01-15)
+
+### Root Causes Identified
+
+1. **Shuffle state mismatch**: `queue.load()` was overwriting localStorage values with backend defaults (`shuffle: false`, `loop: 'none'`)
+
+2. **Progress bar crash**: No guards for NaN/undefined duration when calculating seek position - caused division issues and invalid seek commands
+
+3. **Missing duration**: Rust's `rodio` decoder returns `None` for `total_duration()` on some audio formats (VBR MP3s without proper headers), falling back to 0
+
+### Fixes Applied
+
+**Frontend (JavaScript):**
+- `queue.js`: Removed shuffle/loop overwrite in `load()` - now only loaded from localStorage
+- `player.js`: Added guards in `seek()` and `seekPercent()` for NaN/negative values
+- `player-controls.js`: Added guards in `handleProgressClick()` and `updateDragPosition()` for 0/undefined duration
+
+**Known Limitation:**
+- Duration still shows 0:00 for tracks where Rust's rodio can't determine duration from file headers
+- This is a rodio/symphonia limitation - would need to scan entire file to calculate duration
+- Progress bar is disabled (no crash) when duration is unknown
+
+### Test Results
+- All 29 store tests pass
+- Shuffle state now persists across page reloads
+- Seeking on tracks with missing duration no longer crashes
+
+### Commit
+- af01506: fix: prevent seek crash and shuffle state mismatch (task-148)
+<!-- SECTION:NOTES:END -->
