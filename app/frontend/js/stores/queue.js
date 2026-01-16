@@ -17,6 +17,9 @@ export function createQueueStore(Alpine) {
     shuffle: false,
     loop: 'none',        // 'none', 'all', 'one'
     
+    // Repeat-one "play once more" state
+    _repeatOnePending: false,  // true = currently in second playthrough, will auto-revert
+    
     // Loading state
     loading: false,
     
@@ -28,7 +31,36 @@ export function createQueueStore(Alpine) {
      * Initialize queue from backend
      */
     async init() {
+      this._loadLoopState();
       await this.load();
+    },
+    
+    _loadLoopState() {
+      try {
+        const saved = localStorage.getItem('mt:loop-state');
+        if (saved) {
+          const { loop, shuffle } = JSON.parse(saved);
+          if (['none', 'all', 'one'].includes(loop)) {
+            this.loop = loop;
+          }
+          if (typeof shuffle === 'boolean') {
+            this.shuffle = shuffle;
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    },
+    
+    _saveLoopState() {
+      try {
+        localStorage.setItem('mt:loop-state', JSON.stringify({
+          loop: this.loop,
+          shuffle: this.shuffle,
+        }));
+      } catch (e) {
+        // ignore
+      }
     },
     
     /**
@@ -189,16 +221,24 @@ export function createQueueStore(Alpine) {
     async playNext() {
       if (this.items.length === 0) return;
       
-      // Handle loop one
+      // Handle repeat-one "play once more" pattern
       if (this.loop === 'one') {
-        await this.playIndex(this.currentIndex);
-        return;
+        if (this._repeatOnePending) {
+          // Second playthrough complete - auto-revert to 'none'
+          this._repeatOnePending = false;
+          this.loop = 'none';
+          this._saveLoopState();
+        } else {
+          // First playthrough - replay and mark pending
+          this._repeatOnePending = true;
+          await this.playIndex(this.currentIndex);
+          return;
+        }
       }
       
       let nextIndex;
       
       if (this.shuffle) {
-        // Pick random track (excluding current)
         const available = this.items
           .map((_, i) => i)
           .filter(i => i !== this.currentIndex);
@@ -207,7 +247,7 @@ export function createQueueStore(Alpine) {
           if (this.loop === 'all') {
             nextIndex = Math.floor(Math.random() * this.items.length);
           } else {
-            return; // End of queue
+            return;
           }
         } else {
           nextIndex = available[Math.floor(Math.random() * available.length)];
@@ -219,7 +259,7 @@ export function createQueueStore(Alpine) {
           if (this.loop === 'all') {
             nextIndex = 0;
           } else {
-            return; // End of queue
+            return;
           }
         }
       }
@@ -235,7 +275,6 @@ export function createQueueStore(Alpine) {
       
       const player = Alpine.store('player');
       
-      // If more than 3 seconds in, restart current track
       if (player.currentTime > 3000) {
         await player.seek(0);
         return;
@@ -244,8 +283,7 @@ export function createQueueStore(Alpine) {
       let prevIndex;
       
       if (this.shuffle && this._shuffleHistory.length > 1) {
-        // Go back in shuffle history
-        this._shuffleHistory.pop(); // Remove current
+        this._shuffleHistory.pop();
         prevIndex = this._shuffleHistory[this._shuffleHistory.length - 1];
       } else {
         prevIndex = this.currentIndex - 1;
@@ -254,12 +292,63 @@ export function createQueueStore(Alpine) {
           if (this.loop === 'all') {
             prevIndex = this.items.length - 1;
           } else {
-            prevIndex = 0; // Stay at beginning
+            prevIndex = 0;
           }
         }
       }
       
       await this.playIndex(prevIndex);
+    },
+    
+    /**
+     * Manual skip to next track (user-initiated)
+     * If in repeat-one mode, reverts to 'all' and skips
+     */
+    async skipNext() {
+      if (this.loop === 'one') {
+        this.loop = 'all';
+        this._repeatOnePending = false;
+        this._saveLoopState();
+      }
+      await this._doSkipNext();
+    },
+    
+    /**
+     * Manual skip to previous track (user-initiated)
+     * If in repeat-one mode, reverts to 'all' and skips
+     */
+    async skipPrevious() {
+      if (this.loop === 'one') {
+        this.loop = 'all';
+        this._repeatOnePending = false;
+        this._saveLoopState();
+      }
+      await this.playPrevious();
+    },
+    
+    async _doSkipNext() {
+      if (this.items.length === 0) return;
+      
+      let nextIndex;
+      
+      if (this.shuffle) {
+        const available = this.items
+          .map((_, i) => i)
+          .filter(i => i !== this.currentIndex);
+        
+        if (available.length === 0) {
+          nextIndex = Math.floor(Math.random() * this.items.length);
+        } else {
+          nextIndex = available[Math.floor(Math.random() * available.length)];
+        }
+      } else {
+        nextIndex = this.currentIndex + 1;
+        if (nextIndex >= this.items.length) {
+          nextIndex = 0;
+        }
+      }
+      
+      await this.playIndex(nextIndex);
     },
     
     /**
@@ -272,13 +361,13 @@ export function createQueueStore(Alpine) {
         this._originalOrder = [...this.items];
         this._shuffleHistory = [this.currentIndex];
       } else {
-        // Restore original order
         const currentTrack = this.items[this.currentIndex];
         this.items = [...this._originalOrder];
         this.currentIndex = this.items.findIndex(t => t.id === currentTrack?.id);
         this._shuffleHistory = [];
       }
       
+      this._saveLoopState();
       await this.save();
     },
     
@@ -289,6 +378,8 @@ export function createQueueStore(Alpine) {
       const modes = ['none', 'all', 'one'];
       const currentIdx = modes.indexOf(this.loop);
       this.loop = modes[(currentIdx + 1) % modes.length];
+      this._repeatOnePending = false;
+      this._saveLoopState();
       await this.save();
     },
     
@@ -299,6 +390,8 @@ export function createQueueStore(Alpine) {
     async setLoop(mode) {
       if (['none', 'all', 'one'].includes(mode)) {
         this.loop = mode;
+        this._repeatOnePending = false;
+        this._saveLoopState();
         await this.save();
       }
     },

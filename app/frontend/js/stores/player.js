@@ -137,11 +137,11 @@ export function createPlayerStore(Alpine) {
     },
     
     async previous() {
-      await Alpine.store('queue').playPrevious();
+      await Alpine.store('queue').skipPrevious();
     },
     
     async next() {
-      await Alpine.store('queue').playNext();
+      await Alpine.store('queue').skipNext();
     },
     
     async stop() {

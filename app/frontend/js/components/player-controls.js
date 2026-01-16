@@ -108,14 +108,14 @@ export function createPlayerControls(Alpine) {
      * Get loop icon based on mode
      */
     get loopIcon() {
-      return this.queue.loopMode === 'one' ? 'repeat-one' : 'repeat';
+      return this.queue.loop === 'one' ? 'repeat-one' : 'repeat';
     },
     
     /**
      * Check if loop is active
      */
     get isLoopActive() {
-      return this.queue.loopMode !== 'none';
+      return this.queue.loop !== 'none';
     },
     
     get displayPosition() {
@@ -268,7 +268,7 @@ export function createPlayerControls(Alpine) {
      * Cycle loop mode
      */
     cycleLoop() {
-      this.queue.cycleLoopMode();
+      this.queue.cycleLoop();
     },
     
     /**

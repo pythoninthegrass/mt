@@ -463,3 +463,93 @@ test.describe('Queue Parity Tests', () => {
     expect(newIndex).toBe(initialIndex + 1);
   });
 });
+
+test.describe('Loop Mode Tests (task-146)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+  });
+
+  test('loop button should cycle through none -> all -> one -> none', async ({ page }) => {
+    const initialLoop = await page.evaluate(() =>
+      window.Alpine.store('queue').loop
+    );
+
+    await page.locator('[data-testid="player-loop"]').click();
+    await page.waitForTimeout(100);
+
+    const afterFirst = await page.evaluate(() =>
+      window.Alpine.store('queue').loop
+    );
+
+    await page.locator('[data-testid="player-loop"]').click();
+    await page.waitForTimeout(100);
+
+    const afterSecond = await page.evaluate(() =>
+      window.Alpine.store('queue').loop
+    );
+
+    await page.locator('[data-testid="player-loop"]').click();
+    await page.waitForTimeout(100);
+
+    const afterThird = await page.evaluate(() =>
+      window.Alpine.store('queue').loop
+    );
+
+    expect([initialLoop, afterFirst, afterSecond, afterThird]).toEqual(['none', 'all', 'one', 'none']);
+  });
+
+  test('loop state should persist in localStorage', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('queue').loop = 'none';
+    });
+
+    await page.locator('[data-testid="player-loop"]').click();
+    await page.waitForTimeout(100);
+
+    const savedState = await page.evaluate(() => {
+      const saved = localStorage.getItem('mt:loop-state');
+      return saved ? JSON.parse(saved) : null;
+    });
+
+    expect(savedState).toBeTruthy();
+    expect(savedState.loop).toBe('all');
+  });
+
+  test('manual next during repeat-one should revert to all', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    await page.evaluate(() => {
+      window.Alpine.store('queue').loop = 'one';
+    });
+
+    await page.locator('[data-testid="player-next"]').click();
+    await page.waitForTimeout(300);
+
+    const loopAfterSkip = await page.evaluate(() =>
+      window.Alpine.store('queue').loop
+    );
+    expect(loopAfterSkip).toBe('all');
+  });
+
+  test('manual prev during repeat-one should revert to all', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 1);
+    await waitForPlaying(page);
+
+    await page.evaluate(() => {
+      window.Alpine.store('queue').loop = 'one';
+    });
+
+    await page.locator('[data-testid="player-prev"]').click();
+    await page.waitForTimeout(300);
+
+    const loopAfterSkip = await page.evaluate(() =>
+      window.Alpine.store('queue').loop
+    );
+    expect(loopAfterSkip).toBe('all');
+  });
+});
