@@ -78,8 +78,14 @@ export function createPlayerStore(Alpine) {
       
       try {
         const info = await invoke('audio_load', { path: trackPath });
-        const trackDurationMs = track.duration ? track.duration * 1000 : 0;
-        const durationMs = info.duration_ms || trackDurationMs || 0;
+        const trackDurationMs = track.duration ? Math.round(track.duration * 1000) : 0;
+        const durationMs = (info.duration_ms > 0 ? info.duration_ms : trackDurationMs) || 0;
+        console.debug('[playTrack] duration sources:', { 
+          rust: info.duration_ms, 
+          track: track.duration, 
+          trackMs: trackDurationMs, 
+          final: durationMs 
+        });
         this.currentTrack = { ...track, duration: durationMs };
         this.duration = durationMs;
         this.currentTime = 0;
