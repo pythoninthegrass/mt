@@ -68,7 +68,7 @@ export function createLibraryBrowser(Alpine) {
 
     // Base column definitions
     baseColumns: [
-      { key: 'index', label: '#', sortable: false, minWidth: 40, canHide: false },
+      { key: 'index', label: '#', sortable: true, minWidth: 40, canHide: false },
       { key: 'title', label: 'Title', sortable: true, minWidth: 100, canHide: false },
       { key: 'artist', label: 'Artist', sortable: true, minWidth: 80, canHide: true },
       { key: 'album', label: 'Album', sortable: true, minWidth: 80, canHide: true },

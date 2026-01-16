@@ -175,6 +175,7 @@ export function createLibraryStore(Alpine) {
       
       // Apply sorting
       const sortKeyMap = {
+        index: 'track_number',
         dateAdded: 'added_date',
         lastPlayed: 'last_played',
         playCount: 'play_count',
@@ -186,7 +187,11 @@ export function createLibraryStore(Alpine) {
         let bVal = b[sortKey] || '';
         
         // Handle numeric and date fields
-        if (['duration', 'play_count'].includes(sortKey)) {
+        if (sortKey === 'track_number') {
+          // Parse track number (handles "5" or "5/12" format)
+          aVal = parseInt(String(aVal).split('/')[0], 10) || 999999;
+          bVal = parseInt(String(bVal).split('/')[0], 10) || 999999;
+        } else if (['duration', 'play_count'].includes(sortKey)) {
           aVal = Number(aVal) || 0;
           bVal = Number(bVal) || 0;
         } else if (['added_date', 'last_played'].includes(sortKey)) {
