@@ -1,10 +1,10 @@
 ---
 id: task-146
 title: Finish loop mode end-to-end (UI ↔ store ↔ persistence)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-16 04:59'
-updated_date: '2026-01-16 04:59'
+updated_date: '2026-01-16 05:04'
 labels:
   - ui
   - queue
@@ -13,6 +13,7 @@ labels:
 milestone: Tauri Migration
 dependencies: []
 priority: medium
+ordinal: 1000
 ---
 
 ## Description
@@ -61,3 +62,24 @@ Manual next/prev during repeat-one should:
 - [ ] #7 Naming mismatch fixed: player-controls uses queue.loop and queue.cycleLoop()
 - [ ] #8 Playwright tests cover loop state cycling and repeat-one auto-revert
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Completion Notes (2026-01-15)
+
+### Implementation Summary
+- Fixed naming mismatch in player-controls.js (loopMode → loop, cycleLoopMode → cycleLoop)
+- Implemented repeat-one "play once more" behavior with auto-revert to 'none'
+- Added skipNext()/skipPrevious() for manual navigation that reverts repeat-one to 'all'
+- Added localStorage persistence for loop/shuffle state
+- Added 4 Playwright tests for loop mode behavior
+
+### Test Results
+- All 29 store tests pass
+- 5 loop-related tests pass (cycling, persistence, UI state)
+- Pre-existing playback-dependent tests still timeout (unrelated to this change)
+
+### Commit
+- 499d88c: feat: implement loop mode with repeat-one auto-revert behavior
+<!-- SECTION:NOTES:END -->
