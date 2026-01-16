@@ -1,9 +1,10 @@
 ---
 id: task-144
 title: 'Add Playwright test: double-click populates queue with entire library'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-16 04:04'
+updated_date: '2026-01-16 04:18'
 labels:
   - testing
   - playwright
@@ -72,3 +73,9 @@ test('double-click should populate queue with entire library', async ({ page }) 
 - [ ] #3 Test passes after task-140 is complete
 - [ ] #4 Test fails if filtered behavior is restored (regression guard)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Added test 'double-click should populate queue with entire library (task-144)' to queue.spec.js
+<!-- SECTION:NOTES:END -->

@@ -1,9 +1,10 @@
 ---
 id: task-142
 title: 'Add Playwright test: seek updates position and doesn''t snap back'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-16 04:04'
+updated_date: '2026-01-16 04:18'
 labels:
   - testing
   - playwright
@@ -65,3 +66,9 @@ test('seek should move position and remain stable', async ({ page }) => {
 - [ ] #3 Uses data-testid selectors
 - [ ] #4 Tolerance accounts for varying track durations
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Added test 'seek should move position and remain stable (task-142)' to playback.spec.js
+<!-- SECTION:NOTES:END -->

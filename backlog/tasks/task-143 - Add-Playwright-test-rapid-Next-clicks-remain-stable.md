@@ -1,9 +1,10 @@
 ---
 id: task-143
 title: 'Add Playwright test: rapid Next clicks remain stable'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-16 04:04'
+updated_date: '2026-01-16 04:18'
 labels:
   - testing
   - playwright
@@ -63,3 +64,9 @@ test('rapid next should not break playback state', async ({ page }) => {
 - [ ] #3 Uses data-testid selectors
 - [ ] #4 Handles edge cases gracefully
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Added test 'rapid next should not break playback state (task-143)' to playback.spec.js
+<!-- SECTION:NOTES:END -->

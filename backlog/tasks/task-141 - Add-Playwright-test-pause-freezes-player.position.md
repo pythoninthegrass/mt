@@ -1,9 +1,10 @@
 ---
 id: task-141
 title: 'Add Playwright test: pause freezes player.position'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-16 04:04'
+updated_date: '2026-01-16 04:18'
 labels:
   - testing
   - playwright
@@ -60,3 +61,9 @@ test('pause should freeze position', async ({ page }) => {
 - [ ] #3 Uses data-testid selectors
 - [ ] #4 Tolerance is appropriate (0.25-0.5s)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Added test 'pause should freeze position (task-141)' to playback.spec.js
+<!-- SECTION:NOTES:END -->

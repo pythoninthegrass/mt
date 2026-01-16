@@ -1,9 +1,10 @@
 ---
 id: task-145
 title: 'Add Playwright test: Next traversal is sequential when shuffle is off'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-16 04:04'
+updated_date: '2026-01-16 04:18'
 labels:
   - testing
   - playwright
@@ -64,3 +65,9 @@ test('next should advance sequentially when shuffle is off', async ({ page }) =>
 - [ ] #3 Uses data-testid selectors
 - [ ] #4 Shuffle is explicitly disabled in test
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Added test 'next should advance sequentially when shuffle is off (task-145)' to queue.spec.js
+<!-- SECTION:NOTES:END -->
