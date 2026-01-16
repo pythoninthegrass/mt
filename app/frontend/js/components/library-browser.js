@@ -949,7 +949,7 @@ export function createLibraryBrowser(Alpine) {
         items: menuItems,
       };
       this.showPlaylistSubmenu = false;
-      this.submenuOnLeft = (x + menuWidth + submenuWidth) > window.innerWidth;
+      this.submenuOnLeft = (x + menuWidth + 45 + submenuWidth) > window.innerWidth;
     },
 
     /**

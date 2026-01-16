@@ -625,7 +625,7 @@
           x-cloak
           class="context-menu bg-card"
           data-testid="playlist-submenu"
-          :style="contextMenu ? `left: ${submenuOnLeft ? contextMenu.x - 180 : contextMenu.x + 180}px; top: ${submenuY}px` : ''"
+          :style="contextMenu ? `left: ${submenuOnLeft ? contextMenu.x - 180 : contextMenu.x + 180 + 45}px; top: ${submenuY}px` : ''"
           @mouseenter="if (submenuCloseTimeout) { clearTimeout(submenuCloseTimeout); submenuCloseTimeout = null; }"
           @mouseleave="showPlaylistSubmenu = false"
         >
