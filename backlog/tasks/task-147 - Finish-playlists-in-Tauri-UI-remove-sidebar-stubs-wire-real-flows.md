@@ -1,10 +1,10 @@
 ---
 id: task-147
 title: 'Finish playlists in Tauri UI (remove sidebar stubs, wire real flows)'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-16 04:59'
-updated_date: '2026-01-16 04:59'
+updated_date: '2026-01-16 05:10'
 labels:
   - ui
   - playlists
@@ -82,3 +82,31 @@ Meanwhile, `library-browser.js` already has real playlist API calls (`api.playli
 - [ ] #9 Playlist changes refresh sidebar list (via mt:playlists-updated event)
 - [ ] #10 Playwright tests cover: load playlists, click playlist, create playlist, context menu
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Completion Notes (2026-01-15)
+
+### Implementation Summary
+
+**Backend (FastAPI):**
+- Added playlist API endpoints: GET/POST /api/playlists, GET/PUT/DELETE /api/playlists/:id
+- Added track management: POST/DELETE /api/playlists/:id/tracks, POST /api/playlists/:id/reorder
+- Database initialization with playlist tables on startup
+
+**Frontend:**
+- Added playlist API client methods to api.js
+- Wired sidebar to load real playlists from backend via api.playlists.getAll()
+- Implemented loadPlaylist() in library store to fetch and display playlist tracks
+- Wired createPlaylist() with browser prompt and API call
+- Added right-click context menu for rename/delete operations
+- Added data-testid attributes for Playwright testing
+
+**Tests:**
+- Added 3 Playwright tests for context menu behavior (show, click-away dismiss, escape dismiss)
+- All 22/25 sidebar tests pass (3 pre-existing failures unrelated to this change)
+
+### Commit
+- 48c5be3: feat: implement playlist management end-to-end (task-147)
+<!-- SECTION:NOTES:END -->
