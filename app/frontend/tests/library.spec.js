@@ -1439,7 +1439,7 @@ test.describe('Column Padding Consistency (task-135)', () => {
     expect(indexPadding.paddingRight).toBe('8px');
   });
 
-  test('should have duration column default width of 40px', async ({ page }) => {
+  test('should have duration column default width of 52px', async ({ page }) => {
     // Clear any saved settings to get defaults
     await page.evaluate(() => {
       localStorage.removeItem('mt:column-settings');
@@ -1456,10 +1456,10 @@ test.describe('Column Padding Consistency (task-135)', () => {
       };
     });
 
-    expect(componentData.durationWidth).toBe(40);
+    expect(componentData.durationWidth).toBe(52);
   });
 
-  test('should enforce minimum duration column width of 40px', async ({ page }) => {
+  test('should enforce minimum duration column width of 52px', async ({ page }) => {
     // Try to resize duration column below minimum
     const durationResizer = page.locator('[data-testid="col-resizer-left-duration"]');
 
@@ -1475,13 +1475,13 @@ test.describe('Column Padding Consistency (task-135)', () => {
       await page.waitForTimeout(100);
     }
 
-    // Duration width should not go below 40px
+    // Duration width should not go below 52px
     const componentData = await page.evaluate(() => {
       const el = document.querySelector('[x-data="libraryBrowser"]');
       return window.Alpine.$data(el).columnWidths.duration;
     });
 
-    expect(componentData).toBeGreaterThanOrEqual(40);
+    expect(componentData).toBeGreaterThanOrEqual(52);
   });
 
   test('should have sticky header that remains visible when scrolling', async ({ page }) => {

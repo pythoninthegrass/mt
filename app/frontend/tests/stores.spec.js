@@ -424,7 +424,7 @@ test.describe('Store Reactivity', () => {
     await page.waitForTimeout(300);
 
     // Verify play button shows pause icon
-    const playButton = page.locator('button[title="Play/Pause"]');
+    const playButton = page.locator('[data-testid="player-playpause"]');
     const buttonHtml = await playButton.innerHTML();
     expect(buttonHtml).toContain('path'); // Should have SVG path
   });

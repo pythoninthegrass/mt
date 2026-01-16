@@ -27,7 +27,7 @@ test.describe('Playback Controls', () => {
     expect(initialPlayerStore.isPlaying).toBe(false);
 
     // Click play button
-    const playButton = page.locator('button[title="Play/Pause"]');
+    const playButton = page.locator('[data-testid="player-playpause"]');
     await playButton.click();
 
     // Wait for playing state
@@ -79,7 +79,7 @@ test.describe('Playback Controls', () => {
     const firstTrackId = firstTrack.id;
 
     // Click next button
-    const nextButton = page.locator('button[title="Next"]');
+    const nextButton = page.locator('[data-testid="player-next"]');
     await nextButton.click();
 
     // Wait for track to change
@@ -108,7 +108,7 @@ test.describe('Playback Controls', () => {
     const secondTrackId = secondTrack.id;
 
     // Click previous button
-    const prevButton = page.locator('button[title="Previous"]');
+    const prevButton = page.locator('[data-testid="player-prev"]');
     await prevButton.click();
 
     // Wait for track to change
@@ -140,7 +140,7 @@ test.describe('Playback Controls', () => {
     expect(playerStore.position).toBeGreaterThan(0);
 
     // Verify progress bar shows progress
-    const progressBar = page.locator('[x-ref="progressBar"] div').first();
+    const progressBar = page.locator('[data-testid="player-progressbar"] div').first();
     const width = await progressBar.evaluate((el) => el.style.width);
     expect(width).not.toBe('0%');
   });
@@ -155,7 +155,7 @@ test.describe('Playback Controls', () => {
     await page.waitForTimeout(1000);
 
     // Get progress bar element
-    const progressBar = page.locator('[x-ref="progressBar"]');
+    const progressBar = page.locator('[data-testid="player-progressbar"]');
     const boundingBox = await progressBar.boundingBox();
 
     // Click at 50% of progress bar
@@ -192,8 +192,8 @@ test.describe('Playback Controls', () => {
 
   test('should disable prev/next buttons when no track is loaded', async ({ page }) => {
     // Verify buttons are disabled initially (or have opacity-40 class)
-    const prevButton = page.locator('button[title="Previous"]');
-    const nextButton = page.locator('button[title="Next"]');
+    const prevButton = page.locator('[data-testid="player-prev"]');
+    const nextButton = page.locator('[data-testid="player-next"]');
 
     const prevClasses = await prevButton.getAttribute('class');
     const nextClasses = await nextButton.getAttribute('class');
@@ -270,7 +270,7 @@ test.describe('Volume Controls', () => {
 
   test('should adjust volume when clicking volume slider', async ({ page }) => {
     // Get volume bar element
-    const volumeBar = page.locator('[x-ref="volumeBar"]');
+    const volumeBar = page.locator('[data-testid="player-volume"]');
     const boundingBox = await volumeBar.boundingBox();
 
     // Click at 75% of volume bar
@@ -293,7 +293,7 @@ test.describe('Volume Controls', () => {
     const initialMuted = playerStore.muted || false;
 
     // Click mute button
-    const muteButton = page.locator('button[title="Mute"]');
+    const muteButton = page.locator('[data-testid="player-mute"]');
     await muteButton.click();
 
     // Wait for mute status to change

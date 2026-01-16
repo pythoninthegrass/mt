@@ -112,7 +112,7 @@ test.describe('Queue Management', () => {
     const initialIndex = queueStore.currentIndex;
 
     // Click next button
-    await page.click('button[title="Next"]');
+    await page.click('[data-testid="player-next"]');
 
     // Wait for queue index to change
     await page.waitForFunction(
@@ -128,7 +128,7 @@ test.describe('Queue Management', () => {
     expect(queueStore.currentIndex).toBe(initialIndex + 1);
 
     // Click previous button
-    await page.click('button[title="Previous"]');
+    await page.click('[data-testid="player-prev"]');
 
     // Wait for queue index to change back
     await page.waitForFunction(
@@ -158,7 +158,7 @@ test.describe('Shuffle and Loop Modes', () => {
     const initialShuffle = initialQueueStore.shuffle;
 
     // Click shuffle button
-    const shuffleButton = page.locator('button[title="Shuffle"]');
+    const shuffleButton = page.locator('[data-testid="player-shuffle"]');
     await shuffleButton.click();
 
     // Wait for shuffle state to change
@@ -189,7 +189,7 @@ test.describe('Shuffle and Loop Modes', () => {
     const initialLoopMode = initialQueueStore.loop;
 
     // Click loop button
-    const loopButton = page.locator('button[title="Loop"]');
+    const loopButton = page.locator('[data-testid="player-loop"]');
     await loopButton.click();
 
     // Wait for loop mode to change
@@ -220,7 +220,7 @@ test.describe('Shuffle and Loop Modes', () => {
     await page.waitForTimeout(300);
 
     // Verify loop button shows "1" indicator
-    const loopButton = page.locator('button[title="Loop"]');
+    const loopButton = page.locator('[data-testid="player-loop"]');
     const buttonHtml = await loopButton.innerHTML();
     expect(buttonHtml).toContain('1');
   });
