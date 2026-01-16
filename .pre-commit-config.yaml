@@ -1,6 +1,19 @@
 fail_fast: true
 
 repos:
+  - repo: https://github.com/nozaq/pre-commit-deno
+    rev: v0.1.0
+    hooks:
+      - id: deno-fmt
+        files: \.(ts|tsx|js|jsx|json|jsonc)$
+      - id: deno-lint
+        files: \.(ts|tsx|js|jsx)$
+  - repo: https://github.com/thibaudcolas/pre-commit-stylelint
+    rev: v14.4.0
+    hooks:
+      - id: stylelint
+        args: [--fix]
+        files: \.(css|scss|sass|less|html|js|jsx|ts|tsx)$
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.13.0
     hooks:
