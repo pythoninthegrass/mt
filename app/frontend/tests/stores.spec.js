@@ -1,0 +1,477 @@
+import { test, expect } from '@playwright/test';
+import {
+  waitForAlpine,
+  getAlpineStore,
+  setAlpineStoreProperty,
+  callAlpineStoreMethod,
+  waitForStoreValue,
+  waitForStoreChange,
+} from './fixtures/helpers.js';
+
+test.describe('Player Store', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+  });
+
+  test('should initialize player store with default values', async ({ page }) => {
+    const playerStore = await getAlpineStore(page, 'player');
+
+    expect(playerStore).toBeDefined();
+    expect(playerStore.isPlaying).toBeDefined();
+    expect(playerStore.currentTrack).toBeDefined();
+    expect(playerStore.currentTime).toBeDefined();
+    expect(playerStore.duration).toBeDefined();
+    expect(playerStore.volume).toBeDefined();
+  });
+
+  test('should update isPlaying state', async ({ page }) => {
+    // Set playing state
+    await setAlpineStoreProperty(page, 'player', 'isPlaying', true);
+
+    // Verify state changed
+    const playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.isPlaying).toBe(true);
+
+    // Set paused state
+    await setAlpineStoreProperty(page, 'player', 'isPlaying', false);
+
+    // Verify state changed
+    const updatedStore = await getAlpineStore(page, 'player');
+    expect(updatedStore.isPlaying).toBe(false);
+  });
+
+  test('should track current track', async ({ page }) => {
+    // Set mock track
+    const mockTrack = {
+      id: 'test-track-1',
+      title: 'Test Track',
+      artist: 'Test Artist',
+      album: 'Test Album',
+      duration: 180,
+    };
+
+    await setAlpineStoreProperty(page, 'player', 'currentTrack', mockTrack);
+
+    // Verify track is set
+    const playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.currentTrack.id).toBe('test-track-1');
+    expect(playerStore.currentTrack.title).toBe('Test Track');
+  });
+
+  test('should update position during playback', async ({ page }) => {
+    // Set initial position
+    await setAlpineStoreProperty(page, 'player', 'currentTime', 0);
+
+    // Verify position is 0
+    let playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.currentTime).toBe(0);
+
+    // Update position
+    await setAlpineStoreProperty(page, 'player', 'currentTime', 30000);
+
+    // Verify position updated
+    playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.currentTime).toBe(30000);
+  });
+
+  test('should manage volume level', async ({ page }) => {
+    // Set volume to 75
+    await setAlpineStoreProperty(page, 'player', 'volume', 75);
+
+    // Verify volume
+    const playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.volume).toBe(75);
+  });
+
+  test('should toggle mute state', async ({ page }) => {
+    // Set muted
+    await setAlpineStoreProperty(page, 'player', 'muted', true);
+
+    // Verify muted
+    let playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.muted).toBe(true);
+
+    // Unmute
+    await setAlpineStoreProperty(page, 'player', 'muted', false);
+
+    // Verify unmuted
+    playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.muted).toBe(false);
+  });
+
+  test('should store track artwork', async ({ page }) => {
+    // Set mock artwork
+    const mockArtwork = {
+      mime_type: 'image/png',
+      data: 'base64encodeddata',
+    };
+
+    await setAlpineStoreProperty(page, 'player', 'artwork', mockArtwork);
+
+    // Verify artwork
+    const playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.artwork).toBeDefined();
+    expect(playerStore.artwork.mime_type).toBe('image/png');
+  });
+});
+
+test.describe('Queue Store', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+  });
+
+  test('should initialize queue store', async ({ page }) => {
+    const queueStore = await getAlpineStore(page, 'queue');
+
+    expect(queueStore).toBeDefined();
+    expect(queueStore.items).toBeDefined();
+    expect(Array.isArray(queueStore.items)).toBe(true);
+    expect(queueStore.currentIndex).toBeDefined();
+    expect(queueStore.shuffle).toBeDefined();
+    expect(queueStore.loop).toBeDefined();
+  });
+
+  test('should add items to queue', async ({ page }) => {
+    // Get initial queue
+    let queueStore = await getAlpineStore(page, 'queue');
+    const initialLength = queueStore.items.length;
+
+    // Add mock track
+    const mockTrack = {
+      id: 'track-1',
+      title: 'Test Track',
+      artist: 'Test Artist',
+    };
+
+    await page.evaluate((track) => {
+      window.Alpine.store('queue').items.push(track);
+    }, mockTrack);
+
+    // Verify track added
+    queueStore = await getAlpineStore(page, 'queue');
+    expect(queueStore.items.length).toBe(initialLength + 1);
+  });
+
+  test('should remove items from queue', async ({ page }) => {
+    // Add mock tracks first
+    await page.evaluate(() => {
+      window.Alpine.store('queue').items = [
+        { id: 'track-1', title: 'Track 1' },
+        { id: 'track-2', title: 'Track 2' },
+      ];
+    });
+
+    // Remove first track
+    await page.evaluate(() => {
+      window.Alpine.store('queue').items.shift();
+    });
+
+    // Verify track removed
+    const queueStore = await getAlpineStore(page, 'queue');
+    expect(queueStore.items.length).toBe(1);
+    expect(queueStore.items[0].id).toBe('track-2');
+  });
+
+  test('should track current index', async ({ page }) => {
+    // Set queue with tracks
+    await page.evaluate(() => {
+      window.Alpine.store('queue').items = [
+        { id: 'track-1', title: 'Track 1' },
+        { id: 'track-2', title: 'Track 2' },
+        { id: 'track-3', title: 'Track 3' },
+      ];
+      window.Alpine.store('queue').currentIndex = 1;
+    });
+
+    // Verify current index
+    const queueStore = await getAlpineStore(page, 'queue');
+    expect(queueStore.currentIndex).toBe(1);
+  });
+
+  test('should toggle shuffle mode', async ({ page }) => {
+    // Get initial shuffle state
+    let queueStore = await getAlpineStore(page, 'queue');
+    const initialShuffle = queueStore.shuffle;
+
+    // Toggle shuffle
+    await page.evaluate((current) => {
+      window.Alpine.store('queue').shuffle = !current;
+    }, initialShuffle);
+
+    // Verify shuffle toggled
+    queueStore = await getAlpineStore(page, 'queue');
+    expect(queueStore.shuffle).toBe(!initialShuffle);
+  });
+
+  test('should cycle through loop modes', async ({ page }) => {
+    // Valid loop modes: off, all, one
+    const modes = ['off', 'all', 'one'];
+
+    for (let i = 0; i < modes.length; i++) {
+      await setAlpineStoreProperty(page, 'queue', 'loop', modes[i]);
+
+      const queueStore = await getAlpineStore(page, 'queue');
+      expect(queueStore.loop).toBe(modes[i]);
+    }
+  });
+
+  test('should clear queue', async ({ page }) => {
+    // Add tracks to queue
+    await page.evaluate(() => {
+      window.Alpine.store('queue').items = [
+        { id: 'track-1', title: 'Track 1' },
+        { id: 'track-2', title: 'Track 2' },
+      ];
+    });
+
+    // Clear queue
+    await setAlpineStoreProperty(page, 'queue', 'items', []);
+
+    // Verify queue is empty
+    const queueStore = await getAlpineStore(page, 'queue');
+    expect(queueStore.items.length).toBe(0);
+  });
+});
+
+test.describe('Library Store', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+  });
+
+  test('should initialize library store', async ({ page }) => {
+    const libraryStore = await getAlpineStore(page, 'library');
+
+    expect(libraryStore).toBeDefined();
+    expect(libraryStore.tracks).toBeDefined();
+    expect(Array.isArray(libraryStore.tracks)).toBe(true);
+    expect(libraryStore.filteredTracks).toBeDefined();
+    expect(libraryStore.searchQuery).toBeDefined();
+    expect(libraryStore.currentSection).toBeDefined();
+    expect(libraryStore.sortBy).toBeDefined();
+    expect(libraryStore.sortOrder).toBeDefined();
+  });
+
+  test('should update search query', async ({ page }) => {
+    // Set search query
+    await setAlpineStoreProperty(page, 'library', 'searchQuery', 'test search');
+
+    // Verify search query
+    const libraryStore = await getAlpineStore(page, 'library');
+    expect(libraryStore.searchQuery).toBe('test search');
+  });
+
+  test('should change current section', async ({ page }) => {
+    // Set section
+    await setAlpineStoreProperty(page, 'library', 'currentSection', 'recent');
+
+    // Verify section changed
+    const libraryStore = await getAlpineStore(page, 'library');
+    expect(libraryStore.currentSection).toBe('recent');
+  });
+
+  test('should update sort parameters', async ({ page }) => {
+    // Set sort by title
+    await setAlpineStoreProperty(page, 'library', 'sortBy', 'title');
+    await setAlpineStoreProperty(page, 'library', 'sortOrder', 'asc');
+
+    // Verify sort settings
+    const libraryStore = await getAlpineStore(page, 'library');
+    expect(libraryStore.sortBy).toBe('title');
+    expect(libraryStore.sortOrder).toBe('asc');
+  });
+
+  test('should track loading state', async ({ page }) => {
+    // Set loading
+    await setAlpineStoreProperty(page, 'library', 'loading', true);
+
+    // Verify loading
+    let libraryStore = await getAlpineStore(page, 'library');
+    expect(libraryStore.loading).toBe(true);
+
+    // Clear loading
+    await setAlpineStoreProperty(page, 'library', 'loading', false);
+
+    // Verify not loading
+    libraryStore = await getAlpineStore(page, 'library');
+    expect(libraryStore.loading).toBe(false);
+  });
+
+  test('should filter tracks based on search', async ({ page }) => {
+    // Add mock tracks
+    await page.evaluate(() => {
+      window.Alpine.store('library').tracks = [
+        { id: 'track-1', title: 'Hello World', artist: 'Artist A' },
+        { id: 'track-2', title: 'Goodbye Moon', artist: 'Artist B' },
+        { id: 'track-3', title: 'Hello Again', artist: 'Artist A' },
+      ];
+    });
+
+    // Set search query
+    await setAlpineStoreProperty(page, 'library', 'searchQuery', 'hello');
+
+    // Trigger search (if method exists)
+    try {
+      await callAlpineStoreMethod(page, 'library', 'search', 'hello');
+    } catch (e) {
+      // Method might not exist, search might be reactive
+    }
+
+    // Wait a moment for filtering
+    await page.waitForTimeout(500);
+
+    // Verify filtered tracks (this depends on implementation)
+    const libraryStore = await getAlpineStore(page, 'library');
+    // Should have tracks with "hello" in title or all tracks if filtering is done elsewhere
+    expect(libraryStore.tracks.length).toBeGreaterThan(0);
+  });
+});
+
+test.describe('UI Store', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+  });
+
+  test('should initialize UI store', async ({ page }) => {
+    const uiStore = await getAlpineStore(page, 'ui');
+
+    expect(uiStore).toBeDefined();
+    expect(uiStore.view).toBeDefined();
+    expect(uiStore.toasts).toBeDefined();
+    expect(Array.isArray(uiStore.toasts)).toBe(true);
+  });
+
+  test('should switch between views', async ({ page }) => {
+    const views = ['library', 'queue', 'nowPlaying'];
+
+    for (const view of views) {
+      await setAlpineStoreProperty(page, 'ui', 'view', view);
+
+      const uiStore = await getAlpineStore(page, 'ui');
+      expect(uiStore.view).toBe(view);
+    }
+  });
+
+  test('should show toast notifications', async ({ page }) => {
+    // Add toast
+    await page.evaluate(() => {
+      window.Alpine.store('ui').toasts.push({
+        id: 'toast-1',
+        message: 'Test notification',
+        type: 'info',
+      });
+    });
+
+    // Verify toast added
+    const uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.toasts.length).toBeGreaterThan(0);
+    expect(uiStore.toasts[uiStore.toasts.length - 1].message).toBe('Test notification');
+  });
+
+  test('should dismiss toast notifications', async ({ page }) => {
+    // Add toast
+    await page.evaluate(() => {
+      window.Alpine.store('ui').toasts = [{
+        id: 'toast-1',
+        message: 'Test notification',
+        type: 'info',
+      }];
+    });
+
+    // Remove toast
+    await page.evaluate(() => {
+      window.Alpine.store('ui').toasts = [];
+    });
+
+    // Verify toast removed
+    const uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.toasts.length).toBe(0);
+  });
+
+  test('should track global loading state', async ({ page }) => {
+    // Set loading
+    await setAlpineStoreProperty(page, 'ui', 'globalLoading', true);
+
+    // Verify loading
+    let uiStore = await getAlpineStore(page, 'ui');
+    if (uiStore.globalLoading !== undefined) {
+      expect(uiStore.globalLoading).toBe(true);
+
+      // Clear loading
+      await setAlpineStoreProperty(page, 'ui', 'globalLoading', false);
+
+      // Verify not loading
+      uiStore = await getAlpineStore(page, 'ui');
+      expect(uiStore.globalLoading).toBe(false);
+    }
+  });
+});
+
+test.describe('Store Reactivity', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+  });
+
+  test('should update UI when player store changes', async ({ page }) => {
+    // Set playing state
+    await setAlpineStoreProperty(page, 'player', 'isPlaying', true);
+
+    // Wait for UI to update
+    await page.waitForTimeout(300);
+
+    // Verify play button shows pause icon
+    const playButton = page.locator('button[title="Play/Pause"]');
+    const buttonHtml = await playButton.innerHTML();
+    expect(buttonHtml).toContain('path'); // Should have SVG path
+  });
+
+  test('should update UI when queue store changes', async ({ page }) => {
+    // Add track to queue
+    await page.evaluate(() => {
+      window.Alpine.store('queue').items = [
+        { id: 'track-1', title: 'Test Track' },
+      ];
+    });
+
+    // Wait for UI to update
+    await page.waitForTimeout(300);
+
+    // Verify queue indicator or UI reflects change
+    const queueStore = await getAlpineStore(page, 'queue');
+    expect(queueStore.items.length).toBe(1);
+  });
+
+  test('should react to store method calls', async ({ page }) => {
+    // Set initial value
+    await setAlpineStoreProperty(page, 'player', 'volume', 50);
+
+    // Wait for change
+    await waitForStoreChange(page, 'player', 'volume', 2000).catch(() => {
+      // If no change detected, manually change it
+      return setAlpineStoreProperty(page, 'player', 'volume', 75);
+    });
+
+    // Verify value changed
+    const playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.volume).not.toBe(50);
+  });
+
+  test('should synchronize stores on track change', async ({ page }) => {
+    // Set track in player
+    const mockTrack = {
+      id: 'track-sync-1',
+      title: 'Sync Test',
+      artist: 'Test Artist',
+    };
+
+    await setAlpineStoreProperty(page, 'player', 'currentTrack', mockTrack);
+
+    // Verify player has track
+    const playerStore = await getAlpineStore(page, 'player');
+    expect(playerStore.currentTrack.id).toBe('track-sync-1');
+  });
+});

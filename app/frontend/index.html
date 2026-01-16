@@ -95,6 +95,10 @@
       right: -3px;
       z-index: 11;
     }
+    .column-resizer-right.last-column-resizer {
+      right: 0;
+      width: 3px;
+    }
     .column-resizer-left {
       left: -3px;
       z-index: 10;
@@ -367,6 +371,7 @@
                     <!-- Right resizer (resizes current column) -->
                     <div 
                       class="column-resizer-right"
+                      :class="{ 'last-column-resizer': colIndex === columns.length - 1 }"
                       :data-testid="`col-resizer-right-${col.key}`"
                       @mousedown.stop.prevent="startColumnResize(col, $event)"
                       @dblclick.stop.prevent="autoFitColumn(col, $event)"
