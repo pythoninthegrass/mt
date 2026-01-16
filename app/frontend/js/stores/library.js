@@ -207,17 +207,17 @@ export function createLibraryStore(Alpine) {
         let cmp = compareValues(a[primaryKey], b[primaryKey], primaryKey);
         if (cmp !== 0) return cmp * dir;
         
-        // Secondary/tertiary sorts: Album > Artist > Track# (always ascending)
+        // Tiebreakers: Album > Track# > Artist (always ascending)
         if (primaryKey !== 'album') {
           cmp = compareValues(a.album, b.album, 'album');
           if (cmp !== 0) return cmp;
         }
-        if (primaryKey !== 'artist') {
-          cmp = compareValues(a.artist, b.artist, 'artist');
+        if (primaryKey !== 'track_number') {
+          cmp = compareValues(a.track_number, b.track_number, 'track_number');
           if (cmp !== 0) return cmp;
         }
-        if (primaryKey !== 'track_number') {
-          return compareValues(a.track_number, b.track_number, 'track_number');
+        if (primaryKey !== 'artist') {
+          return compareValues(a.artist, b.artist, 'artist');
         }
         return 0;
       };
