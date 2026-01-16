@@ -377,4 +377,27 @@ test.describe('Playback Parity Tests', () => {
     expect(player.currentTrack.id).toBeTruthy();
     expect(player.isPlaying).toBe(true);
   });
+
+  test('should preserve database duration when Rust returns 0 (task-148)', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    await page.waitForFunction(() => window.Alpine.store('player').duration > 0);
+    const initialDuration = await page.evaluate(() => window.Alpine.store('player').duration);
+    expect(initialDuration).toBeGreaterThan(0);
+
+    await page.evaluate((dbDuration) => {
+      window.__TAURI__.event.emit('audio://progress', {
+        position_ms: 1000,
+        duration_ms: 0,
+        state: 'Playing',
+      });
+    }, initialDuration);
+
+    await page.waitForTimeout(100);
+
+    const afterDuration = await page.evaluate(() => window.Alpine.store('player').duration);
+    expect(afterDuration).toBe(initialDuration);
+  });
 });
