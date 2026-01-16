@@ -29,12 +29,17 @@ export function createPlayerStore(Alpine) {
         if (this.isSeeking) return;
         const { position_ms, duration_ms, state } = event.payload;
         this.currentTime = position_ms;
-        this.duration = duration_ms;
-        this.progress = duration_ms > 0 ? (position_ms / duration_ms) * 100 : 0;
+        // Only update duration if Rust provides a valid value, or we don't have one yet
+        // This preserves the database fallback duration for VBR MP3s where rodio can't determine duration
+        if (duration_ms > 0 || this.duration === 0) {
+          this.duration = duration_ms;
+        }
+        const effectiveDuration = this.duration;
+        this.progress = effectiveDuration > 0 ? (position_ms / effectiveDuration) * 100 : 0;
         this.isPlaying = state === 'Playing';
         
-        if (!this._playCountUpdated && duration_ms > 0 && this.currentTrack?.id) {
-          const ratio = position_ms / duration_ms;
+        if (!this._playCountUpdated && effectiveDuration > 0 && this.currentTrack?.id) {
+          const ratio = position_ms / effectiveDuration;
           if (ratio >= this._playCountThreshold) {
             this._updatePlayCount();
           }
