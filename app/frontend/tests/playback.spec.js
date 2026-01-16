@@ -311,3 +311,70 @@ test.describe('Volume Controls', () => {
     expect(updatedStore.muted).toBe(!initialMuted);
   });
 });
+
+test.describe('Playback Parity Tests', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+  });
+
+  test('pause should freeze position (task-141)', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    await page.waitForFunction(() => window.Alpine.store('player').position > 0.5);
+
+    await page.locator('[data-testid="player-playpause"]').click();
+    await waitForPaused(page);
+
+    const pos0 = await page.evaluate(() => window.Alpine.store('player').position);
+    await page.waitForTimeout(750);
+    const pos1 = await page.evaluate(() => window.Alpine.store('player').position);
+
+    expect(pos1 - pos0).toBeLessThanOrEqual(0.25);
+  });
+
+  test('seek should move position and remain stable (task-142)', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    await page.waitForFunction(() => window.Alpine.store('player').duration > 5);
+
+    const duration = await page.evaluate(() => window.Alpine.store('player').duration);
+    const targetFraction = 0.25;
+    const expected = duration * targetFraction;
+    const tolerance = Math.max(2.0, duration * 0.05);
+
+    const bar = page.locator('[data-testid="player-progressbar"]');
+    const box = await bar.boundingBox();
+    await page.mouse.click(box.x + box.width * targetFraction, box.y + box.height / 2);
+
+    await page.waitForTimeout(300);
+    const posA = await page.evaluate(() => window.Alpine.store('player').position);
+    expect(Math.abs(posA - expected)).toBeLessThanOrEqual(tolerance);
+
+    await page.waitForTimeout(400);
+    const posB = await page.evaluate(() => window.Alpine.store('player').position);
+    expect(Math.abs(posB - expected)).toBeLessThanOrEqual(tolerance);
+  });
+
+  test('rapid next should not break playback state (task-143)', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    const nextBtn = page.locator('[data-testid="player-next"]');
+    for (let i = 0; i < 15; i++) {
+      await nextBtn.click();
+      await page.waitForTimeout(75);
+    }
+
+    const player = await page.evaluate(() => window.Alpine.store('player'));
+    expect(player.currentTrack).toBeTruthy();
+    expect(player.currentTrack.id).toBeTruthy();
+    expect(player.isPlaying).toBe(true);
+  });
+});

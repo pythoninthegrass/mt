@@ -415,3 +415,51 @@ test.describe('Queue View Navigation', () => {
     expect(classes?.includes('bg-primary') || hasPlayingIndicator).toBe(true);
   });
 });
+
+test.describe('Queue Parity Tests', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+  });
+
+  test('double-click should populate queue with entire library (task-144)', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const totalLibraryCount = await page.evaluate(() =>
+      window.Alpine.store('library').tracks.length
+    );
+
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    const queueLength = await page.evaluate(() =>
+      window.Alpine.store('queue').items.length
+    );
+    expect(queueLength).toBe(totalLibraryCount);
+  });
+
+  test('next should advance sequentially when shuffle is off (task-145)', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    await page.evaluate(() => {
+      window.Alpine.store('queue').shuffle = false;
+    });
+
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    const initialIndex = await page.evaluate(() =>
+      window.Alpine.store('queue').currentIndex
+    );
+    expect(initialIndex).toBe(0);
+
+    await page.locator('[data-testid="player-next"]').click();
+    await page.waitForTimeout(300);
+
+    const newIndex = await page.evaluate(() =>
+      window.Alpine.store('queue').currentIndex
+    );
+    expect(newIndex).toBe(initialIndex + 1);
+  });
+});
