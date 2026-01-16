@@ -821,8 +821,8 @@ export function createLibraryBrowser(Alpine) {
 
     async handleDoubleClick(track) {
       await this.queue.clear();
-      await this.queue.add(this.library.filteredTracks, false);
-      const index = this.library.filteredTracks.findIndex((t) => t.id === track.id);
+      await this.queue.add(this.library.tracks, false);
+      const index = this.library.tracks.findIndex((t) => t.id === track.id);
       if (index >= 0) {
         await this.queue.playIndex(index);
       } else {
