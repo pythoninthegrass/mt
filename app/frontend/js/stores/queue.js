@@ -63,17 +63,12 @@ export function createQueueStore(Alpine) {
       }
     },
     
-    /**
-     * Load queue from backend
-     */
     async load() {
       this.loading = true;
       try {
         const data = await api.queue.get();
         this.items = data.items || [];
         this.currentIndex = data.currentIndex ?? -1;
-        this.shuffle = data.shuffle ?? false;
-        this.loop = data.loop ?? 'none';
         this._originalOrder = [...this.items];
       } catch (error) {
         console.error('Failed to load queue:', error);

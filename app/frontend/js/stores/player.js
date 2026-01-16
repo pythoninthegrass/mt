@@ -158,11 +158,13 @@ export function createPlayerStore(Alpine) {
     },
     
     async seek(positionMs) {
+      if (isNaN(positionMs) || positionMs < 0) return;
+      
       if (this._seekDebounce) {
         clearTimeout(this._seekDebounce);
       }
       
-      const pos = Math.round(positionMs);
+      const pos = Math.max(0, Math.round(positionMs));
       this.isSeeking = true;
       this.currentTime = pos;
       this.progress = this.duration > 0 ? (pos / this.duration) * 100 : 0;
@@ -180,7 +182,9 @@ export function createPlayerStore(Alpine) {
     },
     
     async seekPercent(percent) {
+      if (!this.duration || this.duration <= 0) return;
       const positionMs = Math.round((percent / 100) * this.duration);
+      if (isNaN(positionMs) || positionMs < 0) return;
       await this.seek(positionMs);
     },
     

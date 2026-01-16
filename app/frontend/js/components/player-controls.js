@@ -159,16 +159,15 @@ export function createPlayerControls(Alpine) {
       this.player.next();
     },
     
-    /**
-     * Handle progress bar click
-     * @param {MouseEvent} event
-     */
     handleProgressClick(event) {
       if (!this.hasTrack) return;
+      if (!this.player.duration || this.player.duration <= 0) return;
       
       const rect = event.currentTarget.getBoundingClientRect();
-      const percent = (event.clientX - rect.left) / rect.width;
-      const position = percent * this.player.duration;
+      const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      const position = Math.round(percent * this.player.duration);
+      
+      if (isNaN(position) || position < 0) return;
       this.player.seek(position);
     },
     
@@ -192,17 +191,18 @@ export function createPlayerControls(Alpine) {
       this.updateDragPosition(event);
     },
     
-    /**
-     * Update drag position from mouse event
-     * @param {MouseEvent} event
-     */
     updateDragPosition(event) {
       const progressBar = this.$refs.progressBar;
       if (!progressBar) return;
+      if (!this.player.duration || this.player.duration <= 0) return;
       
       const rect = progressBar.getBoundingClientRect();
       const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-      this.dragPosition = percent * this.player.duration;
+      const position = Math.round(percent * this.player.duration);
+      
+      if (!isNaN(position) && position >= 0) {
+        this.dragPosition = position;
+      }
     },
     
     handleVolumeChange(event) {
