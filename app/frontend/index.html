@@ -515,7 +515,7 @@
                     :data-column="col.key"
                   >
                     <template x-if="col.key === 'index'">
-                      <span x-text="index + 1"></span>
+                      <span x-text="track.track_number || (index + 1)"></span>
                     </template>
                     <template x-if="col.key === 'title'">
                       <span class="flex items-center">

@@ -234,18 +234,24 @@ export function createQueueStore(Alpine) {
       let nextIndex;
       
       if (this.shuffle) {
-        const available = this.items
+        // In shuffle mode, pick from tracks not yet played in this cycle
+        const unplayed = this.items
           .map((_, i) => i)
-          .filter(i => i !== this.currentIndex);
+          .filter(i => !this._shuffleHistory.includes(i));
         
-        if (available.length === 0) {
+        if (unplayed.length === 0) {
+          // All tracks played
           if (this.loop === 'all') {
+            // Reset history and start new shuffle cycle
+            this._shuffleHistory = [];
             nextIndex = Math.floor(Math.random() * this.items.length);
           } else {
+            // Stop playback - all tracks have been played once
+            Alpine.store('player').isPlaying = false;
             return;
           }
         } else {
-          nextIndex = available[Math.floor(Math.random() * available.length)];
+          nextIndex = unplayed[Math.floor(Math.random() * unplayed.length)];
         }
       } else {
         nextIndex = this.currentIndex + 1;
@@ -254,6 +260,8 @@ export function createQueueStore(Alpine) {
           if (this.loop === 'all') {
             nextIndex = 0;
           } else {
+            // Stop playback - reached end of queue
+            Alpine.store('player').isPlaying = false;
             return;
           }
         }
