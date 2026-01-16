@@ -207,13 +207,13 @@ export function createLibraryStore(Alpine) {
         let cmp = compareValues(a[primaryKey], b[primaryKey], primaryKey);
         if (cmp !== 0) return cmp * dir;
         
-        // Secondary/tertiary sorts (always ascending for tiebreakers)
-        if (primaryKey !== 'artist') {
-          cmp = compareValues(a.artist, b.artist, 'artist');
-          if (cmp !== 0) return cmp;
-        }
+        // Secondary/tertiary sorts: Album > Artist > Track# (always ascending)
         if (primaryKey !== 'album') {
           cmp = compareValues(a.album, b.album, 'album');
+          if (cmp !== 0) return cmp;
+        }
+        if (primaryKey !== 'artist') {
+          cmp = compareValues(a.artist, b.artist, 'artist');
           if (cmp !== 0) return cmp;
         }
         if (primaryKey !== 'track_number') {
@@ -223,7 +223,7 @@ export function createLibraryStore(Alpine) {
       };
       
       if (this.sortBy === 'default') {
-        result.sort((a, b) => applySort(a, b, 'artist'));
+        result.sort((a, b) => applySort(a, b, 'album'));
       } else {
         const sortKey = sortKeyMap[this.sortBy] || this.sortBy;
         result.sort((a, b) => applySort(a, b, sortKey));
