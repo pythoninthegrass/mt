@@ -708,6 +708,9 @@ export function createLibraryBrowser(Alpine) {
       this._baseColumnWidths = { ...DEFAULT_COLUMN_WIDTHS };
       this.columnWidths = { ...DEFAULT_COLUMN_WIDTHS };
       this.columnOrder = ['index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'];
+      this.library.sortBy = 'default';
+      this.library.sortOrder = 'asc';
+      this.library.applyFilters();
       this.distributeExtraWidth();
       this.saveColumnSettings();
       this.headerContextMenu = null;
