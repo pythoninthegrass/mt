@@ -537,6 +537,81 @@ test.describe('Playlist Feature Parity (task-150)', () => {
     const dragHandle = page.locator('[data-track-id="1"] .cursor-grab');
     await expect(dragHandle).not.toBeVisible();
   });
+
+  test('AC#4: drag tracks to sidebar playlist triggers add', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [{ id: 'playlist-1', playlistId: 1, name: 'Test Playlist' }];
+
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+
+      window._handlePlaylistDropCalled = false;
+      window._droppedPlaylistId = null;
+      const originalHandler = sidebar.handlePlaylistDrop?.bind(sidebar);
+      sidebar.handlePlaylistDrop = (event, playlist) => {
+        window._handlePlaylistDropCalled = true;
+        window._droppedPlaylistId = playlist.playlistId;
+        if (originalHandler) originalHandler(event, playlist);
+      };
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await page.waitForTimeout(300);
+
+    const trackRow = page.locator('[data-track-id="1"]');
+    const playlistButton = page.locator('[data-testid="playlist-1"]');
+
+    const trackBox = await trackRow.boundingBox();
+    const playlistBox = await playlistButton.boundingBox();
+
+    await trackRow.dragTo(playlistButton);
+
+    await page.waitForTimeout(300);
+
+    const result = await page.evaluate(() => ({
+      called: window._handlePlaylistDropCalled,
+      playlistId: window._droppedPlaylistId,
+    }));
+
+    expect(result.called).toBe(true);
+    expect(result.playlistId).toBe(1);
+  });
+
+  test('right-click playlist should not change active section', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'Playlist 1' },
+        { id: 'playlist-2', playlistId: 2, name: 'Playlist 2' },
+      ];
+      sidebar.activeSection = 'all';
+    });
+
+    await page.waitForTimeout(300);
+
+    const initialSection = await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      return sidebar.activeSection;
+    });
+
+    expect(initialSection).toBe('all');
+
+    const playlistButton = page.locator('[data-testid="playlist-1"]');
+    await playlistButton.click({ button: 'right' });
+
+    await page.waitForTimeout(300);
+
+    const afterRightClick = await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      return sidebar.activeSection;
+    });
+
+    expect(afterRightClick).toBe('all');
+  });
 });
 
 test.describe('Sidebar Responsiveness', () => {

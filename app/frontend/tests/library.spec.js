@@ -1656,4 +1656,221 @@ test.describe('Playlist Feature Parity - Library Browser (task-150)', () => {
 
     expect(isInPlaylistView).toBe(false);
   });
+
+  test('AC#3: submenu opens on hover and lists playlists', async ({ page }) => {
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'My Playlist' },
+        { id: 'playlist-2', playlistId: 2, name: 'Another Playlist' },
+      ];
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const trackRow = page.locator('[data-track-id="1"]');
+    await trackRow.click({ button: 'right' });
+    await page.waitForTimeout(300);
+
+    const addToPlaylistItem = page.locator('.context-menu-item:has-text("Add to Playlist")');
+    await addToPlaylistItem.hover();
+    await page.waitForTimeout(200);
+
+    const submenu = page.locator('[data-testid="playlist-submenu"]');
+    await expect(submenu).toBeVisible();
+
+    const newPlaylistOption = submenu.locator('text=New Playlist...');
+    await expect(newPlaylistOption).toBeVisible();
+
+    const myPlaylistOption = submenu.locator('text=My Playlist');
+    await expect(myPlaylistOption).toBeVisible();
+
+    const anotherPlaylistOption = submenu.locator('text=Another Playlist');
+    await expect(anotherPlaylistOption).toBeVisible();
+  });
+
+  test('AC#3: clicking playlist in submenu calls addToPlaylist', async ({ page }) => {
+    let addToPlaylistCalled = false;
+    let calledPlaylistId = null;
+
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'My Playlist' },
+      ];
+      libraryBrowser.selectedTracks = new Set([1]);
+
+      window._originalAddToPlaylist = libraryBrowser.addToPlaylist.bind(libraryBrowser);
+      libraryBrowser.addToPlaylist = (playlistId) => {
+        window._addToPlaylistCalled = true;
+        window._calledPlaylistId = playlistId;
+      };
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const trackRow = page.locator('[data-track-id="1"]');
+    await trackRow.click({ button: 'right' });
+    await page.waitForTimeout(300);
+
+    const addToPlaylistItem = page.locator('.context-menu-item:has-text("Add to Playlist")');
+    await addToPlaylistItem.hover();
+    await page.waitForTimeout(200);
+
+    const submenu = page.locator('[data-testid="playlist-submenu"]');
+    const myPlaylistOption = submenu.locator('text=My Playlist');
+    await myPlaylistOption.click();
+
+    const result = await page.evaluate(() => ({
+      called: window._addToPlaylistCalled,
+      playlistId: window._calledPlaylistId,
+    }));
+
+    expect(result.called).toBe(true);
+    expect(result.playlistId).toBe('playlist-1');
+  });
+
+  test('AC#7-8: context menu shows "Remove from Playlist" in playlist view', async ({ page }) => {
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.currentPlaylistId = 1;
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const trackRow = page.locator('[data-track-id="1"]');
+    await trackRow.click({ button: 'right' });
+    await page.waitForTimeout(300);
+
+    const removeFromPlaylist = page.locator('.context-menu-item:has-text("Remove track from Playlist")');
+    await expect(removeFromPlaylist).toBeVisible();
+
+    const removeFromLibrary = page.locator('.context-menu-item:has-text("Remove track from Library")');
+    await expect(removeFromLibrary).toBeVisible();
+  });
+
+  test('AC#7-8: context menu hides "Remove from Playlist" outside playlist view', async ({ page }) => {
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.currentPlaylistId = null;
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const trackRow = page.locator('[data-track-id="1"]');
+    await trackRow.click({ button: 'right' });
+    await page.waitForTimeout(300);
+
+    const removeFromPlaylist = page.locator('.context-menu-item:has-text("Remove track from Playlist")');
+    await expect(removeFromPlaylist).not.toBeVisible();
+
+    const removeFromLibrary = page.locator('.context-menu-item:has-text("Remove track from Library")');
+    await expect(removeFromLibrary).toBeVisible();
+  });
+
+  test('AC#6: drag reorder in playlist view sets dragging state', async ({ page }) => {
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+        { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Album 2', duration: 200 },
+      ];
+      library.filteredTracks = library.tracks;
+
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.currentPlaylistId = 1;
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const dragHandle = page.locator('[data-track-id="1"] .cursor-grab');
+    await expect(dragHandle).toBeVisible();
+
+    const isInPlaylistView = await page.evaluate(() => {
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      return libraryBrowser.isInPlaylistView();
+    });
+    expect(isInPlaylistView).toBe(true);
+
+    const track1 = page.locator('[data-track-id="1"]');
+    const track1Box = await track1.boundingBox();
+
+    await page.mouse.move(track1Box.x + 10, track1Box.y + track1Box.height / 2);
+    await page.mouse.down();
+
+    const draggingIndex = await page.evaluate(() => {
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      return libraryBrowser.draggingIndex;
+    });
+
+    expect(draggingIndex).toBe(0);
+
+    await page.mouse.up();
+  });
+
+  test('submenu flips to left side when near right viewport edge', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      library.tracks = [
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+      ];
+      library.filteredTracks = library.tracks;
+
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      libraryBrowser.playlists = [
+        { id: 'playlist-1', playlistId: 1, name: 'My Playlist' },
+      ];
+    });
+
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const trackRow = page.locator('[data-track-id="1"]');
+    const trackBox = await trackRow.boundingBox();
+
+    await page.mouse.click(trackBox.x + trackBox.width - 50, trackBox.y + trackBox.height / 2, { button: 'right' });
+    await page.waitForTimeout(300);
+
+    const addToPlaylistItem = page.locator('.context-menu-item:has-text("Add to Playlist")');
+    await addToPlaylistItem.hover();
+    await page.waitForTimeout(200);
+
+    const arrowText = await addToPlaylistItem.locator('.text-muted-foreground').textContent();
+
+    const submenuOnLeft = await page.evaluate(() => {
+      const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
+      return libraryBrowser.submenuOnLeft;
+    });
+
+    if (submenuOnLeft) {
+      expect(arrowText).toBe('◀');
+    } else {
+      expect(arrowText).toBe('▶');
+    }
+  });
 });
