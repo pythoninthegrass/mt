@@ -4,13 +4,14 @@ title: Clean up redundant backend directory structure
 status: In Progress
 assignee: []
 created_date: '2026-01-14 02:14'
-updated_date: '2026-01-14 04:17'
+updated_date: '2026-01-16 08:13'
 labels:
   - cleanup
   - backend
   - tech-debt
 dependencies: []
 priority: low
+ordinal: 3000
 ---
 
 ## Description
