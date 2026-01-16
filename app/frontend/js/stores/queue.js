@@ -366,9 +366,28 @@ export function createQueueStore(Alpine) {
       await this.save();
     },
     
-    /**
-     * Cycle through loop modes: none -> all -> one -> none
-     */
+    async shuffleQueue() {
+      if (this.items.length < 2) return;
+      
+      const currentTrack = this.items[this.currentIndex];
+      const otherTracks = this.items.filter((_, i) => i !== this.currentIndex);
+      
+      for (let i = otherTracks.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
+      }
+      
+      if (currentTrack) {
+        this.items = [currentTrack, ...otherTracks];
+        this.currentIndex = 0;
+      } else {
+        this.items = otherTracks;
+      }
+      
+      this._originalOrder = [...this.items];
+      await this.save();
+    },
+    
     async cycleLoop() {
       const modes = ['none', 'all', 'one'];
       const currentIdx = modes.indexOf(this.loop);

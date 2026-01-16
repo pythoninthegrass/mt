@@ -78,8 +78,9 @@ export function createPlayerStore(Alpine) {
       
       try {
         const info = await invoke('audio_load', { path: trackPath });
-        this.currentTrack = { ...track, duration: info.duration_ms };
-        this.duration = info.duration_ms;
+        const durationMs = info.duration_ms || track.duration || 0;
+        this.currentTrack = { ...track, duration: durationMs };
+        this.duration = durationMs;
         this.currentTime = 0;
         this.progress = 0;
         this._playCountUpdated = false;
