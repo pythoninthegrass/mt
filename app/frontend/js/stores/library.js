@@ -204,9 +204,9 @@ export function createLibraryStore(Alpine) {
       
       if (this.sortBy === 'default') {
         result.sort((a, b) => {
-          let cmp = compareValues(a.album, b.album, 'album');
+          let cmp = compareValues(a.artist, b.artist, 'artist');
           if (cmp !== 0) return cmp;
-          cmp = compareValues(a.artist, b.artist, 'artist');
+          cmp = compareValues(a.album, b.album, 'album');
           if (cmp !== 0) return cmp;
           return compareValues(a.track_number, b.track_number, 'track_number');
         });
