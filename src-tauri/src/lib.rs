@@ -7,7 +7,7 @@ pub mod sidecar;
 
 use commands::{
     audio_get_status, audio_get_volume, audio_load, audio_pause, audio_play, audio_seek,
-    audio_set_volume, audio_stop, AudioState,
+    audio_set_volume, audio_stop, show_in_folder, AudioState,
 };
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
@@ -197,6 +197,7 @@ pub fn run() {
             export_diagnostics,
             get_track_metadata,
             save_track_metadata,
+            show_in_folder,
         ])
         .setup(|app| {
             let sidecar = SidecarManager::start(app.handle())
