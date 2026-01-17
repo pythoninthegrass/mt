@@ -14,7 +14,7 @@ export function createSidebar(Alpine) {
     reorderDraggingIndex: null,
     reorderDragOverIndex: null,
     
-    selectedPlaylistIds: new Set(),
+    selectedPlaylistIds: [],
     selectionAnchorIndex: null,
     
     sections: [
@@ -129,36 +129,39 @@ export function createSidebar(Alpine) {
     },
     
     handlePlaylistClick(event, playlist, index) {
+      if (event.button !== 0) return;
+
       const isMeta = event.metaKey || event.ctrlKey;
       const isShift = event.shiftKey;
       
       if (isMeta) {
-        if (this.selectedPlaylistIds.has(playlist.playlistId)) {
-          this.selectedPlaylistIds.delete(playlist.playlistId);
+        const idx = this.selectedPlaylistIds.indexOf(playlist.playlistId);
+        if (idx >= 0) {
+          this.selectedPlaylistIds.splice(idx, 1);
         } else {
-          this.selectedPlaylistIds.add(playlist.playlistId);
+          this.selectedPlaylistIds.push(playlist.playlistId);
         }
         this.selectionAnchorIndex = index;
       } else if (isShift && this.selectionAnchorIndex !== null) {
         const start = Math.min(this.selectionAnchorIndex, index);
         const end = Math.max(this.selectionAnchorIndex, index);
-        this.selectedPlaylistIds.clear();
+        this.selectedPlaylistIds = [];
         for (let i = start; i <= end; i++) {
-          this.selectedPlaylistIds.add(this.playlists[i].playlistId);
+          this.selectedPlaylistIds.push(this.playlists[i].playlistId);
         }
       } else {
-        this.selectedPlaylistIds.clear();
+        this.selectedPlaylistIds = [];
         this.selectionAnchorIndex = index;
         this.loadPlaylist(playlist.id);
       }
     },
     
     isPlaylistSelected(playlistId) {
-      return this.selectedPlaylistIds.has(playlistId);
+      return this.selectedPlaylistIds.includes(playlistId);
     },
     
     clearPlaylistSelection() {
-      this.selectedPlaylistIds.clear();
+      this.selectedPlaylistIds = [];
       this.selectionAnchorIndex = null;
     },
     
@@ -303,6 +306,7 @@ export function createSidebar(Alpine) {
     },
     
     startPlaylistReorder(index, event) {
+      if (event.button !== 0) return;
       event.preventDefault();
       this.reorderDraggingIndex = index;
       this.reorderDragOverIndex = null;
@@ -430,46 +434,29 @@ export function createSidebar(Alpine) {
     
     async deletePlaylist() {
       if (!this.contextMenuPlaylist) return;
-      
-      const playlistName = this.contextMenuPlaylist.name;
-      const playlistId = this.contextMenuPlaylist.playlistId;
-      const sectionId = this.contextMenuPlaylist.id;
-      
-      let confirmed = false;
-      if (window.__TAURI__?.dialog?.confirm) {
-        confirmed = await window.__TAURI__.dialog.confirm(
-          `Delete playlist "${playlistName}"?`,
-          { title: 'Delete Playlist', kind: 'warning' }
-        );
-      } else {
-        confirmed = confirm(`Delete playlist "${playlistName}"?`);
-      }
-      
-      if (!confirmed) {
-        this.hidePlaylistContextMenu();
-        return;
-      }
-      
-      try {
-        await api.playlists.delete(playlistId);
-        this.ui.toast(`Deleted "${playlistName}"`, 'success');
-        await this.loadPlaylists();
-        window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
-        if (this.activeSection === sectionId) {
-          this.loadSection('all');
-        }
-      } catch (error) {
-        console.error('Failed to delete playlist:', error);
-        this.ui.toast('Failed to delete playlist', 'error');
-      }
+
+      const playlist = this.contextMenuPlaylist;
       this.hidePlaylistContextMenu();
+
+      if (this.selectedPlaylistIds.length === 0) {
+        this.selectedPlaylistIds = [playlist.playlistId];
+        this.selectionAnchorIndex = this.playlists.findIndex(p => p.playlistId === playlist.playlistId);
+      }
+
+      await this.deleteSelectedPlaylists();
     },
     
     handlePlaylistKeydown(event) {
       if (this.editingPlaylist) return;
       
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        if (this.selectedPlaylistIds.size > 0) {
+      const isDeleteKey =
+        event.key === 'Delete' ||
+        event.key === 'Backspace' ||
+        event.code === 'Delete' ||
+        event.code === 'Backspace';
+
+      if (isDeleteKey) {
+        if (this.selectedPlaylistIds.length > 0) {
           event.preventDefault();
           this.deleteSelectedPlaylists();
         }
@@ -477,13 +464,13 @@ export function createSidebar(Alpine) {
     },
     
     async deleteSelectedPlaylists() {
-      if (this.selectedPlaylistIds.size === 0) return;
+      if (this.selectedPlaylistIds.length === 0) return;
       
-      const selectedPlaylists = this.playlists.filter(p => this.selectedPlaylistIds.has(p.playlistId));
+      const selectedPlaylists = this.playlists.filter(p => this.selectedPlaylistIds.includes(p.playlistId));
       const names = selectedPlaylists.map(p => p.name);
       const message = selectedPlaylists.length === 1
         ? `Delete playlist "${names[0]}"?`
-        : `Delete ${selectedPlaylists.length} playlists?\n\n${names.join('\n')}`;
+        : `Delete selected playlists?\n\n${names.join('\n')}`;
       
       let confirmed = false;
       if (window.__TAURI__?.dialog?.confirm) {
@@ -497,23 +484,23 @@ export function createSidebar(Alpine) {
       
       if (!confirmed) return;
       
-      const deletedIds = new Set();
+      const deletedIds = [];
       const errors = [];
       
       for (const playlist of selectedPlaylists) {
         try {
           await api.playlists.delete(playlist.playlistId);
-          deletedIds.add(playlist.playlistId);
+          deletedIds.push(playlist.playlistId);
         } catch (error) {
           console.error(`Failed to delete playlist ${playlist.name}:`, error);
           errors.push(playlist.name);
         }
       }
       
-      if (deletedIds.size > 0) {
-        const msg = deletedIds.size === 1
-          ? `Deleted "${selectedPlaylists.find(p => deletedIds.has(p.playlistId)).name}"`
-          : `Deleted ${deletedIds.size} playlists`;
+      if (deletedIds.length > 0) {
+        const msg = deletedIds.length === 1
+          ? `Deleted \"${selectedPlaylists.find(p => deletedIds.includes(p.playlistId)).name}\"`
+          : 'Deleted selected playlists';
         this.ui.toast(msg, 'success');
       }
       
@@ -524,7 +511,7 @@ export function createSidebar(Alpine) {
       await this.loadPlaylists();
       window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
       
-      if (deletedIds.has(parseInt(this.activeSection.replace('playlist-', ''), 10))) {
+      if (deletedIds.includes(parseInt(this.activeSection.replace('playlist-', ''), 10))) {
         this.loadSection('all');
       }
       

@@ -279,7 +279,7 @@
                       class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all duration-150 select-none"
                       :class="[
                         isActive(playlist.id) ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80',
-                        isPlaylistSelected(playlist.playlistId) ? 'ring-2 ring-accent ring-inset bg-accent/10' : '',
+                        isPlaylistSelected(playlist.playlistId) ? 'bg-[#DFDFDF] dark:bg-[#3a3a3a]' : '',
                         isPlaylistDragOver(playlist.playlistId) ? 'ring-2 ring-primary ring-inset bg-primary/10' : '',
                         isPlaylistDragging(index) ? 'opacity-50' : '',
                         getPlaylistReorderClass(index)

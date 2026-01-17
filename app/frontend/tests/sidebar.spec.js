@@ -757,8 +757,7 @@ test.describe('Playlist Multi-Select and Batch Delete (task-161)', () => {
     await playlist1.click({ modifiers: ['Meta'] });
 
     const classes = await playlist1.getAttribute('class');
-    expect(classes).toContain('ring-2');
-    expect(classes).toContain('ring-accent');
+    expect(classes).toContain('bg-[#DFDFDF]');
   });
 
   test('AC#4: Delete key while playlist list focused shows confirmation', async ({ page }) => {
@@ -834,7 +833,7 @@ test.describe('Playlist Multi-Select and Batch Delete (task-161)', () => {
   test('AC#8: Delete/Backspace ignored while inline rename input is focused', async ({ page }) => {
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.selectedPlaylistIds.add(1);
+      sidebar.selectedPlaylistIds.push(1);
       sidebar.editingPlaylist = { id: 'playlist-1', playlistId: 1, name: 'Test Playlist 1' };
       sidebar.editingName = 'Test Playlist 1';
     });
@@ -872,7 +871,7 @@ test.describe('Playlist Multi-Select and Batch Delete (task-161)', () => {
     expect(activeSection).toBe('playlist-1');
   });
 
-  test('multi-select deletion shows count in confirmation message', async ({ page }) => {
+  test('multi-select deletion lists selected playlists in confirmation message', async ({ page }) => {
     const playlistList = page.locator('[data-testid="playlist-list"]');
     const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
     const playlist2 = page.locator('[data-testid="sidebar-playlist-2"]');
@@ -882,7 +881,9 @@ test.describe('Playlist Multi-Select and Batch Delete (task-161)', () => {
     await playlistList.focus();
 
     page.once('dialog', async dialog => {
-      expect(dialog.message()).toContain('2 playlists');
+      expect(dialog.message()).toContain('Delete selected playlists');
+      expect(dialog.message()).toContain('Test Playlist 1');
+      expect(dialog.message()).toContain('Test Playlist 2');
       await dialog.dismiss();
     });
 
