@@ -1,6 +1,7 @@
 export function createUIStore(Alpine) {
   Alpine.store('ui', {
     view: 'library',
+    _previousView: 'library',
     
     sidebarOpen: Alpine.$persist(true).as('mt:ui:sidebarOpen'),
     sidebarWidth: Alpine.$persist(250).as('mt:ui:sidebarWidth'),
@@ -45,8 +46,20 @@ export function createUIStore(Alpine) {
     
     setView(view) {
       const validViews = ['library', 'queue', 'nowPlaying', 'settings'];
-      if (validViews.includes(view)) {
+      if (validViews.includes(view) && view !== this.view) {
+        if (this.view !== 'settings') {
+          this._previousView = this.view;
+        }
         this.view = view;
+      }
+    },
+    
+    toggleSettings() {
+      if (this.view === 'settings') {
+        this.view = this._previousView || 'library';
+      } else {
+        this._previousView = this.view;
+        this.view = 'settings';
       }
     },
     

@@ -95,7 +95,12 @@ function initGlobalKeyboardShortcuts() {
   document.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === ',') {
       event.preventDefault();
-      Alpine.store('ui').setView('settings');
+      Alpine.store('ui').toggleSettings();
+    }
+    
+    if (event.key === 'Escape' && Alpine.store('ui').view === 'settings') {
+      event.preventDefault();
+      Alpine.store('ui').toggleSettings();
     }
   });
 }
