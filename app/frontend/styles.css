@@ -38,10 +38,16 @@
 .track-row-selected {
   background-color: var(--itunes-red) !important;
   color: white !important;
+  border-bottom-color: var(--itunes-red) !important;
 }
 
 .track-row-selected .text-muted-foreground {
   color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.track-row-playing {
+  background-color: hsl(var(--primary) / 0.15);
+  box-shadow: inset 2px 0 0 0 hsl(var(--primary));
 }
 
 /* Sidebar icon hover - accent color */
@@ -110,11 +116,11 @@ aside button:hover svg {
 }
 
 [data-theme-preset="metro-teal"] {
-  --background: 0 0% 7%;
+  --background: 0 0% 12%;
   --foreground: 0 0% 100%;
-  --card: 0 0% 10%;
+  --card: 0 0% 12%;
   --card-foreground: 0 0% 100%;
-  --popover: 0 0% 10%;
+  --popover: 0 0% 12%;
   --popover-foreground: 0 0% 100%;
   --primary: 184 100% 38%;
   --primary-foreground: 0 0% 100%;
@@ -134,10 +140,9 @@ aside button:hover svg {
   --mt-playing-fg: 184 100% 60%;
   --mt-row-even: 0 0% 13%;
   --mt-row-odd: 0 0% 15%;
-  --mt-row-hover: 0 0% 18%;
+  --mt-row-hover: 0 0% 20%;
   --mt-progress-bg: 0 0% 25%;
   --mt-progress-fill: 184 100% 38%;
-  --mt-sidebar-bg: 0 0% 10%;
 }
 
 [data-theme-preset="metro-teal"] .track-row-even {
@@ -151,15 +156,12 @@ aside button:hover svg {
 [data-theme-preset="metro-teal"] .track-row-selected {
   background-color: hsl(var(--primary)) !important;
   color: hsl(var(--primary-foreground)) !important;
+  border-bottom-color: hsl(var(--primary)) !important;
 }
 
 [data-theme-preset="metro-teal"] .track-row-playing {
   background-color: hsl(var(--mt-playing-bg)) !important;
   color: hsl(var(--mt-playing-fg)) !important;
-}
-
-[data-theme-preset="metro-teal"] aside {
-  background-color: hsl(var(--mt-sidebar-bg));
 }
 
 [data-theme-preset="metro-teal"] footer {
@@ -188,6 +190,14 @@ aside button:hover svg {
   background-color: #404040 !important;
 }
 
+[data-theme-preset="metro-teal"] [data-testid="player-progressbar"] > div:first-child {
+  background-color: #00b7c3 !important;
+}
+
+[data-theme-preset="metro-teal"] [data-testid="player-progressbar"] > div:last-child {
+  background-color: #00b7c3 !important;
+}
+
 [data-theme-preset="metro-teal"] footer .bg-\[\#8E8E93\]\/20 {
   background-color: #323232 !important;
 }
@@ -199,4 +209,25 @@ aside button:hover svg {
 
 [data-theme-preset="metro-teal"] aside > div:last-child {
   border-top: none !important;
+}
+
+[data-theme-preset="metro-teal"] [data-testid="library-header"] {
+  background-color: #1E1E1E !important;
+}
+
+[data-theme-preset="metro-teal"] [data-testid="library-header"] .column-header-active {
+  background: transparent !important;
+}
+
+[data-theme-preset="metro-teal"] aside {
+  background-color: #1E1E1E !important;
+}
+
+[data-theme-preset="metro-teal"] .bg-card\/50,
+[data-theme-preset="metro-teal"] .bg-card {
+  background-color: #1E1E1E !important;
+}
+
+[data-theme-preset="metro-teal"] .bg-background {
+  background-color: #1E1E1E !important;
 }

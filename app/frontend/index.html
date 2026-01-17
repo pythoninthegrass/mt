@@ -545,11 +545,11 @@
             <!-- Track rows (CSS Grid matching header) -->
             <template x-for="(track, index) in library.filteredTracks" :key="track.id">
               <div
-                class="grid border-b border-border/30 text-sm cursor-default transition-all select-none"
+                class="grid border-b border-border/30 text-sm cursor-default transition-colors select-none"
                 :style="`grid-template-columns: ${getGridTemplateColumns()}`"
                 :class="[
                   isSelected(track.id) ? 'track-row-selected' : (index % 2 === 0 ? 'track-row-even' : 'track-row-odd'),
-                  isPlaying(track.id) && !isSelected(track.id) ? 'bg-primary/15 border-l-2 border-l-primary' : '',
+                  isPlaying(track.id) && !isSelected(track.id) ? 'track-row-playing' : '',
                   !isSelected(track.id) && !isPlaying(track.id) ? 'hover:bg-muted/50' : '',
                   isDraggingTrack(index) ? 'opacity-50' : '',
                   getDragOverClass(index)
