@@ -23,11 +23,17 @@ mt is a desktop music player designed for large music collections, built with Ta
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 
-- microsoft/playwright (for E2E testing)
-- tailwindlabs/tailwindcss
+### AlpineJS + Basecoat + Tauri Libraries
+
 - alpinejs/alpine
+- dubzzz/fast-check
+- microsoft/playwright (for E2E testing)
 - serial-ata/lofty-rs
+- tailwindlabs/tailwindcss
 - websites/rs_tauri_2_9_5
+
+### Python Libraries
+
 - hypothesisworks/hypothesis
 - itamarst/eliot
 - johnwmillr/lyricsgenius
