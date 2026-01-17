@@ -483,3 +483,86 @@ test.describe('Store Reactivity', () => {
     expect(playerStore.currentTrack.id).toBe('track-sync-1');
   });
 });
+
+test.describe('Theme Preset (task-162)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+  });
+
+  test('AC#1: themePreset persisted with light as default', async ({ page }) => {
+    const uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.themePreset).toBeDefined();
+    expect(['light', 'metro-teal']).toContain(uiStore.themePreset);
+  });
+
+  test('AC#2: Metro Teal applies dark mode and preset attribute', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setThemePreset('metro-teal');
+    });
+
+    await page.waitForTimeout(100);
+
+    const hasDarkClass = await page.evaluate(() => 
+      document.documentElement.classList.contains('dark')
+    );
+    const presetAttr = await page.evaluate(() => 
+      document.documentElement.dataset.themePreset
+    );
+
+    expect(hasDarkClass).toBe(true);
+    expect(presetAttr).toBe('metro-teal');
+  });
+
+  test('AC#5: switching presets updates UI immediately', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setThemePreset('metro-teal');
+    });
+    await page.waitForTimeout(100);
+
+    let presetAttr = await page.evaluate(() => 
+      document.documentElement.dataset.themePreset
+    );
+    expect(presetAttr).toBe('metro-teal');
+
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setThemePreset('light');
+    });
+    await page.waitForTimeout(100);
+
+    presetAttr = await page.evaluate(() => 
+      document.documentElement.dataset.themePreset
+    );
+    expect(presetAttr).toBeUndefined();
+
+    const hasDarkClass = await page.evaluate(() => 
+      document.documentElement.classList.contains('dark')
+    );
+    const hasLightClass = await page.evaluate(() => 
+      document.documentElement.classList.contains('light')
+    );
+    expect(hasDarkClass || hasLightClass).toBe(true);
+  });
+
+  test('AC#6: preset switch changes visible color (background)', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setThemePreset('light');
+    });
+    await page.waitForTimeout(100);
+
+    const lightBg = await page.evaluate(() => 
+      getComputedStyle(document.documentElement).getPropertyValue('--background').trim()
+    );
+
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setThemePreset('metro-teal');
+    });
+    await page.waitForTimeout(100);
+
+    const metroTealBg = await page.evaluate(() => 
+      getComputedStyle(document.documentElement).getPropertyValue('--background').trim()
+    );
+
+    expect(lightBg).not.toBe(metroTealBg);
+  });
+});

@@ -6,6 +6,7 @@ export function createUIStore(Alpine) {
     sidebarWidth: Alpine.$persist(250).as('mt:ui:sidebarWidth'),
     libraryViewMode: Alpine.$persist('list').as('mt:ui:libraryViewMode'),
     theme: Alpine.$persist('system').as('mt:ui:theme'),
+    themePreset: Alpine.$persist('light').as('mt:ui:themePreset'),
     
     modal: null,
     contextMenu: null,
@@ -16,11 +17,11 @@ export function createUIStore(Alpine) {
     
     init() {
       this._migrateOldStorage();
-      this.applyTheme();
+      this.applyThemePreset();
       
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (this.theme === 'system') {
-          this.applyTheme();
+        if (this.themePreset === 'light' && this.theme === 'system') {
+          this.applyThemePreset();
         }
       });
     },
@@ -69,26 +70,39 @@ export function createUIStore(Alpine) {
       }
     },
     
-    /**
-     * Apply current theme to document
-     */
-    applyTheme() {
-      let effectiveTheme = this.theme;
-      
-      if (this.theme === 'system') {
-        effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches 
-          ? 'dark' 
-          : 'light';
+    setThemePreset(preset) {
+      if (['light', 'metro-teal'].includes(preset)) {
+        this.themePreset = preset;
+        this.applyThemePreset();
       }
-      
-      document.documentElement.classList.remove('light', 'dark');
-      document.documentElement.classList.add(effectiveTheme);
     },
     
-    /**
-     * Get effective theme (resolved system preference)
-     */
+    applyThemePreset() {
+      document.documentElement.classList.remove('light', 'dark');
+      delete document.documentElement.dataset.themePreset;
+      
+      if (this.themePreset === 'metro-teal') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.dataset.themePreset = 'metro-teal';
+      } else {
+        let effectiveTheme = this.theme;
+        if (this.theme === 'system') {
+          effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches 
+            ? 'dark' 
+            : 'light';
+        }
+        document.documentElement.classList.add(effectiveTheme);
+      }
+    },
+    
+    applyTheme() {
+      this.applyThemePreset();
+    },
+    
     get effectiveTheme() {
+      if (this.themePreset === 'metro-teal') {
+        return 'dark';
+      }
       if (this.theme === 'system') {
         return window.matchMedia('(prefers-color-scheme: dark)').matches 
           ? 'dark' 
