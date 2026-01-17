@@ -174,27 +174,50 @@ rm -rf node_modules dist
 
 The application uses Playwright for end-to-end testing of the Tauri application. All integration and E2E tests should be written using Playwright.
 
+**E2E_MODE Environment Variable:**
+
+Tests are controlled by the `E2E_MODE` env var to optimize for different scenarios:
+
+| Mode | Browsers | @tauri tests | Use case |
+|------|----------|--------------|----------|
+| `fast` (default) | WebKit only | Skipped | Fast local dev (~53s) |
+| `full` | All 3 | Skipped | Cross-browser validation |
+| `tauri` | All 3 | Included | Full Tauri test harness |
+
+Tests tagged with `@tauri` in their describe block require the Tauri runtime (audio playback, queue behavior, etc.) and will fail in browser-only mode.
+
 **Running Playwright Tests:**
 
 ```bash
-# Run all E2E tests in headless mode
-npm run test:e2e
+# Fast mode (default): WebKit only, skip @tauri tests
+task npm:test:e2e
+
+# Full mode: All browsers, skip @tauri tests
+E2E_MODE=full task npm:test:e2e
+
+# Tauri mode: All browsers, include @tauri tests
+E2E_MODE=tauri task npm:test:e2e
 
 # Run E2E tests in UI mode (interactive debugging)
-npm run test:e2e:ui
+task npm:test:e2e:ui
 
 # Run specific test file
-npx playwright test tests/e2e/playback.spec.ts
+npx playwright test tests/library.spec.js
 
 # Run tests in headed mode (see browser)
 npx playwright test --headed
 
 # Debug a specific test
-npx playwright test --debug tests/e2e/playback.spec.ts
+npx playwright test --debug tests/sidebar.spec.js
 
 # Generate test code with Playwright codegen
 npx playwright codegen
 ```
+
+**Test counts by mode:**
+- `fast`: ~144 tests (webkit, ~53s)
+- `full`: ~432 tests (all browsers)
+- `tauri`: ~552 tests (all browsers + @tauri)
 
 **Playwright Test Structure:**
 
