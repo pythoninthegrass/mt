@@ -4,7 +4,7 @@ title: Implement Metro Teal theme preset
 status: Done
 assignee: []
 created_date: '2026-01-17 05:24'
-updated_date: '2026-01-17 05:27'
+updated_date: '2026-01-17 07:45'
 labels:
   - ui
   - appearance
@@ -44,7 +44,7 @@ Add Metro Teal as a dark theme preset alongside the current Light theme. This es
 - [x] #1 themePreset setting persisted via Alpine $persist with values light | metro-teal
 - [x] #2 Metro Teal preset applies dark mode base plus CSS variable overrides
 - [x] #3 CSS variables cover: background, foreground, muted, border, primary, accent, card, popover, playing row, progress fill
-- [ ] #4 Visual appearance matches docs/images/mt_repeat_once.png reference
+- [x] #4 Visual appearance matches docs/images/mt_repeat_once.png reference
 - [x] #5 Switching presets updates UI immediately without page reload
 - [x] #6 Playwright test verifies preset switch changes root attribute and a visible color
 <!-- AC:END -->
@@ -64,4 +64,12 @@ Add Metro Teal as a dark theme preset alongside the current Light theme. This es
 - Custom: mt-playing-bg, mt-playing-fg, mt-row-alt, mt-row-hover, mt-progress-bg, mt-progress-fill, mt-sidebar-bg
 
 **AC#4 (visual match to reference):** Requires manual verification in Tauri. Colors are mapped from the reference image but fine-tuning may be needed.
+
+## Visual Refinements (2026-01-17)
+- Footer: black background (#000000), #323232 borders
+- Progress bar track: #404040
+- Table rows: even #202020, odd #252525, no dividing lines
+- Footer buttons: #CCCCCC default, #7FDBE1 hover/toggled
+- Sidebar bottom border removed
+- Visual appearance now matches reference image
 <!-- SECTION:NOTES:END -->
