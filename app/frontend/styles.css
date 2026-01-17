@@ -19,6 +19,20 @@
   --itunes-text-secondary: #8E8E93;
 }
 
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.titlebar-drag-region {
+  background-color: white;
+  padding-left: 78px;
+}
+
+.dark .titlebar-drag-region {
+  background-color: #1E1E1E;
+}
+
 .track-row-even {
   background-color: var(--itunes-row-alt);
 }
@@ -229,5 +243,9 @@ aside button:hover svg {
 }
 
 [data-theme-preset="metro-teal"] .bg-background {
+  background-color: #1E1E1E !important;
+}
+
+[data-theme-preset="metro-teal"] .titlebar-drag-region {
   background-color: #1E1E1E !important;
 }

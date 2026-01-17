@@ -150,9 +150,14 @@
   </style>
 </head>
 <body class="bg-background text-foreground h-screen overflow-hidden">
+  <!-- macOS title bar drag region (overlay mode) - positioned absolutely over content -->
+  <div
+    data-tauri-drag-region
+    class="titlebar-drag-region fixed top-0 left-0 right-0 h-7 z-50"
+  ></div>
   <div class="flex flex-col h-full">
     <!-- Main content area with sidebar -->
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex overflow-hidden pt-7">
       <!-- Sidebar -->
       <aside
         x-data="sidebar"

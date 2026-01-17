@@ -105,11 +105,33 @@ function initGlobalKeyboardShortcuts() {
   });
 }
 
+async function initTitlebarDrag() {
+  if (!window.__TAURI__) return;
+  
+  const dragRegion = document.querySelector('[data-tauri-drag-region]');
+  if (!dragRegion) return;
+  
+  try {
+    const { getCurrentWindow } = window.__TAURI__.window;
+    const appWindow = getCurrentWindow();
+    
+    dragRegion.addEventListener('mousedown', async (e) => {
+      if (e.buttons === 1 && !e.target.closest('button, input, a')) {
+        e.preventDefault();
+        e.detail === 2 ? await appWindow.toggleMaximize() : await appWindow.startDragging();
+      }
+    });
+  } catch (error) {
+    console.error('[main] Failed to initialize titlebar drag:', error);
+  }
+}
+
 initBackendUrl().then(() => {
   initStores(Alpine);
   initComponents(Alpine);
   initTauriDragDrop();
   initGlobalKeyboardShortcuts();
+  initTitlebarDrag();
   Alpine.start();
   console.log('[main] Alpine started with stores and components');
   console.log('[main] Test dialog with: testDialog()');
