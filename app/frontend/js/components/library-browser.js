@@ -1120,12 +1120,20 @@ export function createLibraryBrowser(Alpine) {
      * @param {Object} track - Track object
      */
     async showInFinder(track) {
+      const trackPath = track?.filepath || track?.path;
+      if (!trackPath) {
+        console.error('Cannot show in folder: track has no filepath/path', track);
+        this.$store.ui.toast('Cannot locate file', 'error');
+        this.contextMenu = null;
+        return;
+      }
+
       try {
-        const { invoke } = window.__TAURI__?.core ?? {};
-        if (invoke) {
-          await invoke('show_in_folder', { path: track.path });
+        if (window.__TAURI__) {
+          const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+          await revealItemInDir(trackPath);
         } else {
-          console.log('Show in folder:', track.path);
+          console.log('Show in folder (browser mode):', trackPath);
         }
       } catch (error) {
         console.error('Failed to show in folder:', error);
