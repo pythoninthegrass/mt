@@ -14,6 +14,9 @@ export function createSidebar(Alpine) {
     reorderDraggingIndex: null,
     reorderDragOverIndex: null,
     
+    selectedPlaylistIds: new Set(),
+    selectionAnchorIndex: null,
+    
     sections: [
       { id: 'all', label: 'Music', icon: 'music' },
       { id: 'nowPlaying', label: 'Now Playing', icon: 'speaker' },
@@ -123,6 +126,40 @@ export function createSidebar(Alpine) {
       this.library.sortBy = 'title';
       this.library.sortOrder = 'asc';
       await this.library.loadPlaylist(playlistId);
+    },
+    
+    handlePlaylistClick(event, playlist, index) {
+      const isMeta = event.metaKey || event.ctrlKey;
+      const isShift = event.shiftKey;
+      
+      if (isMeta) {
+        if (this.selectedPlaylistIds.has(playlist.playlistId)) {
+          this.selectedPlaylistIds.delete(playlist.playlistId);
+        } else {
+          this.selectedPlaylistIds.add(playlist.playlistId);
+        }
+        this.selectionAnchorIndex = index;
+      } else if (isShift && this.selectionAnchorIndex !== null) {
+        const start = Math.min(this.selectionAnchorIndex, index);
+        const end = Math.max(this.selectionAnchorIndex, index);
+        this.selectedPlaylistIds.clear();
+        for (let i = start; i <= end; i++) {
+          this.selectedPlaylistIds.add(this.playlists[i].playlistId);
+        }
+      } else {
+        this.selectedPlaylistIds.clear();
+        this.selectionAnchorIndex = index;
+        this.loadPlaylist(playlist.id);
+      }
+    },
+    
+    isPlaylistSelected(playlistId) {
+      return this.selectedPlaylistIds.has(playlistId);
+    },
+    
+    clearPlaylistSelection() {
+      this.selectedPlaylistIds.clear();
+      this.selectionAnchorIndex = null;
     },
     
     async createPlaylist() {
@@ -426,6 +463,72 @@ export function createSidebar(Alpine) {
         this.ui.toast('Failed to delete playlist', 'error');
       }
       this.hidePlaylistContextMenu();
+    },
+    
+    handlePlaylistKeydown(event) {
+      if (this.editingPlaylist) return;
+      
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (this.selectedPlaylistIds.size > 0) {
+          event.preventDefault();
+          this.deleteSelectedPlaylists();
+        }
+      }
+    },
+    
+    async deleteSelectedPlaylists() {
+      if (this.selectedPlaylistIds.size === 0) return;
+      
+      const selectedPlaylists = this.playlists.filter(p => this.selectedPlaylistIds.has(p.playlistId));
+      const names = selectedPlaylists.map(p => p.name);
+      const message = selectedPlaylists.length === 1
+        ? `Delete playlist "${names[0]}"?`
+        : `Delete ${selectedPlaylists.length} playlists?\n\n${names.join('\n')}`;
+      
+      let confirmed = false;
+      if (window.__TAURI__?.dialog?.confirm) {
+        confirmed = await window.__TAURI__.dialog.confirm(message, {
+          title: selectedPlaylists.length === 1 ? 'Delete Playlist' : 'Delete Playlists',
+          kind: 'warning'
+        });
+      } else {
+        confirmed = confirm(message);
+      }
+      
+      if (!confirmed) return;
+      
+      const deletedIds = new Set();
+      const errors = [];
+      
+      for (const playlist of selectedPlaylists) {
+        try {
+          await api.playlists.delete(playlist.playlistId);
+          deletedIds.add(playlist.playlistId);
+        } catch (error) {
+          console.error(`Failed to delete playlist ${playlist.name}:`, error);
+          errors.push(playlist.name);
+        }
+      }
+      
+      if (deletedIds.size > 0) {
+        const msg = deletedIds.size === 1
+          ? `Deleted "${selectedPlaylists.find(p => deletedIds.has(p.playlistId)).name}"`
+          : `Deleted ${deletedIds.size} playlists`;
+        this.ui.toast(msg, 'success');
+      }
+      
+      if (errors.length > 0) {
+        this.ui.toast(`Failed to delete: ${errors.join(', ')}`, 'error');
+      }
+      
+      await this.loadPlaylists();
+      window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
+      
+      if (deletedIds.has(parseInt(this.activeSection.replace('playlist-', ''), 10))) {
+        this.loadSection('all');
+      }
+      
+      this.clearPlaylistSelection();
     },
   }));
 }

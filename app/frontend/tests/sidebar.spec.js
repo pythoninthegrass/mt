@@ -703,3 +703,189 @@ test.describe('Sidebar Responsiveness', () => {
     expect(collapsedWidth).toBeLessThan(100); // Should be narrow when collapsed
   });
 });
+
+test.describe('Playlist Multi-Select and Batch Delete (task-161)', () => {
+  let playlistState;
+
+  test.beforeEach(async ({ page }) => {
+    playlistState = createPlaylistState();
+    await setupPlaylistMocks(page, playlistState);
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('aside[x-data="sidebar"]', { state: 'visible' });
+    await page.waitForSelector('[data-testid="sidebar-playlist-1"]', { state: 'visible' });
+  });
+
+  test('AC#1: Cmd/Ctrl-click toggles playlist selection without navigating', async ({ page }) => {
+    const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
+    const playlist2 = page.locator('[data-testid="sidebar-playlist-2"]');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+    await expect(playlist1).toHaveAttribute('data-selected', 'true');
+
+    await playlist2.click({ modifiers: ['Meta'] });
+    await expect(playlist1).toHaveAttribute('data-selected', 'true');
+    await expect(playlist2).toHaveAttribute('data-selected', 'true');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+    await expect(playlist1).toHaveAttribute('data-selected', 'false');
+    await expect(playlist2).toHaveAttribute('data-selected', 'true');
+
+    const activeSection = await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      return sidebar.activeSection;
+    });
+    expect(activeSection).not.toContain('playlist-');
+  });
+
+  test('AC#2: Shift-click selects contiguous range from anchor', async ({ page }) => {
+    const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
+    const playlist2 = page.locator('[data-testid="sidebar-playlist-2"]');
+    const playlist3 = page.locator('[data-testid="sidebar-playlist-3"]');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+    await playlist3.click({ modifiers: ['Shift'] });
+
+    await expect(playlist1).toHaveAttribute('data-selected', 'true');
+    await expect(playlist2).toHaveAttribute('data-selected', 'true');
+    await expect(playlist3).toHaveAttribute('data-selected', 'true');
+  });
+
+  test('AC#3: Selected playlists have distinct visual state', async ({ page }) => {
+    const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+
+    const classes = await playlist1.getAttribute('class');
+    expect(classes).toContain('ring-2');
+    expect(classes).toContain('ring-accent');
+  });
+
+  test('AC#4: Delete key while playlist list focused shows confirmation', async ({ page }) => {
+    const playlistList = page.locator('[data-testid="playlist-list"]');
+    const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+    await playlistList.focus();
+
+    page.once('dialog', async dialog => {
+      expect(dialog.type()).toBe('confirm');
+      expect(dialog.message()).toContain('Delete playlist');
+      await dialog.dismiss();
+    });
+
+    await page.keyboard.press('Delete');
+  });
+
+  test('AC#5: Backspace key also triggers confirmation', async ({ page }) => {
+    const playlistList = page.locator('[data-testid="playlist-list"]');
+    const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+    await playlistList.focus();
+
+    page.once('dialog', async dialog => {
+      expect(dialog.type()).toBe('confirm');
+      await dialog.dismiss();
+    });
+
+    await page.keyboard.press('Backspace');
+  });
+
+  test('AC#6: Confirmed deletion removes playlists via API and updates sidebar', async ({ page }) => {
+    const playlistList = page.locator('[data-testid="playlist-list"]');
+    const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+    await playlistList.focus();
+
+    page.once('dialog', async dialog => {
+      await dialog.accept();
+    });
+
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(500);
+
+    const deleteCalls = findApiCalls(playlistState, 'DELETE', '/playlists/1');
+    expect(deleteCalls.length).toBeGreaterThan(0);
+  });
+
+  test('AC#7: Canceled deletion leaves playlists and selection unchanged', async ({ page }) => {
+    const playlistList = page.locator('[data-testid="playlist-list"]');
+    const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+    await playlistList.focus();
+
+    page.once('dialog', async dialog => {
+      await dialog.dismiss();
+    });
+
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(300);
+
+    await expect(playlist1).toBeVisible();
+    await expect(playlist1).toHaveAttribute('data-selected', 'true');
+
+    const deleteCalls = findApiCalls(playlistState, 'DELETE', '/playlists/');
+    expect(deleteCalls.length).toBe(0);
+  });
+
+  test('AC#8: Delete/Backspace ignored while inline rename input is focused', async ({ page }) => {
+    await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      sidebar.selectedPlaylistIds.add(1);
+      sidebar.editingPlaylist = { id: 'playlist-1', playlistId: 1, name: 'Test Playlist 1' };
+      sidebar.editingName = 'Test Playlist 1';
+    });
+
+    await page.waitForTimeout(300);
+
+    const renameInput = page.locator('[data-testid="playlist-rename-input"]');
+    await renameInput.focus();
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(300);
+
+    const deleteCalls = findApiCalls(playlistState, 'DELETE', '/playlists/');
+    expect(deleteCalls.length).toBe(0);
+  });
+
+  test('regular click clears selection and navigates', async ({ page }) => {
+    const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
+    const playlist2 = page.locator('[data-testid="sidebar-playlist-2"]');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+    await playlist2.click({ modifiers: ['Meta'] });
+    await expect(playlist1).toHaveAttribute('data-selected', 'true');
+    await expect(playlist2).toHaveAttribute('data-selected', 'true');
+
+    await playlist1.click();
+    await page.waitForTimeout(300);
+
+    await expect(playlist1).toHaveAttribute('data-selected', 'false');
+    await expect(playlist2).toHaveAttribute('data-selected', 'false');
+
+    const activeSection = await page.evaluate(() => {
+      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
+      return sidebar.activeSection;
+    });
+    expect(activeSection).toBe('playlist-1');
+  });
+
+  test('multi-select deletion shows count in confirmation message', async ({ page }) => {
+    const playlistList = page.locator('[data-testid="playlist-list"]');
+    const playlist1 = page.locator('[data-testid="sidebar-playlist-1"]');
+    const playlist2 = page.locator('[data-testid="sidebar-playlist-2"]');
+
+    await playlist1.click({ modifiers: ['Meta'] });
+    await playlist2.click({ modifiers: ['Meta'] });
+    await playlistList.focus();
+
+    page.once('dialog', async dialog => {
+      expect(dialog.message()).toContain('2 playlists');
+      await dialog.dismiss();
+    });
+
+    await page.keyboard.press('Delete');
+  });
+});
