@@ -2019,4 +2019,47 @@ test.describe('Metadata Editing (task-149)', () => {
     const modalTitle = page.locator('[data-testid="metadata-modal"] h2');
     await expect(modalTitle).toContainText('2 tracks');
   });
+
+  test('context menu should NOT show "Track Info..." option', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const trackInfoItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Track Info")');
+    await expect(trackInfoItem).not.toBeVisible();
+  });
+
+  test('Delete/Backspace should NOT trigger removal when metadata modal input is focused', async ({ page }) => {
+    await clickTrackRow(page, 0);
+
+    const selectedBefore = await page.locator('[data-track-id].track-row-selected').count();
+    expect(selectedBefore).toBe(1);
+
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const artistInput = page.locator('[data-testid="metadata-artist"]');
+    await artistInput.focus();
+    await artistInput.fill('Test Artist');
+
+    await page.keyboard.press('Delete');
+    await page.keyboard.press('Backspace');
+
+    const modal = page.locator('[data-testid="metadata-modal"]');
+    await expect(modal).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(modal).not.toBeVisible();
+
+    const trackCount = await page.locator('[data-track-id]').count();
+    expect(trackCount).toBeGreaterThan(0);
+  });
 });

@@ -907,11 +907,6 @@ export function createLibraryBrowser(Alpine) {
         disabled: selectedCount > 1,
       });
       menuItems.push({
-        label: 'Track Info...',
-        action: () => this.showTrackInfo(track),
-        disabled: selectedCount > 1,
-      });
-      menuItems.push({
         label: selectedCount > 1 ? `Edit Metadata (${selectedCount} tracks)...` : 'Edit Metadata...',
         action: () => this.editMetadata(track),
       });
@@ -1142,11 +1137,6 @@ export function createLibraryBrowser(Alpine) {
       this.contextMenu = null;
     },
 
-    showTrackInfo(track) {
-      this.$store.ui.openModal('trackInfo', track);
-      this.contextMenu = null;
-    },
-
     async editMetadata(track) {
       this.contextMenu = null;
       const tracks = this.getSelectedTracks();
@@ -1224,10 +1214,31 @@ export function createLibraryBrowser(Alpine) {
     },
 
     /**
+     * Check if user is currently typing in an input field
+     * @param {KeyboardEvent} event
+     * @returns {boolean}
+     */
+    isTypingInInput(event) {
+      const tagName = event.target.tagName;
+      return (
+        tagName === 'INPUT' ||
+        tagName === 'TEXTAREA' ||
+        tagName === 'SELECT' ||
+        event.target.isContentEditable
+      );
+    },
+
+    /**
      * Handle keyboard shortcuts
      * @param {KeyboardEvent} event
      */
     handleKeydown(event) {
+      // Suppress destructive shortcuts when typing in inputs or when metadata modal is open
+      const isDestructiveKey = event.key === 'Delete' || event.key === 'Backspace';
+      if (isDestructiveKey && (this.isTypingInInput(event) || this.$store.ui.modal?.type === 'editMetadata')) {
+        return;
+      }
+
       // Cmd/Ctrl+A: Select all
       if ((event.metaKey || event.ctrlKey) && event.key === 'a') {
         event.preventDefault();
@@ -1244,7 +1255,7 @@ export function createLibraryBrowser(Alpine) {
         this.playSelected();
       }
 
-      if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectedTracks.size > 0) {
+      if (isDestructiveKey && this.selectedTracks.size > 0) {
         event.preventDefault();
         if (this.isInPlaylistView()) {
           this.removeFromPlaylist();
