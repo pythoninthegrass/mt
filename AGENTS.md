@@ -553,6 +553,22 @@ The application follows a modern web-based architecture with Tauri providing nat
 
 See [task-159](backlog/tasks/task-159%20-%20Implement-browser-WebAudio-fallback-for-playback.md) for future WebAudio fallback implementation.
 
+### Queue and Shuffle Behavior
+
+The queue store (`app/frontend/js/stores/queue.js`) maintains tracks in **play order** - the `items` array always reflects the order tracks will be played.
+
+**Key behaviors:**
+
+- **Without shuffle**: Tracks play sequentially in the order they were added
+- **With shuffle enabled**: The `items` array is physically reordered using the [Fisher-Yates shuffle algorithm](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+  - Current track moves to index 0
+  - Remaining tracks are randomly shuffled
+  - Playback proceeds sequentially through the shuffled array
+- **When shuffle is disabled**: Original order is restored from `_originalOrder`
+- **Loop + Shuffle**: When queue ends with loop=all, items are re-shuffled for a new random order
+
+**Now Playing view**: Always displays tracks in the order they will play (current track first, then upcoming). This means the UI never "jumps around" - tracks are always adjacent and sequential.
+
 ### Frontend Testing with Playwright
 
 **IMMEDIATELY after implementing any frontend change:**
