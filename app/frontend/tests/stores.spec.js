@@ -118,8 +118,19 @@ test.describe('Player Store', () => {
 
 test.describe('Queue Store', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route('**/api/queue', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], currentIndex: -1 }),
+      });
+    });
     await page.goto('/');
     await waitForAlpine(page);
+    await expect.poll(async () => {
+      const store = await getAlpineStore(page, 'queue');
+      return store.loading;
+    }, { timeout: 5000 }).toBe(false);
   });
 
   test('should initialize queue store', async ({ page }) => {
@@ -134,11 +145,9 @@ test.describe('Queue Store', () => {
   });
 
   test('should add items to queue', async ({ page }) => {
-    // Get initial queue
     let queueStore = await getAlpineStore(page, 'queue');
     const initialLength = queueStore.items.length;
 
-    // Add mock track
     const mockTrack = {
       id: 'track-1',
       title: 'Test Track',
@@ -149,7 +158,6 @@ test.describe('Queue Store', () => {
       window.Alpine.store('queue').items.push(track);
     }, mockTrack);
 
-    // Verify track added
     queueStore = await getAlpineStore(page, 'queue');
     expect(queueStore.items.length).toBe(initialLength + 1);
   });

@@ -171,11 +171,13 @@
               placeholder="Search"
               x-model="$store.library.searchQuery"
               @input.debounce.300ms="$store.library.search($store.library.searchQuery)"
+              data-testid="sidebar-search"
             >
             <button 
               x-show="$store.library.searchQuery"
               @click="$store.library.searchQuery = ''; $store.library.search('')"
               class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-foreground/30 hover:bg-foreground/40 text-background transition-colors"
+              data-testid="sidebar-search-clear"
             >
               <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
@@ -197,6 +199,7 @@
                     :class="isActive(section.id) ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
                     @click="loadSection(section.id)"
                     :title="isCollapsed ? section.label : ''"
+                    :data-testid="'sidebar-section-' + section.id"
                   >
                     <!-- Icons -->
                     <template x-if="section.icon === 'music'">
@@ -337,6 +340,7 @@
             class="w-full flex items-center justify-center p-1.5 rounded-md hover:bg-muted/70 transition-colors text-foreground/50 hover:text-foreground/70"
             @click="toggleCollapse()"
             :title="isCollapsed ? 'Expand' : 'Collapse'"
+            data-testid="sidebar-collapse-toggle"
           >
             <svg class="w-4 h-4 transition-transform" :class="isCollapsed ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>

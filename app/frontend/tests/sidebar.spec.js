@@ -26,33 +26,29 @@ test.describe('Sidebar Navigation', () => {
     // Get initial section
     const libraryStore = await getAlpineStore(page, 'library');
     const initialSection = libraryStore.currentSection;
+    expect(initialSection).toBe('all'); // Default section is 'all'
 
-    // Find and click a different section
-    const sections = page.locator('aside button');
-    const count = await sections.count();
+    // Click a different section using data-testid (e.g., 'liked')
+    const likedSection = page.locator('[data-testid="sidebar-section-liked"]');
+    await likedSection.click();
 
-    if (count > 1) {
-      // Click second section
-      await sections.nth(1).click();
-      await page.waitForTimeout(500);
-
-      // Verify section changed
-      const updatedStore = await getAlpineStore(page, 'library');
-      expect(updatedStore.currentSection).not.toBe(initialSection);
-    }
+    // Wait for store to update (web-first assertion)
+    await expect.poll(async () => {
+      const store = await getAlpineStore(page, 'library');
+      return store.currentSection;
+    }, { timeout: 5000 }).toBe('liked');
   });
 
   test('should highlight active section', async ({ page }) => {
     await page.waitForSelector('aside[x-data="sidebar"]', { state: 'visible' });
 
-    // Click first section
-    const firstSection = page.locator('aside button').first();
-    await firstSection.click();
-    await page.waitForTimeout(300);
+    const musicSection = page.locator('[data-testid="sidebar-section-all"]');
+    await musicSection.click();
 
-    // Verify section is highlighted (has bg-primary or similar class)
-    const classes = await firstSection.getAttribute('class');
-    expect(classes).toContain('bg-primary');
+    await expect.poll(async () => {
+      const classes = await musicSection.getAttribute('class');
+      return classes?.includes('bg-primary');
+    }, { timeout: 5000 }).toBe(true);
   });
 
   test('should show section icons', async ({ page }) => {
@@ -154,18 +150,19 @@ test.describe('Sidebar Collapse/Expand', () => {
   });
 
   test('should show only icons when collapsed', async ({ page }) => {
-    // Collapse sidebar
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
       sidebar.isCollapsed = true;
     });
 
-    await page.waitForTimeout(300);
+    await expect.poll(async () => {
+      const sidebar = page.locator('aside[x-data="sidebar"]');
+      const box = await sidebar.boundingBox();
+      return box && box.width < 100;
+    }, { timeout: 5000 }).toBe(true);
 
-    // Verify icons are still visible
-    const icons = page.locator('aside button svg');
-    const firstIcon = await icons.first().isVisible();
-    expect(firstIcon).toBe(true);
+    const sectionIcon = page.locator('[data-testid="sidebar-section-all"] svg');
+    await expect(sectionIcon).toBeVisible();
   });
 
   test('should persist collapse state', async ({ page }) => {
