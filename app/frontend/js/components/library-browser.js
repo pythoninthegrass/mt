@@ -911,6 +911,10 @@ export function createLibraryBrowser(Alpine) {
         action: () => this.showTrackInfo(track),
         disabled: selectedCount > 1,
       });
+      menuItems.push({
+        label: selectedCount > 1 ? `Edit Metadata (${selectedCount} tracks)...` : 'Edit Metadata...',
+        action: () => this.editMetadata(track),
+      });
       menuItems.push({ type: 'separator' });
       menuItems.push({
         label: `Remove ${trackLabel} from Library`,
@@ -1130,13 +1134,18 @@ export function createLibraryBrowser(Alpine) {
       this.contextMenu = null;
     },
 
-    /**
-     * Show track info modal
-     * @param {Object} track - Track object
-     */
     showTrackInfo(track) {
       this.$store.ui.openModal('trackInfo', track);
       this.contextMenu = null;
+    },
+
+    async editMetadata(track) {
+      this.contextMenu = null;
+      const tracks = this.getSelectedTracks();
+      if (tracks.length === 0) {
+        tracks.push(track);
+      }
+      this.$store.ui.openModal('editMetadata', { tracks, library: this.library });
     },
 
     async removeSelected() {

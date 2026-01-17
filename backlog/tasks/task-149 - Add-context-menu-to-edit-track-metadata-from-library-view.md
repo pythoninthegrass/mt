@@ -1,10 +1,10 @@
 ---
 id: task-149
 title: Add context menu to edit track metadata from library view
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-16 06:29'
-updated_date: '2026-01-16 22:06'
+updated_date: '2026-01-17 08:50'
 labels:
   - feature
   - ui

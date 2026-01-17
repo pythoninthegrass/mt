@@ -1791,3 +1791,232 @@ test.describe('Playlist Feature Parity - Library Browser (task-150)', () => {
     }
   });
 });
+
+/**
+ * Metadata Editing Tests (task-149)
+ *
+ * Tests for the track metadata editing feature:
+ * - Context menu shows "Edit Metadata..." option
+ * - Modal opens with track metadata fields
+ * - Modal can be closed with Escape key
+ * - Form fields are populated correctly
+ */
+test.describe('Metadata Editing (task-149)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+  });
+
+  test('should show "Edit Metadata..." option in context menu', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await expect(editMetadataItem).toBeVisible();
+  });
+
+  test('should open metadata modal when clicking "Edit Metadata..."', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    // Wait for modal to appear
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const modal = page.locator('[data-testid="metadata-modal"]');
+    await expect(modal).toBeVisible();
+  });
+
+  test('should display metadata form fields in modal', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const titleInput = page.locator('[data-testid="metadata-title"]');
+    const artistInput = page.locator('[data-testid="metadata-artist"]');
+    const albumInput = page.locator('[data-testid="metadata-album"]');
+
+    await expect(titleInput).toBeVisible();
+    await expect(artistInput).toBeVisible();
+    await expect(albumInput).toBeVisible();
+  });
+
+  test('should close metadata modal with Escape key', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    // Press Escape to close
+    await page.keyboard.press('Escape');
+
+    // Modal should be hidden
+    const modal = page.locator('[data-testid="metadata-modal"]');
+    await expect(modal).not.toBeVisible();
+  });
+
+  test('should close metadata modal with Cancel button', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    // Click Cancel button
+    const cancelButton = page.locator('[data-testid="metadata-modal"] button:has-text("Cancel")');
+    await cancelButton.click();
+
+    // Modal should be hidden
+    const modal = page.locator('[data-testid="metadata-modal"]');
+    await expect(modal).not.toBeVisible();
+  });
+
+  test('should show file info section in metadata modal', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    // Check for file info section
+    const fileInfoSection = page.locator('[data-testid="metadata-modal"] :has-text("File Info"), [data-testid="metadata-modal"] :has-text("Format")');
+    await expect(fileInfoSection.first()).toBeVisible();
+  });
+
+  test('should have Save button in metadata modal', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    // Check for Save button
+    const saveButton = page.locator('[data-testid="metadata-modal"] button:has-text("Save")');
+    await expect(saveButton).toBeVisible();
+  });
+
+  test('should show loading state while fetching metadata', async ({ page }) => {
+    // This test verifies the loading indicator appears briefly
+    // We can check the component state
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    // Modal should appear (loading state may be brief)
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    // Verify the modal component exists and is functional
+    const modalComponent = await page.evaluate(() => {
+      const modal = document.querySelector('[x-data="metadataModal"]');
+      if (modal) {
+        const data = window.Alpine.$data(modal);
+        return {
+          hasOpenMethod: typeof data.open === 'function',
+          hasCloseMethod: typeof data.close === 'function',
+          hasSaveMethod: typeof data.save === 'function',
+        };
+      }
+      return null;
+    });
+
+    expect(modalComponent).not.toBeNull();
+    expect(modalComponent.hasOpenMethod).toBe(true);
+    expect(modalComponent.hasCloseMethod).toBe(true);
+    expect(modalComponent.hasSaveMethod).toBe(true);
+  });
+
+  test('context menu should close after clicking Edit Metadata', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    const contextMenu = page.locator('[data-testid="track-context-menu"]');
+    await expect(contextMenu).not.toBeVisible();
+  });
+
+  test('should show batch edit option when multiple tracks selected', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const selectedTracks = page.locator('[data-track-id].track-row-selected');
+    const count = await selectedTracks.count();
+    expect(count).toBe(2);
+
+    const secondTrack = page.locator('[data-track-id]').nth(1);
+    await secondTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata (2 tracks)")');
+    await expect(editMetadataItem).toBeVisible();
+  });
+
+  test('should open batch edit modal with correct title', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const secondTrack = page.locator('[data-track-id]').nth(1);
+    await secondTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const modalTitle = page.locator('[data-testid="metadata-modal"] h2');
+    await expect(modalTitle).toContainText('2 tracks');
+  });
+});

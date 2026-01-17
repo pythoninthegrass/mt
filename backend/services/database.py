@@ -288,6 +288,40 @@ class DatabaseService:
             conn.commit()
             return cursor.rowcount > 0
 
+    def update_track_metadata(self, track_id: int, metadata: dict[str, Any]) -> bool:
+        """Update track metadata in the library."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE library SET
+                    title = ?,
+                    artist = ?,
+                    album = ?,
+                    album_artist = ?,
+                    track_number = ?,
+                    track_total = ?,
+                    date = ?,
+                    duration = ?,
+                    file_size = ?
+                WHERE id = ?
+            """,
+                (
+                    metadata.get("title"),
+                    metadata.get("artist"),
+                    metadata.get("album"),
+                    metadata.get("album_artist"),
+                    metadata.get("track_number"),
+                    metadata.get("track_total"),
+                    metadata.get("date"),
+                    metadata.get("duration"),
+                    metadata.get("file_size", 0),
+                    track_id,
+                ),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def update_play_count(self, track_id: int) -> dict[str, Any] | None:
         """Increment play count for a track."""
         with self.get_connection() as conn:

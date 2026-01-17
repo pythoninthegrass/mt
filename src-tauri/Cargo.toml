@@ -30,6 +30,9 @@ chrono = "0.4"
 
 # Media keys (macOS Now Playing widget, MPRIS on Linux, SMTC on Windows)
 souvlaki = "0.8"
+
+# Audio metadata reading/writing
+lofty = "0.22"
 tauri-plugin-devtools = { version = "2", optional = true }
 
 [features]

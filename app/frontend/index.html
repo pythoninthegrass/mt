@@ -1237,6 +1237,197 @@
     </footer>
   </div>
 
+  <!-- Metadata Edit Modal -->
+  <div
+    x-data="metadataModal"
+    x-show="isOpen"
+    x-cloak
+    data-testid="metadata-modal"
+    class="fixed inset-0 z-50 flex items-center justify-center"
+    @keydown.window="if (isOpen) handleKeydown($event)"
+  >
+    <div class="absolute inset-0 bg-black/50" @click="close()"></div>
+    <div
+      class="relative bg-card border border-border rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+      @click.stop
+    >
+      <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+        <h2 class="text-lg font-semibold" x-text="modalTitle"></h2>
+        <button
+          class="p-1 text-muted-foreground hover:text-foreground transition-colors"
+          @click="close()"
+          title="Close (Esc)"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 space-y-4" x-show="!isLoading">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2" x-show="!isBatchEdit">
+            <label class="block text-xs font-medium text-muted-foreground mb-1">Title</label>
+            <input
+              type="text"
+              x-model="metadata.title"
+              :placeholder="getPlaceholder('title')"
+              :class="{ 'italic placeholder:text-muted-foreground/70': isMixedField('title') }"
+              class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              data-testid="metadata-title"
+            >
+          </div>
+
+          <div class="col-span-2">
+            <label class="block text-xs font-medium text-muted-foreground mb-1">Artist</label>
+            <input
+              type="text"
+              x-model="metadata.artist"
+              :placeholder="getPlaceholder('artist')"
+              :class="{ 'italic placeholder:text-muted-foreground/70': isMixedField('artist') }"
+              class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              data-testid="metadata-artist"
+            >
+          </div>
+
+          <div class="col-span-2">
+            <label class="block text-xs font-medium text-muted-foreground mb-1">Album</label>
+            <input
+              type="text"
+              x-model="metadata.album"
+              :placeholder="getPlaceholder('album')"
+              :class="{ 'italic placeholder:text-muted-foreground/70': isMixedField('album') }"
+              class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              data-testid="metadata-album"
+            >
+          </div>
+
+          <div class="col-span-2">
+            <label class="block text-xs font-medium text-muted-foreground mb-1">Album Artist</label>
+            <input
+              type="text"
+              x-model="metadata.album_artist"
+              :placeholder="getPlaceholder('album_artist')"
+              :class="{ 'italic placeholder:text-muted-foreground/70': isMixedField('album_artist') }"
+              class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              data-testid="metadata-album-artist"
+            >
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-muted-foreground mb-1">Track #</label>
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                x-model="metadata.track_number"
+                class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="#"
+                data-testid="metadata-track-number"
+              >
+              <span class="text-muted-foreground">/</span>
+              <input
+                type="text"
+                x-model="metadata.track_total"
+                class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Total"
+                data-testid="metadata-track-total"
+              >
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-muted-foreground mb-1">Disc #</label>
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                x-model="metadata.disc_number"
+                class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="#"
+                data-testid="metadata-disc-number"
+              >
+              <span class="text-muted-foreground">/</span>
+              <input
+                type="text"
+                x-model="metadata.disc_total"
+                class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Total"
+                data-testid="metadata-disc-total"
+              >
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-muted-foreground mb-1">Year</label>
+            <input
+              type="text"
+              x-model="metadata.year"
+              class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              :placeholder="isMixedField('year') ? 'Multiple values' : 'YYYY'"
+              :class="{ 'italic placeholder:text-muted-foreground/70': isMixedField('year') }"
+              data-testid="metadata-year"
+            >
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-muted-foreground mb-1">Genre</label>
+            <input
+              type="text"
+              x-model="metadata.genre"
+              :placeholder="getPlaceholder('genre')"
+              :class="{ 'italic placeholder:text-muted-foreground/70': isMixedField('genre') }"
+              class="w-full px-3 py-2 text-sm bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              data-testid="metadata-genre"
+            >
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-border">
+          <h3 class="text-xs font-medium text-muted-foreground mb-2">File Information</h3>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <div class="text-muted-foreground">Format</div>
+            <div x-text="fileInfo.format"></div>
+            <div class="text-muted-foreground">Duration</div>
+            <div x-text="fileInfo.duration"></div>
+            <div class="text-muted-foreground">Bitrate</div>
+            <div x-text="fileInfo.bitrate"></div>
+            <div class="text-muted-foreground">Sample Rate</div>
+            <div x-text="fileInfo.sample_rate"></div>
+            <div class="text-muted-foreground">Channels</div>
+            <div x-text="fileInfo.channels"></div>
+            <div class="text-muted-foreground col-span-2 mt-2">Path</div>
+            <div class="col-span-2 text-foreground/70 break-all" x-text="fileInfo.path"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 flex items-center justify-center p-8" x-show="isLoading">
+        <svg class="animate-spin w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/30">
+        <button
+          class="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          @click="close()"
+          :disabled="isSaving"
+        >
+          Cancel
+        </button>
+        <button
+          class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+          @click="save()"
+          :disabled="isSaving || isLoading"
+          data-testid="metadata-save"
+        >
+          <span x-show="!isSaving">Save</span>
+          <span x-show="isSaving">Saving...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast container -->
   <div class="fixed bottom-20 right-4 space-y-2 z-50">
     <template x-for="toast in $store.ui.toasts" :key="toast.id">

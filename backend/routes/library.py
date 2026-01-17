@@ -100,6 +100,27 @@ async def delete_track(track_id: int, db: DatabaseService = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
 
 
+@router.put("/{track_id}/rescan")
+async def rescan_track(track_id: int, db: DatabaseService = Depends(get_db)):
+    """Rescan a track's metadata from its file and update the database."""
+    track = db.get_track_by_id(track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
+
+    filepath = track.get("filepath")
+    if not filepath:
+        raise HTTPException(status_code=400, detail="Track has no filepath")
+
+    from backend.services.scanner import extract_metadata
+
+    metadata = extract_metadata(filepath)
+
+    if not db.update_track_metadata(track_id, metadata):
+        raise HTTPException(status_code=500, detail="Failed to update track metadata")
+
+    return db.get_track_by_id(track_id)
+
+
 @router.put("/{track_id}/play-count")
 async def update_play_count(track_id: int, db: DatabaseService = Depends(get_db)):
     """Increment play count for a track."""

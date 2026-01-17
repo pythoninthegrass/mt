@@ -2,6 +2,7 @@ pub mod audio;
 pub mod commands;
 pub mod dialog;
 pub mod media_keys;
+pub mod metadata;
 pub mod sidecar;
 
 use commands::{
@@ -10,6 +11,7 @@ use commands::{
 };
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
+use metadata::{get_track_metadata, save_track_metadata};
 use sidecar::{check_backend_health, get_backend_port, get_backend_url, SidecarManager};
 use serde::Serialize;
 use std::fs::File;
@@ -193,6 +195,8 @@ pub fn run() {
             media_set_stopped,
             app_get_info,
             export_diagnostics,
+            get_track_metadata,
+            save_track_metadata,
         ])
         .setup(|app| {
             let sidecar = SidecarManager::start(app.handle())

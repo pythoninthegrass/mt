@@ -26,6 +26,7 @@ Always use Context7 MCP when I need library/API documentation, code generation, 
 - microsoft/playwright (for E2E testing)
 - tailwindlabs/tailwindcss
 - alpinejs/alpine
+- serial-ata/lofty-rs
 - websites/rs_tauri_2_9_5
 - hypothesisworks/hypothesis
 - itamarst/eliot

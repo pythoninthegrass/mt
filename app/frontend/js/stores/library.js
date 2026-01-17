@@ -422,9 +422,6 @@ export function createLibraryStore(Alpine) {
       return grouped;
     },
     
-    /**
-     * Get tracks grouped by album
-     */
     get tracksByAlbum() {
       const grouped = {};
       for (const track of this.filteredTracks) {
@@ -435,6 +432,21 @@ export function createLibraryStore(Alpine) {
         grouped[album].push(track);
       }
       return grouped;
+    },
+
+    async rescanTrack(trackId) {
+      try {
+        const updatedTrack = await api.library.rescanTrack(trackId);
+        if (updatedTrack) {
+          const index = this.tracks.findIndex(t => t.id === trackId);
+          if (index >= 0) {
+            this.tracks[index] = updatedTrack;
+            this.applyFilters();
+          }
+        }
+      } catch (error) {
+        console.error('[library] Failed to rescan track:', error);
+      }
     },
   });
 }

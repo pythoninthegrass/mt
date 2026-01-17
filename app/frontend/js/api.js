@@ -150,6 +150,17 @@ export const api = {
         method: 'PUT',
       });
     },
+
+    /**
+     * Rescan a track's metadata from its file
+     * @param {string} id - Track ID
+     * @returns {Promise<object>} Updated track object
+     */
+    async rescanTrack(id) {
+      return request(`/library/${encodeURIComponent(id)}/rescan`, {
+        method: 'PUT',
+      });
+    },
     
     /**
      * Get album artwork for a track
