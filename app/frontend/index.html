@@ -535,7 +535,7 @@
                 @dragstart="handleTrackDragStart($event, track)"
                 @dragend="handleTrackDragEnd($event)"
                 @click="handleRowClick($event, track, index)"
-                @dblclick="handleDoubleClick(track)"
+                @dblclick="handleDoubleClick(track, index)"
                 @contextmenu="handleContextMenu($event, track, index)"
               >
                 <template x-for="col in columns" :key="col.key">
@@ -686,7 +686,7 @@
             <div 
               class="flex items-center gap-4 p-2 rounded hover:bg-muted cursor-default select-none"
               :class="index === $store.queue.currentIndex ? 'bg-primary/10' : ''"
-              @dblclick="$store.player.playTrack(track)"
+              @dblclick="$store.queue.playIndex(index)"
             >
               <span class="text-xs text-muted-foreground w-6" x-text="index + 1"></span>
               <span x-show="index === $store.queue.currentIndex" class="text-primary">▶</span>
@@ -760,29 +760,29 @@
                 <p class="text-xs mt-1">Add tracks from the library</p>
               </div>
               <div x-show="$store.queue.items.length > 0" x-ref="sortableContainer" class="relative">
-                <template x-for="(track, index) in $store.queue.items" :key="track.id">
+                <template x-for="(item, displayIndex) in $store.queue.playOrderItems" :key="item.track.id + '-' + item.originalIndex">
                   <div 
                     class="queue-item-wrapper"
                     :class="[
-                      getShiftDirection(index) === 'up' ? 'shift-up' : '',
-                      getShiftDirection(index) === 'down' ? 'shift-down' : ''
+                      getShiftDirection(item.originalIndex) === 'up' ? 'shift-up' : '',
+                      getShiftDirection(item.originalIndex) === 'down' ? 'shift-down' : ''
                     ]"
                   >
                     <div 
                       class="queue-item flex items-center gap-3 px-3 py-2 border-b border-border/50 select-none cursor-default"
                       :class="[
-                        index === $store.queue.currentIndex ? 'bg-primary/20 text-primary' : '',
-                        isDragging(index) ? 'dragging-item' : '',
-                        isOtherDragging(index) ? 'other-dragging' : 'hover:bg-muted/50'
+                        item.isCurrentTrack ? 'bg-primary/20 text-primary' : '',
+                        isDragging(item.originalIndex) ? 'dragging-item' : '',
+                        isOtherDragging(item.originalIndex) ? 'other-dragging' : 'hover:bg-muted/50'
                       ]"
-                      :style="isDragging(index) ? 'transform:' + getDragTransform() + '; z-index: 50;' : ''"
-                      :data-id="track.id"
-                      @dblclick.stop="$store.queue.playIndex(index)"
+                      :style="isDragging(item.originalIndex) ? 'transform:' + getDragTransform() + '; z-index: 50;' : ''"
+                      :data-id="item.track.id"
+                      @dblclick.stop="$store.queue.playIndex(item.originalIndex)"
                     >
                       <div 
                         class="drag-handle cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
-                        @mousedown.prevent="startDrag(index, $event)"
-                        @touchstart.prevent="startDrag(index, $event)"
+                        @mousedown.prevent="startDrag(item.originalIndex, $event)"
+                        @touchstart.prevent="startDrag(item.originalIndex, $event)"
                         @dblclick.stop
                       >
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -790,10 +790,10 @@
                         </svg>
                       </div>
                       <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium truncate" x-text="track.title || 'Unknown'"></p>
-                        <p class="text-xs truncate" :class="index === $store.queue.currentIndex ? 'text-primary/70' : 'text-muted-foreground'" x-text="track.artist || 'Unknown Artist'"></p>
+                        <p class="text-sm font-medium truncate" x-text="item.track.title || 'Unknown'"></p>
+                        <p class="text-xs truncate" :class="item.isCurrentTrack ? 'text-primary/70' : 'text-muted-foreground'" x-text="item.track.artist || 'Unknown Artist'"></p>
                       </div>
-                      <template x-if="index === $store.queue.currentIndex">
+                      <template x-if="item.isCurrentTrack">
                         <div class="shrink-0">
                           <svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
@@ -802,7 +802,7 @@
                       </template>
                       <button 
                         class="shrink-0 p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
-                        @click.stop="$store.queue.remove(index)"
+                        @click.stop="$store.queue.remove(item.originalIndex)"
                         title="Remove from queue"
                       >
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -975,7 +975,7 @@
           
           <button
             class="p-1 transition-colors"
-            :class="queue.shuffle ? 'text-primary' : 'text-[#8E8E93] hover:text-foreground'"
+            :class="isShuffleActive ? 'text-primary' : 'text-[#8E8E93] hover:text-foreground'"
             @click="toggleShuffle()"
             title="Shuffle"
             data-testid="player-shuffle"

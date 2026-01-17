@@ -824,11 +824,10 @@ export function createLibraryBrowser(Alpine) {
       }
     },
 
-    async handleDoubleClick(track) {
+    async handleDoubleClick(track, index) {
       await this.queue.clear();
-      await this.queue.add(this.library.tracks, false);
-      const index = this.library.tracks.findIndex((t) => t.id === track.id);
-      if (index >= 0) {
+      await this.queue.add(this.library.filteredTracks, false);
+      if (index >= 0 && index < this.library.filteredTracks.length) {
         await this.queue.playIndex(index);
       } else {
         await this.player.playTrack(track);
@@ -983,7 +982,7 @@ export function createLibraryBrowser(Alpine) {
       if (tracks.length > 0) {
         await this.queue.clear();
         await this.queue.addTracks(tracks);
-        await this.player.playTrack(tracks[0]);
+        await this.queue.playIndex(0);
       }
       this.contextMenu = null;
     },
@@ -1009,11 +1008,7 @@ export function createLibraryBrowser(Alpine) {
     async playSelectedNext() {
       const tracks = this.getSelectedTracks();
       if (tracks.length > 0) {
-        // Insert after current track
-        const insertIndex = this.queue.currentIndex + 1;
-        for (let i = 0; i < tracks.length; i++) {
-          await this.queue.add(tracks[i].id, insertIndex + i);
-        }
+        await this.queue.playNextTracks(tracks);
         this.$store.ui.toast(
           `Playing ${tracks.length} track${tracks.length > 1 ? 's' : ''} next`,
           'success',

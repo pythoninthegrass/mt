@@ -182,14 +182,14 @@ export const api = {
     },
     
     /**
-     * Add track(s) to queue
-     * @param {string|string[]} trackIds - Track ID(s) to add
+     * Add track(s) to queue by track IDs
+     * @param {number|number[]} trackIds - Track ID(s) to add
      * @param {number} [position] - Position to insert at (end if omitted)
-     * @returns {Promise<{queue: Array}>}
+     * @returns {Promise<{added: number, queue_length: number}>}
      */
     async add(trackIds, position) {
       const ids = Array.isArray(trackIds) ? trackIds : [trackIds];
-      return request('/queue', {
+      return request('/queue/add', {
         method: 'POST',
         body: JSON.stringify({ track_ids: ids, position }),
       });
@@ -217,15 +217,15 @@ export const api = {
     },
     
     /**
-     * Move track within queue
+     * Move track within queue (reorder)
      * @param {number} from - Current position
      * @param {number} to - New position
-     * @returns {Promise<{queue: Array}>}
+     * @returns {Promise<{success: boolean, queue_length: number}>}
      */
     async move(from, to) {
-      return request('/queue/move', {
+      return request('/queue/reorder', {
         method: 'POST',
-        body: JSON.stringify({ from, to }),
+        body: JSON.stringify({ from_position: from, to_position: to }),
       });
     },
     

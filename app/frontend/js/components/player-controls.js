@@ -118,6 +118,13 @@ export function createPlayerControls(Alpine) {
       return this.queue.loop !== 'none';
     },
     
+    /**
+     * Check if shuffle is active
+     */
+    get isShuffleActive() {
+      return this.queue.shuffle;
+    },
+    
     get displayPosition() {
       if (this.isDraggingProgress) {
         return this.dragPosition;

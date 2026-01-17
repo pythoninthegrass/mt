@@ -542,6 +542,17 @@ The application follows a modern web-based architecture with Tauri providing nat
 - Responsive UI adapts to window sizes
 - Platform-native styling and behaviors
 
+### Browser Development Mode
+
+**Audio playback only works in Tauri.** When running the frontend in a standalone browser (Firefox, Chrome) for UI development:
+
+- `window.__TAURI__` is undefined
+- Audio playback commands (`audio_load`, `audio_play`, etc.) silently fail
+- Use browser mode **only for UI/styling work**, not playback testing
+- For playback testing, always use `task tauri:dev`
+
+See [task-159](backlog/tasks/task-159%20-%20Implement-browser-WebAudio-fallback-for-playback.md) for future WebAudio fallback implementation.
+
 ### Frontend Testing with Playwright
 
 **IMMEDIATELY after implementing any frontend change:**

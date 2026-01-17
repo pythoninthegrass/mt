@@ -1,13 +1,13 @@
 export function createNowPlayingView(Alpine) {
   Alpine.data('nowPlayingView', () => ({
-    dragging: null,
-    dragOverIdx: null,
+    draggingOriginalIdx: null,
+    dragOverOriginalIdx: null,
     scrollInterval: null,
     dragY: 0,
     dragStartY: 0,
     dragItemHeight: 0,
     
-    startDrag(idx, event) {
+    startDrag(originalIdx, event) {
       event.preventDefault();
       
       const target = event.currentTarget.closest('.queue-item');
@@ -18,8 +18,8 @@ export function createNowPlayingView(Alpine) {
       this.dragStartY = rect.top;
       this.dragY = event.clientY || event.touches?.[0]?.clientY || rect.top;
       
-      this.dragging = idx;
-      this.dragOverIdx = null;
+      this.draggingOriginalIdx = originalIdx;
+      this.dragOverOriginalIdx = null;
       
       const container = this.$refs.sortableContainer?.parentElement;
       
@@ -40,12 +40,12 @@ export function createNowPlayingView(Alpine) {
         
         this.stopAutoScroll();
         
-        if (this.dragging !== null && this.dragOverIdx !== null && this.dragging !== this.dragOverIdx) {
-          this.reorder(this.dragging, this.dragOverIdx);
+        if (this.draggingOriginalIdx !== null && this.dragOverOriginalIdx !== null && this.draggingOriginalIdx !== this.dragOverOriginalIdx) {
+          this.reorder(this.draggingOriginalIdx, this.dragOverOriginalIdx);
         }
         
-        this.dragging = null;
-        this.dragOverIdx = null;
+        this.draggingOriginalIdx = null;
+        this.dragOverOriginalIdx = null;
       };
       
       document.addEventListener('mousemove', onMove);
@@ -59,29 +59,29 @@ export function createNowPlayingView(Alpine) {
       if (!container) return;
       
       const items = container.querySelectorAll('.queue-item-wrapper');
-      let newOverIdx = null;
+      const playOrderItems = this.$store.queue.playOrderItems;
       
-      for (let i = 0; i < items.length; i++) {
-        if (i === this.dragging) continue;
+      let newOverOriginalIdx = null;
+      
+      for (let displayIdx = 0; displayIdx < items.length; displayIdx++) {
+        const item = playOrderItems[displayIdx];
+        if (!item || item.originalIndex === this.draggingOriginalIdx) continue;
         
-        const rect = items[i].getBoundingClientRect();
+        const rect = items[displayIdx].getBoundingClientRect();
         const midY = rect.top + rect.height / 2;
         
         if (y < midY) {
-          newOverIdx = i;
+          newOverOriginalIdx = item.originalIndex;
           break;
         }
       }
       
-      if (newOverIdx === null) {
-        newOverIdx = this.$store.queue.items.length;
+      if (newOverOriginalIdx === null && playOrderItems.length > 0) {
+        const lastItem = playOrderItems[playOrderItems.length - 1];
+        newOverOriginalIdx = lastItem ? lastItem.originalIndex + 1 : this.$store.queue.items.length;
       }
       
-      if (newOverIdx > this.dragging) {
-        newOverIdx = Math.min(newOverIdx, this.$store.queue.items.length);
-      }
-      
-      this.dragOverIdx = newOverIdx;
+      this.dragOverOriginalIdx = newOverOriginalIdx;
     },
     
     handleAutoScroll(y, container) {
@@ -147,27 +147,27 @@ export function createNowPlayingView(Alpine) {
       queue.save();
     },
     
-    isDragging(idx) {
-      return this.dragging === idx;
+    isDragging(originalIdx) {
+      return this.draggingOriginalIdx === originalIdx;
     },
     
-    isOtherDragging(idx) {
-      return this.dragging !== null && this.dragging !== idx;
+    isOtherDragging(originalIdx) {
+      return this.draggingOriginalIdx !== null && this.draggingOriginalIdx !== originalIdx;
     },
     
-    getShiftDirection(idx) {
-      if (this.dragging === null || this.dragOverIdx === null) return 'none';
-      if (idx === this.dragging) return 'none';
+    getShiftDirection(originalIdx) {
+      if (this.draggingOriginalIdx === null || this.dragOverOriginalIdx === null) return 'none';
+      if (originalIdx === this.draggingOriginalIdx) return 'none';
       
-      const dragIdx = this.dragging;
-      const overIdx = this.dragOverIdx;
+      const dragIdx = this.draggingOriginalIdx;
+      const overIdx = this.dragOverOriginalIdx;
       
       if (dragIdx < overIdx) {
-        if (idx > dragIdx && idx < overIdx) {
+        if (originalIdx > dragIdx && originalIdx < overIdx) {
           return 'up';
         }
       } else {
-        if (idx >= overIdx && idx < dragIdx) {
+        if (originalIdx >= overIdx && originalIdx < dragIdx) {
           return 'down';
         }
       }
@@ -176,12 +176,16 @@ export function createNowPlayingView(Alpine) {
     },
     
     getDragTransform() {
-      if (this.dragging === null) return '';
+      if (this.draggingOriginalIdx === null) return '';
       const container = this.$refs.sortableContainer;
       if (!container) return '';
       
+      const playOrderItems = this.$store.queue.playOrderItems;
+      const displayIdx = playOrderItems.findIndex(item => item.originalIndex === this.draggingOriginalIdx);
+      if (displayIdx === -1) return '';
+      
       const items = container.querySelectorAll('.queue-item-wrapper');
-      const draggedItem = items[this.dragging];
+      const draggedItem = items[displayIdx];
       if (!draggedItem) return '';
       
       const rect = draggedItem.getBoundingClientRect();

@@ -416,6 +416,129 @@ test.describe('Queue View Navigation', () => {
   });
 });
 
+test.describe('Play Next and Add to Queue (task-158)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+  });
+
+  test('Add to Queue should append tracks to end of queue', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    const initialQueueLength = await page.evaluate(() =>
+      window.Alpine.store('queue').items.length
+    );
+
+    await page.locator('[data-track-id]').nth(3).click({ button: 'right' });
+    await page.waitForSelector('text=Add', { state: 'visible' });
+    await page.click('text=/Add.*to Queue/');
+
+    await page.waitForFunction(
+      (initial) => window.Alpine.store('queue').items.length > initial,
+      initialQueueLength,
+      { timeout: 5000 }
+    );
+
+    const newQueueLength = await page.evaluate(() =>
+      window.Alpine.store('queue').items.length
+    );
+    expect(newQueueLength).toBe(initialQueueLength + 1);
+  });
+
+  test('Play Next should insert track after currently playing', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    const currentIndex = await page.evaluate(() =>
+      window.Alpine.store('queue').currentIndex
+    );
+
+    const trackToInsert = await page.evaluate(() => {
+      const tracks = window.Alpine.store('library').tracks;
+      return tracks[5];
+    });
+
+    await page.locator('[data-track-id]').nth(5).click({ button: 'right' });
+    await page.waitForSelector('text=Play Next', { state: 'visible' });
+    await page.click('text=Play Next');
+
+    await page.waitForTimeout(300);
+
+    const queueItems = await page.evaluate(() =>
+      window.Alpine.store('queue').items
+    );
+    const insertedTrack = queueItems[currentIndex + 1];
+    expect(insertedTrack.id).toBe(trackToInsert.id);
+  });
+
+  test('Play Next with multiple selected tracks should insert all after current', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    const currentIndex = await page.evaluate(() =>
+      window.Alpine.store('queue').currentIndex
+    );
+
+    await page.locator('[data-track-id]').nth(5).click();
+    await page.keyboard.down('Shift');
+    await page.locator('[data-track-id]').nth(7).click();
+    await page.keyboard.up('Shift');
+
+    await page.locator('[data-track-id]').nth(6).click({ button: 'right' });
+    await page.waitForSelector('text=Play Next', { state: 'visible' });
+    await page.click('text=Play Next');
+
+    await page.waitForTimeout(300);
+
+    const queueItems = await page.evaluate(() =>
+      window.Alpine.store('queue').items
+    );
+
+    const selectedTracks = await page.evaluate(() => {
+      const tracks = window.Alpine.store('library').tracks;
+      return [tracks[5], tracks[6], tracks[7]];
+    });
+
+    expect(queueItems[currentIndex + 1].id).toBe(selectedTracks[0].id);
+    expect(queueItems[currentIndex + 2].id).toBe(selectedTracks[1].id);
+    expect(queueItems[currentIndex + 3].id).toBe(selectedTracks[2].id);
+  });
+
+  test('Add to Queue should show toast notification', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    await page.locator('[data-track-id]').nth(3).click({ button: 'right' });
+    await page.waitForSelector('text=Add', { state: 'visible' });
+    await page.click('text=/Add.*to Queue/');
+
+    await page.waitForSelector('text=/Added.*track.*to queue/', { state: 'visible', timeout: 3000 });
+  });
+
+  test('Play Next should show toast notification', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    await page.locator('[data-track-id]').nth(3).click({ button: 'right' });
+    await page.waitForSelector('text=Play Next', { state: 'visible' });
+    await page.click('text=Play Next');
+
+    await page.waitForSelector('text=/Playing.*track.*next/', { state: 'visible', timeout: 3000 });
+  });
+});
+
 test.describe('Queue Parity Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

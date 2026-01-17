@@ -36,38 +36,26 @@ export function createQueueStore(Alpine) {
     },
     
     _loadLoopState() {
+      // Shuffle and loop are session-only - always start fresh
+      this.shuffle = false;
+      this.loop = 'none';
       try {
-        const saved = localStorage.getItem('mt:loop-state');
-        if (saved) {
-          const { loop, shuffle } = JSON.parse(saved);
-          if (['none', 'all', 'one'].includes(loop)) {
-            this.loop = loop;
-          }
-          if (typeof shuffle === 'boolean') {
-            this.shuffle = shuffle;
-          }
-        }
+        localStorage.removeItem('mt:loop-state');
       } catch (e) {
         // ignore
       }
     },
     
     _saveLoopState() {
-      try {
-        localStorage.setItem('mt:loop-state', JSON.stringify({
-          loop: this.loop,
-          shuffle: this.shuffle,
-        }));
-      } catch (e) {
-        // ignore
-      }
+      // No-op: shuffle and loop are session-only, not persisted
     },
     
     async load() {
       this.loading = true;
       try {
         const data = await api.queue.get();
-        this.items = data.items || [];
+        const rawItems = data.items || [];
+        this.items = rawItems.map(item => item.track || item);
         this.currentIndex = data.currentIndex ?? -1;
         this._originalOrder = [...this.items];
       } catch (error) {
@@ -113,6 +101,16 @@ export function createQueueStore(Alpine) {
     },
     
     /**
+     * Add multiple tracks to end of queue (batch add)
+     * Alias for add() but more explicit for batch operations
+     * @param {Array} tracks - Array of track objects to add
+     * @param {boolean} playNow - Start playing immediately
+     */
+    async addTracks(tracks, playNow = false) {
+      await this.add(tracks, playNow);
+    },
+    
+    /**
      * Insert tracks at specific position
      * @param {number} index - Position to insert at
      * @param {Array|Object} tracks - Track(s) to insert
@@ -127,6 +125,19 @@ export function createQueueStore(Alpine) {
       }
       
       await this.save();
+    },
+    
+    /**
+     * Insert tracks to play next (after currently playing track)
+     * @param {Array|Object} tracks - Track(s) to insert
+     */
+    async playNextTracks(tracks) {
+      const tracksArray = Array.isArray(tracks) ? tracks : [tracks];
+      if (tracksArray.length === 0) return;
+      
+      // Insert after current track, or at beginning if nothing playing
+      const insertIndex = this.currentIndex >= 0 ? this.currentIndex + 1 : 0;
+      await this.insert(insertIndex, tracksArray);
     },
     
     /**
@@ -459,6 +470,48 @@ export function createQueueStore(Alpine) {
         case 'all': return 'repeat';
         default: return 'repeat';
       }
+    },
+    
+    /**
+     * Get tracks ordered by play sequence (current track first, then upcoming)
+     * Each item includes: { track, originalIndex, isCurrentTrack, isUpcoming }
+     */
+    get playOrderItems() {
+      if (this.items.length === 0) return [];
+      
+      const current = this.currentIndex >= 0 ? this.currentIndex : 0;
+      const result = [];
+      
+      // Add tracks from current position to end
+      for (let i = current; i < this.items.length; i++) {
+        result.push({
+          track: this.items[i],
+          originalIndex: i,
+          isCurrentTrack: i === this.currentIndex,
+          isUpcoming: i > this.currentIndex,
+        });
+      }
+      
+      // If loop is enabled, add tracks from beginning to current-1
+      if (this.loop === 'all' && current > 0) {
+        for (let i = 0; i < current; i++) {
+          result.push({
+            track: this.items[i],
+            originalIndex: i,
+            isCurrentTrack: false,
+            isUpcoming: true,
+          });
+        }
+      }
+      
+      return result;
+    },
+    
+    /**
+     * Get upcoming tracks only (excludes current track)
+     */
+    get upcomingTracks() {
+      return this.playOrderItems.filter(item => item.isUpcoming);
     },
   });
 }
