@@ -1,63 +1,23 @@
-/**
- * UI Store - manages application UI state
- * 
- * Handles view switching, sidebar state, modals,
- * and other UI-related state.
- */
-
 export function createUIStore(Alpine) {
   Alpine.store('ui', {
-    // Current view
-    view: 'library',        // 'library', 'queue', 'nowPlaying', 'settings'
+    view: 'library',
     
-    // Sidebar state
-    sidebarOpen: true,
-    sidebarWidth: 250,      // pixels
+    sidebarOpen: Alpine.$persist(true).as('mt:ui:sidebarOpen'),
+    sidebarWidth: Alpine.$persist(250).as('mt:ui:sidebarWidth'),
+    libraryViewMode: Alpine.$persist('list').as('mt:ui:libraryViewMode'),
+    theme: Alpine.$persist('system').as('mt:ui:theme'),
     
-    // Library view mode
-    libraryViewMode: 'list', // 'list', 'grid', 'compact'
-    
-    // Modal state
-    modal: null,            // null or { type: string, data: any }
-    
-    // Context menu state
-    contextMenu: null,      // null or { x, y, items, data }
-    
-    // Toast notifications
+    modal: null,
+    contextMenu: null,
     toasts: [],
-    
-    // Theme
-    theme: 'system',        // 'light', 'dark', 'system'
-    
-    // Keyboard shortcuts enabled
     keyboardShortcutsEnabled: true,
-    
-    // Loading overlay
     globalLoading: false,
     loadingMessage: '',
     
-    /**
-     * Initialize UI state from localStorage
-     */
     init() {
-      // Load persisted preferences
-      const saved = localStorage.getItem('mt:ui');
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          this.sidebarOpen = data.sidebarOpen ?? true;
-          this.sidebarWidth = data.sidebarWidth ?? 250;
-          this.libraryViewMode = data.libraryViewMode ?? 'list';
-          this.theme = data.theme ?? 'system';
-        } catch (e) {
-          console.warn('Failed to load UI preferences:', e);
-        }
-      }
-      
-      // Apply theme
+      this._migrateOldStorage();
       this.applyTheme();
       
-      // Listen for system theme changes
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (this.theme === 'system') {
           this.applyTheme();
@@ -65,22 +25,22 @@ export function createUIStore(Alpine) {
       });
     },
     
-    /**
-     * Save UI preferences to localStorage
-     */
-    save() {
-      localStorage.setItem('mt:ui', JSON.stringify({
-        sidebarOpen: this.sidebarOpen,
-        sidebarWidth: this.sidebarWidth,
-        libraryViewMode: this.libraryViewMode,
-        theme: this.theme,
-      }));
+    _migrateOldStorage() {
+      const oldData = localStorage.getItem('mt:ui');
+      if (oldData) {
+        try {
+          const data = JSON.parse(oldData);
+          if (data.sidebarOpen !== undefined) this.sidebarOpen = data.sidebarOpen;
+          if (data.sidebarWidth !== undefined) this.sidebarWidth = data.sidebarWidth;
+          if (data.libraryViewMode !== undefined) this.libraryViewMode = data.libraryViewMode;
+          if (data.theme !== undefined) this.theme = data.theme;
+          localStorage.removeItem('mt:ui');
+        } catch (e) {
+          localStorage.removeItem('mt:ui');
+        }
+      }
     },
     
-    /**
-     * Set current view
-     * @param {string} view - View name
-     */
     setView(view) {
       const validViews = ['library', 'queue', 'nowPlaying', 'settings'];
       if (validViews.includes(view)) {
@@ -88,43 +48,24 @@ export function createUIStore(Alpine) {
       }
     },
     
-    /**
-     * Toggle sidebar
-     */
     toggleSidebar() {
       this.sidebarOpen = !this.sidebarOpen;
-      this.save();
     },
     
-    /**
-     * Set sidebar width
-     * @param {number} width - Width in pixels
-     */
     setSidebarWidth(width) {
       this.sidebarWidth = Math.max(180, Math.min(400, width));
-      this.save();
     },
     
-    /**
-     * Set library view mode
-     * @param {string} mode - 'list', 'grid', or 'compact'
-     */
     setLibraryViewMode(mode) {
       if (['list', 'grid', 'compact'].includes(mode)) {
         this.libraryViewMode = mode;
-        this.save();
       }
     },
     
-    /**
-     * Set theme
-     * @param {string} theme - 'light', 'dark', or 'system'
-     */
     setTheme(theme) {
       if (['light', 'dark', 'system'].includes(theme)) {
         this.theme = theme;
         this.applyTheme();
-        this.save();
       }
     },
     

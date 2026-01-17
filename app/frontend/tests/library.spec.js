@@ -6,6 +6,36 @@ import {
   doubleClickTrackRow,
 } from './fixtures/helpers.js';
 
+const setColumnSettings = async (page, { widths, visibility, order }) => {
+  await page.evaluate(({ widths, visibility, order }) => {
+    if (widths) localStorage.setItem('mt:columns:widths', JSON.stringify(widths));
+    if (visibility) localStorage.setItem('mt:columns:visibility', JSON.stringify(visibility));
+    if (order) localStorage.setItem('mt:columns:order', JSON.stringify(order));
+  }, { widths, visibility, order });
+};
+
+const getColumnSettings = async (page) => {
+  return await page.evaluate(() => {
+    const widths = localStorage.getItem('mt:columns:widths');
+    const visibility = localStorage.getItem('mt:columns:visibility');
+    const order = localStorage.getItem('mt:columns:order');
+    return {
+      widths: widths ? JSON.parse(widths) : null,
+      visibility: visibility ? JSON.parse(visibility) : null,
+      order: order ? JSON.parse(order) : null,
+    };
+  });
+};
+
+const clearColumnSettings = async (page) => {
+  await page.evaluate(() => {
+    localStorage.removeItem('mt:columns:widths');
+    localStorage.removeItem('mt:columns:visibility');
+    localStorage.removeItem('mt:columns:order');
+    localStorage.removeItem('mt:column-settings');
+  });
+};
+
 test.describe('Library Browser', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -431,9 +461,7 @@ test.describe('Column Customization', () => {
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
     
-    await page.evaluate(() => {
-      localStorage.removeItem('mt:column-settings');
-    });
+    await clearColumnSettings(page);
   });
 
   test('should show resize cursor on column header edge', async ({ page }) => {
@@ -482,12 +510,10 @@ test.describe('Column Customization', () => {
   });
 
   test('should auto-fit column to content width and adjust neighbor', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { title: 200, artist: 300, album: 300 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration']
-      }));
+    await setColumnSettings(page, {
+      widths: { title: 200, artist: 300, album: 300 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration']
     });
     await page.reload();
     await waitForAlpine(page);
@@ -514,13 +540,10 @@ test.describe('Column Customization', () => {
   });
 
   test('should increase column width on auto-fit for Artist column', async ({ page }) => {
-    // Set up narrow Artist column with wide Album neighbor (so there's space to take)
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { artist: 50, album: 400 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration']
-      }));
+    await setColumnSettings(page, {
+      widths: { artist: 50, album: 400 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration']
     });
     await page.reload();
     await waitForAlpine(page);
@@ -543,12 +566,10 @@ test.describe('Column Customization', () => {
 
   test('should increase column width on auto-fit for Album column', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { album: 50, duration: 100 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration']
-      }));
+    await setColumnSettings(page, {
+      widths: { album: 50, duration: 100 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration']
     });
     await page.reload();
     await waitForAlpine(page);
@@ -567,12 +588,10 @@ test.describe('Column Customization', () => {
 
   test('should reduce text overflow on auto-fit when possible', async ({ page }) => {
     // Set up very narrow Artist with very wide Album (plenty of space to take)
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { artist: 30, album: 500 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration']
-      }));
+    await setColumnSettings(page, {
+      widths: { artist: 30, album: 500 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration']
     });
     await page.reload();
     await waitForAlpine(page);
@@ -599,10 +618,9 @@ test.describe('Column Customization', () => {
     expect(afterOverflowAmount).toBeLessThanOrEqual(beforeOverflowAmount);
   });
 
-  // TDD: Horizontal scroll regression tests (task-137)
   test('no horizontal scroll when vertical scrollbar is present @1800x1259', async ({ page }) => {
     await page.setViewportSize({ width: 1800, height: 1259 });
-    await page.evaluate(() => localStorage.removeItem('mt:column-settings'));
+    await clearColumnSettings(page);
     await page.reload();
     await waitForAlpine(page);
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
@@ -622,7 +640,7 @@ test.describe('Column Customization', () => {
 
   test('no horizontal scroll when vertical scrollbar is present @2400x1260', async ({ page }) => {
     await page.setViewportSize({ width: 2400, height: 1260 });
-    await page.evaluate(() => localStorage.removeItem('mt:column-settings'));
+    await clearColumnSettings(page);
     await page.reload();
     await waitForAlpine(page);
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
@@ -642,7 +660,7 @@ test.describe('Column Customization', () => {
 
   test('no horizontal scroll after window resize @2400x1260 -> @1800x1260', async ({ page }) => {
     await page.setViewportSize({ width: 2400, height: 1260 });
-    await page.evaluate(() => localStorage.removeItem('mt:column-settings'));
+    await clearColumnSettings(page);
     await page.reload();
     await waitForAlpine(page);
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
@@ -661,12 +679,10 @@ test.describe('Column Customization', () => {
 
   test('no horizontal scroll when base widths exceed container', async ({ page }) => {
     await page.setViewportSize({ width: 1800, height: 1259 });
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { title: 800, artist: 500, album: 500 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration']
-      }));
+    await setColumnSettings(page, {
+      widths: { title: 800, artist: 500, album: 500 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration']
     });
     await page.reload();
     await waitForAlpine(page);
@@ -683,21 +699,19 @@ test.describe('Column Customization', () => {
 
   test('no horizontal scroll with Tauri fractional pixel widths', async ({ page }) => {
     await page.setViewportSize({ width: 1800, height: 1259 });
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: {
-          index: 40.0625,
-          title: 344.69921875,
-          artist: 377.8193359375,
-          album: 390.845703125,
-          lastPlayed: 120,
-          dateAdded: 120,
-          playCount: 60,
-          duration: 405.5732421875
-        },
-        visibility: { index: true, title: true, artist: true, album: true, lastPlayed: true, dateAdded: true, playCount: true, duration: true },
-        order: ['index', 'title', 'artist', 'album', 'lastPlayed', 'dateAdded', 'playCount', 'duration']
-      }));
+    await setColumnSettings(page, {
+      widths: {
+        index: 40.0625,
+        title: 344.69921875,
+        artist: 377.8193359375,
+        album: 390.845703125,
+        lastPlayed: 120,
+        dateAdded: 120,
+        playCount: 60,
+        duration: 405.5732421875
+      },
+      visibility: { index: true, title: true, artist: true, album: true, lastPlayed: true, dateAdded: true, playCount: true, duration: true },
+      order: ['index', 'title', 'artist', 'album', 'lastPlayed', 'dateAdded', 'playCount', 'duration']
     });
     await page.reload();
     await waitForAlpine(page);
@@ -712,15 +726,10 @@ test.describe('Column Customization', () => {
     expect(overflow).toBeLessThanOrEqual(2);
   });
 
-  // RTC-style: columns should fill container width via proportional distribution
   test('columns should fill container width on initial load (RTC-style distribution)', async ({ page }) => {
-    // Use a large viewport to make any gap obvious
     await page.setViewportSize({ width: 1920, height: 1080 });
     
-    // Clear any saved settings to test default behavior
-    await page.evaluate(() => {
-      localStorage.removeItem('mt:column-settings');
-    });
+    await clearColumnSettings(page);
     await page.reload();
     await waitForAlpine(page);
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
@@ -762,12 +771,10 @@ test.describe('Column Customization', () => {
   });
 
   test('auto-fit Artist should persist width (no flash-and-revert)', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { artist: 80, album: 300 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration'],
-      }));
+    await setColumnSettings(page, {
+      widths: { artist: 80, album: 300 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration'],
     });
     await page.reload();
     await waitForAlpine(page);
@@ -782,17 +789,15 @@ test.describe('Column Customization', () => {
     const afterWidth = await artistHeader.evaluate(el => el.getBoundingClientRect().width);
     expect(afterWidth).toBeGreaterThan(beforeWidth + 5);
 
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('mt:column-settings')));
+    const saved = await getColumnSettings(page);
     expect(saved.widths.artist).toBeGreaterThan(80);
   });
 
   test('auto-fit Album should persist width (no flash-and-revert)', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { album: 80, duration: 100 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration'],
-      }));
+    await setColumnSettings(page, {
+      widths: { album: 80, duration: 100 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration'],
     });
     await page.reload();
     await waitForAlpine(page);
@@ -807,17 +812,15 @@ test.describe('Column Customization', () => {
     const afterWidth = await albumHeader.evaluate(el => el.getBoundingClientRect().width);
     expect(afterWidth).toBeGreaterThan(beforeWidth + 5);
 
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('mt:column-settings')));
+    const saved = await getColumnSettings(page);
     expect(saved.widths.album).toBeGreaterThan(80);
   });
 
   test('manual resize Artist should not expand Title temporarily', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { title: 320, artist: 180, album: 180 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration'],
-      }));
+    await setColumnSettings(page, {
+      widths: { title: 320, artist: 180, album: 180 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration'],
     });
     await page.reload();
     await waitForAlpine(page);
@@ -849,12 +852,10 @@ test.describe('Column Customization', () => {
   });
 
   test('manual resize Album from right border should grow Album base width', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { title: 320, artist: 180, album: 180, duration: 40 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration'],
-      }));
+    await setColumnSettings(page, {
+      widths: { title: 320, artist: 180, album: 180, duration: 40 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration'],
     });
     await page.reload();
     await waitForAlpine(page);
@@ -884,9 +885,7 @@ test.describe('Column Customization', () => {
   });
 
   test('table rows should span full container width (no gap before scrollbar)', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.removeItem('mt:column-settings');
-    });
+    await clearColumnSettings(page);
     await page.reload();
     await waitForAlpine(page);
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
@@ -904,12 +903,10 @@ test.describe('Column Customization', () => {
   });
 
   test('table rows should span full width after auto-fit narrows columns', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { title: 500, artist: 300, album: 300 },
-        visibility: {},
-        order: ['index', 'title', 'artist', 'album', 'duration'],
-      }));
+    await setColumnSettings(page, {
+      widths: { title: 500, artist: 300, album: 300 },
+      visibility: {},
+      order: ['index', 'title', 'artist', 'album', 'duration'],
     });
     await page.reload();
     await waitForAlpine(page);
@@ -1088,21 +1085,16 @@ test.describe('Column Customization', () => {
     await albumMenuItem.click();
     await page.waitForTimeout(100);
     
-    const savedSettings = await page.evaluate(() => {
-      return localStorage.getItem('mt:column-settings');
-    });
+    const savedSettings = await getColumnSettings(page);
     
-    expect(savedSettings).toBeTruthy();
-    const parsed = JSON.parse(savedSettings);
-    expect(parsed.visibility.album).toBe(false);
+    expect(savedSettings.visibility).toBeTruthy();
+    expect(savedSettings.visibility.album).toBe(false);
   });
 
   test('should restore column settings on page reload', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { artist: 200 },
-        visibility: { album: false }
-      }));
+    await setColumnSettings(page, {
+      widths: { artist: 200 },
+      visibility: { album: false }
     });
     
     await page.reload();
@@ -1140,11 +1132,9 @@ test.describe('Column Customization', () => {
   });
 
   test('should reset column widths from context menu', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: { artist: 300, album: 300 },
-        visibility: {}
-      }));
+    await setColumnSettings(page, {
+      widths: { artist: 300, album: 300 },
+      visibility: {}
     });
     
     await page.reload();
@@ -1169,11 +1159,9 @@ test.describe('Column Customization', () => {
   });
 
   test('should show all columns from context menu', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: {},
-        visibility: { album: false, artist: false }
-      }));
+    await setColumnSettings(page, {
+      widths: {},
+      visibility: { album: false, artist: false }
     });
     
     await page.reload();
@@ -1306,12 +1294,10 @@ test.describe('Column Customization', () => {
   });
 
   test('should persist column order to localStorage', async ({ page }) => {
-    await page.evaluate(() => {
-      localStorage.setItem('mt:column-settings', JSON.stringify({
-        widths: {},
-        visibility: {},
-        order: ['index', 'title', 'album', 'artist', 'duration']
-      }));
+    await setColumnSettings(page, {
+      widths: {},
+      visibility: {},
+      order: ['index', 'title', 'album', 'artist', 'duration']
     });
 
     await page.reload();
@@ -1440,10 +1426,7 @@ test.describe('Column Padding Consistency (task-135)', () => {
   });
 
   test('should have duration column default width of 52px', async ({ page }) => {
-    // Clear any saved settings to get defaults
-    await page.evaluate(() => {
-      localStorage.removeItem('mt:column-settings');
-    });
+    await clearColumnSettings(page);
     await page.reload();
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });

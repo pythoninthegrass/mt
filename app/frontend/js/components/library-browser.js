@@ -17,8 +17,18 @@ const MIN_OTHER_COLUMN_WIDTH = 1;
 const MIN_TITLE_WIDTH = 120;
 const MIN_DURATION_WIDTH = 52;  // Time column minimum
 
-// Storage key for column settings
-const COLUMN_SETTINGS_KEY = 'mt:column-settings';
+const DEFAULT_COLUMN_VISIBILITY = {
+  index: true,
+  title: true,
+  artist: true,
+  album: true,
+  lastPlayed: true,
+  dateAdded: true,
+  playCount: true,
+  duration: true,
+};
+
+const DEFAULT_COLUMN_ORDER = ['index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'];
 
 export function createLibraryBrowser(Alpine) {
   Alpine.data('libraryBrowser', () => ({
@@ -35,7 +45,6 @@ export function createLibraryBrowser(Alpine) {
     draggingIndex: null,
     dragOverIndex: null,
 
-    // Column resize state
     resizingColumn: null,
     resizingNeighbor: null,
     resizeStartX: 0,
@@ -43,7 +52,6 @@ export function createLibraryBrowser(Alpine) {
     resizeNeighborStartWidth: 0,
     wasResizing: false,
 
-    // Column drag/reorder state
     draggingColumnKey: null,
     dragOverColumnIdx: null,
     columnDragX: 0,
@@ -53,20 +61,11 @@ export function createLibraryBrowser(Alpine) {
     containerWidth: 0,
     resizeObserver: null,
 
-    // Column customization state
     _baseColumnWidths: { ...DEFAULT_COLUMN_WIDTHS },
     columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
-    columnVisibility: {
-      index: true,
-      title: true,
-      artist: true,
-      album: true,
-      lastPlayed: true,
-      dateAdded: true,
-      playCount: true,
-      duration: true,
-    },
-    columnOrder: ['index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'],
+    columnVisibility: Alpine.$persist({ ...DEFAULT_COLUMN_VISIBILITY }).as('mt:columns:visibility'),
+    columnOrder: Alpine.$persist([...DEFAULT_COLUMN_ORDER]).as('mt:columns:order'),
+    _persistedWidths: Alpine.$persist({ ...DEFAULT_COLUMN_WIDTHS }).as('mt:columns:widths'),
 
     // Base column definitions
     baseColumns: [
@@ -266,7 +265,7 @@ export function createLibraryBrowser(Alpine) {
     },
 
     init() {
-      this.loadColumnSettings();
+      this._initColumnSettings();
 
       if (this.$store.library.tracks.length === 0 && !this.$store.library.loading) {
         this.$store.library.load();
@@ -344,48 +343,40 @@ export function createLibraryBrowser(Alpine) {
       });
     },
 
-    loadColumnSettings() {
-      try {
-        const saved = localStorage.getItem(COLUMN_SETTINGS_KEY);
-        if (saved) {
-          const data = JSON.parse(saved);
-          if (data.widths) {
-            const sanitizedWidths = { ...DEFAULT_COLUMN_WIDTHS };
-            Object.keys(data.widths).forEach(key => {
-              const savedW = data.widths[key];
-              const defaultW = DEFAULT_COLUMN_WIDTHS[key] || 100;
-              const maxAllowed = defaultW * 5;
-              sanitizedWidths[key] = Math.min(savedW, maxAllowed);
-            });
-            this._baseColumnWidths = sanitizedWidths;
-            this.columnWidths = { ...this._baseColumnWidths };
-          }
-          if (data.visibility) {
-            this.columnVisibility = { ...this.columnVisibility, ...data.visibility };
-          }
-          if (data.order && Array.isArray(data.order)) {
-            this.columnOrder = data.order;
-          }
+    _initColumnSettings() {
+      this._migrateOldColumnStorage();
+      this._sanitizeColumnWidths();
+    },
+    
+    _migrateOldColumnStorage() {
+      const oldData = localStorage.getItem('mt:column-settings');
+      if (oldData) {
+        try {
+          const data = JSON.parse(oldData);
+          if (data.widths) this._persistedWidths = data.widths;
+          if (data.visibility) this.columnVisibility = { ...DEFAULT_COLUMN_VISIBILITY, ...data.visibility };
+          if (data.order && Array.isArray(data.order)) this.columnOrder = data.order;
+          localStorage.removeItem('mt:column-settings');
+        } catch (e) {
+          localStorage.removeItem('mt:column-settings');
         }
-      } catch (e) {
-        console.warn('Failed to load column settings:', e);
       }
+    },
+    
+    _sanitizeColumnWidths() {
+      const sanitizedWidths = { ...DEFAULT_COLUMN_WIDTHS };
+      Object.keys(this._persistedWidths).forEach(key => {
+        const savedW = this._persistedWidths[key];
+        const defaultW = DEFAULT_COLUMN_WIDTHS[key] || 100;
+        const maxAllowed = defaultW * 5;
+        sanitizedWidths[key] = Math.min(savedW, maxAllowed);
+      });
+      this._baseColumnWidths = sanitizedWidths;
+      this.columnWidths = { ...this._baseColumnWidths };
     },
 
     saveColumnSettings() {
-      try {
-        const widthsToSave = this._baseColumnWidths || this.columnWidths;
-        localStorage.setItem(
-          COLUMN_SETTINGS_KEY,
-          JSON.stringify({
-            widths: widthsToSave,
-            visibility: this.columnVisibility,
-            order: this.columnOrder,
-          }),
-        );
-      } catch (e) {
-        console.warn('Failed to save column settings:', e);
-      }
+      this._persistedWidths = { ...(this._baseColumnWidths || this.columnWidths) };
     },
 
     startColumnResize(col, event) {

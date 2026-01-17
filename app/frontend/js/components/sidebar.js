@@ -2,9 +2,9 @@ import { api } from '../api.js';
 
 export function createSidebar(Alpine) {
   Alpine.data('sidebar', () => ({
-    activeSection: 'all',
+    activeSection: Alpine.$persist('all').as('mt:sidebar:activeSection'),
     playlists: [],
-    isCollapsed: false,
+    isCollapsed: Alpine.$persist(false).as('mt:sidebar:isCollapsed'),
     
     editingPlaylist: null,
     editingName: '',
@@ -24,18 +24,23 @@ export function createSidebar(Alpine) {
     ],
     
     init() {
-      const saved = localStorage.getItem('mt:sidebar');
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          this.activeSection = data.activeSection || 'all';
-          this.isCollapsed = data.isCollapsed || false;
-        } catch (e) {
-          // ignore
-        }
-      }
+      this._migrateOldStorage();
       this.loadPlaylists();
       this.loadSection(this.activeSection);
+    },
+    
+    _migrateOldStorage() {
+      const oldData = localStorage.getItem('mt:sidebar');
+      if (oldData) {
+        try {
+          const data = JSON.parse(oldData);
+          if (data.activeSection) this.activeSection = data.activeSection;
+          if (data.isCollapsed !== undefined) this.isCollapsed = data.isCollapsed;
+          localStorage.removeItem('mt:sidebar');
+        } catch (e) {
+          localStorage.removeItem('mt:sidebar');
+        }
+      }
     },
     
     get library() {
@@ -46,16 +51,8 @@ export function createSidebar(Alpine) {
       return this.$store.ui;
     },
     
-    save() {
-      localStorage.setItem('mt:sidebar', JSON.stringify({
-        activeSection: this.activeSection,
-        isCollapsed: this.isCollapsed,
-      }));
-    },
-    
     async loadSection(sectionId) {
       this.activeSection = sectionId;
-      this.save();
       
       this.ui.setView('library');
       this.library.setSection(sectionId);
@@ -113,7 +110,6 @@ export function createSidebar(Alpine) {
     
     async loadPlaylist(sectionId) {
       this.activeSection = sectionId;
-      this.save();
       this.ui.setView('library');
       this.library.setSection(sectionId);
       
@@ -366,7 +362,6 @@ export function createSidebar(Alpine) {
     
     toggleCollapse() {
       this.isCollapsed = !this.isCollapsed;
-      this.save();
     },
     
     isActive(sectionId) {

@@ -86,3 +86,17 @@ tasks:
         echo "npm version: $(npm --version)"
         echo "node version: $(node --version)"
     silent: true
+
+  test:e2e:
+    desc: "Run Playwright E2E tests"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - npx playwright test {{.CLI_ARGS}}
+
+  test:e2e:ui:
+    desc: "Run Playwright E2E tests in UI mode"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - npx playwright test --ui {{.CLI_ARGS}}
