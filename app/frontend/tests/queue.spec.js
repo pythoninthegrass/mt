@@ -623,7 +623,7 @@ test.describe('Loop Mode Tests (task-146)', () => {
     expect([initialLoop, afterFirst, afterSecond, afterThird]).toEqual(['none', 'all', 'one', 'none']);
   });
 
-  test('loop state should persist in localStorage', async ({ page }) => {
+  test('loop state should NOT persist in localStorage (session-only)', async ({ page }) => {
     await page.evaluate(() => {
       window.Alpine.store('queue').loop = 'none';
     });
@@ -636,8 +636,7 @@ test.describe('Loop Mode Tests (task-146)', () => {
       return saved ? JSON.parse(saved) : null;
     });
 
-    expect(savedState).toBeTruthy();
-    expect(savedState.loop).toBe('all');
+    expect(savedState).toBeNull();
   });
 
   test('manual next during repeat-one should revert to all', async ({ page }) => {
