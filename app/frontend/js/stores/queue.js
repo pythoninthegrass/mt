@@ -311,7 +311,9 @@ export function createQueueStore(Alpine) {
         const currentTrack = this.items[this.currentIndex];
         this.items = [...this._originalOrder];
         this.currentIndex = this.items.findIndex(t => t.id === currentTrack?.id);
-        if (this.currentIndex < 0) this.currentIndex = 0;
+        if (this.currentIndex < 0) {
+          this.currentIndex = this.items.length > 0 ? 0 : -1;
+        }
       }
       
       this._saveLoopState();

@@ -87,6 +87,20 @@ tasks:
         echo "node version: $(node --version)"
     silent: true
 
+  test:
+    desc: "Run Vitest unit/property tests"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - npm test {{.CLI_ARGS}}
+
+  test:watch:
+    desc: "Run Vitest in watch mode"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run test:watch {{.CLI_ARGS}}
+
   test:e2e:
     desc: "Run Playwright E2E tests (E2E_MODE: fast|full|tauri, default: fast)"
     deps: [install]
