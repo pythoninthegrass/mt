@@ -1,9 +1,10 @@
 ---
 id: task-160
 title: Add @tauri tags and E2E_MODE env var for fast default test runs
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-17 01:54'
+updated_date: '2026-01-17 01:57'
 labels:
   - testing
   - dx
