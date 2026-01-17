@@ -7,6 +7,7 @@
     "core:default",
     "core:event:default",
     "core:window:default",
+    "core:window:allow-set-theme",
     "core:webview:default",
     "core:app:default",
     "shell:allow-open",

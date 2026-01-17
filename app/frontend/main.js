@@ -91,11 +91,20 @@ window.testDialog = async function() {
   }
 };
 
-// Initialize backend URL first, then register stores and start Alpine
+function initGlobalKeyboardShortcuts() {
+  document.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === ',') {
+      event.preventDefault();
+      Alpine.store('ui').setView('settings');
+    }
+  });
+}
+
 initBackendUrl().then(() => {
   initStores(Alpine);
   initComponents(Alpine);
   initTauriDragDrop();
+  initGlobalKeyboardShortcuts();
   Alpine.start();
   console.log('[main] Alpine started with stores and components');
   console.log('[main] Test dialog with: testDialog()');

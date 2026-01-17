@@ -1,10 +1,10 @@
 ---
 id: task-046
 title: Implement Settings Menu
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-12 07:56'
-updated_date: '2026-01-17 05:25'
+updated_date: '2026-01-17 05:34'
 labels: []
 dependencies:
   - task-162
@@ -19,10 +19,10 @@ Create comprehensive settings menu with General, Appearance, Shortcuts, Now Play
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Settings menu accessible via Cog icon or Cmd-,
-- [ ] #2 All sections implemented (General, Appearance, Shortcuts, Now Playing, Library, Advanced)
-- [ ] #3 App info shows version, build, OS details
-- [ ] #4 Maintenance section allows resetting settings and capturing logs
+- [x] #1 Settings menu accessible via Cog icon or Cmd-,
+- [x] #2 All sections implemented (General, Appearance, Shortcuts, Now Playing, Library, Advanced)
+- [x] #3 App info shows version, build, OS details
+- [x] #4 Maintenance section allows resetting settings and capturing logs
 <!-- AC:END -->
 
 ## Implementation Plan

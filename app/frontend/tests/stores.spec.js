@@ -484,6 +484,171 @@ test.describe('Store Reactivity', () => {
   });
 });
 
+test.describe('Settings Menu (task-046)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1624, height: 1057 });
+    await page.goto('/');
+    await waitForAlpine(page);
+  });
+
+  test('AC#1a: Settings accessible via cog icon in sidebar', async ({ page }) => {
+    const settingsButton = page.locator('[data-testid="sidebar-settings"]');
+    await expect(settingsButton).toBeVisible();
+    
+    await settingsButton.click();
+    await page.waitForTimeout(100);
+    
+    const uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.view).toBe('settings');
+    
+    const settingsView = page.locator('[data-testid="settings-view"]');
+    await expect(settingsView).toBeVisible();
+  });
+
+  test('AC#1b: Settings accessible via Cmd-, keyboard shortcut', async ({ page }) => {
+    await page.keyboard.press('Meta+,');
+    await page.waitForTimeout(100);
+    
+    const uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.view).toBe('settings');
+    
+    const settingsView = page.locator('[data-testid="settings-view"]');
+    await expect(settingsView).toBeVisible();
+  });
+
+  test('AC#2a: General section displays placeholder', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setView('settings');
+      window.Alpine.store('ui').setSettingsSection('general');
+    });
+    await page.waitForTimeout(100);
+    
+    const generalSection = page.locator('[data-testid="settings-section-general"]');
+    await expect(generalSection).toBeVisible();
+  });
+
+  test('AC#2b: Appearance section with theme preset selector', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setView('settings');
+      window.Alpine.store('ui').setSettingsSection('appearance');
+    });
+    await page.waitForTimeout(100);
+    
+    const appearanceSection = page.locator('[data-testid="settings-section-appearance"]');
+    await expect(appearanceSection).toBeVisible();
+    
+    const lightButton = page.locator('[data-testid="settings-theme-light"]');
+    const metroTealButton = page.locator('[data-testid="settings-theme-metro-teal"]');
+    await expect(lightButton).toBeVisible();
+    await expect(metroTealButton).toBeVisible();
+  });
+
+  test('AC#2c: Theme preset selector changes theme', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setView('settings');
+      window.Alpine.store('ui').setSettingsSection('appearance');
+    });
+    await page.waitForTimeout(100);
+    
+    const metroTealButton = page.locator('[data-testid="settings-theme-metro-teal"]');
+    await metroTealButton.click();
+    await page.waitForTimeout(100);
+    
+    const uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.themePreset).toBe('metro-teal');
+    
+    const hasDarkClass = await page.evaluate(() => 
+      document.documentElement.classList.contains('dark')
+    );
+    expect(hasDarkClass).toBe(true);
+  });
+
+  test('AC#2d: Shortcuts section displays stub with tooltips', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setView('settings');
+      window.Alpine.store('ui').setSettingsSection('shortcuts');
+    });
+    await page.waitForTimeout(100);
+    
+    const shortcutsSection = page.locator('[data-testid="settings-section-shortcuts"]');
+    await expect(shortcutsSection).toBeVisible();
+    
+    await expect(shortcutsSection.getByText('Queue next')).toBeVisible();
+    await expect(shortcutsSection.getByText('Queue last')).toBeVisible();
+    await expect(shortcutsSection.getByText('Stop after track')).toBeVisible();
+  });
+
+  test('AC#3: Advanced section shows app info', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setView('settings');
+      window.Alpine.store('ui').setSettingsSection('advanced');
+    });
+    await page.waitForTimeout(100);
+    
+    const advancedSection = page.locator('[data-testid="settings-section-advanced"]');
+    await expect(advancedSection).toBeVisible();
+    
+    const versionEl = page.locator('[data-testid="settings-app-version"]');
+    const buildEl = page.locator('[data-testid="settings-app-build"]');
+    const platformEl = page.locator('[data-testid="settings-app-platform"]');
+    
+    await expect(versionEl).toBeVisible();
+    await expect(buildEl).toBeVisible();
+    await expect(platformEl).toBeVisible();
+  });
+
+  test('AC#4: Maintenance section has reset and export buttons', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setView('settings');
+      window.Alpine.store('ui').setSettingsSection('advanced');
+    });
+    await page.waitForTimeout(100);
+    
+    const resetButton = page.locator('[data-testid="settings-reset"]');
+    const exportButton = page.locator('[data-testid="settings-export-logs"]');
+    
+    await expect(resetButton).toBeVisible();
+    await expect(exportButton).toBeVisible();
+  });
+
+  test('Settings section navigation persists selection', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setView('settings');
+    });
+    await page.waitForTimeout(100);
+    
+    const appearanceNav = page.locator('[data-testid="settings-nav-appearance"]');
+    await appearanceNav.click();
+    await page.waitForTimeout(100);
+    
+    const uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.settingsSection).toBe('appearance');
+    
+    const appearanceSection = page.locator('[data-testid="settings-section-appearance"]');
+    await expect(appearanceSection).toBeVisible();
+  });
+
+  test('Settings view has two-column layout', async ({ page }) => {
+    await page.evaluate(() => {
+      window.Alpine.store('ui').setView('settings');
+    });
+    await page.waitForTimeout(100);
+    
+    const settingsView = page.locator('[data-testid="settings-view"]');
+    await expect(settingsView).toBeVisible();
+    
+    const navGeneral = page.locator('[data-testid="settings-nav-general"]');
+    const navAppearance = page.locator('[data-testid="settings-nav-appearance"]');
+    const navShortcuts = page.locator('[data-testid="settings-nav-shortcuts"]');
+    const navAdvanced = page.locator('[data-testid="settings-nav-advanced"]');
+    
+    await expect(navGeneral).toBeVisible();
+    await expect(navAppearance).toBeVisible();
+    await expect(navShortcuts).toBeVisible();
+    await expect(navAdvanced).toBeVisible();
+  });
+});
+
 test.describe('Theme Preset (task-162)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

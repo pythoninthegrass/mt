@@ -7,6 +7,7 @@ export function createUIStore(Alpine) {
     libraryViewMode: Alpine.$persist('list').as('mt:ui:libraryViewMode'),
     theme: Alpine.$persist('system').as('mt:ui:theme'),
     themePreset: Alpine.$persist('light').as('mt:ui:themePreset'),
+    settingsSection: Alpine.$persist('general').as('mt:settings:activeSection'),
     
     modal: null,
     contextMenu: null,
@@ -77,21 +78,48 @@ export function createUIStore(Alpine) {
       }
     },
     
+    setSettingsSection(section) {
+      if (['general', 'appearance', 'shortcuts', 'advanced'].includes(section)) {
+        this.settingsSection = section;
+      }
+    },
+    
     applyThemePreset() {
       document.documentElement.classList.remove('light', 'dark');
       delete document.documentElement.dataset.themePreset;
       
+      let titleBarTheme;
+      let contentTheme;
+      
       if (this.themePreset === 'metro-teal') {
         document.documentElement.classList.add('dark');
         document.documentElement.dataset.themePreset = 'metro-teal';
+        titleBarTheme = 'dark';
       } else {
-        let effectiveTheme = this.theme;
-        if (this.theme === 'system') {
-          effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches 
-            ? 'dark' 
-            : 'light';
+        titleBarTheme = 'light';
+        contentTheme = this.theme === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : this.theme;
+        document.documentElement.classList.add(contentTheme);
+      }
+      
+      this._applyTauriWindowTheme(titleBarTheme);
+    },
+    
+    async _applyTauriWindowTheme(theme) {
+      if (!window.__TAURI__) return;
+      
+      try {
+        const tauriWindow = window.__TAURI__.window;
+        if (!tauriWindow?.getCurrentWindow) {
+          console.warn('[ui] Tauri window API not available');
+          return;
         }
-        document.documentElement.classList.add(effectiveTheme);
+        const win = tauriWindow.getCurrentWindow();
+        await win.setTheme(theme === 'dark' ? 'dark' : 'light');
+        console.log('[ui] Set Tauri window theme to:', theme);
+      } catch (e) {
+        console.warn('[ui] Failed to set Tauri window theme:', e);
       }
     },
     

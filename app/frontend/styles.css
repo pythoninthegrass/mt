@@ -44,6 +44,11 @@
   color: rgba(255, 255, 255, 0.85) !important;
 }
 
+/* Sidebar icon hover - accent color */
+aside button:hover svg {
+  color: hsl(var(--primary));
+}
+
 .sort-header {
   cursor: pointer;
   user-select: none;
@@ -105,7 +110,7 @@
 }
 
 [data-theme-preset="metro-teal"] {
-  --background: 7 7% 7%;
+  --background: 0 0% 7%;
   --foreground: 0 0% 100%;
   --card: 0 0% 10%;
   --card-foreground: 0 0% 100%;
@@ -127,19 +132,20 @@
 
   --mt-playing-bg: 184 100% 12%;
   --mt-playing-fg: 184 100% 60%;
-  --mt-row-alt: 0 0% 9%;
-  --mt-row-hover: 0 0% 12%;
+  --mt-row-even: 0 0% 13%;
+  --mt-row-odd: 0 0% 15%;
+  --mt-row-hover: 0 0% 18%;
   --mt-progress-bg: 0 0% 25%;
   --mt-progress-fill: 184 100% 38%;
   --mt-sidebar-bg: 0 0% 10%;
 }
 
 [data-theme-preset="metro-teal"] .track-row-even {
-  background-color: hsl(var(--mt-row-alt));
+  background-color: hsl(var(--mt-row-even));
 }
 
 [data-theme-preset="metro-teal"] .track-row-odd {
-  background-color: transparent;
+  background-color: hsl(var(--mt-row-odd));
 }
 
 [data-theme-preset="metro-teal"] .track-row-selected {
@@ -154,4 +160,43 @@
 
 [data-theme-preset="metro-teal"] aside {
   background-color: hsl(var(--mt-sidebar-bg));
+}
+
+[data-theme-preset="metro-teal"] footer {
+  background-color: #000000;
+  border-color: #323232;
+}
+
+[data-theme-preset="metro-teal"] .border-border {
+  border-color: #323232;
+}
+
+[data-theme-preset="metro-teal"] footer button {
+  color: #CCCCCC !important;
+}
+
+[data-theme-preset="metro-teal"] footer button:hover {
+  color: #7FDBE1 !important;
+}
+
+[data-theme-preset="metro-teal"] footer button.text-primary,
+[data-theme-preset="metro-teal"] footer button.text-red-500 {
+  color: #7FDBE1 !important;
+}
+
+[data-theme-preset="metro-teal"] [data-testid="player-progressbar"] {
+  background-color: #404040 !important;
+}
+
+[data-theme-preset="metro-teal"] footer .bg-\[\#8E8E93\]\/20 {
+  background-color: #323232 !important;
+}
+
+[data-theme-preset="metro-teal"] .track-row-even,
+[data-theme-preset="metro-teal"] .track-row-odd {
+  border-bottom: none !important;
+}
+
+[data-theme-preset="metro-teal"] aside > div:last-child {
+  border-top: none !important;
 }

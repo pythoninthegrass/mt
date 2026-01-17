@@ -11,6 +11,9 @@ use commands::{
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
 use sidecar::{check_backend_health, get_backend_port, get_backend_url, SidecarManager};
+use serde::Serialize;
+use std::fs::File;
+use std::io::Write;
 use std::time::Duration;
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
@@ -46,6 +49,58 @@ fn media_set_paused(progress_ms: Option<u64>, state: State<MediaKeyManager>) -> 
 #[tauri::command]
 fn media_set_stopped(state: State<MediaKeyManager>) -> Result<(), String> {
     state.set_stopped()
+}
+
+#[derive(Serialize)]
+struct AppInfo {
+    version: String,
+    build: String,
+    platform: String,
+}
+
+#[tauri::command]
+fn app_get_info() -> AppInfo {
+    let version = env!("CARGO_PKG_VERSION").to_string();
+    let build = option_env!("MT_BUILD_ID")
+        .unwrap_or("dev")
+        .to_string();
+    let platform = format!(
+        "{} {}",
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
+    
+    AppInfo {
+        version,
+        build,
+        platform,
+    }
+}
+
+#[tauri::command]
+fn export_diagnostics(path: String) -> Result<(), String> {
+    let mut content = String::new();
+    
+    content.push_str("=== mt Diagnostics ===\n\n");
+    
+    let info = app_get_info();
+    content.push_str(&format!("Version: {}\n", info.version));
+    content.push_str(&format!("Build: {}\n", info.build));
+    content.push_str(&format!("Platform: {}\n", info.platform));
+    content.push_str(&format!("Timestamp: {}\n", chrono::Utc::now().to_rfc3339()));
+    
+    content.push_str("\n=== Environment ===\n\n");
+    content.push_str(&format!("Rust version: {}\n", env!("CARGO_PKG_RUST_VERSION")));
+    
+    if let Ok(cwd) = std::env::current_dir() {
+        content.push_str(&format!("Working directory: {}\n", cwd.display()));
+    }
+    
+    let mut file = File::create(&path).map_err(|e| format!("Failed to create file: {}", e))?;
+    file.write_all(content.as_bytes())
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+    
+    Ok(())
 }
 
 fn setup_global_shortcuts(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -136,6 +191,8 @@ pub fn run() {
             media_set_playing,
             media_set_paused,
             media_set_stopped,
+            app_get_info,
+            export_diagnostics,
         ])
         .setup(|app| {
             let sidecar = SidecarManager::start(app.handle())

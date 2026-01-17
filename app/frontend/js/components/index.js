@@ -9,16 +9,14 @@ import { createLibraryBrowser } from './library-browser.js';
 import { createPlayerControls } from './player-controls.js';
 import { createSidebar } from './sidebar.js';
 import { createNowPlayingView } from './now-playing-view.js';
+import { createSettingsView } from './settings-view.js';
 
-/**
- * Initialize all Alpine components
- * @param {object} Alpine - Alpine.js instance
- */
 export function initComponents(Alpine) {
   createLibraryBrowser(Alpine);
   createPlayerControls(Alpine);
   createSidebar(Alpine);
   createNowPlayingView(Alpine);
+  createSettingsView(Alpine);
   
   console.log('[components] All components registered');
 }

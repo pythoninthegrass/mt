@@ -8,7 +8,7 @@
   <script type="module" src="/main.js"></script>
   <style>
     [x-cloak] { display: none !important; }
-    
+
     /* Custom scrollbar for vertical scroll container */
     .library-scroll-container {
       scrollbar-width: thin;
@@ -32,7 +32,7 @@
       background: hsl(var(--muted-foreground));
       background-clip: content-box;
     }
-    
+
     /* Context menu styles */
     .context-menu {
       position: fixed;
@@ -70,7 +70,7 @@
       background: hsl(var(--border));
       margin: 0.25rem 0;
     }
-    
+
     /* Column header styles */
     .column-header-active {
       background: hsl(var(--muted) / 0.3);
@@ -79,7 +79,7 @@
       font-size: 0.65rem;
       opacity: 0.7;
     }
-    
+
     /* Column resizers - right edge resizes current column, left edge resizes previous column */
     .column-resizer-right,
     .column-resizer-left {
@@ -106,12 +106,12 @@
     .column-resizer-left:hover {
       background: hsl(var(--primary) / 0.3);
     }
-    
+
     /* Clip resizer overflow to prevent horizontal scrollbar */
     .library-header-container {
       overflow-x: clip;
     }
-    
+
     /* Disable header clicks during column resize */
     .resizing-columns > div {
       pointer-events: none;
@@ -120,7 +120,7 @@
     .resizing-columns .column-resizer-left {
       pointer-events: auto;
     }
-    
+
     /* Column drag styles */
     .column-header-cell {
       transition: transform 0.15s ease-out, opacity 0.15s ease, box-shadow 0.15s ease;
@@ -154,10 +154,10 @@
     <!-- Main content area with sidebar -->
     <div class="flex-1 flex overflow-hidden">
       <!-- Sidebar -->
-      <aside 
+      <aside
         x-data="sidebar"
         class="border-r border-border bg-muted/30 flex flex-col shrink-0 overflow-hidden transition-all duration-200"
-        :class="isCollapsed ? 'w-14' : 'w-52'"
+        :class="isCollapsed ? 'w-[70px]' : 'w-52'"
       >
         <!-- Search (Apple Music style pill) -->
         <div x-show="!isCollapsed" class="p-3">
@@ -165,15 +165,15 @@
             <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
             </svg>
-            <input 
-              type="text" 
+            <input
+              type="text"
               class="w-full text-xs py-1.5 pl-8 pr-7 rounded-full bg-muted/80 border-0 focus:ring-1 focus:ring-primary/50 focus:outline-none text-foreground placeholder:text-foreground/50"
               placeholder="Search"
               x-model="$store.library.searchQuery"
               @input.debounce.300ms="$store.library.search($store.library.searchQuery)"
               data-testid="sidebar-search"
             >
-            <button 
+            <button
               x-show="$store.library.searchQuery"
               @click="$store.library.searchQuery = ''; $store.library.search('')"
               class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-foreground/30 hover:bg-foreground/40 text-background transition-colors"
@@ -185,7 +185,7 @@
             </button>
           </div>
         </div>
-        
+
         <!-- Sidebar content -->
         <nav class="flex-1 overflow-y-auto p-2 space-y-4">
           <!-- Library section -->
@@ -194,41 +194,44 @@
             <ul class="space-y-0.5">
               <template x-for="section in sections" :key="section.id">
                 <li>
-                  <button 
+                  <button
                     class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
-                    :class="isActive(section.id) ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
+                    :class="[
+                      isActive(section.id) ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 hover:text-primary text-foreground/80',
+                      isCollapsed ? 'justify-center' : ''
+                    ]"
                     @click="loadSection(section.id)"
                     :title="isCollapsed ? section.label : ''"
                     :data-testid="'sidebar-section-' + section.id"
                   >
                     <!-- Icons -->
                     <template x-if="section.icon === 'music'">
-                      <svg class="w-4 h-4 shrink-0" :class="isActive(section.id) ? 'text-primary' : 'text-foreground/50'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="shrink-0 transition-colors" :class="[isActive(section.id) ? 'text-primary' : 'text-foreground/50', isCollapsed ? 'w-[19px] h-[19px]' : 'w-4 h-4']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
                       </svg>
                     </template>
                     <template x-if="section.icon === 'speaker'">
-                      <svg class="w-4 h-4 shrink-0" :class="isActive(section.id) ? 'text-primary' : 'text-foreground/50'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="shrink-0 transition-colors" :class="[isActive(section.id) ? 'text-primary' : 'text-foreground/50', isCollapsed ? 'w-[19px] h-[19px]' : 'w-4 h-4']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
                       </svg>
                     </template>
                     <template x-if="section.icon === 'heart'">
-                      <svg class="w-4 h-4 shrink-0" :class="isActive(section.id) ? 'text-primary' : 'text-foreground/50'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="shrink-0 transition-colors" :class="[isActive(section.id) ? 'text-primary' : 'text-foreground/50', isCollapsed ? 'w-[19px] h-[19px]' : 'w-4 h-4']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                       </svg>
                     </template>
                     <template x-if="section.icon === 'clock'">
-                      <svg class="w-4 h-4 shrink-0" :class="isActive(section.id) ? 'text-primary' : 'text-foreground/50'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="shrink-0 transition-colors" :class="[isActive(section.id) ? 'text-primary' : 'text-foreground/50', isCollapsed ? 'w-[19px] h-[19px]' : 'w-4 h-4']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                       </svg>
                     </template>
                     <template x-if="section.icon === 'sparkles'">
-                      <svg class="w-4 h-4 shrink-0" :class="isActive(section.id) ? 'text-primary' : 'text-foreground/50'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="shrink-0 transition-colors" :class="[isActive(section.id) ? 'text-primary' : 'text-foreground/50', isCollapsed ? 'w-[19px] h-[19px]' : 'w-4 h-4']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
                       </svg>
                     </template>
                     <template x-if="section.icon === 'fire'">
-                      <svg class="w-4 h-4 shrink-0" :class="isActive(section.id) ? 'text-primary' : 'text-foreground/50'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="shrink-0 transition-colors" :class="[isActive(section.id) ? 'text-primary' : 'text-foreground/50', isCollapsed ? 'w-[19px] h-[19px]' : 'w-4 h-4']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path>
                       </svg>
@@ -239,12 +242,12 @@
               </template>
             </ul>
           </div>
-          
+
           <!-- Playlists section -->
           <div x-show="!isCollapsed">
             <div class="flex items-center justify-between px-2 mb-2">
               <h3 class="text-[10px] font-semibold text-foreground/40 uppercase tracking-wider">Playlists</h3>
-              <button 
+              <button
                 class="p-0.5 text-[#8E8E93] hover:text-foreground transition-colors"
                 @click="createPlaylist()"
                 title="New Playlist"
@@ -274,7 +277,7 @@
                     </div>
                   </template>
                   <template x-if="editingPlaylist?.playlistId !== playlist.playlistId">
-                    <button 
+                    <button
                       draggable="true"
                       class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all duration-150 select-none"
                       :class="[
@@ -282,7 +285,8 @@
                         isPlaylistSelected(playlist.playlistId) ? 'bg-[#DFDFDF] dark:bg-[#3a3a3a]' : '',
                         isPlaylistDragOver(playlist.playlistId) ? 'ring-2 ring-primary ring-inset bg-primary/10' : '',
                         isPlaylistDragging(index) ? 'opacity-50' : '',
-                        getPlaylistReorderClass(index)
+                        getPlaylistReorderClass(index),
+                        isCollapsed ? 'justify-center' : ''
                       ]"
                       @click="handlePlaylistClick($event, playlist, index)"
                       @contextmenu.prevent="showPlaylistContextMenu($event, playlist)"
@@ -306,9 +310,9 @@
                 <p class="text-xs text-foreground/40 px-2 py-1">No playlists yet</p>
               </li>
             </ul>
-            
+
             <!-- Playlist Context Menu -->
-            <div 
+            <div
               x-show="contextMenuPlaylist"
               x-cloak
               @click.away="hidePlaylistContextMenu()"
@@ -317,14 +321,14 @@
               :style="`left: ${contextMenuX}px; top: ${contextMenuY}px;`"
               data-testid="playlist-context-menu"
             >
-              <button 
+              <button
                 class="context-menu-item w-full justify-start"
                 @click="renamePlaylist()"
                 data-testid="playlist-rename"
               >
                 Rename
               </button>
-              <button 
+              <button
                 class="context-menu-item w-full justify-start text-destructive"
                 @click="deletePlaylist()"
                 data-testid="playlist-delete"
@@ -333,13 +337,27 @@
               </button>
             </div>
           </div>
-          
+
         </nav>
-        
-        <!-- Collapse toggle at bottom -->
-        <div class="border-t border-border/50 p-2">
-          <button 
-            class="w-full flex items-center justify-center p-1.5 rounded-md hover:bg-muted/70 transition-colors text-foreground/50 hover:text-foreground/70"
+
+        <!-- Bottom controls: Settings + Collapse toggle -->
+        <div
+          class="border-t border-border/50 p-2 flex items-center gap-1"
+          :class="isCollapsed ? 'gap-0 pr-0.75' : 'gap-1'"
+        >
+          <button
+            class="flex items-center justify-center p-1.5 rounded-md hover:bg-muted/70 transition-colors text-foreground/50 hover:text-primary"
+            @click="$store.ui.setView('settings')"
+            title="Settings (⌘,)"
+            data-testid="sidebar-settings"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+          </button>
+          <button
+            class="flex items-center justify-center p-1.5 rounded-md hover:bg-muted/70 transition-colors text-foreground/50 hover:text-primary"
             @click="toggleCollapse()"
             :title="isCollapsed ? 'Expand' : 'Collapse'"
             data-testid="sidebar-collapse-toggle"
@@ -350,9 +368,9 @@
           </button>
         </div>
       </aside>
-      
+
       <!-- Main content -->
-      <main 
+      <main
         class="flex-1 min-h-0 overflow-hidden relative"
         x-data="{ isDragging: false }"
         @dragover.prevent="isDragging = true"
@@ -360,7 +378,7 @@
         @drop.prevent="isDragging = false; handleFileDrop($event)"
       >
         <!-- Drop overlay -->
-        <div 
+        <div
           x-show="isDragging"
           x-transition:enter="transition ease-out duration-200"
           x-transition:enter-start="opacity-0"
@@ -378,10 +396,10 @@
             <p class="text-sm text-primary/70 mt-1">to add them to your library</p>
           </div>
         </div>
-        
+
         <!-- Library View -->
-        <div 
-          x-show="$store.ui.view === 'library'" 
+        <div
+          x-show="$store.ui.view === 'library'"
           x-cloak
           x-data="libraryBrowser"
           @keydown.window="$store.ui.view === 'library' && handleKeydown($event)"
@@ -416,13 +434,13 @@
                     @click="if (!draggingColumnKey && !wasResizing && !wasColumnDragging) handleSort(col.key)"
                   >
                     <span x-text="col.label" class="truncate"></span>
-                    <span 
-                      x-show="col.sortable && library.sortBy === col.key" 
-                      x-text="getSortIndicator(col.key)" 
+                    <span
+                      x-show="col.sortable && library.sortBy === col.key"
+                      x-text="getSortIndicator(col.key)"
                       class="sort-indicator ml-1 shrink-0"
                     ></span>
                     <!-- Left resizer (resizes previous column) - not on first column -->
-                    <div 
+                    <div
                       x-show="colIndex > 0"
                       class="column-resizer-left"
                       :data-testid="`col-resizer-left-${col.key}`"
@@ -431,7 +449,7 @@
                       @click.stop.prevent
                     ></div>
                     <!-- Right resizer (resizes current column) -->
-                    <div 
+                    <div
                       class="column-resizer-right"
                       :class="{ 'last-column-resizer': colIndex === columns.length - 1 }"
                       :data-testid="`col-resizer-right-${col.key}`"
@@ -455,7 +473,7 @@
               <div>
                 <div class="px-2 py-1 text-xs text-muted-foreground font-medium">Show Columns</div>
                 <template x-for="item in headerContextMenu.items" :key="item.key">
-                  <div 
+                  <div
                     class="context-menu-item"
                     :class="{ 'opacity-50 cursor-not-allowed': !item.canToggle && item.visible }"
                     @click="item.canToggle && toggleColumnVisibility(item.key)"
@@ -476,7 +494,7 @@
               </div>
             </template>
           </div>
-          
+
                 <!-- Track list - no scroll, parent handles both -->
                 <div class="track-list flex-1 min-h-0 w-full">
             <!-- Loading state -->
@@ -489,7 +507,7 @@
                 <p class="text-muted-foreground">Loading library...</p>
               </div>
             </div>
-            
+
             <!-- Empty state -->
             <div x-show="!library.loading && library.filteredTracks.length === 0" class="flex items-center justify-center h-full">
               <!-- Liked Songs empty state -->
@@ -523,7 +541,7 @@
                 </div>
               </template>
             </div>
-            
+
             <!-- Track rows (CSS Grid matching header) -->
             <template x-for="(track, index) in library.filteredTracks" :key="track.id">
               <div
@@ -555,7 +573,7 @@
                   >
                     <template x-if="col.key === 'index'">
                       <span class="flex items-center gap-1">
-                        <span 
+                        <span
                           x-show="isInPlaylistView()"
                           class="cursor-grab text-muted-foreground/50 hover:text-foreground/70 shrink-0"
                           @mousedown="startPlaylistDrag(index, $event)"
@@ -596,8 +614,8 @@
               </div>
 
         <!-- Context menu -->
-        <div 
-          x-show="contextMenu" 
+        <div
+          x-show="contextMenu"
           x-cloak
           class="context-menu track-context-menu bg-card"
           data-testid="track-context-menu"
@@ -612,7 +630,7 @@
                     <div class="context-menu-separator"></div>
                   </template>
                   <template x-if="item.type !== 'separator'">
-                    <div 
+                    <div
                       class="context-menu-item relative"
                       :class="{ 'disabled': item.disabled, 'danger': item.danger }"
                       @click="if (!item.disabled && !item.hasSubmenu) { item.action(); contextMenu = null; } else if (!item.disabled) { item.action(); }"
@@ -629,10 +647,10 @@
             </div>
           </template>
         </div>
-        
+
         <!-- Add to Playlist submenu -->
-        <div 
-          x-show="contextMenu && showPlaylistSubmenu" 
+        <div
+          x-show="contextMenu && showPlaylistSubmenu"
           x-cloak
           class="context-menu bg-card"
           data-testid="playlist-submenu"
@@ -640,7 +658,7 @@
           @mouseenter="if (submenuCloseTimeout) { clearTimeout(submenuCloseTimeout); submenuCloseTimeout = null; }"
           @mouseleave="showPlaylistSubmenu = false"
         >
-          <div 
+          <div
             class="context-menu-item"
             @click="createPlaylistWithTracks()"
           >
@@ -649,7 +667,7 @@
           </div>
           <div class="context-menu-separator" x-show="playlists.length > 0"></div>
           <template x-for="playlist in playlists" :key="playlist.id">
-            <div 
+            <div
               class="context-menu-item"
               @click="addToPlaylist(playlist.id)"
             >
@@ -668,13 +686,13 @@
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-semibold">Queue</h2>
           <div class="flex gap-2">
-            <button 
+            <button
               class="btn btn-sm btn-outline"
               data-testid="queue-shuffle"
               @click="$store.queue.shuffleQueue()"
               :disabled="$store.queue.tracks.length < 2"
             >Shuffle</button>
-            <button 
+            <button
               class="btn btn-sm btn-outline"
               data-testid="queue-clear"
               @click="$store.queue.clear()"
@@ -682,14 +700,14 @@
             >Clear</button>
           </div>
         </div>
-        
+
         <p class="text-sm text-muted-foreground mb-4">
           <span data-testid="queue-count" x-text="$store.queue.tracks.length"></span> tracks in queue
         </p>
-        
+
         <div class="flex-1 overflow-y-auto space-y-1">
           <template x-for="(track, index) in $store.queue.tracks" :key="track.id + '-' + index">
-            <div 
+            <div
               class="flex items-center gap-4 p-2 rounded hover:bg-muted cursor-default select-none"
               :class="index === $store.queue.currentIndex ? 'bg-primary/10' : ''"
               @dblclick="$store.queue.playIndex(index)"
@@ -698,7 +716,7 @@
               <span x-show="index === $store.queue.currentIndex" class="text-primary">▶</span>
               <span class="text-sm font-medium flex-1 truncate" x-text="track.title || track.filename || 'Unknown'"></span>
               <span class="text-sm text-muted-foreground truncate" x-text="track.artist || ''"></span>
-              <button 
+              <button
                 class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100"
                 @click.stop="$store.queue.remove(index)"
               >×</button>
@@ -725,7 +743,7 @@
               <div class="flex flex-col items-center gap-6 max-w-md">
                 <div class="w-72 h-72 bg-muted rounded-lg flex items-center justify-center shadow-xl shrink-0 overflow-hidden">
                   <template x-if="$store.player.artwork">
-                    <img 
+                    <img
                       :src="'data:' + $store.player.artwork.mime_type + ';base64,' + $store.player.artwork.data"
                       alt="Album artwork"
                       class="w-full h-full object-cover"
@@ -754,7 +772,7 @@
               </div>
             </template>
           </div>
-          
+
           <!-- Right Panel: Up Next Queue -->
           <div class="w-96 border-l border-border flex flex-col bg-card/50">
             <div class="p-4 border-b border-border">
@@ -767,14 +785,14 @@
               </div>
               <div x-show="$store.queue.items.length > 0" x-ref="sortableContainer" class="relative">
                 <template x-for="(item, displayIndex) in $store.queue.playOrderItems" :key="item.track.id + '-' + item.originalIndex">
-                  <div 
+                  <div
                     class="queue-item-wrapper"
                     :class="[
                       getShiftDirection(item.originalIndex) === 'up' ? 'shift-up' : '',
                       getShiftDirection(item.originalIndex) === 'down' ? 'shift-down' : ''
                     ]"
                   >
-                    <div 
+                    <div
                       class="queue-item flex items-center gap-3 px-3 py-2 border-b border-border/50 select-none cursor-default"
                       :class="[
                         item.isCurrentTrack ? 'bg-primary/20 text-primary' : '',
@@ -785,7 +803,7 @@
                       :data-id="item.track.id"
                       @dblclick.stop="$store.queue.playIndex(item.originalIndex)"
                     >
-                      <div 
+                      <div
                         class="drag-handle cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
                         @mousedown.prevent="startDrag(item.originalIndex, $event)"
                         @touchstart.prevent="startDrag(item.originalIndex, $event)"
@@ -806,7 +824,7 @@
                           </svg>
                         </div>
                       </template>
-                      <button 
+                      <button
                         class="shrink-0 p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
                         @click.stop="$store.queue.remove(item.originalIndex)"
                         title="Remove from queue"
@@ -823,18 +841,208 @@
           </div>
         </div>
       </div>
+
+      <!-- Settings View -->
+      <div
+        x-show="$store.ui.view === 'settings'"
+        x-cloak
+        class="h-full flex"
+        x-data="settingsView"
+        data-testid="settings-view"
+      >
+        <!-- Left: Section Navigation -->
+        <nav class="w-48 border-r border-border bg-muted/30 p-4 shrink-0">
+          <h2 class="text-lg font-semibold mb-4">Settings</h2>
+          <ul class="space-y-1">
+            <li>
+              <button
+                class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
+                :class="$store.ui.settingsSection === 'general' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
+                @click="$store.ui.setSettingsSection('general')"
+                data-testid="settings-nav-general"
+              >
+                General
+              </button>
+            </li>
+            <li>
+              <button
+                class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
+                :class="$store.ui.settingsSection === 'appearance' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
+                @click="$store.ui.setSettingsSection('appearance')"
+                data-testid="settings-nav-appearance"
+              >
+                Appearance
+              </button>
+            </li>
+            <li>
+              <button
+                class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
+                :class="$store.ui.settingsSection === 'shortcuts' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
+                @click="$store.ui.setSettingsSection('shortcuts')"
+                data-testid="settings-nav-shortcuts"
+              >
+                Shortcuts
+              </button>
+            </li>
+            <li>
+              <button
+                class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
+                :class="$store.ui.settingsSection === 'advanced' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
+                @click="$store.ui.setSettingsSection('advanced')"
+                data-testid="settings-nav-advanced"
+              >
+                Advanced
+              </button>
+            </li>
+          </ul>
+        </nav>
+
+        <!-- Right: Section Content -->
+        <div class="flex-1 overflow-y-auto p-6">
+          <!-- General Section -->
+          <div x-show="$store.ui.settingsSection === 'general'" data-testid="settings-section-general">
+            <h3 class="text-xl font-semibold mb-4">General</h3>
+            <p class="text-muted-foreground">General settings will appear here.</p>
+          </div>
+
+          <!-- Appearance Section -->
+          <div x-show="$store.ui.settingsSection === 'appearance'" data-testid="settings-section-appearance">
+            <h3 class="text-xl font-semibold mb-4">Appearance</h3>
+            <div class="space-y-6">
+              <div>
+                <label class="block text-sm font-medium mb-2">Theme</label>
+                <div class="flex gap-3">
+                  <button
+                    class="px-4 py-2 rounded-md border text-sm transition-colors"
+                    :class="$store.ui.themePreset === 'light' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted/50'"
+                    @click="$store.ui.setThemePreset('light')"
+                    data-testid="settings-theme-light"
+                  >
+                    Light
+                  </button>
+                  <button
+                    class="px-4 py-2 rounded-md border text-sm transition-colors"
+                    :class="$store.ui.themePreset === 'metro-teal' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted/50'"
+                    @click="$store.ui.setThemePreset('metro-teal')"
+                    data-testid="settings-theme-metro-teal"
+                  >
+                    Metro Teal
+                  </button>
+                </div>
+                <p class="text-xs text-muted-foreground mt-2">Metro Teal uses a dark theme with teal accents.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Shortcuts Section -->
+          <div x-show="$store.ui.settingsSection === 'shortcuts'" data-testid="settings-section-shortcuts">
+            <h3 class="text-xl font-semibold mb-4">Shortcuts</h3>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between py-2 border-b border-border/50">
+                <span class="text-sm">Queue next</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-muted-foreground px-2 py-1 bg-muted rounded">—</span>
+                  <div class="relative group">
+                    <svg class="w-4 h-4 text-muted-foreground cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="absolute right-0 bottom-full mb-2 px-2 py-1 bg-foreground text-background text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      Not configurable yet
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between py-2 border-b border-border/50">
+                <span class="text-sm">Queue last</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-muted-foreground px-2 py-1 bg-muted rounded">—</span>
+                  <div class="relative group">
+                    <svg class="w-4 h-4 text-muted-foreground cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="absolute right-0 bottom-full mb-2 px-2 py-1 bg-foreground text-background text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      Not configurable yet
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between py-2 border-b border-border/50">
+                <span class="text-sm">Stop after track</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-muted-foreground px-2 py-1 bg-muted rounded">—</span>
+                  <div class="relative group">
+                    <svg class="w-4 h-4 text-muted-foreground cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="absolute right-0 bottom-full mb-2 px-2 py-1 bg-foreground text-background text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      Not configurable yet
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Section -->
+          <div x-show="$store.ui.settingsSection === 'advanced'" data-testid="settings-section-advanced">
+            <h3 class="text-xl font-semibold mb-4">Advanced</h3>
+
+            <!-- App Info -->
+            <div class="mb-8">
+              <h4 class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">App Info</h4>
+              <div class="bg-muted/30 rounded-lg p-4 space-y-2">
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">Version</span>
+                  <span x-text="appInfo.version" data-testid="settings-app-version">—</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">Build</span>
+                  <span x-text="appInfo.build" data-testid="settings-app-build">—</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">Platform</span>
+                  <span x-text="appInfo.platform" data-testid="settings-app-platform">—</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Maintenance -->
+            <div>
+              <h4 class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Maintenance</h4>
+              <div class="space-y-3">
+                <button
+                  class="w-full text-left px-4 py-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  @click="resetSettings()"
+                  data-testid="settings-reset"
+                >
+                  <div class="font-medium text-sm">Reset Settings</div>
+                  <div class="text-xs text-muted-foreground mt-0.5">Restore all settings to their defaults</div>
+                </button>
+                <button
+                  class="w-full text-left px-4 py-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  @click="exportLogs()"
+                  data-testid="settings-export-logs"
+                >
+                  <div class="font-medium text-sm">Export Logs</div>
+                  <div class="text-xs text-muted-foreground mt-0.5">Save diagnostic information for troubleshooting</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
     </div>
 
     <!-- Player controls footer -->
-    <footer 
+    <footer
       x-data="playerControls"
-      class="border-t border-border bg-card shrink-0 h-14"
+      class="border-t border-border bg-card shrink-0 h-[65px]"
     >
       <div class="flex items-center gap-4 px-4 h-full">
         <!-- Left: Transport controls -->
         <div class="flex items-stretch h-full">
-          <button 
+          <button
             class="px-1 text-[#8E8E93] hover:text-foreground hover:bg-muted/50 transition-colors flex items-center"
             :class="!hasTrack && 'opacity-40'"
             @click="previous()"
@@ -842,30 +1050,30 @@
             title="Previous"
             data-testid="player-prev"
           >
-            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+            <svg class="w-[37px] h-[37px]" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path>
             </svg>
           </button>
-          
-          <button 
+
+          <button
             class="px-1 text-[#8E8E93] hover:text-foreground hover:bg-muted/50 transition-colors flex items-center"
             @click="togglePlay()"
             title="Play/Pause"
             data-testid="player-playpause"
           >
             <template x-if="player.isPlaying">
-              <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+              <svg class="w-[37px] h-[37px]" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path>
               </svg>
             </template>
             <template x-if="!player.isPlaying">
-              <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+              <svg class="w-[37px] h-[37px]" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z"></path>
               </svg>
             </template>
           </button>
-          
-          <button 
+
+          <button
             class="px-1 text-[#8E8E93] hover:text-foreground hover:bg-muted/50 transition-colors flex items-center"
             :class="!hasTrack && 'opacity-40'"
             @click="next()"
@@ -873,17 +1081,17 @@
             title="Next"
             data-testid="player-next"
           >
-            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+            <svg class="w-[37px] h-[37px]" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path>
             </svg>
           </button>
         </div>
-        
+
         <!-- Center: Track info + Progress bar + Time -->
         <div class="flex-1 flex flex-col justify-center gap-0.5 min-w-0">
-          <div class="text-sm text-foreground truncate" x-show="hasTrack" x-text="trackDisplayName"></div>
+          <div class="text-sm text-foreground truncate h-5" :class="hasTrack ? 'visible' : 'invisible'" x-text="trackDisplayName"></div>
           <div class="flex items-center gap-3">
-            <div 
+            <div
               class="flex-1 h-1 bg-muted rounded-full cursor-pointer relative"
               x-ref="progressBar"
               data-testid="player-progressbar"
@@ -891,11 +1099,11 @@
               @mousedown="handleProgressDragStart($event)"
               @mousemove.window="handleProgressDrag($event)"
             >
-              <div 
+              <div
                 class="absolute inset-y-0 left-0 bg-primary rounded-full"
                 :style="`width: ${progressPercent}%`"
               ></div>
-              <div 
+              <div
                 class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-primary rounded-full shadow-sm"
                 :class="hasTrack ? 'opacity-100' : 'opacity-0'"
                 :style="`left: calc(${progressPercent}% - 5px)`"
@@ -904,33 +1112,33 @@
             <span class="text-xs text-muted-foreground tabular-nums whitespace-nowrap" data-testid="player-time" x-text="formatTime(displayPosition) + ' / ' + formatTime(player.duration)"></span>
           </div>
         </div>
-        
+
         <!-- Right: Volume + Action buttons + Stats -->
         <div class="flex items-center gap-2">
-          <button 
+          <button
             class="p-1 text-[#8E8E93] hover:text-foreground transition-colors"
             @click="toggleMute()"
             title="Mute"
             data-testid="player-mute"
           >
             <template x-if="volumeIcon === 'muted'">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
               </svg>
             </template>
             <template x-if="volumeIcon === 'low'">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
               </svg>
             </template>
             <template x-if="volumeIcon === 'medium' || volumeIcon === 'high'">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
               </svg>
             </template>
           </button>
-          <div 
+          <div
             class="w-20 h-1 bg-[#8E8E93]/30 rounded-full cursor-pointer relative group select-none"
             x-ref="volumeBar"
             data-testid="player-volume"
@@ -939,16 +1147,16 @@
             @mouseenter="showVolumeTooltip = true"
             @mouseleave="showVolumeTooltip = false"
           >
-            <div 
+            <div
               class="absolute inset-y-0 left-0 bg-[#8E8E93] rounded-full"
               :style="`width: ${displayVolume}%`"
             ></div>
-            <div 
+            <div
               class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-foreground rounded-full transition-opacity"
               :class="isDraggingVolume ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
               :style="`left: calc(${displayVolume}% - 5px)`"
             ></div>
-            <div 
+            <div
               x-show="showVolumeTooltip || isDraggingVolume"
               x-transition:enter="transition ease-out duration-100"
               x-transition:enter-start="opacity-0 -translate-y-1"
@@ -957,10 +1165,10 @@
               x-text="volumeTooltipText"
             ></div>
           </div>
-          
+
           <div class="w-px h-4 bg-[#8E8E93]/20 mx-1"></div>
-          
-          <button 
+
+          <button
             class="p-1 transition-colors"
             :class="isFavorite ? 'text-red-500' : 'text-[#8E8E93] hover:text-foreground'"
             @click="toggleFavorite()"
@@ -968,17 +1176,17 @@
             :title="isFavorite ? 'Remove from Liked Songs' : 'Add to Liked Songs'"
           >
             <template x-if="isFavorite">
-              <svg class="w-4 h-4" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-[18px] h-[18px]" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
               </svg>
             </template>
             <template x-if="!isFavorite">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
               </svg>
             </template>
           </button>
-          
+
           <button
             class="p-1 transition-colors"
             :class="isShuffleActive ? 'text-primary' : 'text-[#8E8E93] hover:text-foreground'"
@@ -986,12 +1194,12 @@
             title="Shuffle"
             data-testid="player-shuffle"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
             </svg>
           </button>
-          
-          <button 
+
+          <button
             class="p-1 transition-colors"
             :class="isLoopActive ? 'text-primary' : 'text-[#8E8E93] hover:text-foreground'"
             @click="cycleLoop()"
@@ -999,30 +1207,30 @@
             data-testid="player-loop"
           >
             <template x-if="queue.loop === 'one'">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                 <text x="12" y="14" font-size="8" fill="currentColor" text-anchor="middle">1</text>
               </svg>
             </template>
             <template x-if="queue.loop !== 'one'">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
               </svg>
             </template>
           </button>
-          
-          <button 
+
+          <button
             class="p-1 text-[#8E8E93] hover:text-foreground transition-colors"
             @click="$store.library.openAddMusicDialog()"
             title="Add music to library"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
             </svg>
           </button>
-          
+
           <div class="w-px h-4 bg-[#8E8E93]/20 mx-1"></div>
-          
+
           <span class="text-xs text-foreground/50 whitespace-nowrap" x-text="libraryStats"></span>
         </div>
       </div>
@@ -1032,7 +1240,7 @@
   <!-- Toast container -->
   <div class="fixed bottom-20 right-4 space-y-2 z-50">
     <template x-for="toast in $store.ui.toasts" :key="toast.id">
-      <div 
+      <div
         class="px-4 py-2 rounded shadow-lg cursor-pointer transition-opacity"
         :class="{
           'bg-primary text-primary-foreground': toast.type === 'info',
@@ -1048,8 +1256,8 @@
   </div>
 
   <!-- Loading overlay -->
-  <div 
-    x-show="$store.ui.globalLoading" 
+  <div
+    x-show="$store.ui.globalLoading"
     x-cloak
     class="fixed inset-0 bg-background/80 flex items-center justify-center z-50"
   >
