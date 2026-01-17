@@ -9,7 +9,7 @@ import {
   formatDuration,
 } from './fixtures/helpers.js';
 
-test.describe('Playback Controls', () => {
+test.describe('Playback Controls @tauri', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the application
     await page.goto('/');
@@ -262,7 +262,7 @@ test.describe('Playback Controls', () => {
   });
 });
 
-test.describe('Volume Controls', () => {
+test.describe('Volume Controls @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAlpine(page);
@@ -312,7 +312,7 @@ test.describe('Volume Controls', () => {
   });
 });
 
-test.describe('Playback Parity Tests', () => {
+test.describe('Playback Parity Tests @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAlpine(page);

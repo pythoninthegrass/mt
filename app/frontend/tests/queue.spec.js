@@ -8,7 +8,7 @@ import {
   callAlpineStoreMethod,
 } from './fixtures/helpers.js';
 
-test.describe('Queue Management', () => {
+test.describe('Queue Management @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAlpine(page);
@@ -145,7 +145,7 @@ test.describe('Queue Management', () => {
   });
 });
 
-test.describe('Shuffle and Loop Modes', () => {
+test.describe('Shuffle and Loop Modes @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAlpine(page);
@@ -255,7 +255,7 @@ test.describe('Shuffle and Loop Modes', () => {
   });
 });
 
-test.describe('Queue Reordering (Drag and Drop)', () => {
+test.describe('Queue Reordering (Drag and Drop) @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAlpine(page);
@@ -363,7 +363,7 @@ test.describe('Queue Reordering (Drag and Drop)', () => {
   });
 });
 
-test.describe('Queue View Navigation', () => {
+test.describe('Queue View Navigation @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAlpine(page);
@@ -416,7 +416,7 @@ test.describe('Queue View Navigation', () => {
   });
 });
 
-test.describe('Play Next and Add to Queue (task-158)', () => {
+test.describe('Play Next and Add to Queue (task-158) @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAlpine(page);
@@ -539,7 +539,7 @@ test.describe('Play Next and Add to Queue (task-158)', () => {
   });
 });
 
-test.describe('Queue Parity Tests', () => {
+test.describe('Queue Parity Tests @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAlpine(page);
@@ -587,7 +587,7 @@ test.describe('Queue Parity Tests', () => {
   });
 });
 
-test.describe('Loop Mode Tests (task-146)', () => {
+test.describe('Loop Mode Tests (task-146) @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAlpine(page);

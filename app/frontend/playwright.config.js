@@ -6,8 +6,18 @@ import { defineConfig, devices } from '@playwright/test';
  * This configuration is designed for testing the Tauri + Alpine.js frontend
  * during the hybrid architecture phase (Python PEX sidecar backend).
  *
+ * E2E_MODE environment variable controls test scope:
+ *   - 'fast' (default): WebKit only, skip @tauri tests (fastest for macOS dev)
+ *   - 'full': All browsers, skip @tauri tests
+ *   - 'tauri': All browsers, include @tauri tests (for Tauri test harness)
+ *
  * @see https://playwright.dev/docs/test-configuration
  */
+
+const e2eMode = process.env.E2E_MODE || 'fast';
+const includeTauri = e2eMode === 'tauri';
+const webkitOnly = e2eMode === 'fast';
+
 export default defineConfig({
   // Test directory (relative to app/frontend where this config lives)
   testDir: './tests',
@@ -62,30 +72,44 @@ export default defineConfig({
     navigationTimeout: 30000,
   },
 
+  // Skip @tauri tests by default (they require Tauri runtime, not browser)
+  grepInvert: includeTauri ? undefined : /@tauri/,
+
   // Configure projects for major browsers
-  projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1624, height: 1057 }
-      },
-    },
-    {
-      name: 'webkit',
-      use: {
-        ...devices['Desktop Safari'],
-        viewport: { width: 1624, height: 1057 }
-      },
-    },
-    {
-      name: 'firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-        viewport: { width: 1624, height: 1057 }
-      },
-    },
-  ],
+  // In 'fast' mode, only webkit runs (closest to macOS WKWebView)
+  projects: webkitOnly
+    ? [
+        {
+          name: 'webkit',
+          use: {
+            ...devices['Desktop Safari'],
+            viewport: { width: 1624, height: 1057 },
+          },
+        },
+      ]
+    : [
+        {
+          name: 'chromium',
+          use: {
+            ...devices['Desktop Chrome'],
+            viewport: { width: 1624, height: 1057 },
+          },
+        },
+        {
+          name: 'webkit',
+          use: {
+            ...devices['Desktop Safari'],
+            viewport: { width: 1624, height: 1057 },
+          },
+        },
+        {
+          name: 'firefox',
+          use: {
+            ...devices['Desktop Firefox'],
+            viewport: { width: 1624, height: 1057 },
+          },
+        },
+      ],
 
   // Run dev server before starting tests
   // Note: When running from Taskfile, we're already in app/frontend
