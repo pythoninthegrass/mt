@@ -289,7 +289,7 @@
                       @dragover="handlePlaylistDragOver($event, playlist)"
                       @dragleave="handlePlaylistDragLeave()"
                       @drop="handlePlaylistDrop($event, playlist)"
-                      :data-testid="'playlist-' + playlist.playlistId"
+                      :data-testid="'sidebar-playlist-' + playlist.playlistId"
                       :data-playlist-reorder-index="index"
                     >
                       <svg class="w-4 h-4 shrink-0" :class="isActive(playlist.id) ? 'text-primary' : 'text-foreground/50'" fill="none" stroke="currentColor" viewBox="0 0 24 24">

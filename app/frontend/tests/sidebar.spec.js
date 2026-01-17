@@ -3,6 +3,12 @@ import {
   waitForAlpine,
   getAlpineStore,
 } from './fixtures/helpers.js';
+import {
+  createPlaylistState,
+  setupPlaylistMocks,
+  clearApiCalls,
+  findApiCalls,
+} from './fixtures/mock-playlists.js';
 
 test.describe('Sidebar Navigation', () => {
   test.beforeEach(async ({ page }) => {
@@ -432,7 +438,28 @@ test.describe('Playlists Section', () => {
 });
 
 test.describe('Playlist Feature Parity (task-150)', () => {
+  let playlistState;
+
+  test.beforeAll(() => {
+    playlistState = createPlaylistState();
+  });
+
   test.beforeEach(async ({ page }) => {
+    clearApiCalls(playlistState);
+    await setupPlaylistMocks(page, playlistState);
+    await page.route('**/api/library**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          tracks: [
+            { id: 101, title: 'Track A', artist: 'Artist A', album: 'Album A', duration: 180, filepath: '/music/track-a.mp3' },
+            { id: 102, title: 'Track B', artist: 'Artist B', album: 'Album B', duration: 200, filepath: '/music/track-b.mp3' },
+          ],
+          total: 2,
+        }),
+      });
+    });
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('aside[x-data="sidebar"]', { state: 'visible' });
@@ -446,14 +473,16 @@ test.describe('Playlist Feature Parity (task-150)', () => {
     const renameInput = page.locator('[data-testid="playlist-rename-input"]');
     await expect(renameInput).toBeVisible();
     await expect(renameInput).toBeFocused();
+
+    const generateNameCalls = findApiCalls(playlistState, 'GET', '/playlists/generate-name');
+    expect(generateNameCalls.length).toBeGreaterThan(0);
   });
 
-  test('AC#1-2: should commit rename on Enter key', async ({ page }) => {
+  test('AC#1-2: should commit rename on Enter key and call API', async ({ page }) => {
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [{ id: 'playlist-1', playlistId: 1, name: 'Test Playlist' }];
-      sidebar.editingPlaylist = sidebar.playlists[0];
-      sidebar.editingName = 'Test Playlist';
+      sidebar.editingPlaylist = { id: 'playlist-1', playlistId: 1, name: 'Test Playlist 1' };
+      sidebar.editingName = 'Test Playlist 1';
     });
 
     await page.waitForTimeout(300);
@@ -464,14 +493,17 @@ test.describe('Playlist Feature Parity (task-150)', () => {
 
     await page.waitForTimeout(300);
     await expect(renameInput).not.toBeVisible();
+
+    const renameCalls = findApiCalls(playlistState, 'PUT', '/playlists/1');
+    expect(renameCalls.length).toBeGreaterThan(0);
+    expect(renameCalls[0].body.name).toBe('Renamed Playlist');
   });
 
   test('AC#1-2: should cancel rename on Escape key', async ({ page }) => {
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [{ id: 'playlist-1', playlistId: 1, name: 'Test Playlist' }];
-      sidebar.editingPlaylist = sidebar.playlists[0];
-      sidebar.editingName = 'Test Playlist';
+      sidebar.editingPlaylist = { id: 'playlist-1', playlistId: 1, name: 'Test Playlist 1' };
+      sidebar.editingName = 'Test Playlist 1';
     });
 
     await page.waitForTimeout(300);
@@ -482,18 +514,20 @@ test.describe('Playlist Feature Parity (task-150)', () => {
 
     await page.waitForTimeout(300);
     await expect(renameInput).not.toBeVisible();
+
+    const renameCalls = findApiCalls(playlistState, 'PUT', '/playlists/');
+    expect(renameCalls.length).toBe(0);
   });
 
   test('AC#4-5: playlist should highlight on drag over', async ({ page }) => {
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [{ id: 'playlist-1', playlistId: 1, name: 'Test Playlist' }];
       sidebar.dragOverPlaylistId = 1;
     });
 
     await page.waitForTimeout(300);
 
-    const playlistButton = page.locator('[data-testid="playlist-1"]');
+    const playlistButton = page.locator('[data-testid="sidebar-playlist-1"]');
     const classes = await playlistButton.getAttribute('class');
     expect(classes).toContain('ring-2');
     expect(classes).toContain('ring-primary');
@@ -503,17 +537,11 @@ test.describe('Playlist Feature Parity (task-150)', () => {
     await page.evaluate(() => {
       const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
       libraryBrowser.currentPlaylistId = 1;
-      
-      const library = window.Alpine.store('library');
-      library.tracks = [
-        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
-      ];
-      library.filteredTracks = library.tracks;
     });
 
-    await page.waitForTimeout(300);
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
 
-    const dragHandle = page.locator('[data-track-id="1"] .cursor-grab');
+    const dragHandle = page.locator('[data-track-id] .cursor-grab').first();
     await expect(dragHandle).toBeVisible();
   });
 
@@ -521,70 +549,34 @@ test.describe('Playlist Feature Parity (task-150)', () => {
     await page.evaluate(() => {
       const libraryBrowser = window.Alpine.$data(document.querySelector('[x-data="libraryBrowser"]'));
       libraryBrowser.currentPlaylistId = null;
-      
-      const library = window.Alpine.store('library');
-      library.tracks = [
-        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
-      ];
-      library.filteredTracks = library.tracks;
-    });
-
-    await page.waitForTimeout(300);
-
-    const dragHandle = page.locator('[data-track-id="1"] .cursor-grab');
-    await expect(dragHandle).not.toBeVisible();
-  });
-
-  test('AC#4: drag tracks to sidebar playlist triggers add', async ({ page }) => {
-    await page.evaluate(() => {
-      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [{ id: 'playlist-1', playlistId: 1, name: 'Test Playlist' }];
-
-      const library = window.Alpine.store('library');
-      library.tracks = [
-        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
-      ];
-      library.filteredTracks = library.tracks;
-
-      window._handlePlaylistDropCalled = false;
-      window._droppedPlaylistId = null;
-      const originalHandler = sidebar.handlePlaylistDrop?.bind(sidebar);
-      sidebar.handlePlaylistDrop = (event, playlist) => {
-        window._handlePlaylistDropCalled = true;
-        window._droppedPlaylistId = playlist.playlistId;
-        if (originalHandler) originalHandler(event, playlist);
-      };
     });
 
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    const dragHandle = page.locator('[data-track-id] .cursor-grab').first();
+    await expect(dragHandle).not.toBeVisible();
+  });
+
+  test('AC#4: drag tracks to sidebar playlist triggers API call', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
     await page.waitForTimeout(300);
 
-    const trackRow = page.locator('[data-track-id="1"]');
-    const playlistButton = page.locator('[data-testid="playlist-1"]');
-
-    const trackBox = await trackRow.boundingBox();
-    const playlistBox = await playlistButton.boundingBox();
+    const trackRow = page.locator('[data-track-id]').first();
+    const playlistButton = page.locator('[data-testid="sidebar-playlist-1"]');
 
     await trackRow.dragTo(playlistButton);
 
     await page.waitForTimeout(300);
 
-    const result = await page.evaluate(() => ({
-      called: window._handlePlaylistDropCalled,
-      playlistId: window._droppedPlaylistId,
-    }));
-
-    expect(result.called).toBe(true);
-    expect(result.playlistId).toBe(1);
+    const addTracksCalls = findApiCalls(playlistState, 'POST', '/playlists/1/tracks');
+    expect(addTracksCalls.length).toBeGreaterThan(0);
   });
 
   test('right-click playlist should not change active section', async ({ page }) => {
+    // Playlists are loaded from mock API in beforeEach
+    // Set activeSection to 'all' to verify right-click doesn't change it
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [
-        { id: 'playlist-1', playlistId: 1, name: 'Playlist 1' },
-        { id: 'playlist-2', playlistId: 2, name: 'Playlist 2' },
-      ];
       sidebar.activeSection = 'all';
     });
 
@@ -597,7 +589,7 @@ test.describe('Playlist Feature Parity (task-150)', () => {
 
     expect(initialSection).toBe('all');
 
-    const playlistButton = page.locator('[data-testid="playlist-1"]');
+    const playlistButton = page.locator('[data-testid="sidebar-playlist-1"]');
     await playlistButton.click({ button: 'right' });
 
     await page.waitForTimeout(300);
@@ -611,17 +603,9 @@ test.describe('Playlist Feature Parity (task-150)', () => {
   });
 
   test('playlist buttons should have reorder index attribute', async ({ page }) => {
-    await page.evaluate(() => {
-      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [
-        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
-        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
-      ];
-    });
-
     await page.waitForTimeout(300);
 
-    const playlistButton = page.locator('[data-testid="playlist-1"]');
+    const playlistButton = page.locator('[data-testid="sidebar-playlist-1"]');
     const reorderIndex = await playlistButton.getAttribute('data-playlist-reorder-index');
     expect(reorderIndex).toBe('0');
   });
@@ -629,18 +613,13 @@ test.describe('Playlist Feature Parity (task-150)', () => {
   test('playlist should shift down when dragging from above', async ({ page }) => {
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [
-        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
-        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
-        { id: 'playlist-3', playlistId: 3, name: 'Playlist C' },
-      ];
       sidebar.reorderDraggingIndex = 0;
       sidebar.reorderDragOverIndex = 2;
     });
 
     await page.waitForTimeout(300);
 
-    const playlistB = page.locator('[data-testid="playlist-2"]');
+    const playlistB = page.locator('[data-testid="sidebar-playlist-2"]');
     const classes = await playlistB.getAttribute('class');
     expect(classes).toContain('playlist-shift-up');
   });
@@ -648,19 +627,14 @@ test.describe('Playlist Feature Parity (task-150)', () => {
   test('playlist should shift up when dragging from below', async ({ page }) => {
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [
-        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
-        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
-        { id: 'playlist-3', playlistId: 3, name: 'Playlist C' },
-      ];
       sidebar.reorderDraggingIndex = 2;
       sidebar.reorderDragOverIndex = 0;
     });
 
     await page.waitForTimeout(300);
 
-    const playlistA = page.locator('[data-testid="playlist-1"]');
-    const playlistB = page.locator('[data-testid="playlist-2"]');
+    const playlistA = page.locator('[data-testid="sidebar-playlist-1"]');
+    const playlistB = page.locator('[data-testid="sidebar-playlist-2"]');
     const classesA = await playlistA.getAttribute('class');
     const classesB = await playlistB.getAttribute('class');
     expect(classesA).toContain('playlist-shift-down');
@@ -670,31 +644,17 @@ test.describe('Playlist Feature Parity (task-150)', () => {
   test('dragging playlist should show opacity change', async ({ page }) => {
     await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [
-        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
-        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
-      ];
       sidebar.reorderDraggingIndex = 0;
     });
 
     await page.waitForTimeout(300);
 
-    const playlistButton = page.locator('[data-testid="playlist-1"]');
+    const playlistButton = page.locator('[data-testid="sidebar-playlist-1"]');
     const classes = await playlistButton.getAttribute('class');
     expect(classes).toContain('opacity-50');
   });
 
   test('sidebar has reorder handlers defined', async ({ page }) => {
-    await page.evaluate(() => {
-      const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
-      sidebar.playlists = [
-        { id: 'playlist-1', playlistId: 1, name: 'Playlist A' },
-        { id: 'playlist-2', playlistId: 2, name: 'Playlist B' },
-      ];
-    });
-
-    await page.waitForTimeout(300);
-
     const result = await page.evaluate(() => {
       const sidebar = window.Alpine.$data(document.querySelector('aside[x-data="sidebar"]'));
       return {
