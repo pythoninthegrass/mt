@@ -88,11 +88,25 @@ tasks:
     silent: true
 
   test:e2e:
-    desc: "Run Playwright E2E tests"
+    desc: "Run Playwright E2E tests (use -- webkit|chromium|firefox to select browser)"
     deps: [install]
     dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
     cmds:
-      - npx playwright test {{.CLI_ARGS}}
+      - |
+        case "{{.CLI_ARGS}}" in
+          webkit)
+            npx playwright test --project=webkit
+            ;;
+          chromium)
+            npx playwright test --project=chromium
+            ;;
+          firefox)
+            npx playwright test --project=firefox
+            ;;
+          *)
+            npx playwright test {{.CLI_ARGS}}
+            ;;
+        esac
 
   test:e2e:ui:
     desc: "Run Playwright E2E tests in UI mode"
