@@ -1,0 +1,56 @@
+version: "3.0"
+
+vars:
+  BENCH_ROOT: "/tmp/mt-bench"
+  BENCH_LIBRARY: "{{.BENCH_ROOT}}/library"
+  BENCH_DB: "{{.BENCH_ROOT}}/mt.db"
+
+tasks:
+  make:shape:
+    desc: "Generate shape-only synthetic library (41k tiny files)"
+    cmds:
+      - mkdir -p {{.BENCH_ROOT}}
+      - uv run python tests/bench/make_synth_library.py --out-root {{.BENCH_LIBRARY}} --tracks 41000 --mode shape {{.CLI_ARGS}}
+
+  make:clone:
+    desc: "Generate clone-based synthetic library (requires --seed-dir)"
+    cmds:
+      - mkdir -p {{.BENCH_ROOT}}
+      - uv run python tests/bench/make_synth_library.py --out-root {{.BENCH_LIBRARY}} --tracks 41000 --mode clone --seed-dir ~/Music/Media.localized --seed-dir ~/Library/CloudStorage/Dropbox/mt/music {{.CLI_ARGS}}
+
+  make:pathological:
+    desc: "Generate pathological edge case dataset"
+    cmds:
+      - mkdir -p {{.BENCH_ROOT}}
+      - uv run python tests/bench/make_synth_library.py --out-root {{.BENCH_LIBRARY}} --mode pathological {{.CLI_ARGS}}
+
+  scan:initial:
+    desc: "Benchmark initial import (fresh DB)"
+    cmds:
+      - rm -f {{.BENCH_DB}}
+      - uv run python tests/bench/bench_scan.py --library-root {{.BENCH_LIBRARY}} --db-path {{.BENCH_DB}} --scenario initial {{.CLI_ARGS}}
+
+  scan:noop:
+    desc: "Benchmark no-op rescan (unchanged library)"
+    cmds:
+      - uv run python tests/bench/bench_scan.py --library-root {{.BENCH_LIBRARY}} --db-path {{.BENCH_DB}} --scenario noop {{.CLI_ARGS}}
+
+  scan:delta:
+    desc: "Benchmark delta rescan (1% changes)"
+    cmds:
+      - uv run python tests/bench/bench_scan.py --library-root {{.BENCH_LIBRARY}} --db-path {{.BENCH_DB}} --scenario delta --delta-add 200 --delta-touch 200 --delta-delete 10 {{.CLI_ARGS}}
+
+  scan:full:
+    desc: "Run all scenarios (initial + noop + delta)"
+    cmds:
+      - uv run python tests/bench/bench_scan.py --library-root {{.BENCH_LIBRARY}} --db-path {{.BENCH_DB}} --scenario full {{.CLI_ARGS}}
+
+  zig:walk:
+    desc: "Benchmark Zig traversal ceiling"
+    cmds:
+      - uv run python tests/bench/bench_zig_walk.py --library-root {{.BENCH_LIBRARY}} --iterations 5 {{.CLI_ARGS}}
+
+  clean:
+    desc: "Remove benchmark artifacts"
+    cmds:
+      - rm -rf {{.BENCH_ROOT}}
