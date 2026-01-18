@@ -508,12 +508,66 @@ test.describe('Settings Menu (task-046)', () => {
   test('AC#1b: Settings accessible via Cmd-, keyboard shortcut', async ({ page }) => {
     await page.keyboard.press('Meta+,');
     await page.waitForTimeout(100);
-    
+
     const uiStore = await getAlpineStore(page, 'ui');
     expect(uiStore.view).toBe('settings');
-    
+
     const settingsView = page.locator('[data-testid="settings-view"]');
     await expect(settingsView).toBeVisible();
+  });
+
+  test('AC#1c: Clicking settings cog again toggles back to previous view', async ({ page }) => {
+    // Verify we start in library view
+    let uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.view).toBe('library');
+
+    const settingsButton = page.locator('[data-testid="sidebar-settings"]');
+
+    // Click to open settings
+    await settingsButton.click();
+    await page.waitForTimeout(100);
+
+    uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.view).toBe('settings');
+
+    const settingsView = page.locator('[data-testid="settings-view"]');
+    await expect(settingsView).toBeVisible();
+
+    // Click again to toggle back to library
+    await settingsButton.click();
+    await page.waitForTimeout(100);
+
+    uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.view).toBe('library');
+
+    // Verify settings view is no longer visible
+    await expect(settingsView).not.toBeVisible();
+  });
+
+  test('AC#1d: Escape key toggles settings view back to previous view', async ({ page }) => {
+    // Verify we start in library view
+    let uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.view).toBe('library');
+
+    // Open settings with keyboard shortcut
+    await page.keyboard.press('Meta+,');
+    await page.waitForTimeout(100);
+
+    uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.view).toBe('settings');
+
+    const settingsView = page.locator('[data-testid="settings-view"]');
+    await expect(settingsView).toBeVisible();
+
+    // Press Escape to toggle back to library
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(100);
+
+    uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.view).toBe('library');
+
+    // Verify settings view is no longer visible
+    await expect(settingsView).not.toBeVisible();
   });
 
   test('AC#2a: General section displays placeholder', async ({ page }) => {
