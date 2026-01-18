@@ -15,6 +15,8 @@ class ScanRequest(BaseModel):
 
     paths: list[str]
     recursive: bool = True
+    parallel: bool = True  # Enable parallel metadata parsing
+    max_workers: int | None = None  # Max parallel workers (None = CPU count)
 
 
 class ScanResult(BaseModel):
@@ -132,43 +134,77 @@ async def update_play_count(track_id: int, db: DatabaseService = Depends(get_db)
 
 @router.post("/scan", response_model=ScanResult)
 async def scan_library(request: ScanRequest, db: DatabaseService = Depends(get_db)):
-    """Scan paths for audio files and add them to the library."""
+    """Scan paths for audio files using 2-phase approach for optimal performance.
+
+    Phase 1: Inventory - Walk filesystem + stat + fingerprint comparison (fast)
+    Phase 2: Parse - Extract metadata only for changed files (slower but minimal)
+    """
     print(f"[scan] Received request to scan {len(request.paths)} paths: {request.paths}")
-    scanned = scan_paths(request.paths, recursive=request.recursive)
-    print(f"[scan] Found {len(scanned)} audio files")
 
+    # Import 2-phase scanner
+    from backend.services.scanner_2phase import parse_changed_files, scan_library_2phase
+
+    # Phase 1: Inventory - Get DB fingerprints and classify files
+    db_fingerprints = db.get_all_fingerprints()
+    print(f"[scan] Database has {len(db_fingerprints)} existing tracks")
+
+    changes, stats = scan_library_2phase(request.paths, db_fingerprints, recursive=request.recursive)
+
+    print(
+        f"[scan] Inventory complete: {stats.visited} files scanned, "
+        f"{stats.added} added, {stats.modified} modified, "
+        f"{stats.unchanged} unchanged, {stats.deleted} deleted"
+    )
+
+    # Phase 2: Parse metadata only for changed files (added + modified)
+    files_to_parse = changes["added"] + changes["modified"]
+    parsed_files = []
+
+    if files_to_parse:
+        parse_mode = "parallel" if request.parallel and len(files_to_parse) >= 20 else "serial"
+        print(f"[scan] Parsing metadata for {len(files_to_parse)} changed files ({parse_mode})...")
+        parsed_files = parse_changed_files(
+            files_to_parse, parallel=request.parallel, max_workers=request.max_workers
+        )
+        print(f"[scan] Parsed {len(parsed_files)} files")
+
+    # Split parsed files into added vs modified
+    added_set = {fp for fp, _ in changes["added"]}
+    files_to_add = [(fp, meta) for fp, meta in parsed_files if fp in added_set]
+    files_to_update = [(fp, meta) for fp, meta in parsed_files if fp not in added_set]
+
+    # Apply changes to database
     added = 0
-    skipped = 0
+    updated = 0
+    deleted = 0
     errors = 0
-    added_tracks = []
 
-    for item in scanned:
-        filepath = item["filepath"]
-        metadata = item["metadata"]
+    try:
+        if files_to_add:
+            added = db.add_tracks_bulk(files_to_add)
+            print(f"[scan] Added {added} new tracks")
 
-        try:
-            # Check if track already exists
-            existing = db.get_track_by_filepath(filepath)
-            if existing:
-                skipped += 1
-                continue
+        if files_to_update:
+            updated = db.update_tracks_bulk(files_to_update)
+            print(f"[scan] Updated {updated} modified tracks")
 
-            # Add to library
-            track_id = db.add_track(filepath, metadata)
-            if track_id:
-                added += 1
-                track = db.get_track_by_id(track_id)
-                if track:
-                    added_tracks.append(track)
-            else:
-                errors += 1
-        except Exception as e:
-            print(f"Error adding track {filepath}: {e}")
-            errors += 1
+        if changes["deleted"]:
+            deleted = db.delete_tracks_bulk(changes["deleted"])
+            print(f"[scan] Deleted {deleted} removed tracks")
+
+    except Exception as e:
+        print(f"[scan] Error during database operations: {e}")
+        errors = len(files_to_parse)
+
+    # Get recently added/updated tracks for response
+    result_tracks = []
+    if added > 0 or updated > 0:
+        tracks, _ = db.get_all_tracks(sort_by="added_date", sort_order="desc", limit=min(added + updated, 100))
+        result_tracks = tracks
 
     return ScanResult(
         added=added,
-        skipped=skipped,
-        errors=errors,
-        tracks=added_tracks,
+        skipped=stats.unchanged,
+        errors=stats.errors + errors,
+        tracks=result_tracks,
     )

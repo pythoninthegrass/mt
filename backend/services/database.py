@@ -32,6 +32,7 @@ DB_TABLES = {
          date TEXT,
          duration REAL,
          file_size INTEGER DEFAULT 0,
+         file_mtime_ns INTEGER,
          added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
          last_played TIMESTAMP,
          play_count INTEGER DEFAULT 0)
@@ -105,7 +106,13 @@ class DatabaseService:
         """Create database tables if they don't exist."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
+
+            # Enable performance optimizations (task-012 Phase 1)
+            cursor.execute("PRAGMA journal_mode = WAL")
+            cursor.execute("PRAGMA synchronous = NORMAL")
             cursor.execute("PRAGMA foreign_keys = ON")
+            cursor.execute("PRAGMA cache_size = -64000")  # 64MB cache
+
             for table_sql in DB_TABLES.values():
                 cursor.execute(table_sql)
             conn.commit()
@@ -132,6 +139,23 @@ class DatabaseService:
             for pos, row in enumerate(cursor.fetchall()):
                 cursor.execute("UPDATE playlists SET position = ? WHERE id = ?", (pos, row[0]))
             conn.commit()
+
+        # Migration: Add filepath index for performance (task-012 Phase 1)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_library_filepath'")
+        if not cursor.fetchone():
+            print("[migration] Creating filepath index on library table...")
+            cursor.execute("CREATE INDEX idx_library_filepath ON library(filepath)")
+            conn.commit()
+            print("[migration] Filepath index created successfully")
+
+        # Migration: Add file_mtime_ns column for change detection (task-012 Phase 1)
+        cursor.execute("PRAGMA table_info(library)")
+        library_columns = {row[1] for row in cursor.fetchall()}
+        if "file_mtime_ns" not in library_columns:
+            print("[migration] Adding file_mtime_ns column to library table...")
+            cursor.execute("ALTER TABLE library ADD COLUMN file_mtime_ns INTEGER")
+            conn.commit()
+            print("[migration] file_mtime_ns column added successfully")
 
     @contextmanager
     def get_connection(self) -> Generator[sqlite3.Connection, None, None]:
@@ -247,6 +271,41 @@ class DatabaseService:
             row = cursor.fetchone()
             return dict(row) if row else None
 
+    def get_existing_filepaths(self, filepaths: list[str]) -> set[str]:
+        """Check which filepaths already exist in the library.
+
+        Args:
+            filepaths: List of filepaths to check
+
+        Returns:
+            Set of filepaths that exist in the library
+        """
+        if not filepaths:
+            return set()
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = ",".join("?" * len(filepaths))
+            cursor.execute(
+                f"SELECT filepath FROM library WHERE filepath IN ({placeholders})",
+                filepaths,
+            )
+            return {row["filepath"] for row in cursor.fetchall()}
+
+    def get_all_fingerprints(self) -> dict[str, tuple[int | None, int]]:
+        """Get fingerprints for all tracks in the library.
+
+        Returns:
+            Dictionary mapping filepath -> (file_mtime_ns, file_size)
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT filepath, file_mtime_ns, file_size FROM library")
+            return {
+                row["filepath"]: (row["file_mtime_ns"], row["file_size"])
+                for row in cursor.fetchall()
+            }
+
     def add_track(self, filepath: str, metadata: dict[str, Any]) -> int:
         """Add a track to the library.
 
@@ -259,8 +318,8 @@ class DatabaseService:
                 """
                 INSERT INTO library
                 (filepath, title, artist, album, album_artist,
-                 track_number, track_total, date, duration, file_size)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 track_number, track_total, date, duration, file_size, file_mtime_ns)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     filepath,
@@ -273,10 +332,147 @@ class DatabaseService:
                     metadata.get("date"),
                     metadata.get("duration"),
                     metadata.get("file_size", 0),
+                    metadata.get("file_mtime_ns"),
                 ),
             )
             conn.commit()
             return cursor.lastrowid or 0
+
+    def add_tracks_bulk(self, tracks: list[tuple[str, dict[str, Any]]]) -> int:
+        """Add multiple tracks to the library in a single transaction.
+
+        Args:
+            tracks: List of (filepath, metadata) tuples
+
+        Returns:
+            Number of tracks successfully added
+        """
+        if not tracks:
+            return 0
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Prepare data for bulk insert
+            values = []
+            for filepath, metadata in tracks:
+                values.append((
+                    filepath,
+                    metadata.get("title"),
+                    metadata.get("artist"),
+                    metadata.get("album"),
+                    metadata.get("album_artist"),
+                    metadata.get("track_number"),
+                    metadata.get("track_total"),
+                    metadata.get("date"),
+                    metadata.get("duration"),
+                    metadata.get("file_size", 0),
+                    metadata.get("file_mtime_ns"),
+                ))
+
+            # Execute bulk insert with single transaction
+            cursor.executemany(
+                """
+                INSERT INTO library
+                (filepath, title, artist, album, album_artist,
+                 track_number, track_total, date, duration, file_size, file_mtime_ns)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                values,
+            )
+            conn.commit()
+            return len(values)
+
+    def update_tracks_bulk(self, tracks: list[tuple[str, dict[str, Any]]]) -> int:
+        """Update multiple tracks in the library in a single transaction.
+
+        Args:
+            tracks: List of (filepath, metadata) tuples
+
+        Returns:
+            Number of tracks successfully updated
+        """
+        if not tracks:
+            return 0
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Prepare data for bulk update
+            values = []
+            for filepath, metadata in tracks:
+                values.append((
+                    metadata.get("title"),
+                    metadata.get("artist"),
+                    metadata.get("album"),
+                    metadata.get("album_artist"),
+                    metadata.get("track_number"),
+                    metadata.get("track_total"),
+                    metadata.get("date"),
+                    metadata.get("duration"),
+                    metadata.get("file_size", 0),
+                    metadata.get("file_mtime_ns"),
+                    filepath,  # WHERE clause parameter
+                ))
+
+            # Execute bulk update with single transaction
+            cursor.executemany(
+                """
+                UPDATE library SET
+                    title = ?,
+                    artist = ?,
+                    album = ?,
+                    album_artist = ?,
+                    track_number = ?,
+                    track_total = ?,
+                    date = ?,
+                    duration = ?,
+                    file_size = ?,
+                    file_mtime_ns = ?
+                WHERE filepath = ?
+                """,
+                values,
+            )
+            conn.commit()
+            return cursor.rowcount
+
+    def delete_tracks_bulk(self, filepaths: list[str]) -> int:
+        """Delete multiple tracks from the library in a single transaction.
+
+        Args:
+            filepaths: List of filepaths to delete
+
+        Returns:
+            Number of tracks successfully deleted
+        """
+        if not filepaths:
+            return 0
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = ",".join("?" * len(filepaths))
+
+            # Delete related data first (favorites, playlist_items)
+            cursor.execute(
+                f"""
+                DELETE FROM favorites
+                WHERE track_id IN (SELECT id FROM library WHERE filepath IN ({placeholders}))
+                """,
+                filepaths,
+            )
+            cursor.execute(
+                f"""
+                DELETE FROM playlist_items
+                WHERE track_id IN (SELECT id FROM library WHERE filepath IN ({placeholders}))
+                """,
+                filepaths,
+            )
+
+            # Delete tracks
+            cursor.execute(f"DELETE FROM library WHERE filepath IN ({placeholders})", filepaths)
+            deleted_count = cursor.rowcount
+            conn.commit()
+            return deleted_count
 
     def delete_track(self, track_id: int) -> bool:
         """Delete a track from the library and all related metadata."""
@@ -303,7 +499,8 @@ class DatabaseService:
                     track_total = ?,
                     date = ?,
                     duration = ?,
-                    file_size = ?
+                    file_size = ?,
+                    file_mtime_ns = ?
                 WHERE id = ?
             """,
                 (
@@ -316,6 +513,7 @@ class DatabaseService:
                     metadata.get("date"),
                     metadata.get("duration"),
                     metadata.get("file_size", 0),
+                    metadata.get("file_mtime_ns"),
                     track_id,
                 ),
             )

@@ -30,6 +30,15 @@ def extract_metadata(filepath: str) -> dict[str, Any]:
     import mutagen.id3
     import mutagen.mp4
 
+    # Get file stats for fingerprint
+    try:
+        stat_result = os.stat(filepath)
+        file_mtime_ns = stat_result.st_mtime_ns
+        file_size = stat_result.st_size
+    except Exception:
+        file_mtime_ns = None
+        file_size = 0
+
     metadata: dict[str, Any] = {
         "title": None,
         "artist": None,
@@ -39,7 +48,8 @@ def extract_metadata(filepath: str) -> dict[str, Any]:
         "track_total": None,
         "date": None,
         "duration": None,
-        "file_size": get_file_size(filepath),
+        "file_size": file_size,
+        "file_mtime_ns": file_mtime_ns,
     }
 
     try:
