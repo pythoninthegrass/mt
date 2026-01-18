@@ -12,6 +12,8 @@ env:
 vars:
 
 includes:
+  bench:
+    taskfile: ./taskfiles/bench.yml
   npm:
     taskfile: ./taskfiles/npm.yml
   pex:
