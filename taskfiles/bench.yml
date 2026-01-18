@@ -1,5 +1,8 @@
 version: "3.0"
 
+env:
+  PYTHONPATH: "{{.ROOT_DIR}}"
+
 vars:
   BENCH_ROOT: "/tmp/mt-bench"
   BENCH_LIBRARY: "{{.BENCH_ROOT}}/library"
