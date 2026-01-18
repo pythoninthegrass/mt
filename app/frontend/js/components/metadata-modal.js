@@ -68,11 +68,11 @@ export function createMetadataModal(Alpine) {
     },
 
     get canNavigatePrev() {
-      return this.navigationEnabled && this._batchOrderedIds.length > 1;
+      return this.navigationEnabled && this._batchOrderedIds.length > 1 && this.currentBatchIndex > 0;
     },
 
     get canNavigateNext() {
-      return this.navigationEnabled && this._batchOrderedIds.length > 1;
+      return this.navigationEnabled && this._batchOrderedIds.length > 1 && this.currentBatchIndex < this._batchOrderedIds.length - 1;
     },
 
     get navIndicator() {
@@ -390,11 +390,9 @@ export function createMetadataModal(Alpine) {
         return;
       }
 
-      let newIdx = currentIdx + delta;
-      if (newIdx < 0) {
-        newIdx = this._batchOrderedIds.length - 1;
-      } else if (newIdx >= this._batchOrderedIds.length) {
-        newIdx = 0;
+      const newIdx = currentIdx + delta;
+      if (newIdx < 0 || newIdx >= this._batchOrderedIds.length) {
+        return;
       }
 
       const newTrackId = this._batchOrderedIds[newIdx];
