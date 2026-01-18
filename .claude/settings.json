@@ -19,6 +19,7 @@
       "Bash(rg:*)",
       "Bash(ruff:*)",
       "Bash(sqlite3:*)",
+      "Bash(task:*)",
       "Bash(timeout:*)",
       "Bash(uv:*)",
       "mcp__backlog__get_task_creation_guide",
