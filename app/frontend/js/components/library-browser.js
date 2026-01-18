@@ -785,6 +785,12 @@ export function createLibraryBrowser(Alpine) {
      * @param {Object} track - Track object
      * @param {number} index - Track index
      */
+    handleRowMouseDown(event) {
+      if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+      }
+    },
+
     handleRowClick(event, track, index) {
       if (event.shiftKey && this.lastSelectedIndex >= 0) {
         // Shift+click: range selection
