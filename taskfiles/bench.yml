@@ -19,7 +19,7 @@ tasks:
     desc: "Generate clone-based synthetic library (requires --seed-dir)"
     cmds:
       - mkdir -p {{.BENCH_ROOT}}
-      - uv run python tests/bench/make_synth_library.py --out-root {{.BENCH_LIBRARY}} --tracks 41000 --mode clone --seed-dir ~/Music/Media.localized --seed-dir ~/Library/CloudStorage/Dropbox/mt/music {{.CLI_ARGS}}
+      - uv run python tests/bench/make_synth_library.py --out-root {{.BENCH_LIBRARY}} --tracks 41000 --mode clone --seed-dir ~/Music/Media.localized {{.CLI_ARGS}}
 
   make:pathological:
     desc: "Generate pathological edge case dataset"
