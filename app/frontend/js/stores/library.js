@@ -159,21 +159,48 @@ export function createLibraryStore(Alpine) {
     },
     
     /**
+     * Strip ignored prefixes from a string for sorting
+     * @param {string} value - String to process
+     * @param {string[]} ignoreWords - Array of prefixes to ignore
+     * @returns {string} String with prefix removed
+     */
+    _stripIgnoredPrefix(value, ignoreWords) {
+      if (!value || !ignoreWords || ignoreWords.length === 0) {
+        return value || '';
+      }
+
+      const str = String(value).trim();
+      const lowerStr = str.toLowerCase();
+
+      for (const word of ignoreWords) {
+        const prefix = word.trim().toLowerCase();
+        if (!prefix) continue;
+
+        // Check if string starts with prefix followed by a space
+        if (lowerStr.startsWith(prefix + ' ')) {
+          return str.substring(prefix.length + 1).trim();
+        }
+      }
+
+      return str;
+    },
+
+    /**
      * Apply search and sort filters
      */
     applyFilters() {
       let result = [...this.tracks];
-      
+
       // Apply search filter
       if (this.searchQuery.trim()) {
         const query = this.searchQuery.toLowerCase();
-        result = result.filter(track => 
+        result = result.filter(track =>
           track.title?.toLowerCase().includes(query) ||
           track.artist?.toLowerCase().includes(query) ||
           track.album?.toLowerCase().includes(query)
         );
       }
-      
+
       // Apply sorting
       const sortKeyMap = {
         index: 'track_number',
@@ -181,9 +208,16 @@ export function createLibraryStore(Alpine) {
         lastPlayed: 'last_played',
         playCount: 'play_count',
       };
-      
+
       const parseTrackNumber = (val) => parseInt(String(val || '').split('/')[0], 10) || 999999;
-      
+
+      // Get ignore words settings
+      const uiStore = Alpine.store('ui');
+      const ignoreWordsEnabled = uiStore.sortIgnoreWords;
+      const ignoreWords = ignoreWordsEnabled
+        ? uiStore.sortIgnoreWordsList.split(',').map(w => w.trim()).filter(Boolean)
+        : [];
+
       const compareValues = (aVal, bVal, key) => {
         if (key === 'track_number') {
           aVal = parseTrackNumber(aVal);
@@ -195,8 +229,15 @@ export function createLibraryStore(Alpine) {
           aVal = aVal ? new Date(aVal).getTime() : 0;
           bVal = bVal ? new Date(bVal).getTime() : 0;
         } else {
-          aVal = String(aVal || '').toLowerCase();
-          bVal = String(bVal || '').toLowerCase();
+          // String comparison - strip ignored prefixes for artist, album, and title
+          const shouldStripPrefix = ignoreWordsEnabled && ['artist', 'album', 'title'].includes(key);
+          if (shouldStripPrefix) {
+            aVal = this._stripIgnoredPrefix(aVal, ignoreWords).toLowerCase();
+            bVal = this._stripIgnoredPrefix(bVal, ignoreWords).toLowerCase();
+          } else {
+            aVal = String(aVal || '').toLowerCase();
+            bVal = String(bVal || '').toLowerCase();
+          }
         }
         if (aVal < bVal) return -1;
         if (aVal > bVal) return 1;

@@ -1,10 +1,10 @@
 ---
 id: task-168
 title: 'Ignore artist prefixes when sorting by artist, album, or title'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-18 03:30'
-updated_date: '2026-01-18 03:31'
+updated_date: '2026-01-18 04:01'
 labels: []
 dependencies: []
 priority: medium
@@ -23,14 +23,14 @@ The feature should be configurable in the settings menu under "Sorting/Grouping"
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Settings menu includes a new 'Sorting/Grouping' section with an 'Ignore words' preference
-- [ ] #2 Ignore words preference allows users to specify a comma-separated list of prefixes to ignore when sorting
-- [ ] #3 Default ignore words list includes: 'the, le, la, los, a'
-- [ ] #4 When ignore words is enabled, sorting by Artist strips matching prefixes (case-insensitive) before sorting
-- [ ] #5 When ignore words is enabled, sorting by Album strips matching prefixes (case-insensitive) before sorting
-- [ ] #6 When ignore words is enabled, sorting by Title strips matching prefixes (case-insensitive) before sorting
-- [ ] #7 Display still shows the full artist/album/title name with prefix - only the sort order changes
-- [ ] #8 Preference can be toggled on/off without requiring app restart
-- [ ] #9 Custom ignore words list is persisted across app restarts
-- [ ] #10 UI follows MusicBee's design pattern: checkbox + text field for ignore words list
+- [x] #1 Settings menu includes a new 'Sorting/Grouping' section with an 'Ignore words' preference
+- [x] #2 Ignore words preference allows users to specify a comma-separated list of prefixes to ignore when sorting
+- [x] #3 Default ignore words list includes: 'the, le, la, los, a'
+- [x] #4 When ignore words is enabled, sorting by Artist strips matching prefixes (case-insensitive) before sorting
+- [x] #5 When ignore words is enabled, sorting by Album strips matching prefixes (case-insensitive) before sorting
+- [x] #6 When ignore words is enabled, sorting by Title strips matching prefixes (case-insensitive) before sorting
+- [x] #7 Display still shows the full artist/album/title name with prefix - only the sort order changes
+- [x] #8 Preference can be toggled on/off without requiring app restart
+- [x] #9 Custom ignore words list is persisted across app restarts
+- [x] #10 UI follows MusicBee's design pattern: checkbox + text field for ignore words list
 <!-- AC:END -->

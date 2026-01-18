@@ -892,6 +892,16 @@
             <li>
               <button
                 class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
+                :class="$store.ui.settingsSection === 'sorting' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
+                @click="$store.ui.setSettingsSection('sorting')"
+                data-testid="settings-nav-sorting"
+              >
+                Sorting
+              </button>
+            </li>
+            <li>
+              <button
+                class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
                 :class="$store.ui.settingsSection === 'advanced' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
                 @click="$store.ui.setSettingsSection('advanced')"
                 data-testid="settings-nav-advanced"
@@ -983,6 +993,75 @@
                       Not configurable yet
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sorting Section -->
+          <div x-show="$store.ui.settingsSection === 'sorting'" data-testid="settings-section-sorting">
+            <h3 class="text-xl font-semibold mb-4">Sorting</h3>
+
+            <div class="space-y-6">
+              <!-- Ignore Words -->
+              <div>
+                <h4 class="text-sm font-medium mb-3">Ignore words when sorting</h4>
+                <div class="space-y-4">
+                  <!-- Enable toggle -->
+                  <label class="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      x-model="$store.ui.sortIgnoreWords"
+                      @change="$store.library.applyFilters()"
+                      class="w-4 h-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-0"
+                      data-testid="settings-sort-ignore-words-toggle"
+                    />
+                    <div class="flex-1">
+                      <div class="text-sm font-medium">Enable ignore words</div>
+                      <div class="text-xs text-muted-foreground">
+                        Strip article prefixes (like "The", "Le", "Los") when sorting by artist, album, or title
+                      </div>
+                    </div>
+                  </label>
+
+                  <!-- Ignore words list input -->
+                  <div class="pl-7">
+                    <label class="block text-sm font-medium mb-2">Ignore words list</label>
+                    <input
+                      type="text"
+                      x-model="$store.ui.sortIgnoreWordsList"
+                      @input.debounce.500ms="$store.library.applyFilters()"
+                      :disabled="!$store.ui.sortIgnoreWords"
+                      placeholder="the, le, la, los, a"
+                      class="w-full px-3 py-2 rounded-md border border-border bg-background text-sm disabled:opacity-50 disabled:cursor-not-allowed focus:ring-1 focus:ring-primary focus:border-primary"
+                      data-testid="settings-sort-ignore-words-input"
+                    />
+                    <p class="text-xs text-muted-foreground mt-2">
+                      Enter comma-separated prefixes to ignore. Case-insensitive.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Example -->
+                <div class="mt-4 p-4 bg-muted/30 rounded-lg">
+                  <h5 class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Example</h5>
+                  <div class="text-sm space-y-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-muted-foreground">→</span>
+                      <span>"The Beatles" sorts under <strong>B</strong></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-muted-foreground">→</span>
+                      <span>"Los Lobos" sorts under <strong>L</strong></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-muted-foreground">→</span>
+                      <span>"Le Tigre" sorts under <strong>T</strong></span>
+                    </div>
+                  </div>
+                  <p class="text-xs text-muted-foreground mt-3">
+                    The full name is still displayed - only the sort order changes.
+                  </p>
                 </div>
               </div>
             </div>

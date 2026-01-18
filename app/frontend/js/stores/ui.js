@@ -9,6 +9,8 @@ export function createUIStore(Alpine) {
     theme: Alpine.$persist('system').as('mt:ui:theme'),
     themePreset: Alpine.$persist('light').as('mt:ui:themePreset'),
     settingsSection: Alpine.$persist('general').as('mt:settings:activeSection'),
+    sortIgnoreWords: Alpine.$persist(true).as('mt:ui:sortIgnoreWords'),
+    sortIgnoreWordsList: Alpine.$persist('the, le, la, los, a').as('mt:ui:sortIgnoreWordsList'),
     
     modal: null,
     contextMenu: null,
@@ -92,7 +94,7 @@ export function createUIStore(Alpine) {
     },
     
     setSettingsSection(section) {
-      if (['general', 'appearance', 'shortcuts', 'advanced'].includes(section)) {
+      if (['general', 'appearance', 'shortcuts', 'sorting', 'advanced'].includes(section)) {
         this.settingsSection = section;
       }
     },
