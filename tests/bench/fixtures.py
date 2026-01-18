@@ -66,8 +66,10 @@ def validate_paths(library_root: str, db_path: str) -> None:
             )
 
     # Additional check: database path must be in /tmp
+    # Note: On macOS, /tmp is a symlink to /private/tmp
     db_path_obj = Path(db_path)
-    if not str(db_path_obj.resolve()).startswith("/tmp/"):
+    resolved_path = str(db_path_obj.resolve())
+    if not (resolved_path.startswith("/tmp/") or resolved_path.startswith("/private/tmp/")):
         raise ValueError(
             f"Database must be in /tmp/ directory for safety.\n"
             f"Got: {db_path}"
