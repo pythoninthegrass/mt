@@ -7,6 +7,20 @@ from pathlib import Path
 
 def main():
     """Main entry point."""
+    try:
+        run_benchmark()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Benchmark interrupted by user (Ctrl+C)")
+        sys.exit(130)
+    except Exception as e:
+        print(f"\n\n❌ Benchmark failed: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+def run_benchmark():
+    """Run Zig walk benchmark."""
     parser = argparse.ArgumentParser(
         description="Benchmark Zig directory traversal performance"
     )

@@ -277,6 +277,22 @@ def scenario_delta_rescan(
 
 def main():
     """Main entry point."""
+    try:
+        run_benchmarks()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Benchmark interrupted by user (Ctrl+C)")
+        print("Cleaning up...")
+        # Cleanup will happen automatically via context managers
+        sys.exit(130)  # Standard exit code for SIGINT
+    except Exception as e:
+        print(f"\n\n❌ Benchmark failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+def run_benchmarks():
+    """Run benchmark scenarios."""
     parser = argparse.ArgumentParser(description="Benchmark library scanning performance")
     parser.add_argument(
         "--library-root",

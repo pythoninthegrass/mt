@@ -73,6 +73,10 @@ def generate_shape_dataset(
     print(f"Generating shape dataset: {track_count:,} tracks")
     print(f"Output: {output_root}")
     print(f"Extension ratios: {ext_ratios}")
+    print("\nNote: Shape dataset files have minimal headers that will cause")
+    print("      mutagen parsing errors (e.g., 'can't sync to MPEG frame').")
+    print("      This is expected - the dataset tests filesystem/DB performance,")
+    print("      not metadata parsing. Files will be added with filename-only metadata.\n")
 
     # Clean output directory
     if output_root.exists():
@@ -349,6 +353,20 @@ def generate_pathological_dataset(output_root: Path) -> None:
 
 def main():
     """Main entry point."""
+    try:
+        run_generator()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Generation interrupted by user (Ctrl+C)")
+        sys.exit(130)
+    except Exception as e:
+        print(f"\n\n❌ Generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+def run_generator():
+    """Run synthetic library generation."""
     parser = argparse.ArgumentParser(
         description="Generate synthetic music libraries for benchmarking"
     )
