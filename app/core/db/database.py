@@ -31,6 +31,9 @@ class MusicDatabase:
         for _, create_sql in db_tables.items():
             self.db_cursor.execute(create_sql)
 
+        # Run database migrations
+        self._run_migrations()
+
         # Initialize sub-managers
         self._preferences = PreferencesManager(self.db_conn, self.db_cursor)
         self._library = LibraryManager(self.db_conn, self.db_cursor)
@@ -50,6 +53,21 @@ class MusicDatabase:
         self.db_cursor.execute("SELECT COUNT(*) FROM settings WHERE key = 'volume'")
         if self.db_cursor.fetchone()[0] == 0:
             self.set_volume(100)  # Set default volume to 100%
+
+        self.db_conn.commit()
+
+    def _run_migrations(self):
+        """Run database schema migrations for existing databases."""
+        # Migration: Add file_mtime_ns and file_size columns to library table
+        # Check if columns already exist
+        self.db_cursor.execute("PRAGMA table_info(library)")
+        columns = {row[1] for row in self.db_cursor.fetchall()}
+
+        if 'file_mtime_ns' not in columns:
+            self.db_cursor.execute("ALTER TABLE library ADD COLUMN file_mtime_ns INTEGER DEFAULT 0")
+
+        if 'file_size' not in columns:
+            self.db_cursor.execute("ALTER TABLE library ADD COLUMN file_size INTEGER DEFAULT 0")
 
         self.db_conn.commit()
 

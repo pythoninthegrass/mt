@@ -15,6 +15,8 @@ DB_TABLES = {
         CREATE TABLE IF NOT EXISTS library
         (id INTEGER PRIMARY KEY AUTOINCREMENT,
          filepath TEXT NOT NULL,
+         file_mtime_ns INTEGER DEFAULT 0,
+         file_size INTEGER DEFAULT 0,
          title TEXT,
          artist TEXT,
          album TEXT,
