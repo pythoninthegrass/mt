@@ -29,7 +29,6 @@
       "**/__pycache__/",
 
       // Python code (use Ruff instead)
-      "app/backend/**/*.py",
       "tests/**/*.py",
       "**/*.py",
 
@@ -72,7 +71,6 @@
       ".pytest_cache/",
       "**/*.pyc",
       "**/__pycache__/",
-      "app/backend/**/*.py",
       "tests/**/*.py",
       "**/*.py",
       "*.lock",
