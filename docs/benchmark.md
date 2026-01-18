@@ -376,12 +376,32 @@ Result: PASS (< 5 minutes)
 }
 ```
 
+## Implementation Status
+
+**✅ Completed (January 2026)**:
+- Synthetic library generator with 3 dataset types (shape, clone, pathological)
+- Benchmark scenarios (initial import, no-op rescan, delta rescan)
+- Database persistence fix for accurate scenario testing
+- Comprehensive logging with one-line summaries
+- CSV results file for tracking performance over time
+- Taskfile integration for all benchmark commands
+- Zig walk ceiling benchmark
+
+**Key Design Decisions**:
+1. **Database persistence**: Initial import creates persistent DB at `/tmp/mt-bench/mt.db`, which no-op and delta scenarios reuse. This matches real-world usage where rescans operate on existing databases.
+2. **In-place modifications**: Delta scenario modifies files in the actual library and restores them, rather than copying the entire library. This is faster and more realistic.
+3. **Structured logging**: All benchmarks log to `/tmp/mt-bench/logs/` with timestamped files. Each scenario outputs a one-line `SUMMARY:` for easy parsing.
+4. **CSV accumulation**: Results automatically append to `/tmp/mt-bench/benchmark_results.csv` for tracking performance trends across runs.
+
 ## Taskfile Integration
 
 ```yaml
 # taskfiles/bench.yml (included in main Taskfile.yml)
 
 version: "3.0"
+
+env:
+  PYTHONPATH: "{{.ROOT_DIR}}"
 
 vars:
   BENCH_ROOT: "/tmp/mt-bench"

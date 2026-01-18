@@ -13,6 +13,10 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from tests.bench.logging_config import setup_benchmark_logger
+
+# Setup logging
+logger = setup_benchmark_logger("make_synth_library")
 
 
 def write_minimal_mp3_header(path: Path) -> None:
@@ -78,6 +82,10 @@ def generate_shape_dataset(
     print("      This is expected - the dataset tests filesystem/DB performance,")
     print("      not metadata parsing. Files will be added with filename-only metadata.\n")
 
+    logger.info(f"Generating shape dataset: {track_count:,} tracks")
+    logger.info(f"Output: {output_root}")
+    logger.info(f"Extension ratios: {ext_ratios}")
+
     # Clean output directory
     if output_root.exists():
         shutil.rmtree(output_root)
@@ -125,8 +133,11 @@ def generate_shape_dataset(
 
                 if track_num % 5000 == 0:
                     print(f"  Generated {track_num:,} tracks...")
+                    logger.info(f"Generated {track_num:,} tracks...")
 
     print(f"✓ Shape dataset complete: {track_num:,} tracks")
+    logger.info(f"Shape dataset complete: {track_num:,} tracks")
+    logger.info(f"SUMMARY: shape | {track_num:,} tracks generated")
 
 
 def clone_file(src: Path, dst: Path) -> None:
@@ -217,17 +228,24 @@ def generate_clone_dataset(
     print(f"Output: {output_root}")
     print(f"Seed directories: {[str(d) for d in seed_dirs]}")
 
+    logger.info(f"Generating clone dataset: {track_count:,} tracks")
+    logger.info(f"Output: {output_root}")
+    logger.info(f"Seed directories: {[str(d) for d in seed_dirs]}")
+
     # Collect seed files
     seed_files = collect_seed_files(seed_dirs)
     if not seed_files:
         print("Error: No seed files found in provided directories")
+        logger.error("No seed files found in provided directories")
         sys.exit(1)
 
     print(f"Found {len(seed_files)} seed files")
+    logger.info(f"Found {len(seed_files)} seed files")
 
     # Sample for variety
     seed_files = sample_by_size_distribution(seed_files, target_count=400)
     print(f"Sampled {len(seed_files)} seed files for cloning")
+    logger.info(f"Sampled {len(seed_files)} seed files for cloning")
 
     # Clean output directory
     if output_root.exists():
@@ -261,11 +279,15 @@ def generate_clone_dataset(
 
             if track_num % 5000 == 0:
                 print(f"  Cloned {track_num:,} tracks...")
+                logger.info(f"Cloned {track_num:,} tracks...")
         except Exception as e:
             print(f"Warning: Failed to clone {seed}: {e}")
+            logger.warning(f"Failed to clone {seed}: {e}")
             continue
 
     print(f"✓ Clone dataset complete: {track_num:,} tracks")
+    logger.info(f"Clone dataset complete: {track_num:,} tracks")
+    logger.info(f"SUMMARY: clone | {track_num:,} tracks generated")
 
 
 def generate_pathological_dataset(output_root: Path) -> None:
@@ -276,6 +298,9 @@ def generate_pathological_dataset(output_root: Path) -> None:
     """
     print("Generating pathological dataset")
     print(f"Output: {output_root}")
+
+    logger.info("Generating pathological dataset")
+    logger.info(f"Output: {output_root}")
 
     if output_root.exists():
         shutil.rmtree(output_root)
@@ -349,6 +374,8 @@ def generate_pathological_dataset(output_root: Path) -> None:
         track_num += 1
 
     print(f"✓ Pathological dataset complete: {track_num:,} files")
+    logger.info(f"Pathological dataset complete: {track_num:,} files")
+    logger.info(f"SUMMARY: pathological | {track_num:,} files generated")
 
 
 def main():

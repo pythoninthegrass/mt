@@ -3,6 +3,10 @@
 import argparse
 import sys
 from pathlib import Path
+from tests.bench.logging_config import setup_benchmark_logger
+
+# Setup logging
+logger = setup_benchmark_logger("bench_zig_walk")
 
 
 def main():
@@ -59,6 +63,10 @@ def run_benchmark():
     print(f"Directory: {music_dir}")
     print(f"Iterations: {args.iterations}\n")
 
+    logger.info("Starting Zig walk benchmark")
+    logger.info(f"Directory: {music_dir}")
+    logger.info(f"Iterations: {args.iterations}")
+
     # First get file count
     total_files = count_audio_files(music_dir)
     print(f"Total audio files: {total_files:,}\n")
@@ -73,6 +81,10 @@ def run_benchmark():
     print(f"  Average time: {avg_time_sec:.3f}s")
     print(f"  Throughput:   {throughput:,.0f} files/sec")
     print(f"\n{'='*60}\n")
+
+    logger.info(f"Average time: {avg_time_sec:.3f}s")
+    logger.info(f"Throughput: {throughput:,.0f} files/sec")
+    logger.info(f"SUMMARY: zig_walk | {total_files:,} files | {avg_time_sec:.3f}s | {throughput:,.0f} files/sec")
 
     # This represents the performance ceiling for filesystem traversal
     print("Note: This is the raw traversal ceiling without metadata parsing.")

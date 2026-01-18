@@ -44,9 +44,31 @@ tasks:
       - uv run python tests/bench/bench_scan.py --library-root {{.BENCH_LIBRARY}} --db-path {{.BENCH_DB}} --scenario delta --delta-add 200 --delta-touch 200 --delta-delete 10 {{.CLI_ARGS}}
 
   scan:full:
-    desc: "Run all scenarios (initial + noop + delta)"
+    desc: "Run complete benchmark pipeline (generate + verify + benchmark all scenarios)"
     cmds:
-      - uv run python tests/bench/bench_scan.py --library-root {{.BENCH_LIBRARY}} --db-path {{.BENCH_DB}} --scenario full {{.CLI_ARGS}}
+      # 1. Generate clone dataset
+      - task: make:clone
+
+      # 2. Verify files created
+      - echo "Verifying file count..."
+      - |
+        FILE_COUNT=$(find {{.BENCH_LIBRARY}} -type f | wc -l | tr -d ' ')
+        echo "Files created: $FILE_COUNT"
+        if [ "$FILE_COUNT" -ne "41000" ]; then
+          echo "ERROR: Expected 41000 files, got $FILE_COUNT"
+          exit 1
+        fi
+
+      # 3. Check disk usage
+      - echo "Checking disk usage..."
+      - du -sh {{.BENCH_LIBRARY}}
+
+      # 4. Run all benchmark scenarios
+      - task: scan:initial
+      - task: scan:noop
+      - task: scan:delta
+
+      # Note: cleanup is manual via `task bench:clean`
 
   zig:walk:
     desc: "Benchmark Zig traversal ceiling"
@@ -57,3 +79,51 @@ tasks:
     desc: "Remove benchmark artifacts"
     cmds:
       - rm -rf {{.BENCH_ROOT}}
+
+  logs:tail:
+    desc: "Tail benchmark logs (use Ctrl+C to exit)"
+    cmds:
+      - tail -f /tmp/mt-bench/logs/*.log
+
+  logs:list:
+    desc: "List available benchmark logs"
+    cmds:
+      - ls -lht /tmp/mt-bench/logs/
+
+  logs:view:
+    desc: "View latest benchmark log (use LOG_NAME to specify)"
+    cmds:
+      - |
+        if [ -z "{{.LOG_NAME}}" ]; then
+          # Show latest log
+          LATEST=$(ls -t /tmp/mt-bench/logs/*.log 2>/dev/null | head -1)
+          if [ -n "$LATEST" ]; then
+            echo "Viewing: $LATEST"
+            cat "$LATEST"
+          else
+            echo "No logs found"
+          fi
+        else
+          # Show specific log
+          cat /tmp/mt-bench/logs/{{.LOG_NAME}}
+        fi
+
+  results:csv:
+    desc: "View benchmark results CSV"
+    cmds:
+      - |
+        if [ -f "/tmp/mt-bench/benchmark_results.csv" ]; then
+          echo "Benchmark Results:"
+          echo "================="
+          column -t -s',' /tmp/mt-bench/benchmark_results.csv
+        else
+          echo "No results CSV found. Run benchmarks first."
+        fi
+
+  results:summary:
+    desc: "View one-line summaries from all logs"
+    cmds:
+      - |
+        echo "Benchmark Summaries:"
+        echo "===================="
+        grep "SUMMARY:" /tmp/mt-bench/logs/*.log 2>/dev/null | sed 's/.*INFO - //' || echo "No summaries found. Run benchmarks first."

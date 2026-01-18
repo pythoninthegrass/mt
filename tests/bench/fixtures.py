@@ -76,6 +76,47 @@ def validate_paths(library_root: str, db_path: str) -> None:
         )
 
 
+@contextmanager
+def persistent_database(db_path: Path | str) -> Generator[tuple[object, Path], None, None]:
+    """Open existing benchmark database without cleanup - reuses persistent DB.
+
+    Use this for no-op and delta scenarios that need to reuse the database
+    created by initial import.
+
+    Args:
+        db_path: Path to existing database file
+
+    Yields:
+        tuple: (MusicDatabase instance, database Path)
+
+    Raises:
+        FileNotFoundError: If database doesn't exist
+        ValueError: If trying to use production paths
+    """
+    from core.db import DB_TABLES, MusicDatabase
+
+    db_path_obj = Path(db_path)
+
+    # Safety check: ensure we're not touching production
+    validate_paths(str(db_path_obj.parent), str(db_path))
+
+    # Check database exists
+    if not db_path_obj.exists():
+        raise FileNotFoundError(
+            f"Database not found: {db_path}\n"
+            f"Run 'task bench:scan:initial' first to create the database."
+        )
+
+    # Open existing database
+    db = MusicDatabase(str(db_path), DB_TABLES)
+
+    try:
+        yield db, db_path_obj
+    finally:
+        # Close but DO NOT delete - reuse for subsequent scenarios
+        db.close()
+
+
 def cleanup_benchmark_artifacts() -> None:
     """Remove all benchmark artifacts from /tmp/mt-bench."""
     import shutil
