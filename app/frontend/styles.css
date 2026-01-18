@@ -170,7 +170,7 @@ aside button:hover svg {
 [data-theme-preset="metro-teal"] .track-row-selected {
   background-color: hsl(var(--primary)) !important;
   color: hsl(var(--primary-foreground)) !important;
-  border-bottom-color: hsl(var(--primary)) !important;
+  border-bottom: none !important;
 }
 
 [data-theme-preset="metro-teal"] .track-row-playing {
