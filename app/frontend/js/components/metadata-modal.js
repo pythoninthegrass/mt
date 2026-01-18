@@ -68,15 +68,16 @@ export function createMetadataModal(Alpine) {
     },
 
     get canNavigatePrev() {
-      return this.navigationEnabled && this._batchOrderedIds.length > 1 && this.currentBatchIndex > 0;
+      return this.navigationEnabled && this._batchOrderedIds.length > 1;
     },
 
     get canNavigateNext() {
-      return this.navigationEnabled && this._batchOrderedIds.length > 1 && this.currentBatchIndex < this._batchOrderedIds.length - 1;
+      return this.navigationEnabled && this._batchOrderedIds.length > 1;
     },
 
     get navIndicator() {
-      if (!this.navigationEnabled || this.currentBatchIndex < 0) return '';
+      if (!this.navigationEnabled) return '';
+      if (this.currentBatchIndex < 0) return `${this._batchOrderedIds.length} tracks`;
       return `${this.currentBatchIndex + 1} / ${this._batchOrderedIds.length}`;
     },
 
@@ -101,7 +102,7 @@ export function createMetadataModal(Alpine) {
         .filter(t => batchIdSet.has(t.id))
         .map(t => t.id);
 
-      this.currentTrackId = this._batchOrderedIds[0] || this.tracks[0]?.id || null;
+      this.currentTrackId = null;
 
       try {
         await this.loadMetadata();
@@ -386,13 +387,17 @@ export function createMetadataModal(Alpine) {
       }
 
       const currentIdx = this.currentBatchIndex;
-      if (currentIdx < 0) {
-        return;
-      }
+      let newIdx;
 
-      const newIdx = currentIdx + delta;
-      if (newIdx < 0 || newIdx >= this._batchOrderedIds.length) {
-        return;
+      if (currentIdx < 0) {
+        newIdx = delta > 0 ? 0 : this._batchOrderedIds.length - 1;
+      } else {
+        newIdx = currentIdx + delta;
+        if (newIdx < 0) {
+          newIdx = this._batchOrderedIds.length - 1;
+        } else if (newIdx >= this._batchOrderedIds.length) {
+          newIdx = 0;
+        }
       }
 
       const newTrackId = this._batchOrderedIds[newIdx];
