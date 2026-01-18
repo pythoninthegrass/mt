@@ -1257,7 +1257,38 @@
       @click.stop
     >
       <div class="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 class="text-lg font-semibold" x-text="modalTitle"></h2>
+        <div class="flex items-center gap-3">
+          <h2 class="text-lg font-semibold" x-text="modalTitle"></h2>
+          <div x-show="navigationEnabled" class="flex items-center gap-1">
+            <button
+              class="p-1 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              :disabled="!canNavigatePrev || isSaving || isLoading"
+              @click="navigatePrev()"
+              title="Previous track (←)"
+              data-testid="metadata-nav-prev"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"></path>
+              </svg>
+            </button>
+            <span
+              class="text-xs text-muted-foreground min-w-[4rem] text-center tabular-nums"
+              x-text="navIndicator"
+              data-testid="metadata-nav-indicator"
+            ></span>
+            <button
+              class="p-1 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              :disabled="!canNavigateNext || isSaving || isLoading"
+              @click="navigateNext()"
+              title="Next track (→)"
+              data-testid="metadata-nav-next"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
         <button
           class="p-1 text-muted-foreground hover:text-foreground transition-colors"
           @click="close()"

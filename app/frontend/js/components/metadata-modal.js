@@ -28,9 +28,18 @@ export function createMetadataModal(Alpine) {
       path: '',
     },
 
+    navigationEnabled: false,
+    currentTrackId: null,
+    _batchTrackIds: [],
+    _batchOrderedIds: [],
+    _sessionId: null,
+
     init() {
       this.$watch('$store.ui.modal', (modal) => {
         if (modal?.type === 'editMetadata') {
+          if (this.isOpen && this._sessionId === modal.data?.sessionId) {
+            return;
+          }
           this.open(modal.data);
         } else if (this.isOpen) {
           this.close();
@@ -49,12 +58,50 @@ export function createMetadataModal(Alpine) {
       return 'Edit Metadata';
     },
 
+    get libraryTracks() {
+      return Alpine.store('library').filteredTracks;
+    },
+
+    get currentBatchIndex() {
+      if (!this.currentTrackId || !this._batchOrderedIds.length) return -1;
+      return this._batchOrderedIds.indexOf(this.currentTrackId);
+    },
+
+    get canNavigatePrev() {
+      return this.navigationEnabled && this._batchOrderedIds.length > 1;
+    },
+
+    get canNavigateNext() {
+      return this.navigationEnabled && this._batchOrderedIds.length > 1;
+    },
+
+    get navIndicator() {
+      if (!this.navigationEnabled || this.currentBatchIndex < 0) return '';
+      return `${this.currentBatchIndex + 1} / ${this._batchOrderedIds.length}`;
+    },
+
+    get hasUnsavedChanges() {
+      const fields = ['title', 'artist', 'album', 'album_artist', 'track_number', 'track_total', 'disc_number', 'disc_total', 'year', 'genre'];
+      return fields.some(field => this.hasFieldChanged(field));
+    },
+
     async open(data) {
       this.tracks = data.tracks || (data.track ? [data.track] : []);
       this.library = data.library;
       this.isOpen = true;
       this.isLoading = true;
       this.mixedFields = new Set();
+
+      this._sessionId = data.sessionId || null;
+      this.navigationEnabled = this.tracks.length > 1;
+      this._batchTrackIds = this.tracks.map(t => t.id);
+
+      const batchIdSet = new Set(this._batchTrackIds);
+      this._batchOrderedIds = this.libraryTracks
+        .filter(t => batchIdSet.has(t.id))
+        .map(t => t.id);
+
+      this.currentTrackId = data.anchorTrackId || this._batchOrderedIds[0] || this.tracks[0]?.id || null;
 
       try {
         await this.loadMetadata();
@@ -72,6 +119,11 @@ export function createMetadataModal(Alpine) {
       this.tracks = [];
       this.library = null;
       this.mixedFields = new Set();
+      this.navigationEnabled = false;
+      this.currentTrackId = null;
+      this._batchTrackIds = [];
+      this._batchOrderedIds = [];
+      this._sessionId = null;
       this.$store.ui.closeModal();
     },
 
@@ -94,8 +146,11 @@ export function createMetadataModal(Alpine) {
     },
 
     async loadSingleMetadata() {
+      this.mixedFields = new Set();
+
       const track = this.tracks[0];
       const trackPath = this.getTrackPath(track);
+
       if (!trackPath) {
         throw new Error('No track path available');
       }
@@ -231,10 +286,29 @@ export function createMetadataModal(Alpine) {
       return this.metadata[field] !== this.originalMetadata[field];
     },
 
-    async save() {
+    _getChangedFields() {
+      const allFields = ['title', 'artist', 'album', 'album_artist', 'track_number', 'track_total', 'disc_number', 'disc_total', 'year', 'genre'];
+      const changed = {};
+      for (const field of allFields) {
+        if (this.hasFieldChanged(field)) {
+          changed[field] = {
+            from: this.originalMetadata[field],
+            to: this.metadata[field],
+          };
+        }
+      }
+      return changed;
+    },
+
+    async saveCurrentEdits({ close = true, silent = false }) {
       if (!window.__TAURI__) {
-        Alpine.store('ui').toast('Cannot save: Tauri not available', 'error');
-        return;
+        if (!silent) Alpine.store('ui').toast('Cannot save: Tauri not available', 'error');
+        return false;
+      }
+
+      if (!this.hasUnsavedChanges) {
+        if (close) this.close();
+        return true;
       }
 
       this.isSaving = true;
@@ -252,7 +326,7 @@ export function createMetadataModal(Alpine) {
 
           const fields = ['title', 'artist', 'album', 'album_artist', 'genre'];
           for (const field of fields) {
-            if (this.hasFieldChanged(field) || !this.isBatchEdit) {
+            if (this.hasFieldChanged(field)) {
               update[field] = this.metadata[field] || null;
               hasChanges = true;
             }
@@ -260,7 +334,7 @@ export function createMetadataModal(Alpine) {
 
           const intFields = ['track_number', 'track_total', 'disc_number', 'disc_total', 'year'];
           for (const field of intFields) {
-            if (this.hasFieldChanged(field) || !this.isBatchEdit) {
+            if (this.hasFieldChanged(field)) {
               update[field] = this.metadata[field] ? parseInt(this.metadata[field], 10) : null;
               hasChanges = true;
             }
@@ -273,8 +347,10 @@ export function createMetadataModal(Alpine) {
         }
 
         if (savedCount > 0) {
-          const msg = savedCount === 1 ? 'Metadata saved successfully' : `Metadata saved for ${savedCount} tracks`;
-          Alpine.store('ui').toast(msg, 'success');
+          if (!silent) {
+            const msg = savedCount === 1 ? 'Metadata saved successfully' : `Metadata saved for ${savedCount} tracks`;
+            Alpine.store('ui').toast(msg, 'success');
+          }
 
           if (this.library) {
             for (const track of this.tracks) {
@@ -283,13 +359,97 @@ export function createMetadataModal(Alpine) {
           }
         }
 
-        this.close();
+        this.originalMetadata = { ...this.metadata };
+
+        if (close) this.close();
+        return true;
       } catch (error) {
         console.error('[metadata] Failed to save metadata:', error);
         Alpine.store('ui').toast(`Failed to save: ${error}`, 'error');
+        return false;
       } finally {
         this.isSaving = false;
       }
+    },
+
+    async save() {
+      await this.saveCurrentEdits({ close: true, silent: false });
+    },
+
+    async navigate(delta) {
+      if (!this.navigationEnabled || this.isSaving || this.isLoading) {
+        return;
+      }
+
+      if (this._batchOrderedIds.length < 2) {
+        return;
+      }
+
+      const currentIdx = this.currentBatchIndex;
+      if (currentIdx < 0) {
+        return;
+      }
+
+      let newIdx = currentIdx + delta;
+      if (newIdx < 0) {
+        newIdx = this._batchOrderedIds.length - 1;
+      } else if (newIdx >= this._batchOrderedIds.length) {
+        newIdx = 0;
+      }
+
+      const newTrackId = this._batchOrderedIds[newIdx];
+      const newTrack = this.libraryTracks.find(t => t.id === newTrackId);
+
+      if (!newTrack) {
+        return;
+      }
+
+      const saved = await this.saveCurrentEdits({ close: false, silent: true });
+      if (!saved && this.hasUnsavedChanges) {
+        return;
+      }
+
+      const libraryIndex = this.libraryTracks.findIndex(t => t.id === newTrackId);
+      this.updateLibrarySelection(newTrackId, libraryIndex);
+
+      this.tracks = [newTrack];
+      this.currentTrackId = newTrackId;
+      this.mixedFields = new Set();
+
+      this.isLoading = true;
+      try {
+        await this.loadSingleMetadata();
+        this.originalMetadata = { ...this.metadata };
+      } catch (error) {
+        console.error('[metadata] Failed to load metadata for navigation:', error);
+        Alpine.store('ui').toast('Failed to load track metadata', 'error');
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    updateLibrarySelection(trackId, index) {
+      const browserEl = document.querySelector('[x-data="libraryBrowser"]');
+      if (!browserEl) return;
+
+      const browser = window.Alpine.$data(browserEl);
+      if (!browser) return;
+
+      browser.selectedTracks.clear();
+      browser.selectedTracks.add(trackId);
+      browser.lastSelectedIndex = index;
+
+      if (typeof browser.scrollToTrack === 'function') {
+        browser.scrollToTrack(trackId);
+      }
+    },
+
+    navigatePrev() {
+      this.navigate(-1);
+    },
+
+    navigateNext() {
+      this.navigate(1);
     },
 
     formatDuration(seconds) {
@@ -304,6 +464,12 @@ export function createMetadataModal(Alpine) {
         this.close();
       } else if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
         this.save();
+      } else if (event.key === 'ArrowLeft' && this.navigationEnabled) {
+        event.preventDefault();
+        this.navigatePrev();
+      } else if (event.key === 'ArrowRight' && this.navigationEnabled) {
+        event.preventDefault();
+        this.navigateNext();
       }
     },
   }));

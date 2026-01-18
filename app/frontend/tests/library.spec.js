@@ -2063,3 +2063,309 @@ test.describe('Metadata Editing (task-149)', () => {
     expect(trackCount).toBeGreaterThan(0);
   });
 });
+
+test.describe('Metadata Editor Navigation (task-166)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+  });
+
+  test('should show navigation arrows when multiple tracks are selected', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const secondTrack = page.locator('[data-track-id]').nth(1);
+    await secondTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const prevButton = page.locator('[data-testid="metadata-nav-prev"]');
+    const nextButton = page.locator('[data-testid="metadata-nav-next"]');
+    const indicator = page.locator('[data-testid="metadata-nav-indicator"]');
+
+    await expect(prevButton).toBeVisible();
+    await expect(nextButton).toBeVisible();
+    await expect(indicator).toBeVisible();
+  });
+
+  test('should NOT show navigation arrows for single track selection', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const prevButton = page.locator('[data-testid="metadata-nav-prev"]');
+    await expect(prevButton).not.toBeVisible();
+  });
+
+  test('should show track position indicator with correct format', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const secondTrack = page.locator('[data-track-id]').nth(1);
+    await secondTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const indicator = page.locator('[data-testid="metadata-nav-indicator"]');
+    const indicatorText = await indicator.textContent();
+
+    expect(indicatorText).toMatch(/^\d+ \/ \d+$/);
+  });
+
+  test('should navigate to next track with ArrowRight key', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const indicatorBefore = await page.locator('[data-testid="metadata-nav-indicator"]').textContent();
+    const [indexBefore] = indicatorBefore.split(' / ').map(Number);
+
+    await page.keyboard.press('ArrowRight');
+
+    await page.waitForTimeout(500);
+
+    const indicatorAfter = await page.locator('[data-testid="metadata-nav-indicator"]').textContent();
+    const [indexAfter] = indicatorAfter.split(' / ').map(Number);
+
+    expect(indexAfter).toBe(indexBefore + 1);
+
+    const modal = page.locator('[data-testid="metadata-modal"]');
+    await expect(modal).toBeVisible();
+  });
+
+  test('should navigate to previous track with ArrowLeft key', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const secondTrack = page.locator('[data-track-id]').nth(1);
+    await secondTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const indicatorBefore = await page.locator('[data-testid="metadata-nav-indicator"]').textContent();
+    const [indexBefore] = indicatorBefore.split(' / ').map(Number);
+
+    if (indexBefore > 1) {
+      await page.keyboard.press('ArrowLeft');
+
+      await page.waitForTimeout(500);
+
+      const indicatorAfter = await page.locator('[data-testid="metadata-nav-indicator"]').textContent();
+      const [indexAfter] = indicatorAfter.split(' / ').map(Number);
+
+      expect(indexAfter).toBe(indexBefore - 1);
+    }
+
+    const modal = page.locator('[data-testid="metadata-modal"]');
+    await expect(modal).toBeVisible();
+  });
+
+  test('should deselect other tracks when navigating', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const selectedBefore = await page.locator('[data-track-id].track-row-selected').count();
+    expect(selectedBefore).toBe(2);
+
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    await page.keyboard.press('ArrowRight');
+
+    await page.waitForTimeout(500);
+
+    const selectedAfter = await page.locator('[data-track-id].track-row-selected').count();
+    expect(selectedAfter).toBe(1);
+  });
+
+  test('should switch from batch edit to single track edit on navigation', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const modalTitleBefore = await page.locator('[data-testid="metadata-modal"] h2').textContent();
+    expect(modalTitleBefore).toContain('2 tracks');
+
+    await page.keyboard.press('ArrowRight');
+
+    await page.waitForTimeout(500);
+
+    const modalTitleAfter = await page.locator('[data-testid="metadata-modal"] h2').textContent();
+    expect(modalTitleAfter).toBe('Edit Metadata');
+  });
+
+  test('should navigate using arrow buttons', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const indicatorBefore = await page.locator('[data-testid="metadata-nav-indicator"]').textContent();
+    const [indexBefore] = indicatorBefore.split(' / ').map(Number);
+
+    const nextButton = page.locator('[data-testid="metadata-nav-next"]');
+    await nextButton.click();
+
+    await page.waitForTimeout(500);
+
+    const indicatorAfter = await page.locator('[data-testid="metadata-nav-indicator"]').textContent();
+    const [indexAfter] = indicatorAfter.split(' / ').map(Number);
+
+    expect(indexAfter).toBe(indexBefore + 1);
+  });
+
+  test('should disable prev button at first track', async ({ page }) => {
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click();
+
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const indicator = await page.locator('[data-testid="metadata-nav-indicator"]').textContent();
+    const [index] = indicator.split(' / ').map(Number);
+
+    if (index === 1) {
+      const prevButton = page.locator('[data-testid="metadata-nav-prev"]');
+      await expect(prevButton).toBeDisabled();
+    }
+  });
+
+  test('arrow keys should work even when input is focused', async ({ page }) => {
+    const isMac = process.platform === 'darwin';
+    const modifier = isMac ? 'Meta' : 'Control';
+
+    await clickTrackRow(page, 0);
+    await page.keyboard.down(modifier);
+    await clickTrackRow(page, 1);
+    await page.keyboard.up(modifier);
+
+    const firstTrack = page.locator('[data-track-id]').first();
+    await firstTrack.click({ button: 'right' });
+
+    await page.waitForSelector('[data-testid="track-context-menu"]', { state: 'visible' });
+
+    const editMetadataItem = page.locator('[data-testid="track-context-menu"] .context-menu-item:has-text("Edit Metadata")');
+    await editMetadataItem.click();
+
+    await page.waitForSelector('[data-testid="metadata-modal"]', { state: 'visible', timeout: 5000 });
+
+    const artistInput = page.locator('[data-testid="metadata-artist"]');
+    await artistInput.focus();
+
+    const indicatorBefore = await page.locator('[data-testid="metadata-nav-indicator"]').textContent();
+    const [indexBefore] = indicatorBefore.split(' / ').map(Number);
+
+    await page.keyboard.press('ArrowRight');
+
+    await page.waitForTimeout(500);
+
+    const indicatorAfter = await page.locator('[data-testid="metadata-nav-indicator"]').textContent();
+    const [indexAfter] = indicatorAfter.split(' / ').map(Number);
+
+    expect(indexAfter).toBe(indexBefore + 1);
+  });
+});

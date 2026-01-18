@@ -1143,7 +1143,11 @@ export function createLibraryBrowser(Alpine) {
       if (tracks.length === 0) {
         tracks.push(track);
       }
-      this.$store.ui.openModal('editMetadata', { tracks, library: this.library });
+      this.$store.ui.openModal('editMetadata', {
+        tracks,
+        library: this.library,
+        anchorTrackId: track.id,
+      });
     },
 
     async removeSelected() {
