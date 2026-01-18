@@ -101,7 +101,7 @@ export function createMetadataModal(Alpine) {
         .filter(t => batchIdSet.has(t.id))
         .map(t => t.id);
 
-      this.currentTrackId = data.anchorTrackId || this._batchOrderedIds[0] || this.tracks[0]?.id || null;
+      this.currentTrackId = this._batchOrderedIds[0] || this.tracks[0]?.id || null;
 
       try {
         await this.loadMetadata();
