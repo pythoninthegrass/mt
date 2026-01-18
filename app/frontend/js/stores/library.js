@@ -39,6 +39,10 @@ export function createLibraryStore(Alpine) {
     },
     
     async load() {
+      console.log('[library]', 'load', {
+        action: 'loading_library'
+      });
+
       this.loading = true;
       try {
         const data = await api.library.getTracks({ limit: 10000 });
@@ -46,8 +50,13 @@ export function createLibraryStore(Alpine) {
         this.totalTracks = data.total || this.tracks.length;
         this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
         this.applyFilters();
+
+        console.log('[library]', 'load_complete', {
+          trackCount: this.tracks.length,
+          totalDuration: Math.round(this.totalDuration / 1000) + 's'
+        });
       } catch (error) {
-        console.error('Failed to load library:', error);
+        console.error('[library]', 'load_error', { error: error.message });
       } finally {
         this.loading = false;
       }
@@ -146,15 +155,24 @@ export function createLibraryStore(Alpine) {
      * @param {string} query - Search query
      */
     search(query) {
+      console.log('[library]', 'search', {
+        query,
+        queryLength: query.length
+      });
+
       this.searchQuery = query;
-      
+
       // Debounce search
       if (this._searchDebounce) {
         clearTimeout(this._searchDebounce);
       }
-      
+
       this._searchDebounce = setTimeout(() => {
         this.applyFilters();
+        console.log('[library]', 'search_results', {
+          query,
+          resultCount: this.filteredTracks.length
+        });
       }, 150);
     },
     
@@ -279,6 +297,9 @@ export function createLibraryStore(Alpine) {
      * @param {string} field - Field to sort by
      */
     setSortBy(field) {
+      const previousSortBy = this.sortBy;
+      const previousSortOrder = this.sortOrder;
+
       if (this.sortBy === field) {
         // Toggle order if same field
         this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
@@ -286,6 +307,14 @@ export function createLibraryStore(Alpine) {
         this.sortBy = field;
         this.sortOrder = 'asc';
       }
+
+      console.log('[library]', 'set_sort', {
+        field: this.sortBy,
+        order: this.sortOrder,
+        previousField: previousSortBy,
+        previousOrder: previousSortOrder
+      });
+
       this.applyFilters();
     },
     

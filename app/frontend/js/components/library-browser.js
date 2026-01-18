@@ -280,9 +280,20 @@ export function createLibraryBrowser(Alpine) {
           requestAnimationFrame(() => {
             this.distributeExtraWidth();
           });
+
+          // Debounce resize handler to prevent ResizeObserver loop errors
+          let resizeTimeout;
           this.resizeObserver = new ResizeObserver(() => {
-            this.containerWidth = container.clientWidth;
-            this.distributeExtraWidth();
+            if (resizeTimeout) {
+              clearTimeout(resizeTimeout);
+            }
+            resizeTimeout = setTimeout(() => {
+              // Use requestAnimationFrame to batch DOM reads/writes
+              requestAnimationFrame(() => {
+                this.containerWidth = container.clientWidth;
+                this.distributeExtraWidth();
+              });
+            }, 100);
           });
           this.resizeObserver.observe(container);
         }
@@ -983,6 +994,11 @@ export function createLibraryBrowser(Alpine) {
     async addSelectedToQueue() {
       const tracks = this.getSelectedTracks();
       if (tracks.length > 0) {
+        console.log('[context-menu]', 'add_to_queue', {
+          trackCount: tracks.length,
+          trackIds: tracks.map(t => t.id)
+        });
+
         await this.queue.addTracks(tracks);
         this.$store.ui.toast(
           `Added ${tracks.length} track${tracks.length > 1 ? 's' : ''} to queue`,
@@ -998,6 +1014,11 @@ export function createLibraryBrowser(Alpine) {
     async playSelectedNext() {
       const tracks = this.getSelectedTracks();
       if (tracks.length > 0) {
+        console.log('[context-menu]', 'play_next', {
+          trackCount: tracks.length,
+          trackIds: tracks.map(t => t.id)
+        });
+
         await this.queue.playNextTracks(tracks);
         this.$store.ui.toast(
           `Playing ${tracks.length} track${tracks.length > 1 ? 's' : ''} next`,
@@ -1010,6 +1031,12 @@ export function createLibraryBrowser(Alpine) {
     async addToPlaylist(playlistId) {
       const tracks = this.getSelectedTracks();
       if (tracks.length === 0) return;
+
+      console.log('[context-menu]', 'add_to_playlist', {
+        playlistId,
+        trackCount: tracks.length,
+        trackIds: tracks.map((t) => t.id)
+      });
 
       try {
         const trackIds = tracks.map((t) => t.id);
@@ -1031,7 +1058,10 @@ export function createLibraryBrowser(Alpine) {
 
         window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
       } catch (error) {
-        console.error('Failed to add to playlist:', error);
+        console.error('[context-menu]', 'add_to_playlist_error', {
+          playlistId,
+          error: error.message
+        });
         this.$store.ui.toast('Failed to add to playlist', 'error');
       }
 
@@ -1123,6 +1153,12 @@ export function createLibraryBrowser(Alpine) {
         return;
       }
 
+      console.log('[context-menu]', 'show_in_finder', {
+        trackId: track.id,
+        trackTitle: track.title,
+        trackPath
+      });
+
       try {
         if (window.__TAURI__) {
           const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
@@ -1131,18 +1167,28 @@ export function createLibraryBrowser(Alpine) {
           console.log('Show in folder (browser mode):', trackPath);
         }
       } catch (error) {
-        console.error('Failed to show in folder:', error);
+        console.error('[context-menu]', 'show_in_finder_error', {
+          trackId: track.id,
+          error: error.message
+        });
         this.$store.ui.toast('Failed to open folder', 'error');
       }
       this.contextMenu = null;
     },
 
     async editMetadata(track) {
-      this.contextMenu = null;
       const tracks = this.getSelectedTracks();
       if (tracks.length === 0) {
         tracks.push(track);
       }
+
+      console.log('[context-menu]', 'edit_metadata', {
+        trackCount: tracks.length,
+        trackIds: tracks.map(t => t.id),
+        anchorTrackId: track.id
+      });
+
+      this.contextMenu = null;
       this.$store.ui.openModal('editMetadata', {
         tracks,
         library: this.library,
@@ -1153,6 +1199,11 @@ export function createLibraryBrowser(Alpine) {
     async removeSelected() {
       const tracks = this.getSelectedTracks();
       if (tracks.length === 0) return;
+
+      console.log('[context-menu]', 'remove_from_library', {
+        trackCount: tracks.length,
+        trackIds: tracks.map(t => t.id)
+      });
 
       const confirmMsg = tracks.length === 1
         ? `Remove "${tracks[0].title}" from library?`

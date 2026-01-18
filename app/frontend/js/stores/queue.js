@@ -89,12 +89,19 @@ export function createQueueStore(Alpine) {
     async add(tracks, playNow = false) {
       const tracksArray = Array.isArray(tracks) ? tracks : [tracks];
       const startIndex = this.items.length;
-      
+
+      console.log('[queue]', 'add_tracks', {
+        count: tracksArray.length,
+        trackIds: tracksArray.map(t => t.id),
+        playNow,
+        queueSizeBefore: this.items.length
+      });
+
       this.items.push(...tracksArray);
       this._originalOrder.push(...tracksArray);
-      
+
       await this.save();
-      
+
       if (playNow && tracksArray.length > 0) {
         await this.playIndex(startIndex);
       }
@@ -117,16 +124,24 @@ export function createQueueStore(Alpine) {
      */
     async insert(index, tracks) {
       const tracksArray = Array.isArray(tracks) ? tracks : [tracks];
+
+      console.log('[queue]', 'insert_tracks', {
+        count: tracksArray.length,
+        trackIds: tracksArray.map(t => t.id),
+        insertIndex: index,
+        currentIndex: this.currentIndex
+      });
+
       this.items.splice(index, 0, ...tracksArray);
-      
+
       // Adjust current index if needed
       if (this.currentIndex >= index) {
         this.currentIndex += tracksArray.length;
       }
-      
+
       await this.save();
     },
-    
+
     /**
      * Insert tracks to play next (after currently playing track)
      * @param {Array|Object} tracks - Track(s) to insert
@@ -134,9 +149,16 @@ export function createQueueStore(Alpine) {
     async playNextTracks(tracks) {
       const tracksArray = Array.isArray(tracks) ? tracks : [tracks];
       if (tracksArray.length === 0) return;
-      
+
       // Insert after current track, or at beginning if nothing playing
       const insertIndex = this.currentIndex >= 0 ? this.currentIndex + 1 : 0;
+
+      console.log('[queue]', 'play_next_tracks', {
+        count: tracksArray.length,
+        trackIds: tracksArray.map(t => t.id),
+        insertIndex
+      });
+
       await this.insert(insertIndex, tracksArray);
     },
     
@@ -146,9 +168,18 @@ export function createQueueStore(Alpine) {
      */
     async remove(index) {
       if (index < 0 || index >= this.items.length) return;
-      
+
+      const removedTrack = this.items[index];
+      console.log('[queue]', 'remove_track', {
+        index,
+        trackId: removedTrack?.id,
+        trackTitle: removedTrack?.title,
+        wasCurrentTrack: index === this.currentIndex,
+        queueSizeBefore: this.items.length
+      });
+
       this.items.splice(index, 1);
-      
+
       // Adjust current index
       if (index < this.currentIndex) {
         this.currentIndex--;
@@ -161,15 +192,20 @@ export function createQueueStore(Alpine) {
           this.currentIndex = this.items.length - 1;
         }
       }
-      
+
       await this.save();
     },
-    
+
     async clear() {
+      console.log('[queue]', 'clear', {
+        previousSize: this.items.length,
+        hadCurrentTrack: this.currentIndex >= 0
+      });
+
       this.items = [];
       this.currentIndex = -1;
       this._originalOrder = [];
-      
+
       Alpine.store('player').stop();
       await this.save();
     },
@@ -183,10 +219,19 @@ export function createQueueStore(Alpine) {
       if (from === to) return;
       if (from < 0 || from >= this.items.length) return;
       if (to < 0 || to >= this.items.length) return;
-      
+
+      const track = this.items[from];
+      console.log('[queue]', 'reorder_track', {
+        from,
+        to,
+        trackId: track?.id,
+        trackTitle: track?.title,
+        wasCurrentTrack: from === this.currentIndex
+      });
+
       const [item] = this.items.splice(from, 1);
       this.items.splice(to, 0, item);
-      
+
       // Adjust current index
       if (from === this.currentIndex) {
         this.currentIndex = to;
@@ -195,7 +240,7 @@ export function createQueueStore(Alpine) {
       } else if (from > this.currentIndex && to <= this.currentIndex) {
         this.currentIndex++;
       }
-      
+
       await this.save();
     },
     
@@ -343,27 +388,44 @@ export function createQueueStore(Alpine) {
     
     async shuffleQueue() {
       if (this.items.length < 2) return;
-      
+
+      console.log('[queue]', 'shuffle', {
+        queueSize: this.items.length,
+        currentIndex: this.currentIndex
+      });
+
       this._shuffleItems();
       this._originalOrder = [...this.items];
       await this.save();
     },
-    
+
     async cycleLoop() {
       const modes = ['none', 'all', 'one'];
       const currentIdx = modes.indexOf(this.loop);
-      this.loop = modes[(currentIdx + 1) % modes.length];
+      const newMode = modes[(currentIdx + 1) % modes.length];
+
+      console.log('[queue]', 'cycle_loop', {
+        previousMode: this.loop,
+        newMode
+      });
+
+      this.loop = newMode;
       this._repeatOnePending = false;
       this._saveLoopState();
       await this.save();
     },
-    
+
     /**
      * Set loop mode directly
      * @param {string} mode - 'none', 'all', or 'one'
      */
     async setLoop(mode) {
       if (['none', 'all', 'one'].includes(mode)) {
+        console.log('[queue]', 'set_loop', {
+          previousMode: this.loop,
+          newMode: mode
+        });
+
         this.loop = mode;
         this._repeatOnePending = false;
         this._saveLoopState();

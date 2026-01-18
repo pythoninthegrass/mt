@@ -81,20 +81,35 @@ export function createUIStore(Alpine) {
     
     setTheme(theme) {
       if (['light', 'dark', 'system'].includes(theme)) {
+        console.log('[settings]', 'set_theme', {
+          previousTheme: this.theme,
+          newTheme: theme
+        });
+
         this.theme = theme;
         this.applyTheme();
       }
     },
-    
+
     setThemePreset(preset) {
       if (['light', 'metro-teal'].includes(preset)) {
+        console.log('[settings]', 'set_theme_preset', {
+          previousPreset: this.themePreset,
+          newPreset: preset
+        });
+
         this.themePreset = preset;
         this.applyThemePreset();
       }
     },
-    
+
     setSettingsSection(section) {
       if (['general', 'appearance', 'shortcuts', 'sorting', 'advanced'].includes(section)) {
+        console.log('[settings]', 'navigate_section', {
+          previousSection: this.settingsSection,
+          newSection: section
+        });
+
         this.settingsSection = section;
       }
     },

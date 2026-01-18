@@ -80,57 +80,79 @@ export function createPlayerStore(Alpine) {
         console.error('Cannot play track without filepath/path:', track);
         return;
       }
-      
+
+      console.log('[playback]', 'play_track', {
+        trackId: track.id,
+        trackTitle: track.title,
+        trackArtist: track.artist,
+        trackPath
+      });
+
       try {
         const info = await invoke('audio_load', { path: trackPath });
         const trackDurationMs = track.duration ? Math.round(track.duration * 1000) : 0;
         const durationMs = (info.duration_ms > 0 ? info.duration_ms : trackDurationMs) || 0;
-        console.debug('[playTrack] duration sources:', { 
-          rust: info.duration_ms, 
-          track: track.duration, 
-          trackMs: trackDurationMs, 
-          final: durationMs 
+        console.debug('[playTrack] duration sources:', {
+          rust: info.duration_ms,
+          track: track.duration,
+          trackMs: trackDurationMs,
+          final: durationMs
         });
         this.currentTrack = { ...track, duration: durationMs };
         this.duration = durationMs;
         this.currentTime = 0;
         this.progress = 0;
         this._playCountUpdated = false;
-        
+
         await invoke('audio_play');
         this.isPlaying = true;
-        
+
         await this.checkFavoriteStatus();
         await this.loadArtwork();
         await this._updateNowPlayingMetadata();
         await this._updateNowPlayingState();
       } catch (error) {
-        console.error('Failed to play track:', error);
+        console.error('[playback]', 'play_track_error', { trackId: track.id, error: error.message });
         this.isPlaying = false;
       }
     },
     
     async pause() {
+      console.log('[playback]', 'pause', {
+        trackId: this.currentTrack?.id,
+        currentTime: this.currentTime
+      });
+
       try {
         await invoke('audio_pause');
         this.isPlaying = false;
         await this._updateNowPlayingState();
       } catch (error) {
-        console.error('Failed to pause:', error);
+        console.error('[playback]', 'pause_error', { error: error.message });
       }
     },
     
     async resume() {
+      console.log('[playback]', 'resume', {
+        trackId: this.currentTrack?.id,
+        currentTime: this.currentTime
+      });
+
       try {
         await invoke('audio_play');
         this.isPlaying = true;
         await this._updateNowPlayingState();
       } catch (error) {
-        console.error('Failed to resume:', error);
+        console.error('[playback]', 'resume_error', { error: error.message });
       }
     },
-    
+
     async togglePlay() {
+      console.log('[playback]', 'toggle_play', {
+        currentlyPlaying: this.isPlaying,
+        hasTrack: !!this.currentTrack
+      });
+
       if (this.isPlaying) {
         await this.pause();
       } else if (this.currentTrack) {
@@ -148,16 +170,26 @@ export function createPlayerStore(Alpine) {
         }
       }
     },
-    
+
     async previous() {
+      console.log('[playback]', 'previous', {
+        currentTrackId: this.currentTrack?.id
+      });
       await Alpine.store('queue').skipPrevious();
     },
-    
+
     async next() {
+      console.log('[playback]', 'next', {
+        currentTrackId: this.currentTrack?.id
+      });
       await Alpine.store('queue').skipNext();
     },
-    
+
     async stop() {
+      console.log('[playback]', 'stop', {
+        trackId: this.currentTrack?.id
+      });
+
       try {
         await invoke('audio_stop');
         this.isPlaying = false;
@@ -166,27 +198,33 @@ export function createPlayerStore(Alpine) {
         this.currentTrack = null;
         await invoke('media_set_stopped').catch(() => {});
       } catch (error) {
-        console.error('Failed to stop:', error);
+        console.error('[playback]', 'stop_error', { error: error.message });
       }
     },
     
     async seek(positionMs) {
       if (isNaN(positionMs) || positionMs < 0) return;
-      
+
       if (this._seekDebounce) {
         clearTimeout(this._seekDebounce);
       }
-      
+
       const pos = Math.max(0, Math.round(positionMs));
       this.isSeeking = true;
       this.currentTime = pos;
       this.progress = this.duration > 0 ? (pos / this.duration) * 100 : 0;
-      
+
+      console.log('[playback]', 'seek', {
+        trackId: this.currentTrack?.id,
+        positionMs: pos,
+        progressPercent: this.progress.toFixed(1)
+      });
+
       this._seekDebounce = setTimeout(async () => {
         try {
           await invoke('audio_seek', { positionMs: pos });
         } catch (error) {
-          console.error('[seek] Failed to seek:', error);
+          console.error('[playback]', 'seek_error', { error: error.message, positionMs: pos });
         } finally {
           this.isSeeking = false;
           this._seekDebounce = null;
@@ -203,6 +241,12 @@ export function createPlayerStore(Alpine) {
     
     async setVolume(vol) {
       const clampedVol = Math.max(0, Math.min(100, vol));
+
+      console.log('[playback]', 'set_volume', {
+        volume: clampedVol,
+        previousVolume: this.volume
+      });
+
       try {
         await invoke('audio_set_volume', { volume: clampedVol / 100 });
         this.volume = clampedVol;
@@ -210,11 +254,16 @@ export function createPlayerStore(Alpine) {
           this.muted = false;
         }
       } catch (error) {
-        console.error('Failed to set volume:', error);
+        console.error('[playback]', 'set_volume_error', { error: error.message, volume: clampedVol });
       }
     },
-    
+
     async toggleMute() {
+      console.log('[playback]', 'toggle_mute', {
+        currentlyMuted: this.muted,
+        currentVolume: this.volume
+      });
+
       if (this.muted) {
         await this.setVolume(this._previousVolume || 100);
         this.muted = false;
@@ -242,7 +291,14 @@ export function createPlayerStore(Alpine) {
     
     async toggleFavorite() {
       if (!this.currentTrack?.id) return;
-      
+
+      console.log('[playback]', 'toggle_favorite', {
+        trackId: this.currentTrack.id,
+        trackTitle: this.currentTrack.title,
+        currentlyFavorite: this.isFavorite,
+        action: this.isFavorite ? 'remove' : 'add'
+      });
+
       try {
         if (this.isFavorite) {
           await api.favorites.remove(this.currentTrack.id);
@@ -251,10 +307,13 @@ export function createPlayerStore(Alpine) {
           await api.favorites.add(this.currentTrack.id);
           this.isFavorite = true;
         }
-        
+
         Alpine.store('library').refreshIfLikedSongs();
       } catch (error) {
-        console.error('Failed to toggle favorite:', error);
+        console.error('[playback]', 'toggle_favorite_error', {
+          trackId: this.currentTrack.id,
+          error: error.message
+        });
       }
     },
     
@@ -263,11 +322,14 @@ export function createPlayerStore(Alpine) {
         this.artwork = null;
         return;
       }
-      
+
       try {
         this.artwork = await api.library.getArtwork(this.currentTrack.id);
       } catch (error) {
-        console.error('Failed to load artwork:', error);
+        // Silently fail if artwork not found (404 is expected for tracks without artwork)
+        if (error.status !== 404) {
+          console.error('Failed to load artwork:', error);
+        }
         this.artwork = null;
       }
     },

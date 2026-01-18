@@ -1,10 +1,10 @@
 ---
 id: task-167
 title: Add comprehensive logging to all frontend user-facing operations
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-18 03:09'
-updated_date: '2026-01-18 03:10'
+updated_date: '2026-01-18 04:07'
 labels:
   - frontend
   - logging
@@ -37,13 +37,13 @@ This logging will help with:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 All playback operations (play, pause, stop, next, previous, seek, volume change) log with '[playback]' category
-- [ ] #2 All queue operations (add tracks, remove tracks, reorder, clear, shuffle, loop toggle) log with '[queue]' category
-- [ ] #3 All library operations (search, filter, sort, load library, refresh) log with '[library]' category
-- [ ] #4 All settings operations (theme change, preference updates) log with '[settings]' category
-- [ ] #5 All context menu actions (show in finder, delete track, etc.) log with appropriate category
-- [ ] #6 Each log entry includes operation name and relevant context data (IDs, names, paths)
-- [ ] #7 Logging pattern is consistent across all components (same format and structure)
-- [ ] #8 Log data includes sufficient context for debugging without exposing sensitive information
-- [ ] #9 Existing metadata logging pattern is maintained (already implemented)
+- [x] #1 All playback operations (play, pause, stop, next, previous, seek, volume change) log with '[playback]' category
+- [x] #2 All queue operations (add tracks, remove tracks, reorder, clear, shuffle, loop toggle) log with '[queue]' category
+- [x] #3 All library operations (search, filter, sort, load library, refresh) log with '[library]' category
+- [x] #4 All settings operations (theme change, preference updates) log with '[settings]' category
+- [x] #5 All context menu actions (show in finder, delete track, etc.) log with appropriate category
+- [x] #6 Each log entry includes operation name and relevant context data (IDs, names, paths)
+- [x] #7 Logging pattern is consistent across all components (same format and structure)
+- [x] #8 Log data includes sufficient context for debugging without exposing sensitive information
+- [x] #9 Existing metadata logging pattern is maintained (already implemented)
 <!-- AC:END -->
