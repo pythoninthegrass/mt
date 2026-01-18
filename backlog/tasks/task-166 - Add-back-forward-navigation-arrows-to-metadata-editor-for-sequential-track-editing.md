@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-01-18 00:21'
-updated_date: '2026-01-18 00:23'
+updated_date: '2026-01-18 03:28'
 labels:
   - feature
   - ui
@@ -67,14 +67,14 @@ When editing metadata for multiple tracks (e.g., 20 tracks on an album missing t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Multi-select tracks and open metadata modal shows navigation arrows in header
-- [ ] #2 ArrowRight key navigates to next track in library order (auto-saves first)
-- [ ] #3 ArrowLeft key navigates to previous track in library order (auto-saves first)
-- [ ] #4 Navigation deselects other tracks, leaving only the navigated-to track selected
-- [ ] #5 Arrow keys work even when cursor is in an input field
-- [ ] #6 Track position indicator shows current position (e.g., '5 / 20')
+- [x] #1 Multi-select tracks and open metadata modal shows navigation arrows in header
+- [x] #2 ArrowRight key navigates to next track in library order (auto-saves first)
+- [x] #3 ArrowLeft key navigates to previous track in library order (auto-saves first)
+- [x] #4 Navigation deselects other tracks, leaving only the navigated-to track selected
+- [x] #5 Arrow keys work even when cursor is in an input field
+- [x] #6 Track position indicator shows current position (e.g., '5 / 20')
 - [ ] #7 Prev arrow disabled at first track, Next arrow disabled at last track
 - [ ] #8 Library view scrolls to keep current track visible during navigation
 - [ ] #9 Save failure blocks navigation and shows error toast
-- [ ] #10 Playwright tests cover multi-select navigation workflow
+- [x] #10 Playwright tests cover multi-select navigation workflow
 <!-- AC:END -->
