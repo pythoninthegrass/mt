@@ -49,14 +49,28 @@ export function createUIStore(Alpine) {
     setView(view) {
       const validViews = ['library', 'queue', 'nowPlaying', 'settings'];
       if (validViews.includes(view) && view !== this.view) {
+        console.log('[navigation]', 'switch_view', {
+          previousView: this.view,
+          newView: view
+        });
+
         if (this.view !== 'settings') {
           this._previousView = this.view;
         }
         this.view = view;
       }
     },
-    
+
     toggleSettings() {
+      const newView = this.view === 'settings'
+        ? (this._previousView || 'library')
+        : 'settings';
+
+      console.log('[navigation]', 'toggle_settings', {
+        previousView: this.view,
+        newView
+      });
+
       if (this.view === 'settings') {
         this.view = this._previousView || 'library';
       } else {

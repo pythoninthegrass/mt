@@ -123,6 +123,10 @@ export function createLibraryStore(Alpine) {
     },
     
     async loadPlaylist(playlistId) {
+      console.log('[navigation]', 'load_playlist', {
+        playlistId
+      });
+
       this.loading = true;
       try {
         const data = await api.playlists.get(playlistId);
@@ -130,9 +134,19 @@ export function createLibraryStore(Alpine) {
         this.totalTracks = this.tracks.length;
         this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
         this.applyFilters();
+
+        console.log('[navigation]', 'load_playlist_complete', {
+          playlistId,
+          playlistName: data.name,
+          trackCount: this.tracks.length
+        });
+
         return data;
       } catch (error) {
-        console.error('Failed to load playlist:', error);
+        console.error('[navigation]', 'load_playlist_error', {
+          playlistId,
+          error: error.message
+        });
         return null;
       } finally {
         this.loading = false;
@@ -140,6 +154,11 @@ export function createLibraryStore(Alpine) {
     },
     
     setSection(section) {
+      console.log('[navigation]', 'switch_section', {
+        previousSection: this.currentSection,
+        newSection: section
+      });
+
       this.currentSection = section;
       window.dispatchEvent(new CustomEvent('mt:section-change', { detail: { section } }));
     },
