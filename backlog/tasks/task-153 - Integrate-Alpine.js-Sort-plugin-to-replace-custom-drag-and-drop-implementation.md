@@ -4,7 +4,7 @@ title: Integrate Alpine.js Sort plugin to replace custom drag-and-drop implement
 status: In Progress
 assignee: []
 created_date: '2026-01-16 22:19'
-updated_date: '2026-01-16 22:21'
+updated_date: '2026-01-18 03:10'
 labels:
   - frontend
   - alpine.js
@@ -12,7 +12,7 @@ labels:
   - tech-debt
 dependencies: []
 priority: high
-ordinal: 24500
+ordinal: 1531.25
 ---
 
 ## Description
