@@ -390,7 +390,7 @@ export function createMetadataModal(Alpine) {
       let newIdx;
 
       if (currentIdx < 0) {
-        newIdx = delta > 0 ? 0 : this._batchOrderedIds.length - 1;
+        newIdx = delta > 0 ? this._batchOrderedIds.length - 1 : 0;
       } else {
         newIdx = currentIdx + delta;
         if (newIdx < 0) {
