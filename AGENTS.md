@@ -149,7 +149,36 @@ npm run test:e2e
 npm run test:e2e:ui
 ```
 
+### Initial setup
+
+```bash
+# Install runtimes
+mise install
+
+# Create Python virtual environment with Python 3.12-3.13
+uv venv --python ">=3.12,<3.13"
+
+# Install Python dependencies (including all extras)
+uv pip install -r pyproject.toml --all-extras
+
+# Copy environment configuration (Last.fm API keys are optional)
+cp .env.example .env
+```
+
 ### Development Workflow
+
+#### Task runner abstraction
+
+```bash
+# After making Python backend changes, rebuild sidecar
+# ! This is called automatically by 'tauri:dev'
+task pex:build
+
+# Start development server (builds sidecar first)
+task tauri:dev
+```
+
+#### Raw commands
 
 ```bash
 # Install dependencies
