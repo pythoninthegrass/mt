@@ -339,6 +339,10 @@ export function createLibraryBrowser(Alpine) {
         }
       });
 
+      window.addEventListener('mt:scroll-to-current-track', () => {
+        this.scrollToTrack(this.player.currentTrack?.id);
+      });
+
       window.addEventListener('mt:section-change', (e) => {
         this.clearSelection();
         const section = e.detail?.section || '';

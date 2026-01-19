@@ -295,7 +295,16 @@ export function createPlayerControls(Alpine) {
     showNowPlaying() {
       this.ui.setView('nowPlaying');
     },
-    
+
+    /**
+     * Jump to current track in library view
+     */
+    jumpToCurrentTrack() {
+      if (this.ui.view === 'library' && this.currentTrack) {
+        window.dispatchEvent(new CustomEvent('mt:scroll-to-current-track'));
+      }
+    },
+
     get library() {
       return this.$store.library;
     },

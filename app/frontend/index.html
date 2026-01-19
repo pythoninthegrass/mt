@@ -1407,7 +1407,7 @@
 
         <!-- Center: Track info + Progress bar + Time -->
         <div class="flex-1 flex flex-col justify-center gap-0.5 min-w-0">
-          <div class="text-sm text-foreground truncate h-5" :class="hasTrack ? 'visible' : 'invisible'" x-text="trackDisplayName"></div>
+          <div class="text-sm text-foreground truncate h-5 select-none cursor-default" :class="hasTrack ? 'visible' : 'invisible'" x-text="trackDisplayName" @dblclick="jumpToCurrentTrack()"></div>
           <div class="flex items-center gap-3">
             <div
               class="flex-1 h-1 bg-muted rounded-full cursor-pointer relative"

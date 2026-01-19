@@ -2,8 +2,11 @@ import { test, expect } from '@playwright/test';
 import {
   waitForAlpine,
   getAlpineStore,
+  setAlpineStoreProperty,
   clickTrackRow,
   doubleClickTrackRow,
+  waitForPlaying,
+  getCurrentTrack,
 } from './fixtures/helpers.js';
 import {
   createPlaylistState,
@@ -106,6 +109,41 @@ test.describe('Library Browser', () => {
     // Verify empty state message
     const emptyState = page.locator('text=Library is empty');
     await expect(emptyState).toBeVisible();
+  });
+
+  test('should scroll to current track when double-clicking track display in bottom bar', async ({ page }) => {
+    // Wait for tracks to load and ensure we're in library view
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    const uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.view).toBe('library');
+
+    // Get the first track from the library
+    const libraryStore = await getAlpineStore(page, 'library');
+    const firstTrack = libraryStore.filteredTracks[0];
+    expect(firstTrack).toBeTruthy();
+
+    // Mock the current track in the player store
+    await setAlpineStoreProperty(page, 'player', 'currentTrack', firstTrack);
+
+    // Scroll away from the first track by scrolling to bottom
+    await page.evaluate(() => {
+      const container = document.querySelector('[x-ref="scrollContainer"]');
+      container.scrollTop = container.scrollHeight;
+    });
+    await page.waitForTimeout(200);
+
+    // Double-click the track display in the bottom bar
+    const trackDisplay = page.locator('footer [x-text="trackDisplayName"]');
+    await expect(trackDisplay).toBeVisible();
+    await trackDisplay.dblclick();
+
+    // Wait for smooth scroll to complete
+    await page.waitForTimeout(1000);
+
+    // Verify the first track is now visible (scrolled into view)
+    const firstTrackElement = page.locator(`[data-track-id="${firstTrack.id}"]`);
+    const isVisible = await firstTrackElement.isVisible();
+    expect(isVisible).toBe(true);
   });
 });
 
