@@ -16,7 +16,7 @@ dependencies = [
     "mutagen>=1.47.0",
     "pex>=2.80.0",
     "pillow>=11.3.0",
-    'pyobjc-framework-Cocoa; platform_system == "Darwin"',
+    'pyobjc-framework-Cocoa; sys_platform == "darwin"',
     'pyobjc-framework-Quartz; sys_platform == "darwin"',
     "python-decouple>=3.8",
     "python-vlc>=3.0.21203",
