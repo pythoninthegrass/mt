@@ -1,10 +1,10 @@
 ---
 id: task-156
 title: Integrate Alpine.js Anchor plugin for context menu and popover positioning
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-01-16 22:19'
-updated_date: '2026-01-18 23:59'
+updated_date: '2026-01-19 06:12'
 labels:
   - frontend
   - alpine.js

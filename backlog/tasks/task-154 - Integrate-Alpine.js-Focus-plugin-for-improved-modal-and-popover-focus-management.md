@@ -3,10 +3,10 @@ id: task-154
 title: >-
   Integrate Alpine.js Focus plugin for improved modal and popover focus
   management
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-01-16 22:19'
-updated_date: '2026-01-16 22:21'
+updated_date: '2026-01-19 06:12'
 labels:
   - frontend
   - alpine.js
