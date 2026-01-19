@@ -2,6 +2,7 @@
 .aider*
 *.db
 *.sqlite
+.playwright-mcp/
 .pyscn/
 .ruff*
 .serena/
