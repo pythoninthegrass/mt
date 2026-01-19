@@ -1,10 +1,10 @@
 ---
 id: task-007
 title: Implement Last.fm scrobbling
-status: Done
+status: In Progress
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2026-01-19 00:53'
+updated_date: '2026-01-19 01:26'
 labels: []
 dependencies: []
 ordinal: 765.625
@@ -30,5 +30,5 @@ Add Last.fm integration for track scrobbling and music discovery, including impo
 - [x] #9 Update DB schema to store Last.fm like status
 - [x] #10 Test the import and favorite marking functionality (backend tested)
 
-- [ ] #11 Sync play count (not implemented - out of scope)
+- [ ] #11 Sync play count
 <!-- AC:END -->

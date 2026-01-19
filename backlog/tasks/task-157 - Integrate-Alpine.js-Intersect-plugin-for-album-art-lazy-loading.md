@@ -1,9 +1,10 @@
 ---
 id: task-157
 title: Integrate Alpine.js Intersect plugin for album art lazy loading
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-01-16 22:19'
+updated_date: '2026-01-19 00:41'
 labels:
   - frontend
   - alpine.js
@@ -11,6 +12,7 @@ labels:
   - future
 dependencies: []
 priority: low
+ordinal: 33000
 ---
 
 ## Description
