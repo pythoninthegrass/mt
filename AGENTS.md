@@ -30,6 +30,7 @@ Always use Context7 MCP when I need library/API documentation, code generation, 
 - microsoft/playwright (for E2E testing)
 - serial-ata/lofty-rs
 - tailwindlabs/tailwindcss
+- websites/last_fm_api
 - websites/rs_tauri_2_9_5
 
 ### Python Libraries

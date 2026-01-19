@@ -8,6 +8,7 @@ favorites, and settings management.
 import os
 import time
 from backend.routes.favorites import router as favorites_router
+from backend.routes.lastfm import router as lastfm_router
 from backend.routes.library import router as library_router
 from backend.routes.playlists import router as playlists_router
 from backend.routes.queue import router as queue_router
@@ -67,6 +68,7 @@ app.include_router(library_router, prefix="/api")
 app.include_router(queue_router, prefix="/api")
 app.include_router(playlists_router, prefix="/api")
 app.include_router(favorites_router, prefix="/api")
+app.include_router(lastfm_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(websocket_router)
 

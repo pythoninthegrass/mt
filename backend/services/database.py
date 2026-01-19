@@ -84,6 +84,17 @@ DB_TABLES = {
             FOREIGN KEY (track_id) REFERENCES library(id) ON DELETE CASCADE
         )
     """,
+    "scrobble_queue": """
+        CREATE TABLE IF NOT EXISTS scrobble_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            artist TEXT NOT NULL,
+            track TEXT NOT NULL,
+            album TEXT,
+            timestamp INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            retry_count INTEGER DEFAULT 0
+        )
+    """,
 }
 
 
@@ -156,6 +167,31 @@ class DatabaseService:
             cursor.execute("ALTER TABLE library ADD COLUMN file_mtime_ns INTEGER")
             conn.commit()
             print("[migration] file_mtime_ns column added successfully")
+
+        # Migration: Add lastfm_loved column for Last.fm loved tracks integration
+        if "lastfm_loved" not in library_columns:
+            print("[migration] Adding lastfm_loved column to library table...")
+            cursor.execute("ALTER TABLE library ADD COLUMN lastfm_loved BOOLEAN DEFAULT FALSE")
+            conn.commit()
+            print("[migration] lastfm_loved column added successfully")
+
+        # Migration: Add scrobble_queue table for offline scrobble retry
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='scrobble_queue'")
+        if not cursor.fetchone():
+            print("[migration] Creating scrobble_queue table...")
+            cursor.execute("""
+                CREATE TABLE scrobble_queue (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    artist TEXT NOT NULL,
+                    track TEXT NOT NULL,
+                    album TEXT,
+                    timestamp INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    retry_count INTEGER DEFAULT 0
+                )
+            """)
+            conn.commit()
+            print("[migration] scrobble_queue table created successfully")
 
     @contextmanager
     def get_connection(self) -> Generator[sqlite3.Connection, None, None]:
@@ -301,10 +337,7 @@ class DatabaseService:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT filepath, file_mtime_ns, file_size FROM library")
-            return {
-                row["filepath"]: (row["file_mtime_ns"], row["file_size"])
-                for row in cursor.fetchall()
-            }
+            return {row["filepath"]: (row["file_mtime_ns"], row["file_size"]) for row in cursor.fetchall()}
 
     def add_track(self, filepath: str, metadata: dict[str, Any]) -> int:
         """Add a track to the library.
@@ -356,19 +389,21 @@ class DatabaseService:
             # Prepare data for bulk insert
             values = []
             for filepath, metadata in tracks:
-                values.append((
-                    filepath,
-                    metadata.get("title"),
-                    metadata.get("artist"),
-                    metadata.get("album"),
-                    metadata.get("album_artist"),
-                    metadata.get("track_number"),
-                    metadata.get("track_total"),
-                    metadata.get("date"),
-                    metadata.get("duration"),
-                    metadata.get("file_size", 0),
-                    metadata.get("file_mtime_ns"),
-                ))
+                values.append(
+                    (
+                        filepath,
+                        metadata.get("title"),
+                        metadata.get("artist"),
+                        metadata.get("album"),
+                        metadata.get("album_artist"),
+                        metadata.get("track_number"),
+                        metadata.get("track_total"),
+                        metadata.get("date"),
+                        metadata.get("duration"),
+                        metadata.get("file_size", 0),
+                        metadata.get("file_mtime_ns"),
+                    )
+                )
 
             # Execute bulk insert with single transaction
             cursor.executemany(
@@ -401,19 +436,21 @@ class DatabaseService:
             # Prepare data for bulk update
             values = []
             for filepath, metadata in tracks:
-                values.append((
-                    metadata.get("title"),
-                    metadata.get("artist"),
-                    metadata.get("album"),
-                    metadata.get("album_artist"),
-                    metadata.get("track_number"),
-                    metadata.get("track_total"),
-                    metadata.get("date"),
-                    metadata.get("duration"),
-                    metadata.get("file_size", 0),
-                    metadata.get("file_mtime_ns"),
-                    filepath,  # WHERE clause parameter
-                ))
+                values.append(
+                    (
+                        metadata.get("title"),
+                        metadata.get("artist"),
+                        metadata.get("album"),
+                        metadata.get("album_artist"),
+                        metadata.get("track_number"),
+                        metadata.get("track_total"),
+                        metadata.get("date"),
+                        metadata.get("duration"),
+                        metadata.get("file_size", 0),
+                        metadata.get("file_mtime_ns"),
+                        filepath,  # WHERE clause parameter
+                    )
+                )
 
             # Execute bulk update with single transaction
             cursor.executemany(
@@ -1133,6 +1170,52 @@ class DatabaseService:
                 if not cursor.fetchone():
                     return candidate
                 suffix += 1
+
+    # ==================== Scrobble Queue Operations ====================
+
+    def queue_scrobble(self, artist: str, track: str, album: str | None, timestamp: int) -> int:
+        """Add a scrobble to the offline queue."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO scrobble_queue (artist, track, album, timestamp) VALUES (?, ?, ?, ?)",
+                (artist, track, album, timestamp),
+            )
+            conn.commit()
+            return cursor.lastrowid
+
+    def get_queued_scrobbles(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Get queued scrobbles for retry."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM scrobble_queue ORDER BY created_at ASC LIMIT ?", (limit,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def remove_queued_scrobble(self, scrobble_id: int) -> bool:
+        """Remove a successfully scrobbled item from the queue."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM scrobble_queue WHERE id = ?", (scrobble_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def increment_scrobble_retry(self, scrobble_id: int) -> int:
+        """Increment retry count for a failed scrobble."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE scrobble_queue SET retry_count = retry_count + 1 WHERE id = ?", (scrobble_id,))
+            conn.commit()
+            cursor.execute("SELECT retry_count FROM scrobble_queue WHERE id = ?", (scrobble_id,))
+            row = cursor.fetchone()
+            return int(row["retry_count"]) if row and row["retry_count"] is not None else 0
+
+    def clean_old_scrobbles(self, max_age_days: int = 7) -> int:
+        """Remove old queued scrobbles that are unlikely to succeed."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM scrobble_queue WHERE created_at < datetime('now', ?)", (f"-{max_age_days} days",))
+            conn.commit()
+            return cursor.rowcount
 
     # ==================== Settings Operations ====================
 
