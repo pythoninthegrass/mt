@@ -1,7 +1,7 @@
 ---
 id: task-157
-title: Integrate Alpine.js Intersect plugin for lazy loading and virtual scrolling
-status: To Do
+title: Integrate Alpine.js Intersect plugin for album art lazy loading
+status: In Progress
 assignee: []
 created_date: '2026-01-16 22:19'
 labels:
@@ -57,9 +57,16 @@ Alpine.start();
 ```
 ✅ **COMPLETED**
 
-### Use Cases (Future Implementation)
+### Current Album Art Implementation
 
-#### 1. Lazy Load Album Artwork (Primary Use Case)
+**Now Playing View**: ✅ Album art is already implemented and displays immediately
+- Shows artwork for currently playing track only
+- Loads as base64 data, no lazy loading needed
+- Single image display, no performance concerns
+
+### Future Use Cases (When Album Art Added to Library)
+
+#### 1. Lazy Load Album Artwork Thumbnails (Primary Use Case)
 ```html
 <template x-for="track in library.filteredTracks" :key="track.id">
   <tr class="library-row">
@@ -134,8 +141,9 @@ The intersect plugin foundation is in place and ready for when album artwork is 
 <!-- AC:BEGIN -->
 - [x] #1 Install and register @alpinejs/intersect plugin
 - [x] #2 Remove infinite scroll implementation (reverted)
-- [ ] #3 Implement lazy loading for album artwork (when art feature added)
-- [ ] #4 Test with libraries containing 100+ albums with artwork
-- [ ] #5 Measure image loading performance improvements
-- [ ] #6 Add x-intersect.once to album art lazy loading implementation
+- [x] #3 Assess album art lazy loading needs (now playing view doesn't need it - single image only)
+- [ ] #4 Implement lazy loading for album artwork thumbnails in library view (when added)
+- [ ] #5 Test with libraries containing 100+ albums with artwork thumbnails
+- [ ] #6 Measure image loading performance improvements
+- [ ] #7 Add x-intersect.once to album art lazy loading implementation
 <!-- AC:END -->
