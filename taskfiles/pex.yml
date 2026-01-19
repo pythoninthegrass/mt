@@ -15,11 +15,12 @@ vars:
   # Dependencies required by the mt backend sidecar
   PEX_DEPS: >-
     fastapi
-    uvicorn
-    pydantic
-    websockets
     mutagen
+    pydantic
+    python-decouple
     requests
+    uvicorn
+    websockets
 
 tasks:
   printenv:
