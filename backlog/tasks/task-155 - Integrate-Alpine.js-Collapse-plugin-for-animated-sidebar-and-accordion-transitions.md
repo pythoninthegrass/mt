@@ -3,9 +3,10 @@ id: task-155
 title: >-
   Integrate Alpine.js Collapse plugin for animated sidebar and accordion
   transitions
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-16 22:19'
+updated_date: '2026-01-18 23:59'
 labels:
   - frontend
   - alpine.js
@@ -13,6 +14,7 @@ labels:
   - refactor
 dependencies: []
 priority: low
+ordinal: 26500
 ---
 
 ## Description
@@ -174,3 +176,23 @@ This is lower priority because:
 - [ ] #5 Test with different content lengths
 - [ ] #6 Document pattern for future accordion/collapsible components
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Implementation Complexity: MEDIUM
+
+**Effort estimate**: ~1-2 hours
+
+**Key challenges**:
+- No accordion patterns currently exist in the UI
+- Would need to find or create collapsible sections first
+- Notes indicate "lower priority because current sidebar uses width animation (works fine)"
+- Once target element is found, implementation is simple (just add `x-collapse` to existing `x-show`)
+
+**Simplest path**:
+1. Install + register plugin (5 min)
+2. Identify or create a collapsible section (30-45 min)
+3. Add `x-collapse` directive (5 min)
+4. Test and verify smooth animations (10-15 min)
+<!-- SECTION:NOTES:END -->
