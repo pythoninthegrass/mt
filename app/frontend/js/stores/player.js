@@ -3,6 +3,10 @@ import { api } from '../api.js';
 const { invoke } = window.__TAURI__?.core ?? { invoke: async () => console.warn('Tauri not available') };
 const { listen } = window.__TAURI__?.event ?? { listen: async () => () => {} };
 
+// Scrobbling state
+let scrobbleCheckInterval = null;
+let currentScrobbleData = null;
+
 export function createPlayerStore(Alpine) {
   Alpine.store('player', {
     currentTrack: null,
@@ -23,8 +27,13 @@ export function createPlayerStore(Alpine) {
     _seekDebounce: null,
     _playCountUpdated: false,
     _playCountThreshold: 0.75,
+    _scrobbleThreshold: 0.9, // Default 90%, will be updated from settings
+    _scrobbleChecked: false,
     
     async init() {
+      // Load Last.fm settings
+      await this._loadLastfmSettings();
+
       this._progressListener = await listen('audio://progress', (event) => {
         if (this.isSeeking) return;
         const { position_ms, duration_ms, state } = event.payload;
@@ -37,11 +46,20 @@ export function createPlayerStore(Alpine) {
         const effectiveDuration = this.duration;
         this.progress = effectiveDuration > 0 ? (position_ms / effectiveDuration) * 100 : 0;
         this.isPlaying = state === 'Playing';
-        
+
+        // Check for play count update
         if (!this._playCountUpdated && effectiveDuration > 0 && this.currentTrack?.id) {
           const ratio = position_ms / effectiveDuration;
           if (ratio >= this._playCountThreshold) {
             this._updatePlayCount();
+          }
+        }
+
+        // Check for scrobbling
+        if (!this._scrobbleChecked && effectiveDuration > 0 && this.currentTrack) {
+          const ratio = position_ms / effectiveDuration;
+          if (ratio >= this._scrobbleThreshold) {
+            this._checkScrobble();
           }
         }
       });
@@ -68,6 +86,51 @@ export function createPlayerStore(Alpine) {
       }
     },
     
+    async _loadLastfmSettings() {
+      try {
+        const settings = await api.lastfm.getSettings();
+        // Convert percentage to decimal (90% -> 0.9)
+        this._scrobbleThreshold = settings.scrobble_threshold / 100;
+      } catch (error) {
+        console.warn('[player] Failed to load Last.fm settings, using defaults:', error);
+        this._scrobbleThreshold = 0.9; // Default 90%
+      }
+    },
+
+    async _checkScrobble() {
+      if (!this.currentTrack || this._scrobbleChecked) return;
+
+      try {
+        const settings = await api.lastfm.getSettings();
+        if (!settings.enabled || !settings.authenticated) return;
+
+        // Prepare scrobble data
+        const scrobbleData = {
+          artist: this.currentTrack.artist || 'Unknown Artist',
+          track: this.currentTrack.title || 'Unknown Track',
+          album: this.currentTrack.album || undefined,
+          timestamp: Math.floor(Date.now() / 1000), // Current time when scrobbled
+          duration: Math.floor(this.duration / 1000), // Convert ms to seconds
+          played_time: Math.floor(this.currentTime / 1000), // Time actually played
+        };
+
+        // Scrobble in background
+        api.lastfm.scrobble(scrobbleData).then(result => {
+          if (result.status === 'threshold_not_met') {
+            console.debug('[scrobble] Threshold not met for:', scrobbleData.track);
+          } else {
+            console.log('[scrobble] Successfully scrobbled:', scrobbleData.track);
+          }
+        }).catch(error => {
+          console.error('[scrobble] Failed to scrobble:', error);
+        });
+
+        this._scrobbleChecked = true;
+      } catch (error) {
+        console.error('[player] Failed to check scrobble settings:', error);
+      }
+    },
+
     destroy() {
       if (this._progressListener) this._progressListener();
       if (this._trackEndedListener) this._trackEndedListener();
@@ -103,6 +166,7 @@ export function createPlayerStore(Alpine) {
         this.currentTime = 0;
         this.progress = 0;
         this._playCountUpdated = false;
+        this._scrobbleChecked = false; // Reset scrobble check for new track
 
         await invoke('audio_play');
         this.isPlaying = true;

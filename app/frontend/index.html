@@ -909,6 +909,16 @@
                 Advanced
               </button>
             </li>
+            <li>
+              <button
+                class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
+                :class="$store.ui.settingsSection === 'lastfm' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
+                @click="$store.ui.setSettingsSection('lastfm')"
+                data-testid="settings-nav-lastfm"
+              >
+                Last.fm
+              </button>
+            </li>
           </ul>
         </nav>
 
@@ -1539,9 +1549,142 @@
           <span x-show="!isSaving">Save</span>
           <span x-show="isSaving">Saving...</span>
         </button>
-      </div>
-    </div>
-  </div>
+             </div>
+           </div>
+
+           <!-- Last.fm Section -->
+           <div x-show="$store.ui.settingsSection === 'lastfm'" data-testid="settings-section-lastfm">
+             <h3 class="text-xl font-semibold mb-4">Last.fm</h3>
+
+             <!-- Connection Status -->
+             <div class="mb-8">
+               <h4 class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Connection</h4>
+               <div class="bg-muted/30 rounded-lg p-4">
+                 <div class="flex items-center justify-between mb-3">
+                   <div class="flex items-center gap-3">
+                     <div
+                       class="w-3 h-3 rounded-full"
+                       :class="lastfm.authenticated ? 'bg-green-500' : 'bg-red-500'"
+                     ></div>
+                     <span class="text-sm font-medium">
+                       <span x-text="lastfm.authenticated ? 'Connected' : 'Not Connected'"></span>
+                       <span x-show="lastfm.username" x-text="' as ' + lastfm.username" class="text-muted-foreground"></span>
+                     </span>
+                   </div>
+                   <div class="flex gap-2">
+                     <button
+                       x-show="!lastfm.authenticated"
+                       class="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                       :disabled="lastfm.isConnecting"
+                       @click="connectLastfm()"
+                       data-testid="lastfm-connect"
+                     >
+                       <span x-text="lastfm.isConnecting ? 'Connecting...' : 'Connect'"></span>
+                     </button>
+                     <button
+                       x-show="lastfm.authenticated"
+                       class="px-3 py-1.5 text-xs bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                       @click="disconnectLastfm()"
+                       data-testid="lastfm-disconnect"
+                     >
+                       Disconnect
+                     </button>
+                   </div>
+                 </div>
+                 <p class="text-xs text-muted-foreground">
+                   Connect your Last.fm account to enable scrobbling and loved tracks import.
+                 </p>
+               </div>
+             </div>
+
+             <!-- Scrobbling Settings -->
+             <div x-show="lastfm.authenticated" class="mb-8">
+               <h4 class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Scrobbling</h4>
+               <div class="space-y-4">
+                 <!-- Enable/Disable Toggle -->
+                 <div class="flex items-center justify-between">
+                   <div>
+                     <div class="text-sm font-medium">Enable Scrobbling</div>
+                     <div class="text-xs text-muted-foreground">Automatically scrobble tracks to Last.fm</div>
+                   </div>
+                   <button
+                     class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                     :class="lastfm.enabled ? 'bg-primary' : 'bg-muted'"
+                     @click="toggleLastfm()"
+                     data-testid="lastfm-toggle"
+                   >
+                     <span
+                       class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                       :class="lastfm.enabled ? 'translate-x-6' : 'translate-x-1'"
+                     ></span>
+                   </button>
+                 </div>
+
+                 <!-- Threshold Slider -->
+                 <div x-show="lastfm.enabled">
+                   <div class="text-sm font-medium mb-2">Scrobble Threshold</div>
+                   <div class="text-xs text-muted-foreground mb-3">
+                     Tracks will be scrobbled after playing for <span x-text="lastfm.scrobbleThreshold"></span>% of their duration
+                   </div>
+                   <div class="px-2">
+                     <input
+                       type="range"
+                       min="25"
+                       max="100"
+                       step="5"
+                       x-model="lastfm.scrobbleThreshold"
+                       @input="updateScrobbleThreshold()"
+                       class="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
+                       data-testid="lastfm-threshold-slider"
+                     >
+                     <div class="flex justify-between text-xs text-muted-foreground mt-1">
+                       <span>25%</span>
+                       <span>90%</span>
+                       <span>100%</span>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+             </div>
+
+             <!-- Loved Tracks -->
+             <div x-show="lastfm.authenticated" class="mb-8">
+               <h4 class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Loved Tracks</h4>
+               <div class="space-y-3">
+                 <button
+                   class="w-full text-left px-4 py-3 rounded-lg border border-border hover:bg-muted/50 transition-colors disabled:opacity-50"
+                   :disabled="lastfm.importInProgress"
+                   @click="importLovedTracks()"
+                   data-testid="lastfm-import-loved"
+                 >
+                   <div class="font-medium text-sm" x-text="lastfm.importInProgress ? 'Importing...' : 'Import Loved Tracks'"></div>
+                   <div class="text-xs text-muted-foreground mt-0.5">Import your loved tracks from Last.fm and mark them as favorites</div>
+                 </button>
+               </div>
+             </div>
+
+             <!-- Queue Status -->
+             <div x-show="lastfm.authenticated && lastfm.enabled" class="mb-8">
+               <h4 class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Scrobble Queue</h4>
+               <div class="bg-muted/30 rounded-lg p-4">
+                 <div class="flex items-center justify-between mb-2">
+                   <span class="text-sm font-medium">Queued Scrobbles</span>
+                   <button
+                     class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                     @click="retryQueuedScrobbles()"
+                     :disabled="lastfm.queueStatus.queued_scrobbles === 0"
+                     data-testid="lastfm-retry-queue"
+                   >
+                     Retry All
+                   </button>
+                 </div>
+                 <div class="text-sm text-muted-foreground">
+                   <span x-text="lastfm.queueStatus.queued_scrobbles || 0"></span> scrobbles waiting to be sent
+                 </div>
+               </div>
+             </div>
+           </div>
+         </div>
 
   <!-- Toast container -->
   <div class="fixed bottom-20 right-4 space-y-2 z-50">

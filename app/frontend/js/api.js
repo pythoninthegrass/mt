@@ -381,60 +381,162 @@ export const api = {
       const response = await request('/playlists');
       return Array.isArray(response) ? response : (response.playlists || []);
     },
-    
+
     async generateName(base = 'New playlist') {
       const query = new URLSearchParams({ base });
       return request(`/playlists/generate-name?${query}`);
     },
-    
+
     async create(name) {
       return request('/playlists', {
         method: 'POST',
         body: JSON.stringify({ name }),
       });
     },
-    
+
     async get(playlistId) {
       return request(`/playlists/${playlistId}`);
     },
-    
+
     async rename(playlistId, name) {
       return request(`/playlists/${playlistId}`, {
         method: 'PUT',
         body: JSON.stringify({ name }),
       });
     },
-    
+
     async delete(playlistId) {
       return request(`/playlists/${playlistId}`, {
         method: 'DELETE',
       });
     },
-    
+
     async addTracks(playlistId, trackIds) {
       return request(`/playlists/${playlistId}/tracks`, {
         method: 'POST',
         body: JSON.stringify({ track_ids: trackIds }),
       });
     },
-    
+
     async removeTrack(playlistId, position) {
       return request(`/playlists/${playlistId}/tracks/${position}`, {
         method: 'DELETE',
       });
     },
-    
+
     async reorder(playlistId, fromPosition, toPosition) {
       return request(`/playlists/${playlistId}/tracks/reorder`, {
         method: 'POST',
         body: JSON.stringify({ from_position: fromPosition, to_position: toPosition }),
       });
     },
-    
+
     async reorderPlaylists(fromPosition, toPosition) {
       return request('/playlists/reorder', {
         method: 'POST',
         body: JSON.stringify({ from_position: fromPosition, to_position: toPosition }),
+      });
+    },
+  },
+
+  // ============================================
+  // Last.fm endpoints
+  // ============================================
+
+  lastfm: {
+    /**
+     * Get Last.fm settings
+     * @returns {Promise<{enabled: boolean, username: string|null, authenticated: boolean, scrobble_threshold: number}>}
+     */
+    async getSettings() {
+      return request('/lastfm/settings');
+    },
+
+    /**
+     * Update Last.fm settings
+     * @param {object} settings - Settings to update
+     * @param {boolean} [settings.enabled] - Enable/disable scrobbling
+     * @param {number} [settings.scrobble_threshold] - Scrobble threshold percentage (25-100)
+     * @returns {Promise<{updated: string[]}>}
+     */
+    async updateSettings(settings) {
+      return request('/lastfm/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      });
+    },
+
+    /**
+     * Get Last.fm authentication URL
+     * @returns {Promise<{auth_url: string}>}
+     */
+    async getAuthUrl() {
+      return request('/lastfm/auth-url');
+    },
+
+    /**
+     * Complete Last.fm authentication
+     * @param {string} token - Authentication token from callback
+     * @returns {Promise<{status: string, username: string, message: string}>}
+     */
+    async completeAuth(token) {
+      const query = new URLSearchParams({ token });
+      return request(`/lastfm/auth-callback?${query}`);
+    },
+
+    /**
+     * Scrobble a track
+     * @param {object} scrobbleData - Track scrobble data
+     * @param {string} scrobbleData.artist - Artist name
+     * @param {string} scrobbleData.track - Track title
+     * @param {string} [scrobbleData.album] - Album name
+     * @param {number} scrobbleData.timestamp - Unix timestamp when track finished
+     * @param {number} scrobbleData.duration - Track duration in seconds
+     * @param {number} scrobbleData.played_time - Time played in seconds
+     * @returns {Promise<object>}
+     */
+    async scrobble(scrobbleData) {
+      return request('/lastfm/scrobble', {
+        method: 'POST',
+        body: JSON.stringify(scrobbleData),
+      });
+    },
+
+    /**
+     * Import user's loved tracks from Last.fm
+     * @returns {Promise<{status: string, total_loved_tracks: number, imported_count: number, message: string}>}
+     */
+    async importLovedTracks() {
+      return request('/lastfm/import-loved-tracks', {
+        method: 'POST',
+      });
+    },
+
+    /**
+     * Disconnect from Last.fm
+     * @returns {Promise<{status: string, message: string}>}
+     */
+    async disconnect() {
+      return request('/lastfm/disconnect', {
+        method: 'DELETE',
+      });
+    },
+
+    /**
+     * Get scrobble queue status
+     * @returns {Promise<{queued_scrobbles: number}>}
+     */
+    async getQueueStatus() {
+      return request('/lastfm/queue/status');
+    },
+
+    /**
+     * Manually retry queued scrobbles
+     * @returns {Promise<{status: string, remaining_queued: number}>}
+     */
+    async retryQueuedScrobbles() {
+      return request('/lastfm/queue/retry', {
+        method: 'POST',
       });
     },
   },
