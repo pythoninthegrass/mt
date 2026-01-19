@@ -4,7 +4,7 @@ title: Implement Last.fm scrobbling
 status: In Progress
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2026-01-19 06:12'
+updated_date: '2026-01-19 22:53'
 labels: []
 dependencies: []
 priority: high
@@ -33,4 +33,66 @@ Add Last.fm integration for track scrobbling and music discovery, including impo
 
 - [ ] #11 Sync play count
 - [ ] #12 Validate scrobbling threshold enforcement (default 90%)
+
+- [ ] #13 Add diagnostic logging for scrobble queue operations (queue insertion, retry attempts, success/failure, removal after max retries)
+- [ ] #14 Fix frontend to handle queued scrobble response (currently treats 'queued' as success)
+- [ ] #15 Implement automatic scrobble queue retry mechanism (see Implementation Notes for design options)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Scrobble Queue Debugging Analysis (2026-01-19)
+
+### Problem
+Queue IS implemented at DB level but lacks visibility:
+1. No logging around queue operations
+2. Frontend treats `{"status":"queued"}` as success
+3. No automatic retry — manual only
+4. Silent exception handling in retry logic
+
+### Files Involved
+- `backend/services/lastfm.py` — scrobble_track(), _queue_scrobble(), retry_queued_scrobbles()
+- `backend/services/database.py` — queue_scrobble(), get/remove/increment_scrobble_retry()
+- `backend/routes/lastfm.py` — /lastfm/scrobble, /lastfm/queue/*
+- `app/frontend/js/stores/player.js` — _checkScrobble()
+
+### Issue #13: Missing Logging
+Add logs to:
+- `LastFmAPI._queue_scrobble()`: Log queued id, artist, track
+- `LastFmAPI.retry_queued_scrobbles()`: Log retry attempts, success/failure
+- `LastFmAPI._api_call()`: Log 403 session invalidation
+- `/lastfm/scrobble` route: Log when queued
+
+### Issue #14: Frontend Bug
+In `player.js` `_checkScrobble()` `.then()` handler, add explicit check:
+```javascript
+if (result.status === 'queued') {
+  console.warn('[scrobble] Queued for retry:', result.message);
+}
+```
+Currently logs "Successfully scrobbled" for queued responses.
+
+## Issue #15: Automatic Retry Design Options
+
+**Option A: Startup Retry (Simple)**
+Call `retry_queued_scrobbles()` in `backend/main.py` lifespan after DB init.
+
+**Option B: Periodic Background Task**
+Asyncio task every 5min. More complex, handles network recovery.
+
+**Option C: Frontend on Auth Success**
+Call retry in `completeLastfmAuth()`. Already have queue status load there.
+
+**Option D: Hybrid (Recommended)**
+Combine A + C: Retry on startup AND after fresh auth.
+
+### Quick Verification
+```bash
+sqlite3 mt.db "SELECT * FROM scrobble_queue LIMIT 10;"
+curl http://127.0.0.1:8765/api/lastfm/queue/status
+```
+
+### Note
+`_api_call()` uses blocking `requests` in async. Consider `httpx.AsyncClient`.
+<!-- SECTION:NOTES:END -->
