@@ -548,7 +548,7 @@
             </div>
 
             <!-- Track rows (CSS Grid matching header) -->
-            <template x-for="(track, index) in library.getVisibleTracks()" :key="track.id">
+            <template x-for="(track, index) in library.filteredTracks" :key="track.id">
               <div
                 class="grid border-b border-border/30 text-sm cursor-default transition-colors select-none"
                 :style="`grid-template-columns: ${getGridTemplateColumns()}`"
@@ -615,15 +615,6 @@
                 </template>
               </div>
             </template>
-
-            <!-- Infinite scroll sentinel (load more when visible) -->
-            <div
-              x-show="library.visibleCount < library.filteredTracks.length"
-              x-intersect="library.loadMore()"
-              class="py-4 text-center text-sm text-muted-foreground"
-            >
-              Loading more tracks...
-            </div>
                 </div>
               </div>
 

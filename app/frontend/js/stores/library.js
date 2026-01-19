@@ -12,26 +12,22 @@ export function createLibraryStore(Alpine) {
     // Track data
     tracks: [],          // All tracks in library
     filteredTracks: [],  // Tracks after search/filter
-
-    // Infinite scroll/pagination
-    visibleCount: 100,   // Number of tracks to display (infinite scroll)
-    batchSize: 100,      // Load 100 more tracks at a time
-
+    
     // Search and filter state
     searchQuery: '',
     sortBy: 'default',   // 'default', 'artist', 'album', 'title', 'index', 'dateAdded', 'duration'
     sortOrder: 'asc',    // 'asc', 'desc'
     currentSection: 'all',
-
+    
     // Loading state
     loading: false,
     scanning: false,
     scanProgress: 0,     // 0-100
-
+    
     // Statistics
     totalTracks: 0,
     totalDuration: 0,    // milliseconds
-
+    
     // Internal
     _searchDebounce: null,
     
@@ -313,38 +309,8 @@ export function createLibraryStore(Alpine) {
       }
       
       this.filteredTracks = result;
-      // Reset visible count when filters change to show first batch
-      this.resetVisibleCount();
     },
-
-    /**
-     * Get currently visible tracks (for infinite scroll)
-     * @returns {Array} Slice of filteredTracks based on visibleCount
-     */
-    getVisibleTracks() {
-      return this.filteredTracks.slice(0, this.visibleCount);
-    },
-
-    /**
-     * Load more tracks (infinite scroll)
-     */
-    loadMore() {
-      if (this.visibleCount < this.filteredTracks.length) {
-        this.visibleCount += this.batchSize;
-        console.log('[library]', 'load_more', {
-          visibleCount: this.visibleCount,
-          totalFiltered: this.filteredTracks.length
-        });
-      }
-    },
-
-    /**
-     * Reset visible count to initial batch size
-     */
-    resetVisibleCount() {
-      this.visibleCount = this.batchSize;
-    },
-
+    
     /**
      * Set sort field
      * @param {string} field - Field to sort by

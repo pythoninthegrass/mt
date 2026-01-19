@@ -1,6 +1,5 @@
 import Alpine from 'alpinejs';
 import persist from '@alpinejs/persist';
-import intersect from '@alpinejs/intersect';
 import { initStores } from './js/stores/index.js';
 import { initComponents } from './js/components/index.js';
 import { setApiBase } from './js/api.js';
@@ -8,7 +7,6 @@ import './styles.css';
 
 // Register Alpine plugins
 Alpine.plugin(persist);
-Alpine.plugin(intersect);
 
 window.Alpine = Alpine;
 
