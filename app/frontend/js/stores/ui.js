@@ -118,7 +118,7 @@ export function createUIStore(Alpine) {
     },
 
     setSettingsSection(section) {
-      if (['general', 'appearance', 'shortcuts', 'sorting', 'advanced'].includes(section)) {
+      if (['general', 'appearance', 'shortcuts', 'sorting', 'advanced', 'lastfm'].includes(section)) {
         console.log('[settings]', 'navigate_section', {
           previousSection: this.settingsSection,
           newSection: section

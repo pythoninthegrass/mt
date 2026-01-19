@@ -1,3 +1,5 @@
+import { api } from '../api.js';
+
 export function createSettingsView(Alpine) {
   Alpine.data('settingsView', () => ({
     appInfo: {
@@ -15,13 +17,17 @@ export function createSettingsView(Alpine) {
       isConnecting: false,
       importInProgress: false,
       queueStatus: { queued_scrobbles: 0 },
+      pendingToken: null, // Token awaiting user authorization
     },
+
+    // Drag state for threshold slider
+    isDraggingThreshold: false,
 
     async init() {
       await this.loadAppInfo();
       await this.loadLastfmSettings();
     },
-    
+
     async loadAppInfo() {
       if (!window.__TAURI__) {
         this.appInfo = {
@@ -31,7 +37,7 @@ export function createSettingsView(Alpine) {
         };
         return;
       }
-      
+
       try {
         const { invoke } = window.__TAURI__.core;
         const info = await invoke('app_get_info');
@@ -49,10 +55,10 @@ export function createSettingsView(Alpine) {
         };
       }
     },
-    
+
     async resetSettings() {
       let confirmed = false;
-      
+
       if (window.__TAURI__?.dialog?.confirm) {
         confirmed = await window.__TAURI__.dialog.confirm(
           'This will reset all settings to their defaults. Your library and playlists will not be affected.',
@@ -61,20 +67,20 @@ export function createSettingsView(Alpine) {
       } else {
         confirmed = confirm('This will reset all settings to their defaults. Your library and playlists will not be affected.');
       }
-      
+
       if (!confirmed) return;
-      
+
       const keysToReset = [
         'mt:ui:themePreset',
         'mt:ui:theme',
         'mt:settings:activeSection',
       ];
-      
+
       keysToReset.forEach(key => localStorage.removeItem(key));
-      
+
       window.location.reload();
     },
-    
+
     async exportLogs() {
       if (!window.__TAURI__) {
         Alpine.store('ui').toast('Export logs is only available in the desktop app', 'info');
@@ -106,11 +112,16 @@ export function createSettingsView(Alpine) {
 
     async loadLastfmSettings() {
       try {
-        const settings = await Alpine.store('api').lastfm.getSettings();
+        const settings = await api.lastfm.getSettings();
         this.lastfm.enabled = settings.enabled;
         this.lastfm.username = settings.username;
         this.lastfm.authenticated = settings.authenticated;
         this.lastfm.scrobbleThreshold = settings.scrobble_threshold;
+
+        // Load queue status if authenticated
+        if (settings.authenticated) {
+          await this.loadQueueStatus();
+        }
       } catch (error) {
         console.error('[settings] Failed to load Last.fm settings:', error);
         Alpine.store('ui').toast('Failed to load Last.fm settings', 'error');
@@ -119,7 +130,7 @@ export function createSettingsView(Alpine) {
 
     async toggleLastfm() {
       try {
-        await Alpine.store('api').lastfm.updateSettings({
+        await api.lastfm.updateSettings({
           enabled: !this.lastfm.enabled
         });
         this.lastfm.enabled = !this.lastfm.enabled;
@@ -141,7 +152,7 @@ export function createSettingsView(Alpine) {
           this.lastfm.scrobbleThreshold = clampedValue;
         }
 
-        await Alpine.store('api').lastfm.updateSettings({
+        await api.lastfm.updateSettings({
           scrobble_threshold: this.lastfm.scrobbleThreshold
         });
         Alpine.store('ui').toast('Scrobble threshold updated', 'success');
@@ -154,8 +165,12 @@ export function createSettingsView(Alpine) {
     async connectLastfm() {
       this.lastfm.isConnecting = true;
       try {
-        const response = await Alpine.store('api').lastfm.getAuthUrl();
+        const response = await api.lastfm.getAuthUrl();
         const authUrl = response.auth_url;
+        const token = response.token;
+
+        // Store the token for completing authentication
+        this.lastfm.pendingToken = token;
 
         // Open auth URL in browser
         if (window.__TAURI__) {
@@ -168,20 +183,51 @@ export function createSettingsView(Alpine) {
         }
 
         Alpine.store('ui').toast(
-          'Last.fm authorization page opened. Complete the authentication and return here.',
+          'Last.fm authorization page opened. After authorizing, click "Complete Authentication".',
           'info'
         );
       } catch (error) {
         console.error('[settings] Failed to get Last.fm auth URL:', error);
         Alpine.store('ui').toast('Failed to connect to Last.fm', 'error');
+        this.lastfm.pendingToken = null;
       } finally {
         this.lastfm.isConnecting = false;
       }
     },
 
+    async completeLastfmAuth() {
+      if (!this.lastfm.pendingToken) {
+        Alpine.store('ui').toast('No pending authentication. Please start the connection process first.', 'warning');
+        return;
+      }
+
+      this.lastfm.isConnecting = true;
+      try {
+        const result = await api.lastfm.completeAuth(this.lastfm.pendingToken);
+        this.lastfm.authenticated = true;
+        this.lastfm.username = result.username;
+        this.lastfm.enabled = true;
+        this.lastfm.pendingToken = null;
+        Alpine.store('ui').toast(`Successfully connected to Last.fm as ${result.username}`, 'success');
+
+        // Load queue status now that we're authenticated
+        await this.loadQueueStatus();
+      } catch (error) {
+        console.error('[settings] Failed to complete Last.fm authentication:', error);
+        Alpine.store('ui').toast('Failed to complete authentication. Please try again.', 'error');
+      } finally {
+        this.lastfm.isConnecting = false;
+      }
+    },
+
+    cancelLastfmAuth() {
+      this.lastfm.pendingToken = null;
+      Alpine.store('ui').toast('Authentication cancelled', 'info');
+    },
+
     async disconnectLastfm() {
       try {
-        await Alpine.store('api').lastfm.disconnect();
+        await api.lastfm.disconnect();
         this.lastfm.enabled = false;
         this.lastfm.username = null;
         this.lastfm.authenticated = false;
@@ -200,7 +246,7 @@ export function createSettingsView(Alpine) {
 
       this.lastfm.importInProgress = true;
       try {
-        const result = await Alpine.store('api').lastfm.importLovedTracks();
+        const result = await api.lastfm.importLovedTracks();
         Alpine.store('ui').toast(
           `Imported ${result.imported_count} loved tracks from Last.fm`,
           'success'
@@ -218,7 +264,7 @@ export function createSettingsView(Alpine) {
 
     async loadQueueStatus() {
       try {
-        this.lastfm.queueStatus = await Alpine.store('api').lastfm.getQueueStatus();
+        this.lastfm.queueStatus = await api.lastfm.getQueueStatus();
       } catch (error) {
         console.error('[settings] Failed to load queue status:', error);
       }
@@ -226,7 +272,7 @@ export function createSettingsView(Alpine) {
 
     async retryQueuedScrobbles() {
       try {
-        const result = await Alpine.store('api').lastfm.retryQueuedScrobbles();
+        const result = await api.lastfm.retryQueuedScrobbles();
         Alpine.store('ui').toast(
           `Retried queued scrobbles. ${result.remaining_queued} remaining.`,
           'success'

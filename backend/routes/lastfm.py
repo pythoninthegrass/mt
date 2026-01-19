@@ -1,91 +1,216 @@
 """Last.fm API routes for authentication, scrobbling, and loved tracks."""
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from backend.services.database import DatabaseService, get_db
+from backend.services.database import get_db
 from backend.services.lastfm import LastFmAPI
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
-from decouple import config
 
-router = APIRouter(prefix="/lastfm", tags=["lastfm"])
+router = APIRouter(tags=["lastfm"])
 
 
-def get_lastfm_api(db: DatabaseService = Depends(get_db)) -> LastFmAPI:
-    return LastFmAPI(db)
+# ============================================
+# Request/Response Models
+# ============================================
+
+
+class LastfmSettingsUpdate(BaseModel):
+    enabled: bool | None = None
+    scrobble_threshold: int | None = None
 
 
 class ScrobbleRequest(BaseModel):
     artist: str
     track: str
-    album: Optional[str] = None
+    album: str | None = None
     timestamp: int
-    duration: int = 0
-    played_time: int = 0
+    duration: int
+    played_time: int
 
 
-class SettingsUpdate(BaseModel):
-    enabled: Optional[bool] = None
-    scrobble_threshold: Optional[int] = None
+# ============================================
+# Helper functions
+# ============================================
 
 
-@router.get("/auth-url")
-async def get_auth_url(api: LastFmAPI = Depends(get_lastfm_api)):
-    """Get Last.fm authentication URL for user."""
+def _get_lastfm_api() -> LastFmAPI:
+    """Get LastFmAPI instance with database."""
+    db = get_db()
+    return LastFmAPI(db)
+
+
+def _is_setting_truthy(value: str | None) -> bool:
+    """Check if a setting value is truthy."""
+    if value is None:
+        return False
+    return value.lower() in ("1", "true", "yes", "on")
+
+
+# ============================================
+# Settings endpoints
+# ============================================
+
+
+@router.get("/lastfm/settings")
+async def get_lastfm_settings():
+    """Get Last.fm settings."""
+    db = get_db()
+    api = _get_lastfm_api()
+
+    enabled = _is_setting_truthy(db.get_setting("lastfm_scrobbling_enabled"))
+    username = db.get_setting("lastfm_username")
+    session_key = db.get_setting("lastfm_session_key")
+    threshold_str = db.get_setting("lastfm_scrobble_threshold")
+    threshold = int(threshold_str) if threshold_str else 90
+
+    return {
+        "enabled": enabled,
+        "username": username,
+        "authenticated": bool(session_key),
+        "configured": api.is_configured(),
+        "scrobble_threshold": threshold,
+    }
+
+
+@router.put("/lastfm/settings")
+async def update_lastfm_settings(settings: LastfmSettingsUpdate):
+    """Update Last.fm settings."""
+    db = get_db()
+    updated = []
+
+    if settings.enabled is not None:
+        db.set_setting("lastfm_scrobbling_enabled", settings.enabled)
+        updated.append("enabled")
+
+    if settings.scrobble_threshold is not None:
+        # Clamp to valid range (25-100%)
+        threshold = max(25, min(100, settings.scrobble_threshold))
+        db.set_setting("lastfm_scrobble_threshold", threshold)
+        updated.append("scrobble_threshold")
+
+    return {"updated": updated}
+
+
+# ============================================
+# Authentication endpoints
+# ============================================
+
+
+@router.get("/lastfm/auth-url")
+async def get_auth_url():
+    """Get Last.fm authentication URL and token.
+
+    Returns the auth URL to open in browser and the token needed to complete auth.
+    The frontend should store the token and use it to call /lastfm/auth-callback after
+    the user completes authorization on Last.fm.
+    """
+    api = _get_lastfm_api()
+
+    if not api.is_configured():
+        raise HTTPException(
+            status_code=503, detail="Last.fm API keys not configured. Set LASTFM_API_KEY and LASTFM_API_SECRET."
+        )
+
     try:
-        return {"auth_url": await api.get_auth_url()}
+        auth_url, token = await api.get_auth_url()
+        return {"auth_url": auth_url, "token": token}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get auth URL: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get auth URL: {str(e)}") from e
 
 
-@router.post("/auth-callback")
-async def auth_callback(token: str, api: LastFmAPI = Depends(get_lastfm_api)):
+@router.get("/lastfm/auth-callback")
+async def auth_callback(token: str):
     """Complete Last.fm authentication with token."""
+    db = get_db()
+    api = _get_lastfm_api()
+
+    if not api.is_configured():
+        raise HTTPException(status_code=503, detail="Last.fm API not configured")
+
     try:
         session = await api.get_session(token)
-        # Store session key and username
-        api.db.set_setting('lastfm_session_key', session['key'])
-        api.db.set_setting('lastfm_username', session['name'])
-        return {
-            "status": "authenticated",
-            "username": session['name'],
-            "message": f"Successfully connected to Last.fm as {session['name']}",
-        }
+        session_key = session.get("key")
+        username = session.get("name")
+
+        if not session_key:
+            raise HTTPException(status_code=400, detail="Invalid session received from Last.fm")
+
+        # Store session data
+        db.set_setting("lastfm_session_key", session_key)
+        db.set_setting("lastfm_username", username)
+        db.set_setting("lastfm_scrobbling_enabled", True)
+
+        return {"status": "success", "username": username, "message": f"Successfully connected as {username}"}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}") from e
 
 
-@router.get("/settings")
-async def get_lastfm_settings(db: DatabaseService = Depends(get_db)):
-    """Get Last.fm settings."""
-    try:
-        return {
-            "enabled": db.get_setting('lastfm_scrobbling_enabled') or False,
-            "username": db.get_setting('lastfm_username'),
-            "authenticated": bool(db.get_setting('lastfm_session_key')),
-            "scrobble_threshold": int(db.get_setting('lastfm_scrobble_threshold') or 90),
-        }
-    except Exception as e:
-        return {"error": str(e)}
+@router.delete("/lastfm/disconnect")
+async def disconnect():
+    """Disconnect from Last.fm."""
+    db = get_db()
+
+    db.set_setting("lastfm_session_key", "")
+    db.set_setting("lastfm_username", "")
+    db.set_setting("lastfm_scrobbling_enabled", False)
+
+    return {"status": "success", "message": "Disconnected from Last.fm"}
 
 
-@router.put("/settings")
-async def update_lastfm_settings(settings: SettingsUpdate, api: LastFmAPI = Depends(get_lastfm_api)):
-    """Update Last.fm settings."""
-    updates = {}
-    if settings.enabled is not None:
-        updates['lastfm_scrobbling_enabled'] = settings.enabled
-    if settings.scrobble_threshold is not None:
-        # Clamp to valid range
-        threshold = max(25, min(100, settings.scrobble_threshold))
-        updates['lastfm_scrobble_threshold'] = threshold
-
-    updated_keys = api.db.update_settings(updates)
-    return {"updated": updated_keys}
+# ============================================
+# Scrobbling endpoints
+# ============================================
 
 
-@router.post("/scrobble")
-async def scrobble_track(request: ScrobbleRequest, background_tasks: BackgroundTasks, api: LastFmAPI = Depends(get_lastfm_api)):
-    """Scrobble a track."""
+class NowPlayingRequest(BaseModel):
+    artist: str
+    track: str
+    album: str | None = None
+    duration: int = 0
+
+
+@router.post("/lastfm/now-playing")
+async def update_now_playing(request: NowPlayingRequest):
+    """Update 'Now Playing' status on Last.fm when a track starts."""
+    db = get_db()
+    api = _get_lastfm_api()
+
+    # Check if scrobbling is enabled
+    enabled = _is_setting_truthy(db.get_setting("lastfm_scrobbling_enabled"))
+    if not enabled:
+        return {"status": "disabled", "message": "Scrobbling is disabled"}
+
+    # Check if authenticated
+    session_key = db.get_setting("lastfm_session_key")
+    if not session_key:
+        return {"status": "not_authenticated", "message": "Not authenticated with Last.fm"}
+
+    result = await api.update_now_playing(
+        artist=request.artist,
+        track=request.track,
+        album=request.album,
+        duration=request.duration,
+    )
+    return result
+
+
+@router.post("/lastfm/scrobble")
+async def scrobble_track(request: ScrobbleRequest):
+    """Scrobble a track to Last.fm."""
+    db = get_db()
+    api = _get_lastfm_api()
+
+    # Check if scrobbling is enabled
+    enabled = _is_setting_truthy(db.get_setting("lastfm_scrobbling_enabled"))
+    if not enabled:
+        return {"status": "disabled", "message": "Scrobbling is disabled"}
+
+    # Check if authenticated
+    session_key = db.get_setting("lastfm_session_key")
+    if not session_key:
+        return {"status": "not_authenticated", "message": "Not authenticated with Last.fm"}
+
     try:
         result = await api.scrobble_track(
             artist=request.artist,
@@ -95,94 +220,129 @@ async def scrobble_track(request: ScrobbleRequest, background_tasks: BackgroundT
             duration=request.duration,
             played_time=request.played_time,
         )
-
-        # Process any queued scrobbles in background
-        background_tasks.add_task(api.retry_queued_scrobbles)
-
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Scrobbling failed: {str(e)}")
+        # The service will queue the scrobble for retry
+        return {"status": "queued", "message": f"Scrobble queued for retry: {str(e)}"}
 
 
-@router.post("/import-loved-tracks")
-async def import_loved_tracks(api: LastFmAPI = Depends(get_lastfm_api)):
-    """Import user's loved tracks from Last.fm."""
-    username = api.db.get_setting('lastfm_username')
-    if not username:
-        raise HTTPException(status_code=400, detail="No Last.fm user authenticated")
-
-    try:
-        # Get all loved tracks (Last.fm API has pagination)
-        all_loved_tracks = []
-        page = 1
-        limit = 1000  # Max per page
-
-        while True:
-            loved_tracks = await api.get_loved_tracks(username, limit=limit, page=page)
-            if not loved_tracks:
-                break
-            all_loved_tracks.extend(loved_tracks)
-            page += 1
-
-        # Match against local library and mark as loved
-        imported_count = 0
-        with api.db.get_connection() as conn:
-            cursor = conn.cursor()
-
-            for loved_track in all_loved_tracks:
-                artist = loved_track.get('artist', {}).get('name', '')
-                track = loved_track.get('name', '')
-
-                if artist and track:
-                    # Find matching tracks in local library (case-insensitive match)
-                    cursor.execute(
-                        """
-                        UPDATE library
-                        SET lastfm_loved = 1
-                        WHERE LOWER(TRIM(title)) = LOWER(TRIM(?))
-                          AND LOWER(TRIM(artist)) = LOWER(TRIM(?))
-                          AND (lastfm_loved = 0 OR lastfm_loved IS NULL)
-                    """,
-                        (track, artist),
-                    )
-
-                    if cursor.rowcount > 0:
-                        imported_count += cursor.rowcount
-
-            conn.commit()
-
-        return {
-            "status": "imported",
-            "total_loved_tracks": len(all_loved_tracks),
-            "imported_count": imported_count,
-            "message": f"Imported {imported_count} loved tracks from Last.fm",
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+# ============================================
+# Queue endpoints
+# ============================================
 
 
-@router.delete("/disconnect")
-async def disconnect_lastfm(api: LastFmAPI = Depends(get_lastfm_api)):
-    """Disconnect from Last.fm."""
-    api.db.set_setting('lastfm_session_key', None)
-    api.db.set_setting('lastfm_username', None)
-    api.db.set_setting('lastfm_scrobbling_enabled', False)
-    return {"status": "disconnected", "message": "Disconnected from Last.fm"}
+@router.get("/lastfm/queue/status")
+async def get_queue_status():
+    """Get scrobble queue status."""
+    db = get_db()
+    queued = db.get_queued_scrobbles(limit=1000)  # Get count of all queued
+    return {"queued_scrobbles": len(queued)}
 
 
-@router.get("/queue/status")
-async def get_queue_status(api: LastFmAPI = Depends(get_lastfm_api)):
-    """Get status of offline scrobble queue."""
-    queued_count = len(api.db.get_queued_scrobbles(limit=1000))  # Get total count
-    return {"queued_scrobbles": queued_count}
-
-
-@router.post("/queue/retry")
-async def retry_queued_scrobbles(api: LastFmAPI = Depends(get_lastfm_api)):
+@router.post("/lastfm/queue/retry")
+async def retry_queued_scrobbles():
     """Manually retry queued scrobbles."""
+    db = get_db()
+    api = _get_lastfm_api()
+
+    # Check if authenticated
+    session_key = db.get_setting("lastfm_session_key")
+    if not session_key:
+        raise HTTPException(status_code=401, detail="Not authenticated with Last.fm")
+
     try:
         await api.retry_queued_scrobbles()
-        remaining = len(api.db.get_queued_scrobbles(limit=1000))
-        return {"status": "retry_completed", "remaining_queued": remaining}
+        # Get remaining count
+        remaining = db.get_queued_scrobbles(limit=1000)
+        return {"status": "success", "remaining_queued": len(remaining)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Retry failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to retry scrobbles: {str(e)}") from e
+
+
+# ============================================
+# Loved tracks import
+# ============================================
+
+
+@router.post("/lastfm/import-loved-tracks")
+async def import_loved_tracks():
+    """Import user's loved tracks from Last.fm and mark matching library tracks as favorites."""
+    db = get_db()
+    api = _get_lastfm_api()
+
+    # Check authentication
+    username = db.get_setting("lastfm_username")
+    session_key = db.get_setting("lastfm_session_key")
+
+    if not username or not session_key:
+        raise HTTPException(status_code=401, detail="Not authenticated with Last.fm")
+
+    try:
+        # Fetch all loved tracks (paginated)
+        all_loved_tracks = []
+        page = 1
+        max_pages = 100  # Safety limit
+
+        while page <= max_pages:
+            tracks = await api.get_loved_tracks(user=username, limit=200, page=page)
+            if not tracks:
+                break
+            all_loved_tracks.extend(tracks)
+            # Check if we got a full page (more to fetch)
+            if len(tracks) < 200:
+                break
+            page += 1
+
+        # Match loved tracks to library and mark as favorites
+        imported_count = 0
+
+        for loved_track in all_loved_tracks:
+            artist = loved_track.get("artist", {})
+            artist_name = artist.get("name", "") if isinstance(artist, dict) else str(artist)
+            track_name = loved_track.get("name", "")
+
+            if not artist_name or not track_name:
+                continue
+
+            # Find matching track in library (case-insensitive match)
+            with db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT id FROM library
+                    WHERE LOWER(artist) = LOWER(?) AND LOWER(title) = LOWER(?)
+                    """,
+                    (artist_name, track_name),
+                )
+                rows = cursor.fetchall()
+
+                for row in rows:
+                    track_id = row["id"]
+                    # Add to favorites if not already
+                    try:
+                        cursor.execute(
+                            "INSERT OR IGNORE INTO favorites (track_id) VALUES (?)",
+                            (track_id,),
+                        )
+                        # Mark as Last.fm loved
+                        cursor.execute(
+                            "UPDATE library SET lastfm_loved = 1 WHERE id = ?",
+                            (track_id,),
+                        )
+                        if cursor.rowcount > 0:
+                            imported_count += 1
+                    except Exception:
+                        pass  # Skip duplicates
+
+                conn.commit()
+
+        return {
+            "status": "success",
+            "total_loved_tracks": len(all_loved_tracks),
+            "imported_count": imported_count,
+            "message": f"Imported {imported_count} tracks from {len(all_loved_tracks)} loved tracks",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to import loved tracks: {str(e)}") from e

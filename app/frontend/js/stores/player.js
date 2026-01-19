@@ -19,7 +19,7 @@ export function createPlayerStore(Alpine) {
     isSeeking: false,
     isFavorite: false,
     artwork: null,
-    
+
     _progressListener: null,
     _trackEndedListener: null,
     _mediaKeyListeners: [],
@@ -29,7 +29,7 @@ export function createPlayerStore(Alpine) {
     _playCountThreshold: 0.75,
     _scrobbleThreshold: 0.9, // Default 90%, will be updated from settings
     _scrobbleChecked: false,
-    
+
     async init() {
       // Load Last.fm settings
       await this._loadLastfmSettings();
@@ -63,12 +63,12 @@ export function createPlayerStore(Alpine) {
           }
         }
       });
-      
+
       this._trackEndedListener = await listen('audio://track-ended', () => {
         this.isPlaying = false;
         Alpine.store('queue').playNext();
       });
-      
+
       this._mediaKeyListeners = await Promise.all([
         listen('mediakey://play', () => this.resume()),
         listen('mediakey://pause', () => this.pause()),
@@ -77,7 +77,7 @@ export function createPlayerStore(Alpine) {
         listen('mediakey://previous', () => this.previous()),
         listen('mediakey://stop', () => this.stop()),
       ]);
-      
+
       try {
         const status = await invoke('audio_get_status');
         this.volume = Math.round(status.volume * 100);
@@ -85,7 +85,7 @@ export function createPlayerStore(Alpine) {
         console.warn('Could not get initial audio status:', e);
       }
     },
-    
+
     async _loadLastfmSettings() {
       try {
         const settings = await api.lastfm.getSettings();
@@ -136,7 +136,7 @@ export function createPlayerStore(Alpine) {
       if (this._trackEndedListener) this._trackEndedListener();
       this._mediaKeyListeners.forEach(unlisten => unlisten());
     },
-    
+
     async playTrack(track) {
       const trackPath = track?.filepath || track?.path;
       if (!trackPath) {
@@ -180,7 +180,7 @@ export function createPlayerStore(Alpine) {
         this.isPlaying = false;
       }
     },
-    
+
     async pause() {
       console.log('[playback]', 'pause', {
         trackId: this.currentTrack?.id,
@@ -195,7 +195,7 @@ export function createPlayerStore(Alpine) {
         console.error('[playback]', 'pause_error', { error: error.message });
       }
     },
-    
+
     async resume() {
       console.log('[playback]', 'resume', {
         trackId: this.currentTrack?.id,
@@ -265,7 +265,7 @@ export function createPlayerStore(Alpine) {
         console.error('[playback]', 'stop_error', { error: error.message });
       }
     },
-    
+
     async seek(positionMs) {
       if (isNaN(positionMs) || positionMs < 0) return;
 
@@ -295,14 +295,14 @@ export function createPlayerStore(Alpine) {
         }
       }, 50);
     },
-    
+
     async seekPercent(percent) {
       if (!this.duration || this.duration <= 0) return;
       const positionMs = Math.round((percent / 100) * this.duration);
       if (isNaN(positionMs) || positionMs < 0) return;
       await this.seek(positionMs);
     },
-    
+
     async setVolume(vol) {
       const clampedVol = Math.max(0, Math.min(100, vol));
 
@@ -337,13 +337,13 @@ export function createPlayerStore(Alpine) {
         this.muted = true;
       }
     },
-    
+
     async checkFavoriteStatus() {
       if (!this.currentTrack?.id) {
         this.isFavorite = false;
         return;
       }
-      
+
       try {
         const result = await api.favorites.check(this.currentTrack.id);
         this.isFavorite = result.is_favorite;
@@ -352,7 +352,7 @@ export function createPlayerStore(Alpine) {
         this.isFavorite = false;
       }
     },
-    
+
     async toggleFavorite() {
       if (!this.currentTrack?.id) return;
 
@@ -380,7 +380,7 @@ export function createPlayerStore(Alpine) {
         });
       }
     },
-    
+
     async loadArtwork() {
       if (!this.currentTrack?.id) {
         this.artwork = null;
@@ -397,10 +397,10 @@ export function createPlayerStore(Alpine) {
         this.artwork = null;
       }
     },
-    
+
     async _updatePlayCount() {
       if (this._playCountUpdated || !this.currentTrack?.id) return;
-      
+
       this._playCountUpdated = true;
       try {
         await api.library.updatePlayCount(this.currentTrack.id);
@@ -408,10 +408,10 @@ export function createPlayerStore(Alpine) {
         console.error('Failed to update play count:', error);
       }
     },
-    
+
     async _updateNowPlayingMetadata() {
       if (!this.currentTrack) return;
-      
+
       try {
         await invoke('media_set_metadata', {
           title: this.currentTrack.title || null,
@@ -423,8 +423,37 @@ export function createPlayerStore(Alpine) {
       } catch (error) {
         console.warn('Failed to update Now Playing metadata:', error);
       }
+
+      // Update Last.fm Now Playing in background
+      this._updateLastfmNowPlaying();
     },
-    
+
+    async _updateLastfmNowPlaying() {
+      if (!this.currentTrack) return;
+
+      try {
+        const nowPlayingData = {
+          artist: this.currentTrack.artist || 'Unknown Artist',
+          track: this.currentTrack.title || 'Unknown Track',
+          album: this.currentTrack.album || undefined,
+          duration: Math.floor(this.duration / 1000), // Convert ms to seconds
+        };
+
+        api.lastfm.updateNowPlaying(nowPlayingData).then(result => {
+          if (result.status === 'disabled' || result.status === 'not_authenticated') {
+            // Silently ignore if not configured
+            return;
+          }
+          console.debug('[lastfm] Now Playing updated:', nowPlayingData.track);
+        }).catch(error => {
+          console.warn('[lastfm] Failed to update Now Playing:', error);
+        });
+      } catch (error) {
+        // Silently ignore Now Playing errors
+        console.warn('[lastfm] Error preparing Now Playing data:', error);
+      }
+    },
+
     async _updateNowPlayingState() {
       try {
         if (this.isPlaying) {
@@ -436,7 +465,7 @@ export function createPlayerStore(Alpine) {
         console.warn('Failed to update Now Playing state:', error);
       }
     },
-    
+
     formatTime(ms) {
       if (!ms || ms < 0) return '0:00';
       const totalSeconds = Math.floor(ms / 1000);
@@ -444,11 +473,11 @@ export function createPlayerStore(Alpine) {
       const seconds = totalSeconds % 60;
       return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     },
-    
+
     get formattedCurrentTime() {
       return this.formatTime(this.currentTime);
     },
-    
+
     get formattedDuration() {
       return this.formatTime(this.duration);
     },

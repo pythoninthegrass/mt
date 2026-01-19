@@ -97,7 +97,7 @@ async def health_check():
     }
 
 
-def run():
+def main():
     """Entry point for running the server (used by PEX)."""
     import uvicorn
 
@@ -114,4 +114,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    main()

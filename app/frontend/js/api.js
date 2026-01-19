@@ -1,6 +1,6 @@
 /**
  * Backend API Client
- * 
+ *
  * HTTP client for communicating with the Python FastAPI sidecar.
  * The sidecar runs on localhost:5556 and provides REST endpoints
  * for library, queue, and playback operations.
@@ -20,7 +20,7 @@ export function setApiBase(url) {
  */
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
-  
+
   const config = {
     headers: {
       'Content-Type': 'application/json',
@@ -28,15 +28,15 @@ async function request(endpoint, options = {}) {
     },
     ...options,
   };
-  
+
   try {
     const response = await fetch(url, config);
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: response.statusText }));
       throw new ApiError(response.status, error.detail || 'Request failed');
     }
-    
+
     // Handle empty responses
     const text = await response.text();
     return text ? JSON.parse(text) : null;
@@ -71,11 +71,11 @@ export const api = {
   async health() {
     return request('/health');
   },
-  
+
   // ============================================
   // Library endpoints
   // ============================================
-  
+
   library: {
     /**
      * Get all tracks in library
@@ -94,11 +94,11 @@ export const api = {
       if (params.order) query.set('sort_order', params.order);
       if (params.limit) query.set('limit', params.limit.toString());
       if (params.offset) query.set('offset', params.offset.toString());
-      
+
       const queryString = query.toString();
       return request(`/library${queryString ? `?${queryString}` : ''}`);
     },
-    
+
     /**
      * Get a single track by ID
      * @param {string} id - Track ID
@@ -107,7 +107,7 @@ export const api = {
     async getTrack(id) {
       return request(`/library/${encodeURIComponent(id)}`);
     },
-    
+
     /**
      * Scan paths for music files and add to library
      * @param {string[]} paths - File or directory paths to scan
@@ -120,7 +120,7 @@ export const api = {
         body: JSON.stringify({ paths, recursive }),
       });
     },
-    
+
     /**
      * Get library statistics
      * @returns {Promise<{total_tracks: number, total_duration: number, ...}>}
@@ -128,7 +128,7 @@ export const api = {
     async getStats() {
       return request('/library/stats');
     },
-    
+
     /**
      * Delete a track from library
      * @param {string} id - Track ID
@@ -139,7 +139,7 @@ export const api = {
         method: 'DELETE',
       });
     },
-    
+
     /**
      * Update play count for a track (increment by 1)
      * @param {string} id - Track ID
@@ -161,7 +161,7 @@ export const api = {
         method: 'PUT',
       });
     },
-    
+
     /**
      * Get album artwork for a track
      * @param {string} id - Track ID
@@ -178,11 +178,11 @@ export const api = {
       }
     },
   },
-  
+
   // ============================================
   // Queue endpoints
   // ============================================
-  
+
   queue: {
     /**
      * Get current queue
@@ -191,7 +191,7 @@ export const api = {
     async get() {
       return request('/queue');
     },
-    
+
     /**
      * Add track(s) to queue by track IDs
      * @param {number|number[]} trackIds - Track ID(s) to add
@@ -205,7 +205,7 @@ export const api = {
         body: JSON.stringify({ track_ids: ids, position }),
       });
     },
-    
+
     /**
      * Remove track from queue
      * @param {number} position - Position in queue to remove
@@ -216,7 +216,7 @@ export const api = {
         method: 'DELETE',
       });
     },
-    
+
     /**
      * Clear the entire queue
      * @returns {Promise<void>}
@@ -226,7 +226,7 @@ export const api = {
         method: 'POST',
       });
     },
-    
+
     /**
      * Move track within queue (reorder)
      * @param {number} from - Current position
@@ -239,23 +239,23 @@ export const api = {
         body: JSON.stringify({ from_position: from, to_position: to }),
       });
     },
-    
+
     async shuffle(keepCurrent = true) {
       return request('/queue/shuffle', {
         method: 'POST',
         body: JSON.stringify({ keep_current: keepCurrent }),
       });
     },
-    
+
     async save(state) {
       console.debug('Queue save (local only):', state);
     },
   },
-  
+
   // ============================================
   // Favorites endpoints
   // ============================================
-  
+
   favorites: {
     async get(params = {}) {
       const query = new URLSearchParams();
@@ -264,27 +264,27 @@ export const api = {
       const queryString = query.toString();
       return request(`/favorites${queryString ? `?${queryString}` : ''}`);
     },
-    
+
     async check(trackId) {
       return request(`/favorites/${encodeURIComponent(trackId)}`);
     },
-    
+
     async add(trackId) {
       return request(`/favorites/${encodeURIComponent(trackId)}`, {
         method: 'POST',
       });
     },
-    
+
     async remove(trackId) {
       return request(`/favorites/${encodeURIComponent(trackId)}`, {
         method: 'DELETE',
       });
     },
-    
+
     async getTop25() {
       return request('/favorites/top25');
     },
-    
+
     async getRecentlyPlayed(params = {}) {
       const query = new URLSearchParams();
       if (params.days) query.set('days', params.days.toString());
@@ -292,7 +292,7 @@ export const api = {
       const queryString = query.toString();
       return request(`/favorites/recently-played${queryString ? `?${queryString}` : ''}`);
     },
-    
+
     async getRecentlyAdded(params = {}) {
       const query = new URLSearchParams();
       if (params.days) query.set('days', params.days.toString());
@@ -301,11 +301,11 @@ export const api = {
       return request(`/favorites/recently-added${queryString ? `?${queryString}` : ''}`);
     },
   },
-  
+
   // ============================================
   // Playback endpoints (if sidecar handles playback state)
   // ============================================
-  
+
   playback: {
     /**
      * Get current playback state
@@ -314,7 +314,7 @@ export const api = {
     async getState() {
       return request('/playback/state');
     },
-    
+
     /**
      * Update playback position (for sync)
      * @param {number} position - Position in seconds
@@ -327,11 +327,11 @@ export const api = {
       });
     },
   },
-  
+
   // ============================================
   // Preferences endpoints
   // ============================================
-  
+
   preferences: {
     /**
      * Get all preferences
@@ -340,7 +340,7 @@ export const api = {
     async get() {
       return request('/preferences');
     },
-    
+
     /**
      * Update preferences
      * @param {object} prefs - Preferences to update
@@ -352,7 +352,7 @@ export const api = {
         body: JSON.stringify(prefs),
       });
     },
-    
+
     /**
      * Get a specific preference
      * @param {string} key - Preference key
@@ -361,7 +361,7 @@ export const api = {
     async getValue(key) {
       return request(`/preferences/${encodeURIComponent(key)}`);
     },
-    
+
     /**
      * Set a specific preference
      * @param {string} key - Preference key
@@ -375,7 +375,7 @@ export const api = {
       });
     },
   },
-  
+
   playlists: {
     async getAll() {
       const response = await request('/playlists');
@@ -499,6 +499,22 @@ export const api = {
       return request('/lastfm/scrobble', {
         method: 'POST',
         body: JSON.stringify(scrobbleData),
+      });
+    },
+
+    /**
+     * Update 'Now Playing' status on Last.fm
+     * @param {object} nowPlayingData - Now playing track data
+     * @param {string} nowPlayingData.artist - Artist name
+     * @param {string} nowPlayingData.track - Track title
+     * @param {string} [nowPlayingData.album] - Album name
+     * @param {number} [nowPlayingData.duration] - Track duration in seconds
+     * @returns {Promise<object>}
+     */
+    async updateNowPlaying(nowPlayingData) {
+      return request('/lastfm/now-playing', {
+        method: 'POST',
+        body: JSON.stringify(nowPlayingData),
       });
     },
 

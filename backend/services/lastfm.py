@@ -4,7 +4,6 @@ import asyncio
 import hashlib
 import requests
 import time
-from typing import Optional, Dict, List, Tuple
 from backend.services.database import DatabaseService
 from decouple import config
 
@@ -55,9 +54,14 @@ class LastFmAPI:
             # API keys not configured
             self.api_key = None
             self.api_secret = None
+
         self.base_url = "https://ws.audioscrobbler.com/2.0/"
         self.db = db
         self.rate_limiter = RateLimiter()
+
+    def is_configured(self) -> bool:
+        """Check if Last.fm API is properly configured."""
+        return bool(self.api_key and self.api_secret)
 
     def _sign_params(self, params: dict) -> str:
         """Generate API signature for authenticated calls."""
@@ -67,8 +71,15 @@ class LastFmAPI:
         signature_string = "".join(f"{k}{v}" for k, v in sorted_items) + self.api_secret
         return hashlib.md5(signature_string.encode('utf-8')).hexdigest()
 
-    async def _api_call(self, method: str, params: dict, authenticated: bool = False) -> dict:
-        """Make authenticated API call with rate limiting."""
+    async def _api_call(self, method: str, params: dict, authenticated: bool = False, use_post: bool = False) -> dict:
+        """Make authenticated API call with rate limiting.
+
+        Args:
+            method: Last.fm API method name
+            params: Parameters to send
+            authenticated: Whether to include session key and signature
+            use_post: Whether to use POST instead of GET (required for scrobbling)
+        """
         if not self.api_key:
             raise ValueError("Last.fm API key not configured")
 
@@ -81,10 +92,15 @@ class LastFmAPI:
             if not session_key:
                 raise ValueError("No Last.fm session key available")
             params['sk'] = session_key
-            params['api_sig'] = self._sign_params(params)
+            # Signature should not include 'format' parameter
+            sign_params = {k: v for k, v in params.items() if k != 'format'}
+            params['api_sig'] = self._sign_params(sign_params)
 
         try:
-            response = requests.get(self.base_url, params=params, timeout=30.0)
+            if use_post:
+                response = requests.post(self.base_url, data=params, timeout=30.0)
+            else:
+                response = requests.get(self.base_url, params=params, timeout=30.0)
             response.raise_for_status()
             return response.json()
         except requests.HTTPError as e:
@@ -111,26 +127,71 @@ class LastFmAPI:
         # Last.fm minimum: 30 seconds
         return played_time >= max(threshold_time, 30)
 
-    async def get_auth_url(self) -> str:
-        """Get Last.fm authentication URL for user."""
+    async def get_auth_url(self) -> tuple[str, str]:
+        """Get Last.fm authentication URL for user.
+
+        Returns:
+            Tuple of (auth_url, token) - the token is needed to complete authentication.
+        """
         token_response = await self._api_call('auth.getToken', {})
         token = token_response['token']
-        return f"https://www.last.fm/api/auth/?api_key={self.api_key}&token={token}"
+        auth_url = f"https://www.last.fm/api/auth/?api_key={self.api_key}&token={token}"
+        return auth_url, token
 
     async def get_session(self, token: str) -> dict:
         """Exchange authentication token for session key."""
-        params = {'token': token}
+        # Build params and signature before adding format (which shouldn't be signed)
+        params = {
+            'api_key': self.api_key,
+            'method': 'auth.getSession',
+            'token': token,
+        }
         params['api_sig'] = self._sign_params(params)
-        response = await self._api_call('auth.getSession', params, authenticated=False)
-        return response['session']
+        params['format'] = 'json'
 
-    async def get_loved_tracks(self, user: str, limit: int = 50, page: int = 1) -> List[dict]:
+        await self.rate_limiter.wait_if_needed()
+
+        try:
+            response = requests.get(self.base_url, params=params, timeout=30.0)
+            response.raise_for_status()
+            result = response.json()
+            if 'error' in result:
+                raise ValueError(f"Last.fm API error: {result.get('message', 'Unknown error')}")
+            return result['session']
+        except requests.HTTPError as e:
+            raise ValueError(f"HTTP error during session exchange: {e}") from e
+
+    async def get_loved_tracks(self, user: str, limit: int = 50, page: int = 1) -> list[dict]:
         """Get user's loved tracks."""
         response = await self._api_call('user.getLovedTracks', {'user': user, 'limit': limit, 'page': page})
         return response.get('lovedtracks', {}).get('track', [])
 
+    async def update_now_playing(
+        self, artist: str, track: str, album: str | None = None, duration: int = 0
+    ) -> dict:
+        """Update 'Now Playing' status on Last.fm.
+
+        This should be called when a track starts playing.
+        """
+        enabled = self.db.get_setting('lastfm_scrobbling_enabled')
+        if not enabled or enabled == "0" or enabled == "false":
+            return {"status": "disabled"}
+
+        params = {'artist': artist, 'track': track}
+        if album:
+            params['album'] = album
+        if duration > 0:
+            params['duration'] = str(duration)
+
+        try:
+            result = await self._api_call('track.updateNowPlaying', params, authenticated=True, use_post=True)
+            return result
+        except Exception as e:
+            # Now Playing updates are not critical, just log and continue
+            return {"status": "error", "message": str(e)}
+
     async def scrobble_track(
-        self, artist: str, track: str, timestamp: int, album: Optional[str] = None, duration: int = 0, played_time: int = 0
+        self, artist: str, track: str, timestamp: int, album: str | None = None, duration: int = 0, played_time: int = 0
     ) -> dict:
         """Scrobble a track if it meets threshold criteria."""
         if not self.should_scrobble(duration, played_time):
@@ -141,7 +202,7 @@ class LastFmAPI:
             params['album'] = album
 
         try:
-            result = await self._api_call('track.scrobble', params, authenticated=True)
+            result = await self._api_call('track.scrobble', params, authenticated=True, use_post=True)
             return result
         except Exception as e:
             # Queue for offline retry
@@ -166,6 +227,7 @@ class LastFmAPI:
                     'track.scrobble',
                     {'artist': item['artist'], 'track': item['track'], 'album': item['album'], 'timestamp': item['timestamp']},
                     authenticated=True,
+                    use_post=True,
                 )
 
                 if result.get('scrobbles', {}).get('@attr', {}).get('accepted', 0) > 0:
