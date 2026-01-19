@@ -18,35 +18,26 @@ priority: low
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ## Overview
 
-Integrate Alpine.js's official Intersect plugin (`@alpinejs/intersect`) to enable lazy loading of album artwork and potentially implement virtual scrolling for large music libraries.
+Integrate Alpine.js's official Intersect plugin (`@alpinejs/intersect`) to enable lazy loading of album artwork when that feature is implemented.
 
 ## Current State
 
 The application currently:
-- Loads all track data eagerly
-- Renders all library rows at once
-- No lazy loading of images or content
-- No intersection-based loading
+- ✅ Loads all track data eagerly (no infinite scroll)
+- ✅ Renders all library rows at once (infinite scroll removed)
+- ❌ No lazy loading of images or content
+- ❌ No intersection-based loading
 
-### Library Rendering (`index.html:440-500`)
-```html
-<template x-for="(track, index) in displayedTracks" :key="track.id">
-  <tr class="library-row">
-    <td><!-- index --></td>
-    <td><!-- title --></td>
-    <td><!-- artist --></td>
-    <td><!-- album --></td>
-    <td><!-- duration --></td>
-  </tr>
-</template>
-```
+**Recent Changes:**
+- Infinite scroll implementation was reverted (commit 2ba1293)
+- `@alpinejs/intersect` plugin preserved for future album art lazy loading
+- Library now renders all tracks immediately without pagination
 
-### Potential Performance Issues
+### Potential Performance Issues (Future)
 
-1. **Large libraries**: 10,000+ tracks render all rows
-2. **Album art**: Would load all images at once if added
-3. **Memory usage**: All DOM nodes created upfront
-4. **Initial render**: Slow for very large collections
+1. **Album art**: Would load all images at once if added
+2. **Memory usage**: All album art images loaded upfront
+3. **Initial render**: Slow loading of many album artwork images
 
 ## Proposed Solution
 
@@ -54,6 +45,7 @@ The application currently:
 ```bash
 npm install @alpinejs/intersect
 ```
+✅ **COMPLETED**
 
 ### Registration (`main.js`)
 ```javascript
@@ -63,20 +55,21 @@ import intersect from '@alpinejs/intersect';
 Alpine.plugin(intersect);
 Alpine.start();
 ```
+✅ **COMPLETED**
 
-### Use Cases
+### Use Cases (Future Implementation)
 
-#### 1. Lazy Load Album Artwork
+#### 1. Lazy Load Album Artwork (Primary Use Case)
 ```html
-<template x-for="track in displayedTracks" :key="track.id">
+<template x-for="track in library.filteredTracks" :key="track.id">
   <tr class="library-row">
     <td class="album-art">
-      <div 
+      <div
         x-data="{ loaded: false }"
         x-intersect.once="loaded = true"
         class="w-10 h-10 bg-muted"
       >
-        <img 
+        <img
           x-show="loaded"
           :src="loaded ? track.albumArt : ''"
           class="w-full h-full object-cover"
@@ -89,51 +82,9 @@ Alpine.start();
 </template>
 ```
 
-#### 2. Infinite Scroll / Load More
+#### 2. Analytics / Play Tracking (Optional)
 ```html
-<div x-data="{ 
-  visibleCount: 100,
-  loadMore() { this.visibleCount += 100; }
-}">
-  <template x-for="track in displayedTracks.slice(0, visibleCount)">
-    <!-- track row -->
-  </template>
-  
-  <!-- Sentinel element at bottom -->
-  <div 
-    x-show="visibleCount < displayedTracks.length"
-    x-intersect="loadMore()"
-    class="h-10"
-  >
-    <span class="text-muted">Loading more...</span>
-  </div>
-</div>
-```
-
-#### 3. Virtual Scrolling (Advanced)
-```html
-<div 
-  x-data="virtualScroller($store.library.tracks)"
-  class="h-full overflow-auto"
-  @scroll="updateVisibleRange()"
->
-  <!-- Spacer for items above viewport -->
-  <div :style="{ height: topSpacerHeight + 'px' }"></div>
-  
-  <template x-for="track in visibleTracks" :key="track.id">
-    <div class="track-row h-10">
-      <!-- track content -->
-    </div>
-  </template>
-  
-  <!-- Spacer for items below viewport -->
-  <div :style="{ height: bottomSpacerHeight + 'px' }"></div>
-</div>
-```
-
-#### 4. Analytics / Play Tracking
-```html
-<div 
+<div
   x-intersect.threshold.50="trackView(track.id)"
 >
   <!-- Track has been 50% visible, log impression -->
@@ -162,38 +113,29 @@ Alpine.start();
 <div x-intersect.full="onFullyVisible()">
 ```
 
-## Projected Value
-
-| Scenario | Before | After |
-|----------|--------|-------|
-| 10k tracks initial render | All 10k rows | 100 rows + lazy load |
-| Album art loading | N/A (not implemented) | Lazy per-row |
-| Memory usage | High (all DOM) | Low (virtual window) |
-| Scroll performance | Degrades with size | Consistent |
-
 ## Implementation Priority
 
-1. **Phase 1**: Lazy load album artwork (when art is added)
-2. **Phase 2**: Infinite scroll for libraries > 1000 tracks
-3. **Phase 3**: Full virtual scrolling for 10k+ track libraries
+1. **Phase 1**: Wait for album artwork feature implementation
+2. **Phase 2**: Add lazy loading to album art images using x-intersect.once
+3. **Phase 3**: Test with large libraries containing many albums
+4. **Phase 4**: Measure image loading performance improvements
 
 ## Note
 
 This is **lower priority** because:
 1. Album artwork feature doesn't exist yet
-2. Current library size may not warrant virtual scrolling
-3. Browser handles thousands of rows reasonably well
-4. Main value emerges with very large libraries (10k+ tracks)
+2. Current library has no album art to lazy load
+3. Plugin is ready but waiting for album art feature implementation
 
-However, this should be considered **before** adding album artwork to prevent loading hundreds of images at once.
+The intersect plugin foundation is in place and ready for when album artwork is added.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Install and register @alpinejs/intersect plugin
-- [ ] #2 Create proof-of-concept for lazy loading (placeholder images)
-- [ ] #3 Implement infinite scroll for library view with 1000+ tracks
-- [ ] #4 Measure performance improvement with large track collections
-- [ ] #5 Document virtual scrolling pattern for future implementation
-- [ ] #6 Add x-intersect.once to any lazy-loadable content
+- [x] #1 Install and register @alpinejs/intersect plugin
+- [x] #2 Remove infinite scroll implementation (reverted)
+- [ ] #3 Implement lazy loading for album artwork (when art feature added)
+- [ ] #4 Test with libraries containing 100+ albums with artwork
+- [ ] #5 Measure image loading performance improvements
+- [ ] #6 Add x-intersect.once to album art lazy loading implementation
 <!-- AC:END -->
