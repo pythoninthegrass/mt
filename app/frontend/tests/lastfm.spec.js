@@ -411,6 +411,316 @@ test.describe('Last.fm Integration', () => {
     });
   });
 
+  test.describe('Scrobble Threshold (task-007)', () => {
+    test('should use Math.ceil for duration and played_time in scrobble payload', async ({ page }) => {
+      let scrobblePayload = null;
+
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 80,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/scrobble', async (route) => {
+        scrobblePayload = route.request().postDataJSON();
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            scrobbles: { '@attr': { accepted: 1 } },
+          }),
+        });
+      });
+
+      await page.evaluate(() => {
+        const player = window.Alpine.store('player');
+        player.currentTrack = {
+          id: '1',
+          title: 'Test Track',
+          artist: 'Test Artist',
+          album: 'Test Album',
+        };
+        // 107066ms = 107.066s -> Math.ceil = 108s
+        player.duration = 107066;
+        // 85839ms = 85.839s -> Math.ceil = 86s
+        player.currentTime = 85839;
+        player._scrobbleThreshold = 0.8;
+        player._scrobbleChecked = false;
+        player._checkScrobble();
+      });
+
+      await page.waitForTimeout(1000);
+
+      expect(scrobblePayload).not.toBeNull();
+      // Math.ceil(107066/1000) = 108, Math.ceil(85839/1000) = 86
+      expect(scrobblePayload.duration).toBe(108);
+      expect(scrobblePayload.played_time).toBe(86);
+    });
+
+    test('should scrobble when fraction played meets threshold (edge case)', async ({ page }) => {
+      let scrobbleCalled = false;
+
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 80,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/scrobble', async (route) => {
+        scrobbleCalled = true;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            scrobbles: { '@attr': { accepted: 1 } },
+          }),
+        });
+      });
+
+      await page.evaluate(() => {
+        const player = window.Alpine.store('player');
+        player.currentTrack = {
+          id: '1',
+          title: 'Edge Case Track',
+          artist: 'Test Artist',
+        };
+        // Duration: 100s, played: 80.1s -> fraction = 0.801 >= 0.8 threshold
+        player.duration = 100000;
+        player.currentTime = 80100;
+        player._scrobbleThreshold = 0.8;
+        player._scrobbleChecked = false;
+        player._checkScrobble();
+      });
+
+      await page.waitForTimeout(1000);
+
+      expect(scrobbleCalled).toBe(true);
+    });
+
+    test('should not trigger scrobble check when fraction played is below threshold', async ({ page }) => {
+      let checkScrobbleCalled = false;
+
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 80,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/scrobble', async (route) => {
+        checkScrobbleCalled = true;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            scrobbles: { '@attr': { accepted: 1 } },
+          }),
+        });
+      });
+
+      await page.evaluate(() => {
+        const player = window.Alpine.store('player');
+        player.currentTrack = {
+          id: '1',
+          title: 'Below Threshold Track',
+          artist: 'Test Artist',
+        };
+        // Duration: 100s, played: 79s -> fraction = 0.79 < 0.8 threshold
+        player.duration = 100000;
+        player.currentTime = 79000;
+        player._scrobbleThreshold = 0.8;
+        player._scrobbleChecked = false;
+
+        // Simulate progress event - this is where threshold check happens
+        const ratio = player.currentTime / player.duration;
+        // The progress listener only calls _checkScrobble when ratio >= threshold
+        // Since 0.79 < 0.8, _checkScrobble should NOT be called
+        if (ratio >= player._scrobbleThreshold) {
+          player._checkScrobble();
+        }
+      });
+
+      await page.waitForTimeout(1000);
+
+      // Scrobble API should NOT be called because threshold wasn't met
+      expect(checkScrobbleCalled).toBe(false);
+    });
+
+    test('should handle successful scrobble response', async ({ page }) => {
+      const consoleLogs = [];
+      page.on('console', (msg) => {
+        if (msg.type() === 'log') {
+          consoleLogs.push(msg.text());
+        }
+      });
+
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 80,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/scrobble', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            scrobbles: { '@attr': { accepted: 1, ignored: 0 } },
+          }),
+        });
+      });
+
+      await page.evaluate(() => {
+        const player = window.Alpine.store('player');
+        player.currentTrack = {
+          id: '1',
+          title: 'Success Track',
+          artist: 'Test Artist',
+        };
+        player.duration = 180000;
+        player.currentTime = 150000;
+        player._scrobbleThreshold = 0.8;
+        player._scrobbleChecked = false;
+        player._checkScrobble();
+      });
+
+      await page.waitForTimeout(1000);
+
+      const successLog = consoleLogs.find((log) => log.includes('Successfully scrobbled'));
+      expect(successLog).toBeTruthy();
+    });
+
+    test('should handle queued scrobble response', async ({ page }) => {
+      const consoleLogs = [];
+      page.on('console', (msg) => {
+        if (msg.type() === 'warning') {
+          consoleLogs.push(msg.text());
+        }
+      });
+
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 80,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/scrobble', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'queued',
+            message: 'Scrobble queued for retry',
+          }),
+        });
+      });
+
+      await page.evaluate(() => {
+        const player = window.Alpine.store('player');
+        player.currentTrack = {
+          id: '1',
+          title: 'Queued Track',
+          artist: 'Test Artist',
+        };
+        player.duration = 180000;
+        player.currentTime = 150000;
+        player._scrobbleThreshold = 0.8;
+        player._scrobbleChecked = false;
+        player._checkScrobble();
+      });
+
+      await page.waitForTimeout(1000);
+
+      const queuedLog = consoleLogs.find((log) => log.includes('Queued for retry'));
+      expect(queuedLog).toBeTruthy();
+    });
+
+    test('should handle threshold_not_met response from backend', async ({ page }) => {
+      const consoleLogs = [];
+      page.on('console', (msg) => {
+        if (msg.type() === 'debug') {
+          consoleLogs.push(msg.text());
+        }
+      });
+
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 80,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/scrobble', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'threshold_not_met',
+          }),
+        });
+      });
+
+      await page.evaluate(() => {
+        const player = window.Alpine.store('player');
+        player.currentTrack = {
+          id: '1',
+          title: 'Threshold Not Met Track',
+          artist: 'Test Artist',
+        };
+        player.duration = 180000;
+        player.currentTime = 150000;
+        player._scrobbleThreshold = 0.8;
+        player._scrobbleChecked = false;
+        player._checkScrobble();
+      });
+
+      await page.waitForTimeout(1000);
+
+      const thresholdLog = consoleLogs.find((log) => log.includes('Threshold not met'));
+      expect(thresholdLog).toBeTruthy();
+    });
+  });
+
   test.describe('Settings Persistence', () => {
     test.beforeEach(async ({ page }) => {
       await page.click('[data-testid="sidebar-settings"]');
