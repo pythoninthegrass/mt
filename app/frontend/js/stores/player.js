@@ -104,22 +104,44 @@ export function createPlayerStore(Alpine) {
         const settings = await api.lastfm.getSettings();
         if (!settings.enabled || !settings.authenticated) return;
 
+        // Log the threshold check values for debugging
+        const fractionPlayed = this.duration > 0 ? this.currentTime / this.duration : 0;
+        console.debug('[scrobble] Threshold check:', {
+          track: this.currentTrack.title,
+          currentTime: this.currentTime,
+          duration: this.duration,
+          fractionPlayed: fractionPlayed.toFixed(3),
+          thresholdFraction: this._scrobbleThreshold,
+          thresholdPercent: (this._scrobbleThreshold * 100).toFixed(0) + '%',
+          meetsThreshold: fractionPlayed >= this._scrobbleThreshold
+        });
+
         // Prepare scrobble data
+        // Use Math.ceil for duration/played_time to avoid off-by-one threshold failures
+        // (frontend fraction check uses ms precision, but backend uses seconds)
         const scrobbleData = {
           artist: this.currentTrack.artist || 'Unknown Artist',
           track: this.currentTrack.title || 'Unknown Track',
           album: this.currentTrack.album || undefined,
           timestamp: Math.floor(Date.now() / 1000), // Current time when scrobbled
-          duration: Math.floor(this.duration / 1000), // Convert ms to seconds
-          played_time: Math.floor(this.currentTime / 1000), // Time actually played
+          duration: Math.ceil(this.duration / 1000), // Convert ms to seconds (ceil to avoid truncation)
+          played_time: Math.ceil(this.currentTime / 1000), // Time actually played (ceil to match frontend check)
         };
 
         // Scrobble in background
         api.lastfm.scrobble(scrobbleData).then(result => {
           if (result.status === 'threshold_not_met') {
-            console.debug('[scrobble] Threshold not met for:', scrobbleData.track);
-          } else {
+            console.debug('[scrobble] Threshold not met (backend):', scrobbleData.track);
+          } else if (result.status === 'queued') {
+            console.warn('[scrobble] Queued for retry:', result.message);
+          } else if (result.status === 'disabled') {
+            console.debug('[scrobble] Scrobbling disabled');
+          } else if (result.status === 'not_authenticated') {
+            console.debug('[scrobble] Not authenticated with Last.fm');
+          } else if (result.scrobbles && result.scrobbles['@attr'] && Number(result.scrobbles['@attr'].accepted) > 0) {
             console.log('[scrobble] Successfully scrobbled:', scrobbleData.track);
+          } else {
+            console.warn('[scrobble] Unexpected response:', result);
           }
         }).catch(error => {
           console.error('[scrobble] Failed to scrobble:', error);
