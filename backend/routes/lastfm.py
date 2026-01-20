@@ -1,11 +1,14 @@
 """Last.fm API routes for authentication, scrobbling, and loved tracks."""
 
+import logging
+
 from backend.services.database import get_db
 from backend.services.lastfm import LastFmAPI
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter(tags=["lastfm"])
+logger = logging.getLogger(__name__)
 
 
 # ============================================
@@ -106,9 +109,7 @@ async def get_auth_url():
     api = _get_lastfm_api()
 
     if not api.is_configured():
-        raise HTTPException(
-            status_code=503, detail="Last.fm API keys not configured. Set LASTFM_API_KEY and LASTFM_API_SECRET."
-        )
+        raise HTTPException(status_code=503, detail="Last.fm API keys not configured. Set LASTFM_API_KEY and LASTFM_API_SECRET.")
 
     try:
         auth_url, token = await api.get_auth_url()
@@ -201,14 +202,24 @@ async def scrobble_track(request: ScrobbleRequest):
     db = get_db()
     api = _get_lastfm_api()
 
+    logger.info(
+        "[lastfm] /scrobble request: artist=%s track=%s duration=%ds played_time=%ds",
+        request.artist,
+        request.track,
+        request.duration,
+        request.played_time,
+    )
+
     # Check if scrobbling is enabled
     enabled = _is_setting_truthy(db.get_setting("lastfm_scrobbling_enabled"))
     if not enabled:
+        logger.debug("[lastfm] /scrobble: scrobbling disabled")
         return {"status": "disabled", "message": "Scrobbling is disabled"}
 
     # Check if authenticated
     session_key = db.get_setting("lastfm_session_key")
     if not session_key:
+        logger.debug("[lastfm] /scrobble: not authenticated")
         return {"status": "not_authenticated", "message": "Not authenticated with Last.fm"}
 
     try:
@@ -220,9 +231,11 @@ async def scrobble_track(request: ScrobbleRequest):
             duration=request.duration,
             played_time=request.played_time,
         )
+        logger.info("[lastfm] /scrobble result: %s", result)
         return result
     except Exception as e:
         # The service will queue the scrobble for retry
+        logger.warning("[lastfm] /scrobble: exception occurred, returning queued status: %s", e)
         return {"status": "queued", "message": f"Scrobble queued for retry: {str(e)}"}
 
 
