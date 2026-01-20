@@ -4,7 +4,7 @@ title: Analyze AlpineJS frontend and Rust backend for migration opportunities
 status: In Progress
 assignee: []
 created_date: '2026-01-19 06:11'
-updated_date: '2026-01-19 06:12'
+updated_date: '2026-01-20 07:18'
 labels:
   - analysis
   - architecture
@@ -13,6 +13,7 @@ labels:
   - migration
 dependencies: []
 priority: medium
+ordinal: 2000
 ---
 
 ## Description

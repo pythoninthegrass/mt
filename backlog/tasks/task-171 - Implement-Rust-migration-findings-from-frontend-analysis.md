@@ -4,7 +4,7 @@ title: Implement Rust migration findings from frontend analysis
 status: In Progress
 assignee: []
 created_date: '2026-01-19 06:11'
-updated_date: '2026-01-19 06:12'
+updated_date: '2026-01-20 07:18'
 labels:
   - implementation
   - architecture
@@ -14,6 +14,7 @@ labels:
 dependencies:
   - task-170
 priority: medium
+ordinal: 3000
 ---
 
 ## Description
