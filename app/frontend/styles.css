@@ -121,12 +121,25 @@ aside button:hover svg {
   opacity: 0.5;
 }
 
+/* Playlist reorder shift animations - match queue behavior */
+[data-playlist-reorder-index] {
+  transition: transform 0.15s ease-out;
+}
+
 .playlist-shift-up {
   transform: translateY(-100%);
 }
 
 .playlist-shift-down {
   transform: translateY(100%);
+}
+
+[data-playlist-reorder-index] {
+  transition: transform 0.15s ease-out;
+}
+
+[data-track-id] {
+  transition: transform 0.15s ease-out;
 }
 
 [data-theme-preset="metro-teal"] {

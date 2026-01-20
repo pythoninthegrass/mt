@@ -226,6 +226,8 @@
       <!-- Sidebar -->
       <aside
         x-data="sidebar"
+        @dragover="console.log('[Sidebar/aside] dragover event', $event.target)"
+        @drop="console.log('[Sidebar/aside] drop event', $event.target)"
         class="border-r border-border bg-muted/30 flex flex-col shrink-0 overflow-hidden transition-all duration-200"
         :class="isCollapsed ? 'w-[70px]' : 'w-52'"
       >
@@ -348,22 +350,24 @@
                   </template>
                   <template x-if="editingPlaylist?.playlistId !== playlist.playlistId">
                     <button
-                      draggable="true"
                       class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all duration-150 select-none"
                       :class="[
                         isActive(playlist.id) ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80',
                         isPlaylistSelected(playlist.playlistId) ? 'bg-[#DFDFDF] dark:bg-[#3a3a3a]' : '',
                         isPlaylistDragOver(playlist.playlistId) ? 'ring-2 ring-primary ring-inset bg-primary/10' : '',
-                        isPlaylistDragging(index) ? 'opacity-50' : '',
+                        isPlaylistDragging(index) ? 'bg-card shadow-lg z-10 relative' : '',
+                        isOtherPlaylistDragging(index) ? 'opacity-50' : '',
                         getPlaylistReorderClass(index),
                         isCollapsed ? 'justify-center' : ''
                       ]"
+                      :style="isPlaylistDragging(index) ? 'transform:' + getPlaylistDragTransform(index) + '; transition: none;' : ''"
                       @click="handlePlaylistClick($event, playlist, index)"
                       @contextmenu.prevent="showPlaylistContextMenu($event, playlist)"
                       @mousedown="startPlaylistReorder(index, $event)"
-                      @dragover="handlePlaylistDragOver($event, playlist)"
-                      @dragleave="handlePlaylistDragLeave()"
-                      @drop="handlePlaylistDrop($event, playlist)"
+                      @dragstart.prevent
+                      @dragover.prevent="handlePlaylistDragOver($event, playlist)"
+                      @dragleave="handlePlaylistDragLeave($event, playlist)"
+                      @drop.prevent="handlePlaylistDrop($event, playlist)"
                       :data-testid="'sidebar-playlist-' + playlist.playlistId"
                       :data-playlist-reorder-index="index"
                       :data-selected="isPlaylistSelected(playlist.playlistId) ? 'true' : 'false'"
@@ -616,12 +620,13 @@
             <template x-for="(track, index) in library.filteredTracks" :key="track.id">
               <div
                 class="grid border-b border-border/30 text-sm cursor-default transition-colors select-none"
-                :style="`grid-template-columns: ${getGridTemplateColumns()}`"
+                :style="`grid-template-columns: ${getGridTemplateColumns()};` + (isDraggingTrack(index) ? ` transform: ${getTrackDragTransform(index)}; transition: none;` : '')"
                 :class="[
                   isSelected(track.id) ? 'track-row-selected' : (index % 2 === 0 ? 'track-row-even' : 'track-row-odd'),
                   isPlaying(track.id) && !isSelected(track.id) ? 'track-row-playing' : '',
                   !isSelected(track.id) && !isPlaying(track.id) ? 'hover:bg-muted/50' : '',
-                  isDraggingTrack(index) ? 'opacity-50' : '',
+                  isDraggingTrack(index) ? 'bg-card shadow-lg z-10 relative' : '',
+                  isOtherTrackDragging(index) ? 'opacity-50' : '',
                   getDragOverClass(index)
                 ]"
                 :data-track-id="track.id"

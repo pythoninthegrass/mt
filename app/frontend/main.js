@@ -4,6 +4,7 @@ import intersect from '@alpinejs/intersect';
 import { initStores } from './js/stores/index.js';
 import { initComponents } from './js/components/index.js';
 import { setApiBase } from './js/api.js';
+import api from './js/api.js';
 import './styles.css';
 
 // Register Alpine plugins
@@ -11,6 +12,11 @@ Alpine.plugin(persist);
 Alpine.plugin(intersect);
 
 window.Alpine = Alpine;
+
+// Flags to track internal drag state and prevent click-after-drag
+window._mtInternalDragActive = false;
+window._mtDragJustEnded = false;
+window._mtDraggedTrackIds = null;
 
 window.handleFileDrop = async function(event) {
   console.log('[main] Browser drop event (Tauri handles via native events)');
@@ -28,13 +34,52 @@ async function initTauriDragDrop() {
     const { getCurrentWebview } = window.__TAURI__.webview;
     
     await getCurrentWebview().onDragDropEvent(async (event) => {
-      console.log('[main] Drag-drop event:', event);
       const { type, paths, position } = event.payload;
+      
+      // Skip if internal HTML5 drag is active (e.g., dragging tracks to playlists)
+      if (window._mtInternalDragActive) {
+        console.log('[main] Skipping Tauri drag event - internal drag active:', type);
+        return;
+      }
+      
+      console.log('[main] Drag-drop event:', event);
       
       if (type === 'over') {
         console.log('[main] Drag over:', position);
       } else if (type === 'drop') {
         console.log('[main] Files dropped:', paths);
+        
+        // Handle internal track drag to playlist (Tauri intercepts HTML5 drop)
+        if ((!paths || paths.length === 0) && window._mtDraggedTrackIds && position) {
+          const x = position.x / window.devicePixelRatio;
+          const y = position.y / window.devicePixelRatio;
+          const element = document.elementFromPoint(x, y);
+          const playlistButton = element?.closest('[data-testid^="sidebar-playlist-"]');
+          
+          if (playlistButton) {
+            const testId = playlistButton.dataset.testid;
+            const playlistId = parseInt(testId.replace('sidebar-playlist-', ''), 10);
+            const playlistName = playlistButton.querySelector('span')?.textContent || 'playlist';
+            console.log('[main] Internal drop on playlist:', playlistId, playlistName, 'tracks:', window._mtDraggedTrackIds);
+            
+            try {
+              const result = await api.playlists.addTracks(playlistId, window._mtDraggedTrackIds);
+              const ui = Alpine.store('ui');
+              
+              if (result.added > 0) {
+                ui.toast(`Added ${result.added} track${result.added > 1 ? 's' : ''} to "${playlistName}"`, 'success');
+              } else {
+                ui.toast(`Track${window._mtDraggedTrackIds.length > 1 ? 's' : ''} already in "${playlistName}"`, 'info');
+              }
+              window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
+            } catch (error) {
+              console.error('[main] Failed to add tracks to playlist:', error);
+              Alpine.store('ui').toast('Failed to add tracks to playlist', 'error');
+            }
+            window._mtDraggedTrackIds = null;
+            return;
+          }
+        }
         
         if (paths && paths.length > 0) {
           try {
@@ -134,6 +179,7 @@ initBackendUrl().then(() => {
   initTauriDragDrop();
   initGlobalKeyboardShortcuts();
   initTitlebarDrag();
+  
   Alpine.start();
   console.log('[main] Alpine started with stores and components');
   console.log('[main] Test dialog with: testDialog()');

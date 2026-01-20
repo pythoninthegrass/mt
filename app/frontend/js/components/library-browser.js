@@ -46,6 +46,8 @@ export function createLibraryBrowser(Alpine) {
     currentPlaylistId: null,
     draggingIndex: null,
     dragOverIndex: null,
+    dragY: 0,
+    dragStartY: 0,
 
     resizingColumn: null,
     resizingNeighbor: null,
@@ -844,14 +846,27 @@ export function createLibraryBrowser(Alpine) {
     },
 
     handleTrackDragStart(event, track) {
+      window._mtInternalDragActive = true;
+      
       if (!this.selectedTracks.has(track.id)) {
         this.selectedTracks.clear();
         this.selectedTracks.add(track.id);
       }
       
       const trackIds = Array.from(this.selectedTracks);
-      event.dataTransfer.setData('application/json', JSON.stringify(trackIds));
-      event.dataTransfer.effectAllowed = 'copy';
+      const trackIdsJson = JSON.stringify(trackIds);
+      
+      // Store track IDs globally for Tauri drop handler workaround
+      window._mtDraggedTrackIds = trackIds;
+      
+      console.log('[drag-drop]', 'dragstart', {
+        trackCount: trackIds.length,
+        trackIds,
+        dataTransferData: trackIdsJson
+      });
+      
+      event.dataTransfer.setData('application/json', trackIdsJson);
+      event.dataTransfer.effectAllowed = 'all';
       
       const count = trackIds.length;
       const dragEl = document.createElement('div');
@@ -864,7 +879,19 @@ export function createLibraryBrowser(Alpine) {
       setTimeout(() => dragEl.remove(), 0);
     },
 
-    handleTrackDragEnd() {},
+    handleTrackDragEnd(event) {
+      window._mtInternalDragActive = false;
+      window._mtDragJustEnded = true;
+      setTimeout(() => { 
+        window._mtDragJustEnded = false;
+        window._mtDraggedTrackIds = null;
+        console.log('[drag-drop]', 'dragJustEnded cleared');
+      }, 1000);
+      
+      console.log('[drag-drop]', 'dragend', {
+        dropEffect: event.dataTransfer?.dropEffect
+      });
+    },
 
     /**
      * Handle right-click context menu
@@ -1334,12 +1361,21 @@ export function createLibraryBrowser(Alpine) {
     startPlaylistDrag(index, event) {
       if (!this.isInPlaylistView()) return;
       event.preventDefault();
+      
+      const rows = document.querySelectorAll('[data-track-id]');
+      const draggedRow = rows[index];
+      const rect = draggedRow?.getBoundingClientRect();
+      const startY = event.clientY || event.touches?.[0]?.clientY || 0;
+      
       this.draggingIndex = index;
       this.dragOverIndex = null;
+      this.dragY = startY;
+      this.dragStartY = rect ? rect.top + rect.height / 2 : startY;
 
       const onMove = (e) => {
         const y = e.clientY || e.touches?.[0]?.clientY;
         if (y === undefined) return;
+        this.dragY = y;
         this.updatePlaylistDragTarget(y);
       };
 
@@ -1413,6 +1449,17 @@ export function createLibraryBrowser(Alpine) {
 
     isDraggingTrack(index) {
       return this.draggingIndex === index;
+    },
+    
+    isOtherTrackDragging(index) {
+      return this.draggingIndex !== null && this.draggingIndex !== index;
+    },
+    
+    getTrackDragTransform(index) {
+      if (this.draggingIndex !== index) return '';
+      
+      const offsetY = this.dragY - this.dragStartY;
+      return `translateY(${offsetY}px)`;
     },
 
     getDragOverClass(index) {

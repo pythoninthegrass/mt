@@ -13,6 +13,8 @@ export function createSidebar(Alpine) {
     
     reorderDraggingIndex: null,
     reorderDragOverIndex: null,
+    reorderDragY: 0,
+    reorderDragStartY: 0,
     
     selectedPlaylistIds: [],
     selectionAnchorIndex: null,
@@ -27,6 +29,11 @@ export function createSidebar(Alpine) {
     ],
     
     init() {
+      console.log('[Sidebar] Component initialized, drag handlers available:', {
+        handlePlaylistDragOver: typeof this.handlePlaylistDragOver,
+        handlePlaylistDragLeave: typeof this.handlePlaylistDragLeave,
+        handlePlaylistDrop: typeof this.handlePlaylistDrop
+      });
       this._migrateOldStorage();
       this.loadPlaylists();
       this.loadSection(this.activeSection);
@@ -130,6 +137,15 @@ export function createSidebar(Alpine) {
     
     handlePlaylistClick(event, playlist, index) {
       if (event.button !== 0) return;
+      
+      // Ignore clicks that immediately follow a drag operation
+      // This prevents navigation when dropping tracks on playlists
+      if (window._mtInternalDragActive || window._mtDragJustEnded) {
+        console.log('[Sidebar] Ignoring click - drag in progress or just ended');
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
 
       const isMeta = event.metaKey || event.ctrlKey;
       const isShift = event.shiftKey;
@@ -266,29 +282,71 @@ export function createSidebar(Alpine) {
     },
     
     handlePlaylistDragOver(event, playlist) {
-      if (this.reorderDraggingIndex !== null) return;
+      console.log('[Sidebar] handlePlaylistDragOver called', {
+        playlistId: playlist.playlistId,
+        playlistName: playlist.name,
+        reorderDraggingIndex: this.reorderDraggingIndex,
+        dataTransferTypes: event.dataTransfer?.types ? [...event.dataTransfer.types] : [],
+        dropEffect: event.dataTransfer?.dropEffect,
+        effectAllowed: event.dataTransfer?.effectAllowed
+      });
+      if (this.reorderDraggingIndex !== null) {
+        console.log('[Sidebar] Ignoring dragover - reorder in progress');
+        return;
+      }
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
       this.dragOverPlaylistId = playlist.playlistId;
+      console.log('[Sidebar] Set dropEffect to copy, dragOverPlaylistId:', this.dragOverPlaylistId);
     },
     
-    handlePlaylistDragLeave() {
+    handlePlaylistDragLeave(event, playlist) {
+      console.log('[Sidebar] handlePlaylistDragLeave called', {
+        playlistId: playlist?.playlistId,
+        playlistName: playlist?.name
+      });
       this.dragOverPlaylistId = null;
     },
     
     async handlePlaylistDrop(event, playlist) {
-      if (this.reorderDraggingIndex !== null) return;
+      console.log('[Sidebar] handlePlaylistDrop called', {
+        playlistId: playlist.playlistId,
+        playlistName: playlist.name,
+        reorderDraggingIndex: this.reorderDraggingIndex,
+        dataTransferTypes: event.dataTransfer?.types ? [...event.dataTransfer.types] : []
+      });
+      
+      if (this.reorderDraggingIndex !== null) {
+        console.log('[Sidebar] Ignoring drop - reorder in progress');
+        return;
+      }
       event.preventDefault();
       this.dragOverPlaylistId = null;
       
       const trackIdsJson = event.dataTransfer.getData('application/json');
-      if (!trackIdsJson) return;
+      console.log('[Sidebar] Retrieved trackIdsJson from dataTransfer:', trackIdsJson);
+      
+      if (!trackIdsJson) {
+        console.warn('[Sidebar] No trackIdsJson in dataTransfer - drop aborted');
+        return;
+      }
       
       try {
         const trackIds = JSON.parse(trackIdsJson);
-        if (!Array.isArray(trackIds) || trackIds.length === 0) return;
+        console.log('[Sidebar] Parsed trackIds:', trackIds);
         
+        if (!Array.isArray(trackIds) || trackIds.length === 0) {
+          console.warn('[Sidebar] trackIds empty or not an array - drop aborted');
+          return;
+        }
+        
+        console.log('[Sidebar] Calling api.playlists.addTracks', {
+          playlistId: playlist.playlistId,
+          trackIds: trackIds
+        });
         const result = await api.playlists.addTracks(playlist.playlistId, trackIds);
+        console.log('[Sidebar] api.playlists.addTracks result:', result);
+        
         if (result.added > 0) {
           this.ui.toast(`Added ${result.added} track${result.added > 1 ? 's' : ''} to "${playlist.name}"`, 'success');
         } else {
@@ -296,7 +354,7 @@ export function createSidebar(Alpine) {
         }
         window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
       } catch (error) {
-        console.error('Failed to add tracks to playlist:', error);
+        console.error('[Sidebar] Failed to add tracks to playlist:', error);
         this.ui.toast('Failed to add tracks to playlist', 'error');
       }
     },
@@ -307,13 +365,26 @@ export function createSidebar(Alpine) {
     
     startPlaylistReorder(index, event) {
       if (event.button !== 0) return;
+      if (window._mtInternalDragActive || window._mtDragJustEnded) {
+        console.log('[Sidebar] Ignoring mousedown - drag in progress or just ended');
+        return;
+      }
       event.preventDefault();
+      
+      const buttons = document.querySelectorAll('[data-playlist-reorder-index]');
+      const draggedButton = buttons[index];
+      const rect = draggedButton?.getBoundingClientRect();
+      const startY = event.clientY || event.touches?.[0]?.clientY || 0;
+      
       this.reorderDraggingIndex = index;
       this.reorderDragOverIndex = null;
+      this.reorderDragY = startY;
+      this.reorderDragStartY = rect ? rect.top + rect.height / 2 : startY;
 
       const onMove = (e) => {
         const y = e.clientY || e.touches?.[0]?.clientY;
         if (y === undefined) return;
+        this.reorderDragY = y;
         this.updatePlaylistReorderTarget(y);
       };
 
@@ -399,6 +470,17 @@ export function createSidebar(Alpine) {
     
     isPlaylistDragging(index) {
       return this.reorderDraggingIndex === index;
+    },
+    
+    isOtherPlaylistDragging(index) {
+      return this.reorderDraggingIndex !== null && this.reorderDraggingIndex !== index;
+    },
+    
+    getPlaylistDragTransform(index) {
+      if (this.reorderDraggingIndex !== index) return '';
+      
+      const offsetY = this.reorderDragY - this.reorderDragStartY;
+      return `translateY(${offsetY}px)`;
     },
     
     toggleCollapse() {
