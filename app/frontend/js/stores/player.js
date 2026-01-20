@@ -166,15 +166,26 @@ export function createPlayerStore(Alpine) {
         return;
       }
 
+      if (track.missing) {
+        console.log('[playback]', 'missing_track_attempted', { trackId: track.id, trackTitle: track.title });
+        const result = await Alpine.store('ui').showMissingTrackModal(track);
+        
+        if (result.result === 'located' && result.newPath) {
+          track = { ...track, filepath: result.newPath, path: result.newPath, missing: false };
+        } else {
+          return;
+        }
+      }
+
       console.log('[playback]', 'play_track', {
         trackId: track.id,
         trackTitle: track.title,
         trackArtist: track.artist,
-        trackPath
+        trackPath: track.filepath || track.path
       });
 
       try {
-        const info = await invoke('audio_load', { path: trackPath });
+        const info = await invoke('audio_load', { path: track.filepath || track.path });
         const trackDurationMs = track.duration ? Math.round(track.duration * 1000) : 0;
         const durationMs = (info.duration_ms > 0 ? info.duration_ms : trackDurationMs) || 0;
         console.debug('[playTrack] duration sources:', {
@@ -188,7 +199,7 @@ export function createPlayerStore(Alpine) {
         this.currentTime = 0;
         this.progress = 0;
         this._playCountUpdated = false;
-        this._scrobbleChecked = false; // Reset scrobble check for new track
+        this._scrobbleChecked = false;
 
         await invoke('audio_play');
         this.isPlaying = true;

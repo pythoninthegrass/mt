@@ -2,6 +2,7 @@ import { api } from '../api.js';
 
 // Default column widths in pixels (all columns have explicit widths for grid layout)
 const DEFAULT_COLUMN_WIDTHS = {
+  status: 24,  // Left gutter for missing track indicator
   index: 48,
   title: 320,
   artist: 431,
@@ -18,6 +19,7 @@ const MIN_TITLE_WIDTH = 120;
 const MIN_DURATION_WIDTH = 52;  // Time column minimum
 
 const DEFAULT_COLUMN_VISIBILITY = {
+  status: true,
   index: true,
   title: true,
   artist: true,
@@ -28,7 +30,7 @@ const DEFAULT_COLUMN_VISIBILITY = {
   duration: true,
 };
 
-const DEFAULT_COLUMN_ORDER = ['index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'];
+const DEFAULT_COLUMN_ORDER = ['status', 'index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'];
 
 export function createLibraryBrowser(Alpine) {
   Alpine.data('libraryBrowser', () => ({
@@ -69,6 +71,7 @@ export function createLibraryBrowser(Alpine) {
 
     // Base column definitions
     baseColumns: [
+      { key: 'status', label: '', sortable: false, minWidth: 24, canHide: false },
       { key: 'index', label: '#', sortable: true, minWidth: 40, canHide: false },
       { key: 'title', label: 'Title', sortable: true, minWidth: 100, canHide: false },
       { key: 'artist', label: 'Artist', sortable: true, minWidth: 80, canHide: true },
@@ -104,7 +107,7 @@ export function createLibraryBrowser(Alpine) {
 
     get columns() {
       const section = this.library.currentSection;
-      const availableKeys = new Set(['index', 'title', 'artist', 'album', 'duration']);
+      const availableKeys = new Set(['status', 'index', 'title', 'artist', 'album', 'duration']);
 
       if (this.extraColumns[section]) {
         availableKeys.add(this.extraColumns[section].key);
@@ -118,7 +121,7 @@ export function createLibraryBrowser(Alpine) {
 
     get allColumns() {
       const section = this.library.currentSection;
-      const availableKeys = new Set(['index', 'title', 'artist', 'album', 'duration']);
+      const availableKeys = new Set(['status', 'index', 'title', 'artist', 'album', 'duration']);
 
       if (this.extraColumns[section]) {
         availableKeys.add(this.extraColumns[section].key);
@@ -715,7 +718,7 @@ export function createLibraryBrowser(Alpine) {
     resetColumnDefaults() {
       this._baseColumnWidths = { ...DEFAULT_COLUMN_WIDTHS };
       this.columnWidths = { ...DEFAULT_COLUMN_WIDTHS };
-      this.columnOrder = ['index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'];
+      this.columnOrder = ['status', 'index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'];
       this.library.sortBy = 'default';
       this.library.sortOrder = 'asc';
       this.library.applyFilters();

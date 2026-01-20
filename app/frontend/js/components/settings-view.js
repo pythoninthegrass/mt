@@ -8,7 +8,10 @@ export function createSettingsView(Alpine) {
       platform: '—',
     },
 
-    // Last.fm settings
+    watchedFolders: [],
+    watchedFoldersLoading: false,
+    scanningFolders: new Set(),
+
     lastfm: {
       enabled: false,
       username: null,
@@ -17,14 +20,14 @@ export function createSettingsView(Alpine) {
       isConnecting: false,
       importInProgress: false,
       queueStatus: { queued_scrobbles: 0 },
-      pendingToken: null, // Token awaiting user authorization
+      pendingToken: null,
     },
 
-    // Drag state for threshold slider
     isDraggingThreshold: false,
 
     async init() {
       await this.loadAppInfo();
+      await this.loadWatchedFolders();
       await this.loadLastfmSettings();
     },
 
@@ -54,6 +57,101 @@ export function createSettingsView(Alpine) {
           platform: 'unknown',
         };
       }
+    },
+
+    async loadWatchedFolders() {
+      if (!window.__TAURI__) return;
+
+      this.watchedFoldersLoading = true;
+      try {
+        const { invoke } = window.__TAURI__.core;
+        this.watchedFolders = await invoke('watched_folders_list');
+      } catch (error) {
+        console.error('[settings] Failed to load watched folders:', error);
+        Alpine.store('ui').toast('Failed to load watched folders', 'error');
+      } finally {
+        this.watchedFoldersLoading = false;
+      }
+    },
+
+    async addWatchedFolder() {
+      if (!window.__TAURI__) {
+        Alpine.store('ui').toast('Only available in desktop app', 'info');
+        return;
+      }
+
+      try {
+        const { open } = window.__TAURI__.dialog;
+        const path = await open({ directory: true, multiple: false });
+        if (!path) return;
+
+        const { invoke } = window.__TAURI__.core;
+        const folder = await invoke('watched_folders_add', {
+          request: { path, mode: 'continuous', cadence_minutes: 10, enabled: true }
+        });
+        this.watchedFolders.push(folder);
+        Alpine.store('ui').toast('Folder added to watch list', 'success');
+      } catch (error) {
+        console.error('[settings] Failed to add watched folder:', error);
+        Alpine.store('ui').toast('Failed to add folder', 'error');
+      }
+    },
+
+    async removeWatchedFolder(id) {
+      if (!window.__TAURI__) return;
+
+      try {
+        const { invoke } = window.__TAURI__.core;
+        await invoke('watched_folders_remove', { id });
+        this.watchedFolders = this.watchedFolders.filter(f => f.id !== id);
+        Alpine.store('ui').toast('Folder removed from watch list', 'success');
+      } catch (error) {
+        console.error('[settings] Failed to remove watched folder:', error);
+        Alpine.store('ui').toast('Failed to remove folder', 'error');
+      }
+    },
+
+    async updateWatchedFolder(id, updates) {
+      if (!window.__TAURI__) return;
+
+      try {
+        const { invoke } = window.__TAURI__.core;
+        const updated = await invoke('watched_folders_update', { id, request: updates });
+        const index = this.watchedFolders.findIndex(f => f.id === id);
+        if (index !== -1) {
+          this.watchedFolders[index] = updated;
+        }
+      } catch (error) {
+        console.error('[settings] Failed to update watched folder:', error);
+        Alpine.store('ui').toast('Failed to update folder', 'error');
+      }
+    },
+
+    async rescanWatchedFolder(id) {
+      if (!window.__TAURI__) return;
+
+      this.scanningFolders.add(id);
+      try {
+        const { invoke } = window.__TAURI__.core;
+        await invoke('watched_folders_rescan', { id });
+        Alpine.store('ui').toast('Rescan started', 'success');
+      } catch (error) {
+        console.error('[settings] Failed to rescan folder:', error);
+        Alpine.store('ui').toast('Failed to start rescan', 'error');
+      } finally {
+        this.scanningFolders.delete(id);
+      }
+    },
+
+    isFolderScanning(id) {
+      return this.scanningFolders.has(id);
+    },
+
+    truncatePath(path, maxLength = 50) {
+      if (!path || path.length <= maxLength) return path;
+      const start = path.slice(0, 20);
+      const end = path.slice(-25);
+      return `${start}...${end}`;
     },
 
     async resetSettings() {
@@ -253,7 +351,7 @@ export function createSettingsView(Alpine) {
         );
 
         // Refresh library to show updated favorites
-        Alpine.store('library').loadTracks();
+        Alpine.store('library').load();
       } catch (error) {
         console.error('[settings] Failed to import loved tracks:', error);
         Alpine.store('ui').toast('Failed to import loved tracks', 'error');

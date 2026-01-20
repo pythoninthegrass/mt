@@ -177,6 +177,60 @@ export const api = {
         throw error;
       }
     },
+
+    /**
+     * Get all tracks marked as missing
+     * @returns {Promise<{tracks: Array, total: number}>}
+     */
+    async getMissing() {
+      return request('/library/missing');
+    },
+
+    /**
+     * Locate a missing track by providing a new file path
+     * @param {string} id - Track ID
+     * @param {string} newPath - New file path
+     * @returns {Promise<object>} Updated track object
+     */
+    async locate(id, newPath) {
+      return request(`/library/${encodeURIComponent(id)}/locate`, {
+        method: 'POST',
+        body: JSON.stringify({ new_path: newPath }),
+      });
+    },
+
+    /**
+     * Check if a track's file exists and update its missing status
+     * @param {string} id - Track ID
+     * @returns {Promise<object>} Updated track object with current missing status
+     */
+    async checkStatus(id) {
+      return request(`/library/${encodeURIComponent(id)}/check-status`, {
+        method: 'POST',
+      });
+    },
+
+    /**
+     * Mark a track as missing
+     * @param {string} id - Track ID
+     * @returns {Promise<object>} Updated track object
+     */
+    async markMissing(id) {
+      return request(`/library/${encodeURIComponent(id)}/mark-missing`, {
+        method: 'POST',
+      });
+    },
+
+    /**
+     * Mark a track as present (not missing)
+     * @param {string} id - Track ID
+     * @returns {Promise<object>} Updated track object
+     */
+    async markPresent(id) {
+      return request(`/library/${encodeURIComponent(id)}/mark-present`, {
+        method: 'POST',
+      });
+    },
   },
 
   // ============================================
@@ -552,6 +606,47 @@ export const api = {
      */
     async retryQueuedScrobbles() {
       return request('/lastfm/queue/retry', {
+        method: 'POST',
+      });
+    },
+  },
+
+  watchedFolders: {
+    async list() {
+      return request('/watched-folders');
+    },
+
+    async get(id) {
+      return request(`/watched-folders/${id}`);
+    },
+
+    async add(path, mode = 'continuous', cadenceMinutes = 10, enabled = true) {
+      return request('/watched-folders', {
+        method: 'POST',
+        body: JSON.stringify({
+          path,
+          mode,
+          cadence_minutes: cadenceMinutes,
+          enabled,
+        }),
+      });
+    },
+
+    async update(id, updates) {
+      return request(`/watched-folders/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+    },
+
+    async remove(id) {
+      return request(`/watched-folders/${id}`, {
+        method: 'DELETE',
+      });
+    },
+
+    async rescan(id) {
+      return request(`/watched-folders/${id}/rescan`, {
         method: 'POST',
       });
     },

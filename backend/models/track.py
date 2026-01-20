@@ -26,6 +26,8 @@ class Track(TrackBase):
     play_count: int = 0
     last_played: datetime | None = None
     added_date: datetime
+    missing: bool = False
+    last_seen_at: int | None = None
 
     class Config:
         from_attributes = True

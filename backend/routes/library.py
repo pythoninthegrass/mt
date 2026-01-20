@@ -163,9 +163,7 @@ async def scan_library(request: ScanRequest, db: DatabaseService = Depends(get_d
     if files_to_parse:
         parse_mode = "parallel" if request.parallel and len(files_to_parse) >= 20 else "serial"
         print(f"[scan] Parsing metadata for {len(files_to_parse)} changed files ({parse_mode})...")
-        parsed_files = parse_changed_files(
-            files_to_parse, parallel=request.parallel, max_workers=request.max_workers
-        )
+        parsed_files = parse_changed_files(files_to_parse, parallel=request.parallel, max_workers=request.max_workers)
         print(f"[scan] Parsed {len(parsed_files)} files")
 
     # Split parsed files into added vs modified
@@ -208,3 +206,87 @@ async def scan_library(request: ScanRequest, db: DatabaseService = Depends(get_d
         errors=stats.errors + errors,
         tracks=result_tracks,
     )
+
+
+# ==================== Missing Tracks Endpoints ====================
+
+
+class LocateFileRequest(BaseModel):
+    """Request body for locating a missing file."""
+
+    new_path: str
+
+
+class MissingTrackResponse(BaseModel):
+    """Response for missing track operations."""
+
+    id: int
+    filepath: str
+    title: str | None
+    artist: str | None
+    album: str | None
+    missing: bool
+    last_seen_at: int | None
+
+
+@router.get("/missing")
+async def get_missing_tracks(db: DatabaseService = Depends(get_db)):
+    """Get all tracks marked as missing."""
+    tracks = db.get_missing_tracks()
+    return {"tracks": tracks, "total": len(tracks)}
+
+
+@router.post("/{track_id}/locate")
+async def locate_track(
+    track_id: int,
+    request: LocateFileRequest,
+    db: DatabaseService = Depends(get_db),
+):
+    """Update a missing track's filepath after user locates the file.
+
+    Returns the updated track if successful.
+    """
+    import os
+
+    # Verify the track exists
+    track = db.get_track_by_id(track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
+
+    # Verify the new path exists
+    if not os.path.exists(request.new_path):
+        raise HTTPException(status_code=400, detail=f"File not found: {request.new_path}")
+
+    # Update the filepath
+    if not db.update_track_filepath(track_id, request.new_path):
+        raise HTTPException(status_code=500, detail="Failed to update track filepath")
+
+    return db.get_track_by_id(track_id)
+
+
+@router.post("/{track_id}/check-status")
+async def check_track_status(track_id: int, db: DatabaseService = Depends(get_db)):
+    """Check if a track's file exists and update its missing status.
+
+    Returns the updated track with current missing status.
+    """
+    track = db.check_and_update_track_status(track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
+    return track
+
+
+@router.post("/{track_id}/mark-missing")
+async def mark_track_missing(track_id: int, db: DatabaseService = Depends(get_db)):
+    """Manually mark a track as missing."""
+    if not db.mark_track_missing(track_id):
+        raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
+    return db.get_track_by_id(track_id)
+
+
+@router.post("/{track_id}/mark-present")
+async def mark_track_present(track_id: int, db: DatabaseService = Depends(get_db)):
+    """Manually mark a track as present (not missing)."""
+    if not db.mark_track_present(track_id):
+        raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
+    return db.get_track_by_id(track_id)

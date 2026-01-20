@@ -268,5 +268,130 @@ export function createUIStore(Alpine) {
     isView(view) {
       return this.view === view;
     },
+
+    missingTrackModal: null,
+    _missingTrackResolve: null,
+
+    missingTrackPopover: null,
+
+    openMissingTrackPopover(track, event) {
+      const rect = event.target.getBoundingClientRect();
+      const popoverWidth = 320;
+      const popoverHeight = 180;
+      
+      let x = rect.right + 8;
+      let y = rect.top - 10;
+      
+      if (x + popoverWidth > window.innerWidth) {
+        x = rect.left - popoverWidth - 8;
+      }
+      if (y + popoverHeight > window.innerHeight) {
+        y = window.innerHeight - popoverHeight - 10;
+      }
+      if (y < 10) {
+        y = 10;
+      }
+      
+      this.missingTrackPopover = {
+        track,
+        filepath: track.filepath || track.path || 'Unknown path',
+        lastSeenAt: track.last_seen_at,
+        x,
+        y,
+      };
+    },
+
+    closeMissingTrackPopover() {
+      this.missingTrackPopover = null;
+    },
+
+    async handlePopoverLocate() {
+      if (!this.missingTrackPopover || !window.__TAURI__) {
+        this.closeMissingTrackPopover();
+        return;
+      }
+
+      try {
+        const { open } = window.__TAURI__.dialog;
+        const selected = await open({
+          multiple: false,
+          filters: [
+            { name: 'Audio Files', extensions: ['mp3', 'flac', 'ogg', 'm4a', 'wav', 'aac', 'wma', 'opus'] },
+            { name: 'All Files', extensions: ['*'] }
+          ]
+        });
+
+        if (selected) {
+          const { api } = await import('../api.js');
+          const trackId = this.missingTrackPopover.track.id;
+          await api.library.locate(trackId, selected);
+          
+          this.missingTrackPopover.track.missing = false;
+          this.missingTrackPopover.track.filepath = selected;
+          this.missingTrackPopover.track.path = selected;
+          
+          this.toast('File located successfully', 'success');
+          this.closeMissingTrackPopover();
+        }
+      } catch (error) {
+        console.error('[ui] Failed to locate file:', error);
+        this.toast('Failed to locate file: ' + error.message, 'error');
+      }
+    },
+
+    handlePopoverIgnore() {
+      this.closeMissingTrackPopover();
+    },
+
+    showMissingTrackModal(track) {
+      return new Promise((resolve) => {
+        this._missingTrackResolve = resolve;
+        this.missingTrackModal = {
+          track,
+          filepath: track.filepath || track.path,
+          lastSeenAt: track.last_seen_at,
+        };
+      });
+    },
+
+    async handleLocateFile() {
+      if (!this.missingTrackModal || !window.__TAURI__) {
+        this.closeMissingTrackModal('cancelled');
+        return;
+      }
+
+      try {
+        const { open } = window.__TAURI__.dialog;
+        const selected = await open({
+          multiple: false,
+          filters: [
+            { name: 'Audio Files', extensions: ['mp3', 'flac', 'ogg', 'm4a', 'wav', 'aac', 'wma', 'opus'] },
+            { name: 'All Files', extensions: ['*'] }
+          ]
+        });
+
+        if (selected) {
+          const { api } = await import('../api.js');
+          const trackId = this.missingTrackModal.track.id;
+          await api.library.locate(trackId, selected);
+          this.toast('File located successfully', 'success');
+          this.closeMissingTrackModal('located', selected);
+        } else {
+          this.closeMissingTrackModal('cancelled');
+        }
+      } catch (error) {
+        console.error('[ui] Failed to locate file:', error);
+        this.toast('Failed to locate file: ' + error.message, 'error');
+        this.closeMissingTrackModal('error');
+      }
+    },
+
+    closeMissingTrackModal(result = 'cancelled', newPath = null) {
+      if (this._missingTrackResolve) {
+        this._missingTrackResolve({ result, newPath });
+        this._missingTrackResolve = null;
+      }
+      this.missingTrackModal = null;
+    },
   });
 }

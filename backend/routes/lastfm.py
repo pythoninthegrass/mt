@@ -1,7 +1,6 @@
 """Last.fm API routes for authentication, scrobbling, and loved tracks."""
 
 import logging
-
 from backend.services.database import get_db
 from backend.services.lastfm import LastFmAPI
 from fastapi import APIRouter, HTTPException

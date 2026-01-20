@@ -13,6 +13,7 @@ from backend.routes.library import router as library_router
 from backend.routes.playlists import router as playlists_router
 from backend.routes.queue import router as queue_router
 from backend.routes.settings import router as settings_router
+from backend.routes.watched_folders import router as watched_folders_router
 from backend.routes.websocket import router as websocket_router
 from backend.services.database import init_db
 from contextlib import asynccontextmanager
@@ -70,6 +71,7 @@ app.include_router(playlists_router, prefix="/api")
 app.include_router(favorites_router, prefix="/api")
 app.include_router(lastfm_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
+app.include_router(watched_folders_router, prefix="/api")
 app.include_router(websocket_router)
 
 

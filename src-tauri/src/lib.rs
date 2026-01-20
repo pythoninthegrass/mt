@@ -4,6 +4,7 @@ pub mod dialog;
 pub mod media_keys;
 pub mod metadata;
 pub mod sidecar;
+pub mod watcher;
 
 use commands::{
     audio_get_status, audio_get_volume, audio_load, audio_pause, audio_play, audio_seek,
@@ -13,6 +14,10 @@ use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
 use metadata::{get_track_metadata, save_track_metadata};
 use sidecar::{check_backend_health, get_backend_port, get_backend_url, SidecarManager};
+use watcher::{
+    watched_folders_add, watched_folders_get, watched_folders_list, watched_folders_remove,
+    watched_folders_rescan, watched_folders_status, watched_folders_update, WatcherManager,
+};
 use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
@@ -198,12 +203,36 @@ pub fn run() {
             export_diagnostics,
             get_track_metadata,
             save_track_metadata,
+            watched_folders_list,
+            watched_folders_get,
+            watched_folders_add,
+            watched_folders_update,
+            watched_folders_remove,
+            watched_folders_rescan,
+            watched_folders_status,
         ])
         .setup(|app| {
             let sidecar = SidecarManager::start(app.handle())
                 .expect("Failed to start backend sidecar");
-            println!("Backend URL: {}", sidecar.get_url());
+            let backend_url = sidecar.get_url().to_string();
+            println!("Backend URL: {}", backend_url);
             app.manage(sidecar);
+
+            let watcher = WatcherManager::new(app.handle().clone(), backend_url.clone());
+            app.manage(watcher);
+            println!("Watcher manager initialized");
+
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                if let Some(watcher) = app_handle.try_state::<WatcherManager>() {
+                    if let Err(e) = watcher.start().await {
+                        eprintln!("Failed to start watched folder watchers: {}", e);
+                    } else {
+                        println!("Watched folder watchers started ({} active)", watcher.active_watcher_count());
+                    }
+                }
+            });
 
             app.manage(AudioState::new(app.handle().clone()));
             println!("Audio engine initialized");

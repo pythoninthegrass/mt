@@ -7,6 +7,8 @@
 
 import { api } from '../api.js';
 
+const { listen } = window.__TAURI__?.event ?? { listen: async () => () => {} };
+
 export function createLibraryStore(Alpine) {
   Alpine.store('library', {
     // Track data
@@ -30,12 +32,30 @@ export function createLibraryStore(Alpine) {
     
     // Internal
     _searchDebounce: null,
+    _watchedFolderListener: null,
     
     /**
      * Initialize library from backend
      */
     async init() {
       await this.load();
+      await this._setupWatchedFolderListener();
+    },
+    
+    /**
+     * Listen for watched folder scan results to auto-reload library
+     */
+    async _setupWatchedFolderListener() {
+      this._watchedFolderListener = await listen('watched-folder:results', (event) => {
+        const { added, updated, deleted } = event.payload || {};
+        console.log('[library] watched-folder:results', { added, updated, deleted });
+        
+        // Reload library if any tracks were added, updated, or deleted
+        if (added > 0 || updated > 0 || deleted > 0) {
+          console.log('[library] Reloading library after watched folder scan');
+          this.load();
+        }
+      });
     },
     
     async load() {

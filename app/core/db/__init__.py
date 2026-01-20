@@ -75,6 +75,18 @@ DB_TABLES = {
             FOREIGN KEY (track_id) REFERENCES library(id) ON DELETE CASCADE
         )
     ''',
+    'watched_folders': '''
+        CREATE TABLE IF NOT EXISTS watched_folders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT NOT NULL UNIQUE,
+            mode TEXT NOT NULL DEFAULT 'startup',
+            cadence_minutes INTEGER DEFAULT 10,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            last_scanned_at INTEGER,
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+        )
+    ''',
 }
 
 # Export for backwards compatibility

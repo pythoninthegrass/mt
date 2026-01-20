@@ -95,6 +95,18 @@ DB_TABLES = {
             retry_count INTEGER DEFAULT 0
         )
     """,
+    "watched_folders": """
+        CREATE TABLE IF NOT EXISTS watched_folders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT NOT NULL UNIQUE,
+            mode TEXT NOT NULL DEFAULT 'startup',
+            cadence_minutes INTEGER DEFAULT 10,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            last_scanned_at INTEGER,
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+        )
+    """,
 }
 
 
@@ -193,6 +205,39 @@ class DatabaseService:
             conn.commit()
             print("[migration] scrobble_queue table created successfully")
 
+        # Migration: Add watched_folders table for folder monitoring (task-175)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='watched_folders'")
+        if not cursor.fetchone():
+            print("[migration] Creating watched_folders table...")
+            cursor.execute("""
+                CREATE TABLE watched_folders (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    path TEXT NOT NULL UNIQUE,
+                    mode TEXT NOT NULL DEFAULT 'startup',
+                    cadence_minutes INTEGER DEFAULT 10,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    last_scanned_at INTEGER,
+                    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+                    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                )
+            """)
+            conn.commit()
+            print("[migration] watched_folders table created successfully")
+
+        # Migration: Add missing track columns for file status tracking (task-176)
+        cursor.execute("PRAGMA table_info(library)")
+        library_columns = {row[1] for row in cursor.fetchall()}
+        if "missing" not in library_columns:
+            print("[migration] Adding missing column to library table...")
+            cursor.execute("ALTER TABLE library ADD COLUMN missing INTEGER DEFAULT 0")
+            conn.commit()
+            print("[migration] missing column added successfully")
+        if "last_seen_at" not in library_columns:
+            print("[migration] Adding last_seen_at column to library table...")
+            cursor.execute("ALTER TABLE library ADD COLUMN last_seen_at INTEGER")
+            conn.commit()
+            print("[migration] last_seen_at column added successfully")
+
     @contextmanager
     def get_connection(self) -> Generator[sqlite3.Connection, None, None]:
         """Get a database connection with automatic cleanup.
@@ -264,7 +309,7 @@ class DatabaseService:
             query = f"""
                 SELECT id, filepath, title, artist, album, album_artist,
                        track_number, track_total, date, duration, file_size,
-                       play_count, last_played, added_date
+                       play_count, last_played, added_date, missing, last_seen_at
                 FROM library
                 {where_clause}
                 ORDER BY {sort_by} {sort_direction}
@@ -283,7 +328,7 @@ class DatabaseService:
                 """
                 SELECT id, filepath, title, artist, album, album_artist,
                        track_number, track_total, date, duration, file_size,
-                       play_count, last_played, added_date
+                       play_count, last_played, added_date, missing, last_seen_at
                 FROM library WHERE id = ?
             """,
                 (track_id,),
@@ -299,7 +344,7 @@ class DatabaseService:
                 """
                 SELECT id, filepath, title, artist, album, album_artist,
                        track_number, track_total, date, duration, file_size,
-                       play_count, last_played, added_date
+                       play_count, last_played, added_date, missing, last_seen_at
                 FROM library WHERE filepath = ?
             """,
                 (filepath,),
@@ -639,7 +684,7 @@ class DatabaseService:
                 SELECT q.id as queue_id, q.filepath,
                        l.id, l.title, l.artist, l.album, l.album_artist,
                        l.track_number, l.track_total, l.date, l.duration, l.file_size,
-                       l.play_count, l.last_played, l.added_date
+                       l.play_count, l.last_played, l.added_date, l.missing, l.last_seen_at
                 FROM queue q
                 LEFT JOIN library l ON q.filepath = l.filepath
                 ORDER BY q.id
@@ -667,6 +712,8 @@ class DatabaseService:
                             "play_count": row_dict.get("play_count", 0),
                             "last_played": row_dict.get("last_played"),
                             "added_date": row_dict.get("added_date"),
+                            "missing": bool(row_dict.get("missing", 0)),
+                            "last_seen_at": row_dict.get("last_seen_at"),
                         },
                     }
                 )
@@ -1277,6 +1324,163 @@ class DatabaseService:
                 self.set_setting(key, value)
                 updated.append(key)
         return updated
+
+    # ==================== Watched Folders Operations ====================
+
+    def get_watched_folders(self) -> list[dict[str, Any]]:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM watched_folders ORDER BY created_at ASC")
+            folders = []
+            for row in cursor.fetchall():
+                d = dict(row)
+                d["enabled"] = bool(d.get("enabled", 0))
+                folders.append(d)
+            return folders
+
+    def get_watched_folder(self, folder_id: int) -> dict[str, Any] | None:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM watched_folders WHERE id = ?", (folder_id,))
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            d = dict(row)
+            d["enabled"] = bool(d.get("enabled", 0))
+            return d
+
+    def add_watched_folder(
+        self,
+        path: str,
+        mode: str = "startup",
+        cadence_minutes: int = 10,
+        enabled: bool = True,
+    ) -> dict[str, Any] | None:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO watched_folders (path, mode, cadence_minutes, enabled)
+                VALUES (?, ?, ?, ?)
+                """,
+                (path, mode, cadence_minutes, 1 if enabled else 0),
+            )
+            conn.commit()
+            if cursor.lastrowid is None:
+                return None
+            return self.get_watched_folder(cursor.lastrowid)
+
+    def update_watched_folder(
+        self,
+        folder_id: int,
+        mode: str | None = None,
+        cadence_minutes: int | None = None,
+        enabled: bool | None = None,
+    ) -> dict[str, Any] | None:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            updates = []
+            params: list[Any] = []
+            if mode is not None:
+                updates.append("mode = ?")
+                params.append(mode)
+            if cadence_minutes is not None:
+                updates.append("cadence_minutes = ?")
+                params.append(cadence_minutes)
+            if enabled is not None:
+                updates.append("enabled = ?")
+                params.append(1 if enabled else 0)
+            if not updates:
+                return self.get_watched_folder(folder_id)
+            updates.append("updated_at = strftime('%s','now')")
+            params.append(folder_id)
+            cursor.execute(
+                f"UPDATE watched_folders SET {', '.join(updates)} WHERE id = ?",
+                params,
+            )
+            conn.commit()
+            return self.get_watched_folder(folder_id)
+
+    def update_watched_folder_last_scanned(self, folder_id: int) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE watched_folders SET last_scanned_at = strftime('%s','now'), updated_at = strftime('%s','now') WHERE id = ?",
+                (folder_id,),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def remove_watched_folder(self, folder_id: int) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM watched_folders WHERE id = ?", (folder_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_enabled_watched_folders(self) -> list[dict[str, Any]]:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM watched_folders WHERE enabled = 1 ORDER BY created_at ASC")
+            folders = []
+            for row in cursor.fetchall():
+                d = dict(row)
+                d["enabled"] = bool(d.get("enabled", 0))
+                folders.append(d)
+            return folders
+
+    # ==================== Missing Tracks Operations ====================
+
+    def mark_track_missing(self, track_id: int) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE library SET missing = 1 WHERE id = ?", (track_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def mark_track_present(self, track_id: int) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE library SET missing = 0, last_seen_at = strftime('%s','now') WHERE id = ?",
+                (track_id,),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def update_track_filepath(self, track_id: int, new_path: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE library SET filepath = ?, missing = 0, last_seen_at = strftime('%s','now') WHERE id = ?",
+                (new_path, track_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_missing_tracks(self) -> list[dict[str, Any]]:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM library WHERE missing = 1 ORDER BY title ASC")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def check_and_update_track_status(self, track_id: int) -> dict[str, Any] | None:
+        import os
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, filepath, missing FROM library WHERE id = ?", (track_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            filepath = row["filepath"]
+            exists = os.path.exists(filepath) if filepath else False
+            if exists and row["missing"]:
+                self.mark_track_present(track_id)
+            elif not exists and not row["missing"]:
+                self.mark_track_missing(track_id)
+            cursor.execute("SELECT * FROM library WHERE id = ?", (track_id,))
+            return dict(cursor.fetchone())
 
 
 # Global database instance (will be initialized in main.py)

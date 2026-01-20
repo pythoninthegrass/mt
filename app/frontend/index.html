@@ -492,7 +492,7 @@
                       col.sortable ? 'cursor-grab' : '',
                       library.sortBy === col.key ? 'column-header-active text-foreground' : '',
                       colIndex < columns.length - 1 ? 'border-r border-border' : '',
-                      col.key === 'index' ? 'px-2' : (col.key === 'duration' ? 'pl-[3px] pr-[10px]' : 'px-4'),
+                      col.key === 'status' ? 'px-1' : (col.key === 'index' ? 'px-2' : (col.key === 'duration' ? 'pl-[3px] pr-[10px]' : 'px-4')),
                       isColumnDragging(col.key) ? 'dragging-column' : '',
                       isOtherColumnDragging(col.key) ? 'other-dragging' : '',
                       getColumnShiftDirection(colIndex) === 'left' ? 'shift-left' : '',
@@ -636,11 +636,28 @@
                   <div
                     :class="[
                       'py-1.5 overflow-hidden text-ellipsis whitespace-nowrap',
-                      col.key === 'index' ? 'px-2' : (col.key === 'duration' ? 'pl-[3px] pr-[10px]' : 'px-4'),
-                      col.key !== 'title' && !isSelected(track.id) ? 'text-muted-foreground' : ''
+                      col.key === 'status' ? 'px-1' : (col.key === 'index' ? 'px-2' : (col.key === 'duration' ? 'pl-[3px] pr-[10px]' : 'px-4')),
+                      col.key !== 'title' && col.key !== 'status' && !isSelected(track.id) ? 'text-muted-foreground' : ''
                     ]"
                     :data-column="col.key"
                   >
+                    <template x-if="col.key === 'status'">
+                      <span class="flex items-center justify-center w-full h-full">
+                        <button
+                          x-show="track.missing"
+                          @click.stop="$store.ui.openMissingTrackPopover(track, $event)"
+                          class="text-warning hover:text-warning/80 cursor-pointer p-0.5 rounded hover:bg-muted/50"
+                          data-testid="missing-track-icon"
+                          title="File not found - click for details"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                          </svg>
+                        </button>
+                      </span>
+                    </template>
                     <template x-if="col.key === 'index'">
                       <span class="flex items-center gap-1">
                         <span
@@ -655,7 +672,7 @@
                     <template x-if="col.key === 'title'">
                       <span class="flex items-center">
                         <span x-show="isPlaying(track.id)" class="text-primary shrink-0 mr-2">▶</span>
-                        <span class="truncate" x-text="track.title || track.filename || 'Unknown'"></span>
+                        <span class="truncate" :class="track.missing ? 'text-muted-foreground/70 italic' : ''" x-text="track.title || track.filename || 'Unknown'"></span>
                       </span>
                     </template>
                     <template x-if="col.key === 'artist'">
@@ -992,7 +1009,131 @@
           <!-- General Section -->
           <div x-show="$store.ui.settingsSection === 'general'" data-testid="settings-section-general">
             <h3 class="text-xl font-semibold mb-4">General</h3>
-            <p class="text-muted-foreground">General settings will appear here.</p>
+
+            <!-- Watched Folders -->
+            <div class="space-y-4">
+              <div>
+                <h4 class="text-sm font-medium mb-1">Watched Folders</h4>
+                <p class="text-xs text-muted-foreground mb-3">Automatically scan these folders for new music</p>
+              </div>
+
+              <!-- Browser fallback -->
+              <template x-if="!window.__TAURI__">
+                <div class="px-4 py-3 rounded-md bg-muted/50 text-sm text-muted-foreground">
+                  Watched folders are only available in the desktop app.
+                </div>
+              </template>
+
+              <!-- Watched folders list -->
+              <template x-if="window.__TAURI__">
+                <div>
+                  <!-- Loading state -->
+                  <template x-if="watchedFoldersLoading">
+                    <div class="text-sm text-muted-foreground py-4 text-center">Loading...</div>
+                  </template>
+
+                  <!-- Empty state -->
+                  <template x-if="!watchedFoldersLoading && watchedFolders.length === 0">
+                    <div class="px-4 py-6 rounded-md border border-dashed border-border text-center">
+                      <p class="text-sm text-muted-foreground mb-2">No watched folders configured</p>
+                      <button
+                        @click="addWatchedFolder()"
+                        class="text-sm text-primary hover:underline"
+                        data-testid="watched-folder-add-empty-btn"
+                      >
+                        Add your first folder
+                      </button>
+                    </div>
+                  </template>
+
+                  <!-- Folders list -->
+                  <template x-if="!watchedFoldersLoading && watchedFolders.length > 0">
+                    <div class="space-y-2" data-testid="watched-folders-list">
+                      <template x-for="folder in watchedFolders" :key="folder.id">
+                        <div
+                          class="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-background"
+                          :data-testid="'watched-folder-item-' + folder.id"
+                        >
+                          <!-- Folder path -->
+                          <div class="flex-1 min-w-0">
+                            <span
+                              class="text-sm font-mono truncate block"
+                              :title="folder.path"
+                              x-text="truncatePath(folder.path)"
+                            ></span>
+                          </div>
+
+                          <!-- Mode select -->
+                          <select
+                            class="text-xs px-2 py-1 rounded border border-border bg-background focus:ring-1 focus:ring-primary"
+                            :value="folder.mode"
+                            @change="updateWatchedFolder(folder.id, { mode: $event.target.value })"
+                          >
+                            <option value="startup">On startup</option>
+                            <option value="continuous">Continuous</option>
+                          </select>
+
+                          <!-- Cadence (only for continuous) -->
+                          <template x-if="folder.mode === 'continuous'">
+                            <div class="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="1"
+                                max="1440"
+                                class="w-14 text-xs px-2 py-1 rounded border border-border bg-background text-center focus:ring-1 focus:ring-primary"
+                                :value="folder.cadence_minutes || 10"
+                                @change="updateWatchedFolder(folder.id, { cadence_minutes: parseInt($event.target.value) || 10 })"
+                              />
+                              <span class="text-xs text-muted-foreground">min</span>
+                            </div>
+                          </template>
+
+                          <!-- Rescan button -->
+                          <button
+                            @click="rescanWatchedFolder(folder.id)"
+                            :disabled="isFolderScanning(folder.id)"
+                            class="p-1.5 rounded hover:bg-muted/70 transition-colors disabled:opacity-50"
+                            title="Rescan now"
+                            :data-testid="'watched-folder-rescan-btn-' + folder.id"
+                          >
+                            <svg
+                              class="w-4 h-4"
+                              :class="isFolderScanning(folder.id) ? 'animate-spin' : ''"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                          </button>
+
+                          <!-- Remove button -->
+                          <button
+                            @click="removeWatchedFolder(folder.id)"
+                            class="p-1.5 rounded hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            title="Remove folder"
+                            :data-testid="'watched-folder-remove-btn-' + folder.id"
+                          >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </button>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+
+                  <!-- Add folder button -->
+                  <button
+                    @click="addWatchedFolder()"
+                    class="mt-3 px-4 py-2 rounded-md border text-sm transition-colors border-border hover:bg-muted/50"
+                    data-testid="watched-folder-add-btn"
+                  >
+                    Add Folder
+                  </button>
+                </div>
+              </template>
+            </div>
           </div>
 
           <!-- Appearance Section -->
@@ -1775,8 +1916,9 @@
         </button>
              </div>
            </div>
+  </div>
 
-           <!-- Last.fm Section -->
+  <!-- Toast Notifications -->
   <div class="fixed bottom-20 right-4 space-y-2 z-50">
     <template x-for="toast in $store.ui.toasts" :key="toast.id">
       <div
@@ -1792,6 +1934,124 @@
         <span x-text="toast.message"></span>
       </div>
     </template>
+  </div>
+
+  <!-- Missing Track Popover -->
+  <div
+    x-data
+    x-show="$store.ui.missingTrackPopover"
+    x-cloak
+    class="fixed z-50"
+    :style="`left: ${$store.ui.missingTrackPopover?.x || 0}px; top: ${$store.ui.missingTrackPopover?.y || 0}px`"
+    @click.outside="$store.ui.closeMissingTrackPopover()"
+    @keydown.escape.window="$store.ui.closeMissingTrackPopover()"
+    data-testid="missing-track-popover"
+  >
+    <div
+      x-show="$store.ui.missingTrackPopover"
+      x-transition:enter="transition ease-out duration-150"
+      x-transition:enter-start="opacity-0 scale-95"
+      x-transition:enter-end="opacity-100 scale-100"
+      x-transition:leave="transition ease-in duration-100"
+      x-transition:leave-start="opacity-100 scale-100"
+      x-transition:leave-end="opacity-0 scale-95"
+      class="bg-card border border-border rounded-lg shadow-xl w-80 p-4"
+    >
+      <div class="flex items-start gap-3 mb-3">
+        <div class="text-warning text-xl shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="text-sm font-semibold text-foreground">File Not Found</h4>
+          <p class="text-xs text-muted-foreground mt-0.5">This track's file could not be located</p>
+        </div>
+      </div>
+      
+      <div class="space-y-2 mb-4">
+        <div>
+          <span class="text-xs text-muted-foreground block mb-1">Original path:</span>
+          <div class="bg-muted/50 rounded px-2 py-1.5 text-xs font-mono break-all text-muted-foreground max-h-16 overflow-auto">
+            <span x-text="$store.ui.missingTrackPopover?.filepath || 'Unknown path'"></span>
+          </div>
+        </div>
+        <div x-show="$store.ui.missingTrackPopover?.lastSeenAt">
+          <span class="text-xs text-muted-foreground">Last seen: </span>
+          <span class="text-xs text-foreground" x-text="$store.ui.missingTrackPopover?.lastSeenAt ? new Date($store.ui.missingTrackPopover.lastSeenAt).toLocaleString() : ''"></span>
+        </div>
+      </div>
+      
+      <div class="flex gap-2 justify-end">
+        <button
+          class="px-3 py-1.5 rounded bg-muted hover:bg-muted/80 text-foreground text-xs transition-colors"
+          @click="$store.ui.handlePopoverIgnore()"
+          data-testid="popover-ignore-btn"
+        >
+          Ignore
+        </button>
+        <button
+          class="px-3 py-1.5 rounded bg-primary hover:bg-primary/90 text-primary-foreground text-xs transition-colors"
+          @click="$store.ui.handlePopoverLocate()"
+          data-testid="popover-locate-btn"
+        >
+          Locate...
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Missing Track Modal -->
+  <div
+    x-data
+    x-show="$store.ui.missingTrackModal"
+    x-cloak
+    class="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50"
+    @keydown.escape.window="$store.ui.closeMissingTrackModal('cancelled')"
+  >
+    <div
+      x-show="$store.ui.missingTrackModal"
+      x-transition:enter="transition ease-out duration-200"
+      x-transition:enter-start="opacity-0 scale-95"
+      x-transition:enter-end="opacity-100 scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 scale-100"
+      x-transition:leave-end="opacity-0 scale-95"
+      class="bg-card border border-border rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+      @click.outside="$store.ui.closeMissingTrackModal('cancelled')"
+      data-testid="missing-track-modal"
+    >
+      <div class="flex items-start gap-4">
+        <div class="text-warning text-3xl shrink-0">⚠</div>
+        <div class="flex-1 min-w-0">
+          <h3 class="text-lg font-semibold mb-2">File Not Found</h3>
+          <p class="text-muted-foreground text-sm mb-4">
+            The file for this track could not be found. Would you like to locate it?
+          </p>
+          <div class="bg-muted/50 rounded p-3 mb-4 text-xs font-mono break-all text-muted-foreground">
+            <span x-text="$store.ui.missingTrackModal?.filepath || 'Unknown path'"></span>
+          </div>
+          <div class="flex gap-3 justify-end">
+            <button
+              class="px-4 py-2 rounded bg-muted hover:bg-muted/80 text-foreground text-sm transition-colors"
+              @click="$store.ui.closeMissingTrackModal('cancelled')"
+              data-testid="missing-track-cancel"
+            >
+              Leave as-is
+            </button>
+            <button
+              class="px-4 py-2 rounded bg-primary hover:bg-primary/90 text-primary-foreground text-sm transition-colors"
+              @click="$store.ui.handleLocateFile()"
+              data-testid="missing-track-locate"
+            >
+              Locate file...
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Loading overlay -->
