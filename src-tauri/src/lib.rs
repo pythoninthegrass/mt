@@ -1,8 +1,10 @@
 pub mod audio;
 pub mod commands;
+pub mod db;
 pub mod dialog;
 pub mod media_keys;
 pub mod metadata;
+pub mod scanner;
 pub mod sidecar;
 pub mod watcher;
 
@@ -14,6 +16,10 @@ use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
 use metadata::{get_track_metadata, save_track_metadata};
 use sidecar::{check_backend_health, get_backend_port, get_backend_url, SidecarManager};
+use scanner::commands::{
+    extract_file_metadata, get_track_artwork, get_track_artwork_url, scan_paths_metadata,
+    scan_paths_to_library,
+};
 use watcher::{
     watched_folders_add, watched_folders_get, watched_folders_list, watched_folders_remove,
     watched_folders_rescan, watched_folders_status, watched_folders_update, WatcherManager,
@@ -210,8 +216,28 @@ pub fn run() {
             watched_folders_remove,
             watched_folders_rescan,
             watched_folders_status,
+            scan_paths_to_library,
+            scan_paths_metadata,
+            extract_file_metadata,
+            get_track_artwork,
+            get_track_artwork_url,
         ])
         .setup(|app| {
+            // Initialize database
+            let db_path = app.path().app_data_dir()
+                .expect("Failed to get app data directory")
+                .join("mt.db");
+
+            // Ensure parent directory exists
+            if let Some(parent) = db_path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
+
+            let database = db::Database::new(&db_path)
+                .expect("Failed to initialize database");
+            app.manage(database);
+            println!("Database initialized at: {}", db_path.display());
+
             let sidecar = SidecarManager::start(app.handle())
                 .expect("Failed to start backend sidecar");
             let backend_url = sidecar.get_url().to_string();
