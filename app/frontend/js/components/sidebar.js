@@ -137,11 +137,12 @@ export function createSidebar(Alpine) {
     
     handlePlaylistClick(event, playlist, index) {
       if (event.button !== 0) return;
-      
-      // Ignore clicks that immediately follow a drag operation
-      // This prevents navigation when dropping tracks on playlists
-      if (window._mtInternalDragActive || window._mtDragJustEnded) {
-        console.log('[Sidebar] Ignoring click - drag in progress or just ended');
+
+      // Ignore clicks that immediately follow a drag operation or playlist reorder
+      // This prevents navigation when dropping tracks on playlists or reordering
+      if (window._mtInternalDragActive || window._mtDragJustEnded ||
+          window._mtPlaylistReorderActive || window._mtPlaylistReorderJustEnded) {
+        console.log('[Sidebar] Ignoring click - drag or reorder in progress or just ended');
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -388,32 +389,79 @@ export function createSidebar(Alpine) {
         console.log('[Sidebar] Ignoring mousedown - drag in progress or just ended');
         return;
       }
-      event.preventDefault();
-      
+
       const buttons = document.querySelectorAll('[data-playlist-reorder-index]');
       const draggedButton = buttons[index];
       const rect = draggedButton?.getBoundingClientRect();
       const startY = event.clientY || event.touches?.[0]?.clientY || 0;
-      
-      this.reorderDraggingIndex = index;
-      this.reorderDragOverIndex = null;
-      this.reorderDragY = startY;
-      this.reorderDragStartY = rect ? rect.top + rect.height / 2 : startY;
+      const startX = event.clientX || event.touches?.[0]?.clientX || 0;
+
+      // Delay/threshold before activating drag to allow clicks
+      const DRAG_DELAY_MS = 150;
+      const DRAG_DISTANCE_THRESHOLD = 5;
+
+      let dragActivated = false;
+      let delayTimer = null;
+
+      const activateDrag = () => {
+        if (dragActivated) return;
+        dragActivated = true;
+        window._mtPlaylistReorderActive = true;
+
+        this.reorderDraggingIndex = index;
+        this.reorderDragOverIndex = null;
+        this.reorderDragY = startY;
+        this.reorderDragStartY = rect ? rect.top + rect.height / 2 : startY;
+      };
 
       const onMove = (e) => {
         const y = e.clientY || e.touches?.[0]?.clientY;
+        const x = e.clientX || e.touches?.[0]?.clientX;
         if (y === undefined) return;
-        this.reorderDragY = y;
-        this.updatePlaylistReorderTarget(y);
+
+        // Check if we've moved enough to activate drag
+        if (!dragActivated) {
+          const dx = x - startX;
+          const dy = y - startY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance >= DRAG_DISTANCE_THRESHOLD) {
+            if (delayTimer) {
+              clearTimeout(delayTimer);
+              delayTimer = null;
+            }
+            activateDrag();
+          }
+        }
+
+        if (dragActivated) {
+          this.reorderDragY = y;
+          this.updatePlaylistReorderTarget(y);
+        }
       };
 
       const onEnd = () => {
+        if (delayTimer) {
+          clearTimeout(delayTimer);
+          delayTimer = null;
+        }
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onEnd);
         document.removeEventListener('touchmove', onMove);
         document.removeEventListener('touchend', onEnd);
-        this.finishPlaylistReorder();
+
+        if (dragActivated) {
+          this.finishPlaylistReorder();
+          // Set flag to prevent click handler from firing
+          window._mtPlaylistReorderJustEnded = true;
+          setTimeout(() => { window._mtPlaylistReorderJustEnded = false; }, 50);
+        }
+        window._mtPlaylistReorderActive = false;
       };
+
+      // Start delay timer to activate drag after hold
+      delayTimer = setTimeout(() => {
+        activateDrag();
+      }, DRAG_DELAY_MS);
 
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onEnd);
