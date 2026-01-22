@@ -1,10 +1,10 @@
 ---
 id: task-176
 title: Implement missing-tracks indicator and locate-file UX in library
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-01-20 00:51'
-updated_date: '2026-01-20 07:18'
+updated_date: '2026-01-21 18:33'
 labels:
   - tauri-migration
   - feature

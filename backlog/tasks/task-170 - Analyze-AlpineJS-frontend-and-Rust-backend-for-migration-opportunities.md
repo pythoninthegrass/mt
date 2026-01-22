@@ -1,10 +1,10 @@
 ---
 id: task-170
 title: Analyze AlpineJS frontend and Rust backend for migration opportunities
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-01-19 06:11'
-updated_date: '2026-01-20 09:52'
+updated_date: '2026-01-21 18:33'
 labels:
   - analysis
   - architecture
@@ -13,7 +13,7 @@ labels:
   - migration
 dependencies: []
 priority: medium
-ordinal: 3500
+ordinal: 375
 ---
 
 ## Description

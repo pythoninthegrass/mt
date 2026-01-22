@@ -1,10 +1,10 @@
 ---
 id: task-177
 title: 'Expose additional metadata columns: total tracks, disc #, year, genre'
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-01-20 07:17'
-updated_date: '2026-01-20 07:18'
+updated_date: '2026-01-21 18:33'
 labels:
   - frontend
   - ui
