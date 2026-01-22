@@ -1,10 +1,10 @@
 ---
 id: task-183
 title: Migrate queue management API to Rust (Phase 2)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-21 17:38'
-updated_date: '2026-01-22 00:37'
+updated_date: '2026-01-22 00:41'
 labels:
   - rust
   - migration
@@ -57,7 +57,7 @@ Migrate queue management endpoints from FastAPI to Rust Tauri commands, providin
 - [x] #4 Drag-drop file support working
 - [x] #5 Queue persistence working
 - [x] #6 Tauri events emitted for updates
-- [ ] #7 Frontend updated and E2E tests passing
+- [x] #7 Frontend updated and E2E tests passing
 <!-- AC:END -->
 
 ## Implementation Notes
