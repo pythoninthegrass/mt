@@ -282,22 +282,32 @@ export function createSidebar(Alpine) {
     },
     
     handlePlaylistDragOver(event, playlist) {
+      // Check if this is a track drag (from library or global workaround)
+      const hasTrackData = event.dataTransfer?.types?.includes('application/json') || window._mtDraggedTrackIds;
+
       console.log('[Sidebar] handlePlaylistDragOver called', {
         playlistId: playlist.playlistId,
         playlistName: playlist.name,
         reorderDraggingIndex: this.reorderDraggingIndex,
         dataTransferTypes: event.dataTransfer?.types ? [...event.dataTransfer.types] : [],
-        dropEffect: event.dataTransfer?.dropEffect,
-        effectAllowed: event.dataTransfer?.effectAllowed
+        hasTrackData,
+        globalTrackIds: !!window._mtDraggedTrackIds
       });
+
       if (this.reorderDraggingIndex !== null) {
         console.log('[Sidebar] Ignoring dragover - reorder in progress');
         return;
       }
+
+      // Only show drop indicator if we have track data
+      if (!hasTrackData) {
+        console.log('[Sidebar] Ignoring dragover - no track data');
+        return;
+      }
+
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
       this.dragOverPlaylistId = playlist.playlistId;
-      console.log('[Sidebar] Set dropEffect to copy, dragOverPlaylistId:', this.dragOverPlaylistId);
     },
     
     handlePlaylistDragLeave(event, playlist) {
@@ -313,21 +323,30 @@ export function createSidebar(Alpine) {
         playlistId: playlist.playlistId,
         playlistName: playlist.name,
         reorderDraggingIndex: this.reorderDraggingIndex,
-        dataTransferTypes: event.dataTransfer?.types ? [...event.dataTransfer.types] : []
+        dataTransferTypes: event.dataTransfer?.types ? [...event.dataTransfer.types] : [],
+        globalTrackIds: window._mtDraggedTrackIds
       });
-      
+
       if (this.reorderDraggingIndex !== null) {
         console.log('[Sidebar] Ignoring drop - reorder in progress');
         return;
       }
       event.preventDefault();
       this.dragOverPlaylistId = null;
-      
-      const trackIdsJson = event.dataTransfer.getData('application/json');
-      console.log('[Sidebar] Retrieved trackIdsJson from dataTransfer:', trackIdsJson);
-      
+
+      // Try dataTransfer first, fall back to global variable (Tauri workaround)
+      let trackIdsJson = event.dataTransfer.getData('application/json');
+
+      // Tauri workaround: dataTransfer may be empty in Tauri webview
+      if (!trackIdsJson && window._mtDraggedTrackIds) {
+        console.log('[Sidebar] Using global _mtDraggedTrackIds workaround');
+        trackIdsJson = JSON.stringify(window._mtDraggedTrackIds);
+      }
+
+      console.log('[Sidebar] Retrieved trackIdsJson:', trackIdsJson);
+
       if (!trackIdsJson) {
-        console.warn('[Sidebar] No trackIdsJson in dataTransfer - drop aborted');
+        console.warn('[Sidebar] No trackIdsJson available - drop aborted');
         return;
       }
       
