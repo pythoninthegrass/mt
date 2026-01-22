@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - Claude
 created_date: '2026-01-21 17:39'
-updated_date: '2026-01-22 22:38'
+updated_date: '2026-01-22 22:42'
 labels:
   - rust
   - migration
@@ -183,4 +183,26 @@ Successfully implemented core Last.fm infrastructure:
    - Client tests (2 tests)
 
 Next: Phase 2 - Settings Commands
+
+## Phase 2 Complete ✓
+
+Successfully implemented Last.fm settings commands:
+
+1. ✓ Created commands/lastfm.rs with Tauri commands
+2. ✓ Implemented lastfm_get_settings:
+   - Returns enabled, username, authenticated, configured, scrobble_threshold
+   - Uses database settings (not Tauri Store)
+   - Helper functions for parsing truthy values and threshold
+3. ✓ Implemented lastfm_update_settings:
+   - Updates enabled flag and scrobble_threshold
+   - Clamps threshold to 25-100% range
+   - Returns list of updated fields
+4. ✓ Added Last.fm event types to events.rs:
+   - LastfmAuthEvent (authenticated/disconnected/pending)
+   - ScrobbleStatusEvent (success/queued/failed)
+   - LastfmQueueUpdatedEvent (queue count changes)
+5. ✓ Registered commands in lib.rs invoke_handler
+6. ✓ All 15 tests passing (includes 2 new command helper tests)
+
+Next: Phase 3 - Authentication Commands
 <!-- SECTION:NOTES:END -->

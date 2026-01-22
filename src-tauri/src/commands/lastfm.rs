@@ -3,9 +3,13 @@
 //! Provides OAuth authentication, scrobbling, now playing updates, and loved tracks import.
 
 use crate::db::{settings, Database};
-use crate::lastfm::{LastFmClient, LastfmSettings, LastfmSettingsUpdate};
+use crate::events::LastfmAuthEvent;
+use crate::lastfm::{
+    AuthCallbackResponse, AuthUrlResponse, DisconnectResponse, LastFmClient, LastfmSettings,
+    LastfmSettingsUpdate,
+};
 use serde_json::json;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 /// Helper to check if a setting is truthy
 fn is_setting_truthy(value: Option<String>) -> bool {
@@ -78,6 +82,106 @@ pub fn lastfm_update_settings(
     .map_err(|e: crate::db::DbError| format!("Failed to update Last.fm settings: {}", e))?;
 
     Ok(json!({ "updated": updated }))
+}
+
+// ============================================
+// Authentication Commands
+// ============================================
+
+/// Get Last.fm authentication URL and token
+#[tauri::command]
+pub async fn lastfm_get_auth_url(app: AppHandle) -> Result<AuthUrlResponse, String> {
+    let client = LastFmClient::new();
+
+    if !client.is_configured() {
+        return Err("Last.fm API keys not configured. Set LASTFM_API_KEY and LASTFM_API_SECRET.".to_string());
+    }
+
+    let (auth_url, token) = client
+        .get_auth_url()
+        .await
+        .map_err(|e| format!("Failed to get auth URL: {}", e))?;
+
+    // Emit pending event
+    app.emit(
+        LastfmAuthEvent::EVENT_NAME,
+        LastfmAuthEvent::pending(),
+    )
+    .map_err(|e| format!("Failed to emit event: {}", e))?;
+
+    Ok(AuthUrlResponse { auth_url, token })
+}
+
+/// Complete Last.fm authentication with token
+#[tauri::command]
+pub async fn lastfm_auth_callback(
+    app: AppHandle,
+    db: State<'_, Database>,
+    token: String,
+) -> Result<AuthCallbackResponse, String> {
+    let client = LastFmClient::new();
+
+    if !client.is_configured() {
+        return Err("Last.fm API not configured".to_string());
+    }
+
+    // Exchange token for session
+    let session = client
+        .get_session(&token)
+        .await
+        .map_err(|e| format!("Authentication failed: {}", e))?;
+
+    let username = session.name.clone();
+    let session_key = session.key.clone();
+
+    // Store session data in database
+    db.with_conn(|conn| {
+        settings::set_setting(conn, "lastfm_session_key", &json!(session_key))?;
+        settings::set_setting(conn, "lastfm_username", &json!(username))?;
+        settings::set_setting(conn, "lastfm_scrobbling_enabled", &json!(true))?;
+        Ok(())
+    })
+    .map_err(|e: crate::db::DbError| format!("Failed to save session: {}", e))?;
+
+    // Emit authenticated event
+    app.emit(
+        LastfmAuthEvent::EVENT_NAME,
+        LastfmAuthEvent::authenticated(username.clone()),
+    )
+    .map_err(|e| format!("Failed to emit event: {}", e))?;
+
+    Ok(AuthCallbackResponse {
+        status: "success".to_string(),
+        username,
+        message: format!("Successfully connected as {}", session.name),
+    })
+}
+
+/// Disconnect from Last.fm
+#[tauri::command]
+pub fn lastfm_disconnect(
+    app: AppHandle,
+    db: State<Database>,
+) -> Result<DisconnectResponse, String> {
+    db.with_conn(|conn| {
+        settings::set_setting(conn, "lastfm_session_key", &json!(""))?;
+        settings::set_setting(conn, "lastfm_username", &json!(""))?;
+        settings::set_setting(conn, "lastfm_scrobbling_enabled", &json!(false))?;
+        Ok(())
+    })
+    .map_err(|e: crate::db::DbError| format!("Failed to disconnect: {}", e))?;
+
+    // Emit disconnected event
+    app.emit(
+        LastfmAuthEvent::EVENT_NAME,
+        LastfmAuthEvent::disconnected(),
+    )
+    .map_err(|e| format!("Failed to emit event: {}", e))?;
+
+    Ok(DisconnectResponse {
+        status: "success".to_string(),
+        message: "Disconnected from Last.fm".to_string(),
+    })
 }
 
 #[cfg(test)]

@@ -15,7 +15,10 @@ pub use favorites::{
     favorites_get_recently_played, favorites_get_top25, favorites_remove,
 };
 
-pub use lastfm::{lastfm_get_settings, lastfm_update_settings};
+pub use lastfm::{
+    lastfm_auth_callback, lastfm_disconnect, lastfm_get_auth_url, lastfm_get_settings,
+    lastfm_update_settings,
+};
 
 pub use playlists::{
     playlist_add_tracks, playlist_create, playlist_delete, playlist_generate_name, playlist_get,
