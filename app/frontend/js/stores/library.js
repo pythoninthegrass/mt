@@ -25,6 +25,8 @@ export function createLibraryStore(Alpine) {
     loading: false,
     scanning: false,
     scanProgress: 0,     // 0-100
+    scanStatus: null,    // Current scan status string
+    scanJobId: null,     // Current scan job ID
     
     // Statistics
     totalTracks: 0,
@@ -556,6 +558,51 @@ export function createLibraryStore(Alpine) {
       } catch (error) {
         console.error('[library] Failed to rescan track:', error);
       }
+    },
+
+    /**
+     * Set scan progress from Tauri event
+     * @param {Object} progress - Scan progress data
+     */
+    setScanProgress(progress) {
+      const { jobId, status, scanned, found, errors, currentPath } = progress;
+
+      this.scanning = true;
+      this.scanJobId = jobId;
+      this.scanStatus = status;
+
+      // Calculate progress percentage if we have total info
+      // For now, just indicate we're scanning
+      if (scanned > 0) {
+        this.scanProgress = Math.min(99, scanned); // Cap at 99% until complete
+      }
+
+      console.log('[library] scan progress:', {
+        jobId,
+        status,
+        scanned,
+        found,
+        errors,
+        currentPath,
+      });
+    },
+
+    /**
+     * Clear scan progress state (called when scan completes)
+     */
+    clearScanProgress() {
+      this.scanning = false;
+      this.scanProgress = 0;
+      this.scanStatus = null;
+      this.scanJobId = null;
+    },
+
+    /**
+     * Fetch tracks from backend (alias for load)
+     * Used by event system for consistency
+     */
+    async fetchTracks() {
+      await this.load();
     },
   });
 }

@@ -43,6 +43,9 @@ r2d2_sqlite = "0.32"
 # Random number generation (for shuffle)
 rand = "0.9"
 
+# UUID generation (for scan job IDs)
+uuid = { version = "1", features = ["v4"] }
+
 # Filesystem watching with debouncing
 notify-debouncer-full = "0.5"
 

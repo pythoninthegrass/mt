@@ -1,6 +1,6 @@
 /**
  * Store Registry
- * 
+ *
  * Registers all Alpine.js stores with the Alpine instance.
  * Import this module and call initStores(Alpine) before Alpine.start().
  */
@@ -9,6 +9,7 @@ import { createPlayerStore } from './player.js';
 import { createQueueStore } from './queue.js';
 import { createLibraryStore } from './library.js';
 import { createUIStore } from './ui.js';
+import { initEventListeners } from '../events.js';
 
 /**
  * Initialize all Alpine stores
@@ -18,17 +19,22 @@ export function initStores(Alpine) {
   // Register stores in dependency order
   // UI store first (no dependencies)
   createUIStore(Alpine);
-  
+
   // Library store (no store dependencies, uses API)
   createLibraryStore(Alpine);
-  
+
   // Queue store (may reference library)
   createQueueStore(Alpine);
-  
+
   // Player store (may reference queue)
   createPlayerStore(Alpine);
-  
+
   console.log('[stores] All stores registered');
+
+  // Initialize Tauri event listeners after stores are ready
+  initEventListeners(Alpine).catch(err => {
+    console.error('[stores] Failed to initialize event listeners:', err);
+  });
 }
 
 export default initStores;

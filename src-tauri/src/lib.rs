@@ -2,6 +2,7 @@ pub mod audio;
 pub mod commands;
 pub mod db;
 pub mod dialog;
+pub mod events;
 pub mod library;
 pub mod media_keys;
 pub mod metadata;

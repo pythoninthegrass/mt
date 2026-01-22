@@ -4,22 +4,35 @@
 //! with progress events emitted during scanning.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
 use tauri::{AppHandle, Emitter, State};
+use uuid::Uuid;
 
 use crate::db::{library, Database};
+use crate::events::{EventEmitter, LibraryUpdatedEvent, ScanCompleteEvent, ScanProgressEvent};
 use crate::scanner::artwork::{get_artwork, Artwork};
 use crate::scanner::fingerprint::FileFingerprint;
 use crate::scanner::metadata::extract_metadata;
 use crate::scanner::scan::{scan_2phase, ProgressCallback, ScanResult2Phase};
 use crate::scanner::{ExtractedMetadata, ScanProgress, ScanStats};
 
-/// Scan event payload for progress updates
+/// Internal scan progress event for metadata-only scans
 #[derive(Clone, serde::Serialize)]
-struct ScanProgressEvent {
+struct MetadataScanProgress {
     phase: String,
     current: usize,
     total: usize,
     message: Option<String>,
+}
+
+/// Job ID counter for generating unique scan job IDs
+static JOB_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Generate a unique job ID for a scan operation
+fn generate_job_id() -> String {
+    let counter = JOB_COUNTER.fetch_add(1, Ordering::SeqCst);
+    format!("scan-{}-{}", Uuid::new_v4().as_simple(), counter)
 }
 
 /// Scan result sent to frontend
@@ -77,21 +90,24 @@ pub async fn scan_paths_to_library(
     paths: Vec<String>,
     recursive: bool,
 ) -> Result<ScanResultResponse, String> {
+    let job_id = generate_job_id();
+    let start_time = Instant::now();
+
     // Get current fingerprints from DB
     let db_fingerprints = get_db_fingerprints(&db)?;
 
-    // Create progress callback that emits Tauri events
+    // Create progress callback that emits standardized Tauri events
     let app_handle = app.clone();
+    let job_id_clone = job_id.clone();
     let progress_callback: ProgressCallback = Box::new(move |progress: ScanProgress| {
-        let _ = app_handle.emit(
-            "scan-progress",
-            ScanProgressEvent {
-                phase: progress.phase,
-                current: progress.current,
-                total: progress.total,
-                message: progress.message,
-            },
-        );
+        let _ = app_handle.emit_scan_progress(ScanProgressEvent {
+            job_id: job_id_clone.clone(),
+            status: progress.phase.clone(),
+            scanned: progress.current as u32,
+            found: 0, // Will be updated in final event
+            errors: 0,
+            current_path: progress.message.clone(),
+        });
     });
 
     // Run 2-phase scan
@@ -100,6 +116,9 @@ pub async fn scan_paths_to_library(
 
     // Get database connection for updates
     let conn = db.conn().map_err(|e| e.to_string())?;
+
+    let added_count = scan_result.added.len();
+    let modified_count = scan_result.modified.len();
 
     // Add new tracks to database
     if !scan_result.added.is_empty() {
@@ -128,11 +147,24 @@ pub async fn scan_paths_to_library(
         let _ = library::mark_track_missing_by_filepath(&conn, filepath);
     }
 
-    // Emit completion event
-    let _ = app.emit(
-        "scan-complete",
-        ScanResultResponse::from(&scan_result),
-    );
+    let duration_ms = start_time.elapsed().as_millis() as u64;
+
+    // Emit scan complete event
+    let _ = app.emit_scan_complete(ScanCompleteEvent {
+        job_id: job_id.clone(),
+        added: added_count as u32,
+        skipped: scan_result.unchanged.len() as u32,
+        errors: scan_result.stats.errors as u32,
+        duration_ms,
+    });
+
+    // Emit library updated events (empty track_ids signals a bulk change - frontend should refresh)
+    if added_count > 0 {
+        let _ = app.emit_library_updated(LibraryUpdatedEvent::added(vec![]));
+    }
+    if modified_count > 0 {
+        let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![]));
+    }
 
     Ok(ScanResultResponse::from(&scan_result))
 }
@@ -146,12 +178,12 @@ pub async fn scan_paths_metadata(
 ) -> Result<Vec<ExtractedMetadata>, String> {
     let db_fingerprints: HashMap<String, FileFingerprint> = HashMap::new();
 
-    // Create progress callback
+    // Create progress callback (uses internal event format for metadata-only scans)
     let app_handle = app.clone();
     let progress_callback: ProgressCallback = Box::new(move |progress: ScanProgress| {
         let _ = app_handle.emit(
             "scan-progress",
-            ScanProgressEvent {
+            MetadataScanProgress {
                 phase: progress.phase,
                 current: progress.current,
                 total: progress.total,

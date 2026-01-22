@@ -5,9 +5,10 @@
 
 use rand::rng;
 use rand::seq::SliceRandom;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 use crate::db::{queue, Database, QueueItem, Track};
+use crate::events::{EventEmitter, QueueUpdatedEvent};
 
 /// Response for queue get operations
 #[derive(Clone, serde::Serialize)]
@@ -64,8 +65,12 @@ pub fn queue_add(
     let added = queue::add_to_queue(&conn, &track_ids, position).map_err(|e| e.to_string())?;
     let queue_length = queue::get_queue_length(&conn).map_err(|e| e.to_string())?;
 
-    // Emit queue updated event
-    let _ = app.emit("queue:updated", ());
+    // Calculate positions that were added
+    let start_pos = position.unwrap_or(queue_length - added);
+    let positions: Vec<i64> = (start_pos..start_pos + added).collect();
+
+    // Emit queue updated event with payload
+    let _ = app.emit_queue_updated(QueueUpdatedEvent::added(positions, queue_length));
 
     Ok(QueueAddResponse {
         added,
@@ -90,8 +95,12 @@ pub fn queue_add_files(
         queue::add_files_to_queue(&conn, &filepaths, position).map_err(|e| e.to_string())?;
     let queue_length = queue::get_queue_length(&conn).map_err(|e| e.to_string())?;
 
-    // Emit queue updated event
-    let _ = app.emit("queue:updated", ());
+    // Calculate positions that were added
+    let start_pos = position.unwrap_or(queue_length - added);
+    let positions: Vec<i64> = (start_pos..start_pos + added).collect();
+
+    // Emit queue updated event with payload
+    let _ = app.emit_queue_updated(QueueUpdatedEvent::added(positions, queue_length));
 
     Ok(QueueAddFilesResponse {
         added,
@@ -114,8 +123,10 @@ pub fn queue_remove(
         return Err(format!("No track at position {}", position));
     }
 
-    // Emit queue updated event
-    let _ = app.emit("queue:updated", ());
+    let queue_length = queue::get_queue_length(&conn).map_err(|e| e.to_string())?;
+
+    // Emit queue updated event with payload
+    let _ = app.emit_queue_updated(QueueUpdatedEvent::removed(position, queue_length));
 
     Ok(())
 }
@@ -126,8 +137,8 @@ pub fn queue_clear(app: AppHandle, db: State<'_, Database>) -> Result<(), String
     let conn = db.conn().map_err(|e| e.to_string())?;
     queue::clear_queue(&conn).map_err(|e| e.to_string())?;
 
-    // Emit queue updated event
-    let _ = app.emit("queue:updated", ());
+    // Emit queue updated event with payload
+    let _ = app.emit_queue_updated(QueueUpdatedEvent::cleared());
 
     Ok(())
 }
@@ -150,8 +161,8 @@ pub fn queue_reorder(
 
     let queue_length = queue::get_queue_length(&conn).map_err(|e| e.to_string())?;
 
-    // Emit queue updated event
-    let _ = app.emit("queue:updated", ());
+    // Emit queue updated event with payload
+    let _ = app.emit_queue_updated(QueueUpdatedEvent::reordered(from_position, to_position, queue_length));
 
     Ok(QueueOperationResponse {
         success,
@@ -204,8 +215,8 @@ pub fn queue_shuffle(
 
     let queue_length = queue::get_queue_length(&conn).map_err(|e| e.to_string())?;
 
-    // Emit queue updated event
-    let _ = app.emit("queue:updated", ());
+    // Emit queue updated event with payload
+    let _ = app.emit_queue_updated(QueueUpdatedEvent::shuffled(queue_length));
 
     Ok(QueueOperationResponse {
         success: true,

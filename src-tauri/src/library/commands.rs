@@ -4,11 +4,12 @@
 //! replacing the Python FastAPI library routes.
 
 use std::path::Path;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 use crate::db::{
     library, Database, LibrarySortColumn, LibraryStats, SortOrder, Track, TrackMetadata,
 };
+use crate::events::{EventEmitter, LibraryUpdatedEvent};
 use crate::scanner::artwork::{get_artwork, Artwork};
 use crate::scanner::metadata::extract_metadata;
 
@@ -132,8 +133,8 @@ pub fn library_delete_track(
     let deleted = library::delete_track(&conn, track_id).map_err(|e| e.to_string())?;
 
     if deleted {
-        // Emit event to notify frontend
-        let _ = app.emit("library-track-deleted", track_id);
+        // Emit standardized library updated event
+        let _ = app.emit_library_updated(LibraryUpdatedEvent::deleted(vec![track_id]));
     }
 
     Ok(deleted)
@@ -179,8 +180,8 @@ pub fn library_rescan_track(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Track not found after update".to_string())?;
 
-    // Emit event
-    let _ = app.emit("library-track-updated", &updated_track);
+    // Emit standardized library updated event
+    let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![track_id]));
 
     Ok(updated_track)
 }
@@ -198,8 +199,8 @@ pub fn library_update_play_count(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Track with id {} not found", track_id))?;
 
-    // Emit event
-    let _ = app.emit("library-track-updated", &track);
+    // Emit standardized library updated event
+    let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![track_id]));
 
     Ok(track)
 }
@@ -243,8 +244,8 @@ pub fn library_locate_track(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Track not found after update".to_string())?;
 
-    // Emit event
-    let _ = app.emit("library-track-located", &updated_track);
+    // Emit standardized library updated event
+    let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![track_id]));
 
     Ok(updated_track)
 }
@@ -262,8 +263,8 @@ pub fn library_check_status(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Track with id {} not found", track_id))?;
 
-    // Emit event
-    let _ = app.emit("library-track-status-checked", &track);
+    // Emit standardized library updated event
+    let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![track_id]));
 
     Ok(track)
 }
@@ -287,8 +288,8 @@ pub fn library_mark_missing(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Track not found after marking".to_string())?;
 
-    // Emit event
-    let _ = app.emit("library-track-marked-missing", &track);
+    // Emit standardized library updated event
+    let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![track_id]));
 
     Ok(track)
 }
@@ -312,8 +313,8 @@ pub fn library_mark_present(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Track not found after marking".to_string())?;
 
-    // Emit event
-    let _ = app.emit("library-track-marked-present", &track);
+    // Emit standardized library updated event
+    let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![track_id]));
 
     Ok(track)
 }

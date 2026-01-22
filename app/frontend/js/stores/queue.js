@@ -64,6 +64,62 @@ export function createQueueStore(Alpine) {
         this.loading = false;
       }
     },
+
+    /**
+     * Refresh queue from backend (alias for load)
+     * Called by event system when external changes are detected
+     */
+    async refresh() {
+      await this.load();
+    },
+
+    /**
+     * Handle external queue updates from Tauri events
+     * @param {string} action - Type of update: 'added', 'removed', 'cleared', 'reordered', 'shuffled'
+     * @param {Array|null} positions - Affected positions (if applicable)
+     * @param {number} queueLength - New queue length
+     */
+    handleExternalUpdate(action, positions, queueLength) {
+      console.log('[queue] External update:', action, positions, queueLength);
+
+      // Preserve current playback state during refresh
+      const currentTrackId = this.currentIndex >= 0 ? this.items[this.currentIndex]?.id : null;
+
+      // Refresh queue from backend
+      this._refreshPreservingIndex(currentTrackId);
+    },
+
+    /**
+     * Refresh queue from backend while preserving currentIndex if possible
+     * @param {number|null} currentTrackId - ID of currently playing track to find after refresh
+     */
+    async _refreshPreservingIndex(currentTrackId) {
+      this.loading = true;
+      try {
+        const data = await api.queue.get();
+        const rawItems = data.items || [];
+        this.items = rawItems.map(item => item.track || item);
+        this._originalOrder = [...this.items];
+
+        // Restore currentIndex by finding the currently playing track
+        if (currentTrackId !== null) {
+          const newIndex = this.items.findIndex(t => t.id === currentTrackId);
+          if (newIndex >= 0) {
+            this.currentIndex = newIndex;
+          }
+          // If track not found, keep current index if still valid, else reset
+          else if (this.currentIndex >= this.items.length) {
+            this.currentIndex = this.items.length > 0 ? this.items.length - 1 : -1;
+          }
+        } else if (this.items.length === 0) {
+          this.currentIndex = -1;
+        }
+      } catch (error) {
+        console.error('Failed to refresh queue:', error);
+      } finally {
+        this.loading = false;
+      }
+    },
     
     /**
      * Save queue state to backend
