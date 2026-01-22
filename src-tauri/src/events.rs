@@ -270,6 +270,103 @@ impl SettingsUpdatedEvent {
 }
 
 // ============================================
+// Last.fm Events
+// ============================================
+
+/// Emitted when Last.fm authentication state changes
+#[derive(Clone, Debug, Serialize)]
+pub struct LastfmAuthEvent {
+    /// Authentication state: "authenticated", "disconnected", "pending"
+    pub state: String,
+    /// Username if authenticated
+    pub username: Option<String>,
+}
+
+impl LastfmAuthEvent {
+    pub const EVENT_NAME: &'static str = "lastfm:auth";
+
+    pub fn authenticated(username: String) -> Self {
+        Self {
+            state: "authenticated".to_string(),
+            username: Some(username),
+        }
+    }
+
+    pub fn disconnected() -> Self {
+        Self {
+            state: "disconnected".to_string(),
+            username: None,
+        }
+    }
+
+    pub fn pending() -> Self {
+        Self {
+            state: "pending".to_string(),
+            username: None,
+        }
+    }
+}
+
+/// Emitted when scrobble status changes
+#[derive(Clone, Debug, Serialize)]
+pub struct ScrobbleStatusEvent {
+    /// Status: "success", "queued", "failed"
+    pub status: String,
+    /// Track artist
+    pub artist: String,
+    /// Track title
+    pub track: String,
+    /// Optional error message
+    pub message: Option<String>,
+}
+
+impl ScrobbleStatusEvent {
+    pub const EVENT_NAME: &'static str = "lastfm:scrobble-status";
+
+    pub fn success(artist: String, track: String) -> Self {
+        Self {
+            status: "success".to_string(),
+            artist,
+            track,
+            message: None,
+        }
+    }
+
+    pub fn queued(artist: String, track: String) -> Self {
+        Self {
+            status: "queued".to_string(),
+            artist,
+            track,
+            message: Some("Queued for retry".to_string()),
+        }
+    }
+
+    pub fn failed(artist: String, track: String, message: String) -> Self {
+        Self {
+            status: "failed".to_string(),
+            artist,
+            track,
+            message: Some(message),
+        }
+    }
+}
+
+/// Emitted when scrobble queue status changes
+#[derive(Clone, Debug, Serialize)]
+pub struct LastfmQueueUpdatedEvent {
+    /// Number of queued scrobbles
+    pub queued_count: usize,
+}
+
+impl LastfmQueueUpdatedEvent {
+    pub const EVENT_NAME: &'static str = "lastfm:queue-updated";
+
+    pub fn new(queued_count: usize) -> Self {
+        Self { queued_count }
+    }
+}
+
+// ============================================
 // Helper trait for emitting events
 // ============================================
 

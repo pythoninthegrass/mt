@@ -15,12 +15,12 @@ use commands::{
     audio_get_status, audio_get_volume, audio_load, audio_pause, audio_play, audio_seek,
     audio_set_volume, audio_stop, favorites_add, favorites_check, favorites_get,
     favorites_get_recently_added, favorites_get_recently_played, favorites_get_top25,
-    favorites_remove, playlist_add_tracks, playlist_create, playlist_delete,
-    playlist_generate_name, playlist_get, playlist_list, playlist_remove_track,
-    playlist_reorder_tracks, playlist_update, playlists_reorder, queue_add, queue_add_files,
-    queue_clear, queue_get, queue_remove, queue_reorder, queue_shuffle,
-    settings_get, settings_get_all, settings_reset, settings_set, settings_update,
-    AudioState,
+    favorites_remove, lastfm_get_settings, lastfm_update_settings, playlist_add_tracks,
+    playlist_create, playlist_delete, playlist_generate_name, playlist_get, playlist_list,
+    playlist_remove_track, playlist_reorder_tracks, playlist_update, playlists_reorder,
+    queue_add, queue_add_files, queue_clear, queue_get, queue_remove, queue_reorder,
+    queue_shuffle, settings_get, settings_get_all, settings_reset, settings_set,
+    settings_update, AudioState,
 };
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
@@ -276,6 +276,8 @@ pub fn run() {
             favorites_get_top25,
             favorites_get_recently_played,
             favorites_get_recently_added,
+            lastfm_get_settings,
+            lastfm_update_settings,
             settings_get_all,
             settings_get,
             settings_set,

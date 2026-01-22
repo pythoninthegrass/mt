@@ -1,5 +1,6 @@
 mod audio;
 mod favorites;
+mod lastfm;
 mod playlists;
 mod queue;
 mod settings;
@@ -13,6 +14,8 @@ pub use favorites::{
     favorites_add, favorites_check, favorites_get, favorites_get_recently_added,
     favorites_get_recently_played, favorites_get_top25, favorites_remove,
 };
+
+pub use lastfm::{lastfm_get_settings, lastfm_update_settings};
 
 pub use playlists::{
     playlist_add_tracks, playlist_create, playlist_delete, playlist_generate_name, playlist_get,
