@@ -139,7 +139,7 @@ export function createPlayerStore(Alpine) {
             console.debug('[scrobble] Scrobbling disabled');
           } else if (result.status === 'not_authenticated') {
             console.debug('[scrobble] Not authenticated with Last.fm');
-          } else if (result.scrobbles && result.scrobbles['@attr'] && Number(result.scrobbles['@attr'].accepted) > 0) {
+          } else if (result.status === 'success') {
             console.log('[scrobble] Successfully scrobbled:', scrobbleData.track);
           } else {
             console.warn('[scrobble] Unexpected response:', result);
