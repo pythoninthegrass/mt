@@ -6,7 +6,8 @@ use crate::db::{scrobble, settings, Database};
 use crate::events::{LastfmAuthEvent, ScrobbleStatusEvent};
 use crate::lastfm::{
     AuthCallbackResponse, AuthUrlResponse, DisconnectResponse, LastFmClient, LastfmSettings,
-    LastfmSettingsUpdate, NowPlayingRequest, ScrobbleRequest, ScrobbleResponse,
+    LastfmSettingsUpdate, NowPlayingRequest, QueueRetryResponse, QueueStatusResponse,
+    ScrobbleRequest, ScrobbleResponse,
 };
 use serde_json::json;
 use tauri::{AppHandle, Emitter, State};
@@ -378,6 +379,139 @@ fn queue_scrobble_for_retry(
     );
 
     Ok(())
+}
+
+// ============================================
+// Queue Commands
+// ============================================
+
+/// Get status of scrobble queue
+#[tauri::command]
+pub fn lastfm_queue_status(db: State<Database>) -> Result<QueueStatusResponse, String> {
+    let queued_scrobbles = db
+        .with_conn(|conn| scrobble::get_queued_scrobbles(conn, 1000))
+        .map_err(|e: crate::db::DbError| format!("Failed to get queue status: {}", e))?;
+
+    Ok(QueueStatusResponse {
+        queued_scrobbles: queued_scrobbles.len(),
+    })
+}
+
+/// Manually retry queued scrobbles
+#[tauri::command]
+pub async fn lastfm_queue_retry(
+    app: AppHandle,
+    db: State<'_, Database>,
+) -> Result<QueueRetryResponse, String> {
+    use crate::events::LastfmQueueUpdatedEvent;
+    use crate::lastfm::QueueRetryResponse;
+
+    // Check if authenticated
+    let session_key = db
+        .with_conn(|conn| settings::get_setting(conn, "lastfm_session_key"))
+        .map_err(|e: crate::db::DbError| format!("Database error: {}", e))?;
+
+    if session_key.is_none() || session_key.as_deref() == Some("") {
+        return Err("Not authenticated with Last.fm".to_string());
+    }
+
+    let session_key = session_key.unwrap();
+    let client = LastFmClient::new();
+
+    // Get queued scrobbles (limit to 100 per retry batch)
+    let queued = db
+        .with_conn(|conn| scrobble::get_queued_scrobbles(conn, 100))
+        .map_err(|e: crate::db::DbError| format!("Failed to get queued scrobbles: {}", e))?;
+
+    let mut successful = 0;
+    let mut failed = 0;
+
+    // Attempt to submit each queued scrobble
+    for queued_scrobble in queued.iter() {
+        match client
+            .scrobble(
+                &session_key,
+                &queued_scrobble.artist,
+                &queued_scrobble.track,
+                queued_scrobble.timestamp,
+                queued_scrobble.album.as_deref(),
+            )
+            .await
+        {
+            Ok(accepted) => {
+                if accepted > 0 {
+                    // Remove from queue
+                    if let Err(e) = db.with_conn(|conn| {
+                        scrobble::remove_queued_scrobble(conn, queued_scrobble.id)
+                    }) {
+                        eprintln!("[lastfm] Failed to remove scrobble from queue: {}", e);
+                    }
+
+                    // Emit success event
+                    let _ = app.emit(
+                        ScrobbleStatusEvent::EVENT_NAME,
+                        ScrobbleStatusEvent::success(
+                            queued_scrobble.artist.clone(),
+                            queued_scrobble.track.clone(),
+                        ),
+                    );
+
+                    successful += 1;
+                } else {
+                    // Not accepted - increment retry count
+                    if let Err(e) = db.with_conn(|conn| {
+                        scrobble::increment_scrobble_retry(conn, queued_scrobble.id)
+                    }) {
+                        eprintln!("[lastfm] Failed to increment retry count: {}", e);
+                    }
+                    failed += 1;
+                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "[lastfm] Retry failed for {}/{}: {}",
+                    queued_scrobble.artist, queued_scrobble.track, e
+                );
+
+                // Increment retry count
+                if let Err(e) = db
+                    .with_conn(|conn| scrobble::increment_scrobble_retry(conn, queued_scrobble.id))
+                {
+                    eprintln!("[lastfm] Failed to increment retry count: {}", e);
+                }
+                failed += 1;
+            }
+        }
+    }
+
+    // Get updated queue count
+    let remaining_queued = db
+        .with_conn(|conn| scrobble::get_queued_scrobbles(conn, 1000))
+        .map_err(|e: crate::db::DbError| format!("Failed to get queue status: {}", e))?
+        .len();
+
+    // Emit queue updated event
+    let _ = app.emit(
+        LastfmQueueUpdatedEvent::EVENT_NAME,
+        LastfmQueueUpdatedEvent::new(remaining_queued),
+    );
+
+    let status = if successful > 0 {
+        if failed > 0 {
+            format!("Retried {} scrobbles ({} successful, {} failed)", successful + failed, successful, failed)
+        } else {
+            format!("Successfully retried {} scrobbles", successful)
+        }
+    } else if failed > 0 {
+        "All retry attempts failed".to_string()
+    } else {
+        "No queued scrobbles to retry".to_string()
+    };
+
+    Ok(QueueRetryResponse {
+        status,
+        remaining_queued,
+    })
 }
 
 #[cfg(test)]

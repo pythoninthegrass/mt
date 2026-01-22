@@ -16,12 +16,13 @@ use commands::{
     audio_set_volume, audio_stop, favorites_add, favorites_check, favorites_get,
     favorites_get_recently_added, favorites_get_recently_played, favorites_get_top25,
     favorites_remove, lastfm_auth_callback, lastfm_disconnect, lastfm_get_auth_url,
-    lastfm_get_settings, lastfm_now_playing, lastfm_scrobble, lastfm_update_settings,
-    playlist_add_tracks, playlist_create, playlist_delete, playlist_generate_name,
-    playlist_get, playlist_list, playlist_remove_track, playlist_reorder_tracks,
-    playlist_update, playlists_reorder, queue_add, queue_add_files, queue_clear, queue_get,
-    queue_remove, queue_reorder, queue_shuffle, settings_get, settings_get_all,
-    settings_reset, settings_set, settings_update, AudioState,
+    lastfm_get_settings, lastfm_now_playing, lastfm_queue_retry, lastfm_queue_status,
+    lastfm_scrobble, lastfm_update_settings, playlist_add_tracks, playlist_create,
+    playlist_delete, playlist_generate_name, playlist_get, playlist_list,
+    playlist_remove_track, playlist_reorder_tracks, playlist_update, playlists_reorder,
+    queue_add, queue_add_files, queue_clear, queue_get, queue_remove, queue_reorder,
+    queue_shuffle, settings_get, settings_get_all, settings_reset, settings_set,
+    settings_update, AudioState,
 };
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
@@ -284,6 +285,8 @@ pub fn run() {
             lastfm_disconnect,
             lastfm_now_playing,
             lastfm_scrobble,
+            lastfm_queue_status,
+            lastfm_queue_retry,
             settings_get_all,
             settings_get,
             settings_set,
@@ -346,6 +349,43 @@ pub fn run() {
             if let Err(e) = setup_global_shortcuts(app) {
                 eprintln!("Failed to setup global shortcuts: {}", e);
             }
+
+            // Start Last.fm scrobble retry background task
+            let app_handle_lastfm = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                use std::time::Duration;
+
+                // Wait 30 seconds before starting background retries
+                tokio::time::sleep(Duration::from_secs(30)).await;
+                println!("Last.fm scrobble retry task started (5-minute interval)");
+
+                loop {
+                    // Wait 5 minutes between retry attempts
+                    tokio::time::sleep(Duration::from_secs(300)).await;
+
+                    // Attempt to retry queued scrobbles
+                    if let Some(db) = app_handle_lastfm.try_state::<db::Database>() {
+                        // Check if there are any queued scrobbles
+                        let has_queued = db
+                            .with_conn(|conn| {
+                                db::scrobble::get_queued_scrobbles(conn, 1).map(|q| !q.is_empty())
+                            })
+                            .unwrap_or(false);
+
+                        if has_queued {
+                            // Trigger retry
+                            match lastfm_queue_retry(app_handle_lastfm.clone(), db.clone()).await {
+                                Ok(response) => {
+                                    println!("[lastfm] Background retry: {}", response.status);
+                                }
+                                Err(e) => {
+                                    eprintln!("[lastfm] Background retry failed: {}", e);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
 
             Ok(())
         })
