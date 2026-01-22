@@ -16,12 +16,12 @@ use commands::{
     audio_set_volume, audio_stop, favorites_add, favorites_check, favorites_get,
     favorites_get_recently_added, favorites_get_recently_played, favorites_get_top25,
     favorites_remove, lastfm_auth_callback, lastfm_disconnect, lastfm_get_auth_url,
-    lastfm_get_settings, lastfm_update_settings, playlist_add_tracks,
-    playlist_create, playlist_delete, playlist_generate_name, playlist_get, playlist_list,
-    playlist_remove_track, playlist_reorder_tracks, playlist_update, playlists_reorder,
-    queue_add, queue_add_files, queue_clear, queue_get, queue_remove, queue_reorder,
-    queue_shuffle, settings_get, settings_get_all, settings_reset, settings_set,
-    settings_update, AudioState,
+    lastfm_get_settings, lastfm_now_playing, lastfm_scrobble, lastfm_update_settings,
+    playlist_add_tracks, playlist_create, playlist_delete, playlist_generate_name,
+    playlist_get, playlist_list, playlist_remove_track, playlist_reorder_tracks,
+    playlist_update, playlists_reorder, queue_add, queue_add_files, queue_clear, queue_get,
+    queue_remove, queue_reorder, queue_shuffle, settings_get, settings_get_all,
+    settings_reset, settings_set, settings_update, AudioState,
 };
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
@@ -282,6 +282,8 @@ pub fn run() {
             lastfm_get_auth_url,
             lastfm_auth_callback,
             lastfm_disconnect,
+            lastfm_now_playing,
+            lastfm_scrobble,
             settings_get_all,
             settings_get,
             settings_set,

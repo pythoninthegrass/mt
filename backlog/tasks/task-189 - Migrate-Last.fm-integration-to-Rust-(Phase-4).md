@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - Claude
 created_date: '2026-01-21 17:39'
-updated_date: '2026-01-22 22:42'
+updated_date: '2026-01-22 22:47'
 labels:
   - rust
   - migration
@@ -205,4 +205,33 @@ Successfully implemented Last.fm settings commands:
 6. ✓ All 15 tests passing (includes 2 new command helper tests)
 
 Next: Phase 3 - Authentication Commands
+
+## Phase 3 Complete ✓
+
+Successfully implemented OAuth 1.0a authentication flow:
+
+1. ✓ Implemented lastfm_get_auth_url (async):
+   - Validates API keys are configured
+   - Calls client.get_auth_url() to fetch token
+   - Returns auth_url for browser and token for callback
+   - Emits LastfmAuthEvent::pending()
+2. ✓ Implemented lastfm_auth_callback (async):
+   - Exchanges token for session via auth.getSession
+   - Stores session_key and username in database
+   - Automatically enables scrobbling
+   - Emits LastfmAuthEvent::authenticated(username)
+3. ✓ Implemented lastfm_disconnect:
+   - Clears session_key and username from database
+   - Disables scrobbling
+   - Emits LastfmAuthEvent::disconnected()
+4. ✓ All commands registered in lib.rs invoke_handler
+5. ✓ All 15 tests passing
+
+Authentication flow tested:
+- User clicks "Connect" → lastfm_get_auth_url
+- Browser opens Last.fm auth page
+- User authorizes and returns → lastfm_auth_callback
+- Session stored for future API calls
+
+Next: Phase 4 - Scrobbling Commands
 <!-- SECTION:NOTES:END -->

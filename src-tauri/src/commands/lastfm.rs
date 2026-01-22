@@ -2,11 +2,11 @@
 //!
 //! Provides OAuth authentication, scrobbling, now playing updates, and loved tracks import.
 
-use crate::db::{settings, Database};
-use crate::events::LastfmAuthEvent;
+use crate::db::{scrobble, settings, Database};
+use crate::events::{LastfmAuthEvent, ScrobbleStatusEvent};
 use crate::lastfm::{
     AuthCallbackResponse, AuthUrlResponse, DisconnectResponse, LastFmClient, LastfmSettings,
-    LastfmSettingsUpdate,
+    LastfmSettingsUpdate, NowPlayingRequest, ScrobbleRequest, ScrobbleResponse,
 };
 use serde_json::json;
 use tauri::{AppHandle, Emitter, State};
@@ -184,6 +184,202 @@ pub fn lastfm_disconnect(
     })
 }
 
+// ============================================
+// Scrobbling Commands
+// ============================================
+
+/// Check if a track should be scrobbled based on threshold
+///
+/// Last.fm rules: scrobble if ALL of these conditions are met:
+/// 1. played_time >= 30 seconds (absolute minimum)
+/// 2. fraction_played >= threshold (percentage requirement)
+/// 3. played_time >= min(duration * threshold, 240 seconds) (4-minute max cap)
+fn should_scrobble(duration: f64, played_time: f64, threshold_percent: u8) -> bool {
+    if duration <= 0.0 {
+        return false;
+    }
+
+    let threshold_fraction = threshold_percent as f64 / 100.0;
+    let fraction_played = played_time / duration;
+    let threshold_time = duration * threshold_fraction;
+
+    // All three conditions must be met
+    let meets_minimum = played_time >= 30.0;
+    let meets_fraction = fraction_played >= threshold_fraction;
+    let meets_threshold_or_cap = played_time >= f64::min(threshold_time, 240.0);
+
+    meets_minimum && meets_fraction && meets_threshold_or_cap
+}
+
+/// Update "Now Playing" status on Last.fm
+#[tauri::command]
+pub async fn lastfm_now_playing(
+    db: State<'_, Database>,
+    request: NowPlayingRequest,
+) -> Result<serde_json::Value, String> {
+    // Check if scrobbling is enabled
+    let enabled = db
+        .with_conn(|conn| Ok(is_setting_truthy(settings::get_setting(conn, "lastfm_scrobbling_enabled")?)))
+        .map_err(|e: crate::db::DbError| format!("Database error: {}", e))?;
+
+    if !enabled {
+        return Ok(json!({ "status": "disabled", "message": "Scrobbling is disabled" }));
+    }
+
+    // Check if authenticated
+    let session_key = db
+        .with_conn(|conn| settings::get_setting(conn, "lastfm_session_key"))
+        .map_err(|e: crate::db::DbError| format!("Database error: {}", e))?;
+
+    if session_key.is_none() || session_key.as_deref() == Some("") {
+        return Ok(json!({ "status": "not_authenticated", "message": "Not authenticated with Last.fm" }));
+    }
+
+    let session_key = session_key.unwrap();
+    let client = LastFmClient::new();
+
+    // Update now playing (non-critical - silent errors)
+    match client
+        .update_now_playing(
+            &session_key,
+            &request.artist,
+            &request.track,
+            request.album.as_deref(),
+            request.duration,
+        )
+        .await
+    {
+        Ok(_) => Ok(json!({ "status": "success" })),
+        Err(e) => {
+            // Now Playing updates are not critical, just log and return success
+            eprintln!("[lastfm] Now Playing update failed: {}", e);
+            Ok(json!({ "status": "error", "message": e.to_string() }))
+        }
+    }
+}
+
+/// Scrobble a track to Last.fm
+#[tauri::command]
+pub async fn lastfm_scrobble(
+    app: AppHandle,
+    db: State<'_, Database>,
+    request: ScrobbleRequest,
+) -> Result<ScrobbleResponse, String> {
+    // Check if scrobbling is enabled
+    let enabled = db
+        .with_conn(|conn| Ok(is_setting_truthy(settings::get_setting(conn, "lastfm_scrobbling_enabled")?)))
+        .map_err(|e: crate::db::DbError| format!("Database error: {}", e))?;
+
+    if !enabled {
+        return Ok(ScrobbleResponse {
+            status: "disabled".to_string(),
+            message: Some("Scrobbling is disabled".to_string()),
+        });
+    }
+
+    // Check if authenticated
+    let session_key = db
+        .with_conn(|conn| settings::get_setting(conn, "lastfm_session_key"))
+        .map_err(|e: crate::db::DbError| format!("Database error: {}", e))?;
+
+    if session_key.is_none() || session_key.as_deref() == Some("") {
+        return Ok(ScrobbleResponse {
+            status: "not_authenticated".to_string(),
+            message: Some("Not authenticated with Last.fm".to_string()),
+        });
+    }
+
+    // Get threshold
+    let threshold = db
+        .with_conn(|conn| Ok(parse_threshold(settings::get_setting(conn, "lastfm_scrobble_threshold")?, 90)))
+        .map_err(|e: crate::db::DbError| format!("Database error: {}", e))?;
+
+    // Check if track meets threshold
+    if !should_scrobble(
+        request.duration as f64,
+        request.played_time as f64,
+        threshold,
+    ) {
+        return Ok(ScrobbleResponse {
+            status: "threshold_not_met".to_string(),
+            message: None,
+        });
+    }
+
+    let session_key = session_key.unwrap();
+    let client = LastFmClient::new();
+
+    // Attempt to scrobble
+    match client
+        .scrobble(
+            &session_key,
+            &request.artist,
+            &request.track,
+            request.timestamp,
+            request.album.as_deref(),
+        )
+        .await
+    {
+        Ok(accepted) => {
+            if accepted > 0 {
+                // Emit success event
+                let _ = app.emit(
+                    ScrobbleStatusEvent::EVENT_NAME,
+                    ScrobbleStatusEvent::success(request.artist.clone(), request.track.clone()),
+                );
+
+                Ok(ScrobbleResponse {
+                    status: "success".to_string(),
+                    message: None,
+                })
+            } else {
+                // Not accepted - queue for retry
+                queue_scrobble_for_retry(&app, &db, &request)?;
+
+                Ok(ScrobbleResponse {
+                    status: "queued".to_string(),
+                    message: Some("Scrobble queued for retry".to_string()),
+                })
+            }
+        }
+        Err(e) => {
+            // Network or API error - queue for retry
+            queue_scrobble_for_retry(&app, &db, &request)?;
+
+            Ok(ScrobbleResponse {
+                status: "queued".to_string(),
+                message: Some(format!("Scrobble queued for retry: {}", e)),
+            })
+        }
+    }
+}
+
+/// Helper to queue a failed scrobble for later retry
+fn queue_scrobble_for_retry(
+    app: &AppHandle,
+    db: &State<Database>,
+    request: &ScrobbleRequest,
+) -> Result<(), String> {
+    db.with_conn(|conn| {
+        scrobble::queue_scrobble(
+            conn,
+            &request.artist,
+            &request.track,
+            request.album.as_deref(),
+            request.timestamp,
+        )
+    })
+    .map_err(|e: crate::db::DbError| format!("Failed to queue scrobble: {}", e))?;
+
+    // Emit queued event
+    let _ = app.emit(
+        ScrobbleStatusEvent::EVENT_NAME,
+        ScrobbleStatusEvent::queued(request.artist.clone(), request.track.clone()),
+    );
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,5 +405,106 @@ mod tests {
         // Invalid values use default
         assert_eq!(parse_threshold(Some("invalid".to_string()), 90), 90);
         assert_eq!(parse_threshold(None, 90), 90);
+    }
+
+    #[test]
+    fn test_should_scrobble_basic() {
+        // Track duration: 200 seconds, threshold: 50%
+        // Should scrobble if played >= 100s (50%) AND >= 30s AND >= min(100s, 240s)
+
+        // Played 100s (exactly 50%) - should scrobble
+        assert!(should_scrobble(200.0, 100.0, 50));
+
+        // Played 150s (75%) - should scrobble
+        assert!(should_scrobble(200.0, 150.0, 50));
+
+        // Played 50s (25%) - should NOT scrobble (below threshold)
+        assert!(!should_scrobble(200.0, 50.0, 50));
+
+        // Played 99s (49.5%) - should NOT scrobble (just below threshold)
+        assert!(!should_scrobble(200.0, 99.0, 50));
+    }
+
+    #[test]
+    fn test_should_scrobble_minimum_time() {
+        // Track duration: 60 seconds, threshold: 90%
+        // Required: >= 54s (90%) AND >= 30s AND >= min(54s, 240s)
+
+        // Played 54s (exactly 90%) - should scrobble
+        assert!(should_scrobble(60.0, 54.0, 90));
+
+        // Played 55s (91.67%) - should scrobble
+        assert!(should_scrobble(60.0, 55.0, 90));
+
+        // Played 29s - should NOT scrobble (below 30s minimum)
+        assert!(!should_scrobble(60.0, 29.0, 90));
+
+        // Played 30s - still should NOT scrobble (below 90% threshold)
+        assert!(!should_scrobble(60.0, 30.0, 90));
+    }
+
+    #[test]
+    fn test_should_scrobble_max_cap() {
+        // Track duration: 600 seconds (10 minutes), threshold: 50%
+        // Required: >= 50% (300s) AND >= 30s AND >= min(300s, 240s) = 240s
+        // All three conditions must be met
+
+        // Played 240s (40%) - should NOT scrobble (below 50% threshold)
+        assert!(!should_scrobble(600.0, 240.0, 50));
+
+        // Played 300s (50%) - should scrobble (meets all conditions)
+        assert!(should_scrobble(600.0, 300.0, 50));
+
+        // Played 299s (49.83%) - should NOT scrobble (just below 50%)
+        assert!(!should_scrobble(600.0, 299.0, 50));
+
+        // For a very long track (20 minutes), 240s max cap means you only need 240s if >= threshold
+        // Track: 1200s, threshold: 50% (600s), max cap: 240s
+        // Playing 600s (50%) - should scrobble (meets all: 50%, 240s cap, 30s min)
+        assert!(should_scrobble(1200.0, 600.0, 50));
+
+        // Playing 240s (20%) - should NOT scrobble (below 50% even though meets 240s cap)
+        assert!(!should_scrobble(1200.0, 240.0, 50));
+    }
+
+    #[test]
+    fn test_should_scrobble_edge_cases() {
+        // Zero duration - should NOT scrobble
+        assert!(!should_scrobble(0.0, 100.0, 50));
+
+        // Negative duration - should NOT scrobble
+        assert!(!should_scrobble(-10.0, 100.0, 50));
+
+        // Very short track (20s) with 90% threshold
+        // Required: >= 18s (90%) AND >= 30s
+        // Can never scrobble because 30s minimum is longer than track
+        assert!(!should_scrobble(20.0, 18.0, 90));
+        assert!(!should_scrobble(20.0, 20.0, 90));
+
+        // Track with minimum scrobblable length (40s)
+        // With 90% threshold: >= 36s AND >= 30s AND >= min(36s, 240s)
+        assert!(should_scrobble(40.0, 36.0, 90));
+        assert!(!should_scrobble(40.0, 35.0, 90));
+    }
+
+    #[test]
+    fn test_should_scrobble_threshold_variations() {
+        // Track duration: 300 seconds
+
+        // 25% threshold (minimum)
+        assert!(should_scrobble(300.0, 75.0, 25));  // 75s = 25%
+        assert!(!should_scrobble(300.0, 74.0, 25));
+
+        // 50% threshold
+        assert!(should_scrobble(300.0, 150.0, 50)); // 150s = 50%
+        assert!(!should_scrobble(300.0, 149.0, 50));
+
+        // 90% threshold
+        assert!(should_scrobble(300.0, 270.0, 90)); // 270s = 90%
+        assert!(!should_scrobble(300.0, 269.0, 90));
+
+        // 100% threshold (maximum)
+        assert!(should_scrobble(300.0, 300.0, 100)); // 300s = 100%
+        assert!(!should_scrobble(300.0, 299.0, 100));
     }
 }
