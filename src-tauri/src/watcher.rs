@@ -1,3 +1,8 @@
+//! Watched folders management with filesystem monitoring.
+//!
+//! Migrated from Python FastAPI to native Rust with direct database access.
+//! Supports real-time filesystem watching via notify crate.
+
 use notify_debouncer_full::{
     new_debouncer,
     notify::{self, RecursiveMode},
@@ -12,14 +17,34 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::mpsc;
 
+use crate::db::{library, watched, Database, TrackMetadata, WatchedFolder as DbWatchedFolder};
+use crate::events::{EventEmitter, LibraryUpdatedEvent, ScanCompleteEvent, ScanProgressEvent};
+use crate::scanner::fingerprint::{compute_content_hash, FileFingerprint};
+use crate::scanner::scan::{scan_2phase, ProgressCallback};
+use crate::scanner::ExtractedMetadata;
+
+/// Watched folder response for frontend (matches existing API contract)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WatchedFolder {
     pub id: i64,
     pub path: String,
     pub mode: String,
-    pub cadence_minutes: Option<i32>,
+    pub cadence_minutes: Option<i64>,
     pub enabled: bool,
     pub last_scanned_at: Option<i64>,
+}
+
+impl From<DbWatchedFolder> for WatchedFolder {
+    fn from(f: DbWatchedFolder) -> Self {
+        WatchedFolder {
+            id: f.id,
+            path: f.path,
+            mode: f.mode,
+            cadence_minutes: Some(f.cadence_minutes),
+            enabled: f.enabled,
+            last_scanned_at: f.last_scanned_at,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -51,9 +76,10 @@ pub struct FsEvent {
     pub paths: Vec<String>,
 }
 
+/// Manages filesystem watchers for watched folders
 pub struct WatcherManager {
     app: AppHandle,
-    backend_url: String,
+    db: Database,
     active_watchers: Arc<RwLock<HashMap<i64, WatcherHandle>>>,
 }
 
@@ -66,16 +92,20 @@ struct WatcherHandle {
 }
 
 impl WatcherManager {
-    pub fn new(app: AppHandle, backend_url: String) -> Self {
+    pub fn new(app: AppHandle, db: Database) -> Self {
         Self {
             app,
-            backend_url,
+            db,
             active_watchers: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
+    pub fn get_db(&self) -> &Database {
+        &self.db
+    }
+
     pub async fn start(&self) -> Result<(), String> {
-        let folders = self.fetch_enabled_folders().await?;
+        let folders = self.fetch_enabled_folders()?;
 
         for folder in folders {
             if folder.enabled {
@@ -96,42 +126,22 @@ impl WatcherManager {
         }
     }
 
-    pub fn get_backend_url(&self) -> &str {
-        &self.backend_url
-    }
-
     pub fn active_watcher_count(&self) -> usize {
         self.active_watchers.read().len()
     }
 
-    async fn fetch_enabled_folders(&self) -> Result<Vec<WatchedFolder>, String> {
-        let client = reqwest::Client::new();
-        let url = format!("{}/api/watched-folders", self.backend_url);
-
-        let response = client
-            .get(&url)
-            .send()
-            .await
+    fn fetch_enabled_folders(&self) -> Result<Vec<WatchedFolder>, String> {
+        let conn = self.db.conn().map_err(|e| e.to_string())?;
+        let folders = watched::get_enabled_watched_folders(&conn)
             .map_err(|e| format!("Failed to fetch watched folders: {}", e))?;
-
-        #[derive(Deserialize)]
-        struct FoldersResponse {
-            folders: Vec<WatchedFolder>,
-        }
-
-        let data: FoldersResponse = response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse watched folders: {}", e))?;
-
-        Ok(data.folders.into_iter().filter(|f| f.enabled).collect())
+        Ok(folders.into_iter().map(WatchedFolder::from).collect())
     }
 
     async fn start_watching(&self, folder: WatchedFolder) -> Result<(), String> {
         let (cancel_tx, mut cancel_rx) = mpsc::channel::<()>(1);
 
         let app = self.app.clone();
-        let backend_url = self.backend_url.clone();
+        let db = self.db.clone();
         let folder_id = folder.id;
         let mode = folder.mode.clone();
         let cadence_minutes = folder.cadence_minutes.unwrap_or(10) as u64;
@@ -158,9 +168,9 @@ impl WatcherManager {
 
         tokio::spawn(async move {
             if mode == "startup" {
-                Self::trigger_rescan(&app, &backend_url, folder_id).await;
+                Self::trigger_rescan(&app, &db, folder_id).await;
             } else if mode == "continuous" {
-                Self::trigger_rescan(&app, &backend_url, folder_id).await;
+                Self::trigger_rescan(&app, &db, folder_id).await;
 
                 let mut interval =
                     tokio::time::interval(Duration::from_secs(cadence_minutes * 60));
@@ -169,7 +179,7 @@ impl WatcherManager {
                 loop {
                     tokio::select! {
                         _ = interval.tick() => {
-                            Self::trigger_rescan(&app, &backend_url, folder_id).await;
+                            Self::trigger_rescan(&app, &db, folder_id).await;
                         }
                         _ = cancel_rx.recv() => {
                             println!("[watcher] Stopping watcher for folder {}", folder_id);
@@ -189,7 +199,7 @@ impl WatcherManager {
         folder_path: &str,
     ) -> Option<Debouncer<notify::RecommendedWatcher, RecommendedCache>> {
         let app = self.app.clone();
-        let backend_url = self.backend_url.clone();
+        let db = self.db.clone();
         let path = PathBuf::from(folder_path);
 
         if !path.exists() {
@@ -201,68 +211,78 @@ impl WatcherManager {
         }
 
         let debounce_duration = Duration::from_millis(1000);
-        
+
         // Capture the Tokio runtime handle to spawn async tasks from the sync callback
         let runtime_handle = tokio::runtime::Handle::current();
 
-        let debouncer_result = new_debouncer(debounce_duration, None, move |result: DebounceEventResult| {
-            match result {
-                Ok(events) => {
-                    let mut has_changes = false;
-                    let mut event_paths: Vec<String> = Vec::new();
+        let debouncer_result =
+            new_debouncer(debounce_duration, None, move |result: DebounceEventResult| {
+                match result {
+                    Ok(events) => {
+                        let mut has_changes = false;
+                        let mut event_paths: Vec<String> = Vec::new();
 
-                    for event in events.iter() {
-                        match event.kind {
-                            notify::EventKind::Create(_)
-                            | notify::EventKind::Modify(_)
-                            | notify::EventKind::Remove(_) => {
-                                has_changes = true;
-                                for p in &event.paths {
-                                    if let Some(ext) = p.extension() {
-                                        let ext_lower = ext.to_string_lossy().to_lowercase();
-                                        if matches!(
-                                            ext_lower.as_str(),
-                                            "mp3" | "flac" | "m4a" | "ogg" | "wav" | "aac" | "wma" | "opus"
-                                        ) {
-                                            event_paths.push(p.to_string_lossy().to_string());
+                        for event in events.iter() {
+                            match event.kind {
+                                notify::EventKind::Create(_)
+                                | notify::EventKind::Modify(_)
+                                | notify::EventKind::Remove(_) => {
+                                    has_changes = true;
+                                    for p in &event.paths {
+                                        if let Some(ext) = p.extension() {
+                                            let ext_lower = ext.to_string_lossy().to_lowercase();
+                                            if matches!(
+                                                ext_lower.as_str(),
+                                                "mp3" | "flac"
+                                                    | "m4a"
+                                                    | "ogg"
+                                                    | "wav"
+                                                    | "aac"
+                                                    | "wma"
+                                                    | "opus"
+                                            ) {
+                                                event_paths.push(p.to_string_lossy().to_string());
+                                            }
                                         }
                                     }
                                 }
+                                _ => {}
                             }
-                            _ => {}
+                        }
+
+                        if has_changes && !event_paths.is_empty() {
+                            println!(
+                                "[watcher] FS events detected for folder {}: {} files changed",
+                                folder_id,
+                                event_paths.len()
+                            );
+
+                            let _ = app.emit(
+                                "watched-folder:fs-event",
+                                FsEvent {
+                                    folder_id,
+                                    event_type: "change".to_string(),
+                                    paths: event_paths,
+                                },
+                            );
+
+                            let app_clone = app.clone();
+                            let db_clone = db.clone();
+                            runtime_handle.spawn(async move {
+                                Self::trigger_rescan(&app_clone, &db_clone, folder_id).await;
+                            });
                         }
                     }
-
-                    if has_changes && !event_paths.is_empty() {
-                        println!(
-                            "[watcher] FS events detected for folder {}: {} files changed",
-                            folder_id,
-                            event_paths.len()
-                        );
-
-                        let _ = app.emit(
-                            "watched-folder:fs-event",
-                            FsEvent {
-                                folder_id,
-                                event_type: "change".to_string(),
-                                paths: event_paths,
-                            },
-                        );
-
-                        let app_clone = app.clone();
-                        let backend_url_clone = backend_url.clone();
-                        runtime_handle.spawn(async move {
-                            Self::trigger_rescan(&app_clone, &backend_url_clone, folder_id).await;
-                        });
+                    Err(errors) => {
+                        for error in errors {
+                            eprintln!(
+                                "[watcher] FS watcher error for folder {}: {:?}",
+                                folder_id, error
+                            );
+                        }
                     }
                 }
-                Err(errors) => {
-                    for error in errors {
-                        eprintln!("[watcher] FS watcher error for folder {}: {:?}", folder_id, error);
-                    }
-                }
-            }
-        });
+            });
 
         match debouncer_result {
             Ok(mut debouncer) => {
@@ -289,7 +309,8 @@ impl WatcherManager {
         }
     }
 
-    async fn trigger_rescan(app: &AppHandle, backend_url: &str, folder_id: i64) {
+    /// Trigger a rescan for a watched folder using native Rust scanner
+    async fn trigger_rescan(app: &AppHandle, db: &Database, folder_id: i64) {
         println!("[watcher] Triggering rescan for folder {}", folder_id);
 
         let _ = app.emit(
@@ -301,69 +322,252 @@ impl WatcherManager {
             },
         );
 
-        let client = reqwest::Client::new();
-        let url = format!("{}/api/watched-folders/{}/rescan", backend_url, folder_id);
+        // Get the folder info
+        let folder = {
+            let conn = match db.conn() {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("[watcher] Failed to get DB connection: {}", e);
+                    return;
+                }
+            };
 
-        match client.post(&url).send().await {
-            Ok(response) => {
-                if response.status().is_success() {
-                    #[derive(Deserialize)]
-                    struct RescanResponse {
-                        added: i32,
-                        updated: i32,
-                        deleted: i32,
-                    }
-
-                    if let Ok(data) = response.json::<RescanResponse>().await {
-                        println!(
-                            "[watcher] Folder {} scan complete: +{} ~{} -{}",
-                            folder_id, data.added, data.updated, data.deleted
-                        );
-                        let _ = app.emit(
-                            "watched-folder:results",
-                            ScanResults {
-                                folder_id,
-                                added: data.added,
-                                updated: data.updated,
-                                deleted: data.deleted,
-                            },
-                        );
-                    }
-
-                    let _ = app.emit(
-                        "watched-folder:status",
-                        WatcherStatus {
-                            folder_id,
-                            status: "idle".to_string(),
-                            message: None,
-                        },
-                    );
-                } else {
-                    let error_msg = format!("Rescan failed with status {}", response.status());
-                    eprintln!("[watcher] Folder {}: {}", folder_id, error_msg);
-                    let _ = app.emit(
-                        "watched-folder:status",
-                        WatcherStatus {
-                            folder_id,
-                            status: "error".to_string(),
-                            message: Some(error_msg),
-                        },
-                    );
+            match watched::get_watched_folder(&conn, folder_id) {
+                Ok(Some(f)) => f,
+                Ok(None) => {
+                    eprintln!("[watcher] Folder {} not found", folder_id);
+                    return;
+                }
+                Err(e) => {
+                    eprintln!("[watcher] Failed to get folder {}: {}", folder_id, e);
+                    return;
                 }
             }
+        };
+
+        let job_id = format!("watcher-{}-{}", folder_id, std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis());
+
+        // Get current fingerprints from DB
+        let db_fingerprints: HashMap<String, FileFingerprint> = {
+            let conn = match db.conn() {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("[watcher] Failed to get DB connection: {}", e);
+                    return;
+                }
+            };
+
+            let mut stmt = match conn
+                .prepare("SELECT filepath, file_mtime_ns, file_size FROM library")
+            {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("[watcher] Failed to prepare fingerprint query: {}", e);
+                    return;
+                }
+            };
+
+            stmt.query_map([], |row| {
+                let filepath: String = row.get(0)?;
+                let mtime_ns: Option<i64> = row.get(1)?;
+                let size: i64 = row.get(2)?;
+                Ok((filepath, FileFingerprint::from_db(mtime_ns, size)))
+            })
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+        };
+
+        // Create progress callback
+        let app_for_progress = app.clone();
+        let job_id_for_progress = job_id.clone();
+        let progress_callback: ProgressCallback =
+            Box::new(move |progress: crate::scanner::ScanProgress| {
+                let _ = app_for_progress.emit_scan_progress(ScanProgressEvent {
+                    job_id: job_id_for_progress.clone(),
+                    status: progress.phase.clone(),
+                    scanned: progress.current as u32,
+                    found: 0,
+                    errors: 0,
+                    current_path: progress.message.clone(),
+                });
+            });
+
+        // Run 2-phase scan
+        let scan_result = match scan_2phase(
+            &[folder.path.clone()],
+            &db_fingerprints,
+            true,
+            Some(&progress_callback),
+        ) {
+            Ok(r) => r,
             Err(e) => {
-                let error_msg = format!("Rescan request failed: {}", e);
-                eprintln!("[watcher] Folder {}: {}", folder_id, error_msg);
+                eprintln!("[watcher] Scan failed for folder {}: {}", folder_id, e);
                 let _ = app.emit(
                     "watched-folder:status",
                     WatcherStatus {
                         folder_id,
                         status: "error".to_string(),
-                        message: Some(error_msg),
+                        message: Some(format!("Scan failed: {}", e)),
                     },
                 );
+                return;
             }
+        };
+
+        // Update database
+        let (added, updated, deleted) = {
+            let conn = match db.conn() {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("[watcher] Failed to get DB connection: {}", e);
+                    return;
+                }
+            };
+
+            let modified_count = scan_result.modified.len();
+            let deleted_count = scan_result.deleted.len();
+
+            // Process "added" tracks - check for moves first, then add truly new tracks
+            let mut added_count = 0;
+            let mut reconciled_count = 0;
+            if !scan_result.added.is_empty() {
+                let mut truly_new: Vec<(String, TrackMetadata)> = Vec::new();
+
+                for m in &scan_result.added {
+                    let mut was_reconciled = false;
+
+                    if let Some(inode) = m.file_inode {
+                        if let Ok(Some(track)) = library::find_missing_track_by_inode(&conn, inode)
+                        {
+                            if library::reconcile_moved_track(
+                                &conn,
+                                track.id,
+                                &m.filepath,
+                                Some(inode),
+                            )
+                            .is_ok()
+                            {
+                                reconciled_count += 1;
+                                was_reconciled = true;
+                            }
+                        }
+                    }
+
+                    if !was_reconciled {
+                        if let Ok(hash) = compute_content_hash(std::path::Path::new(&m.filepath)) {
+                            if let Ok(Some(track)) =
+                                library::find_missing_track_by_content_hash(&conn, &hash)
+                            {
+                                if library::reconcile_moved_track(
+                                    &conn,
+                                    track.id,
+                                    &m.filepath,
+                                    m.file_inode,
+                                )
+                                .is_ok()
+                                {
+                                    reconciled_count += 1;
+                                    was_reconciled = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if !was_reconciled {
+                        truly_new.push((m.filepath.clone(), to_track_metadata(m)));
+                    }
+                }
+
+                // Add truly new tracks to database
+                if !truly_new.is_empty() {
+                    added_count = truly_new.len();
+                    if let Err(e) = library::add_tracks_bulk(&conn, &truly_new) {
+                        eprintln!("[watcher] Failed to add tracks: {}", e);
+                    }
+                }
+            }
+
+            // Update modified tracks
+            if !scan_result.modified.is_empty() {
+                let updates: Vec<(String, TrackMetadata)> = scan_result
+                    .modified
+                    .iter()
+                    .map(|m| (m.filepath.clone(), to_track_metadata(m)))
+                    .collect();
+
+                if let Err(e) = library::update_tracks_bulk(&conn, &updates) {
+                    eprintln!("[watcher] Failed to update tracks: {}", e);
+                }
+            }
+
+            // Soft-delete tracks that no longer exist on filesystem (mark as missing)
+            if !scan_result.deleted.is_empty() {
+                for filepath in &scan_result.deleted {
+                    if let Err(e) = library::mark_track_missing_by_filepath(&conn, filepath) {
+                        eprintln!("[watcher] Failed to mark track missing: {}", e);
+                    }
+                }
+            }
+
+            // Update last_scanned_at timestamp
+            if let Err(e) = watched::update_watched_folder_last_scanned(&conn, folder_id) {
+                eprintln!("[watcher] Failed to update last_scanned_at: {}", e);
+            }
+
+            (
+                (added_count + reconciled_count) as i32,
+                modified_count as i32,
+                deleted_count as i32,
+            )
+        };
+
+        println!(
+            "[watcher] Folder {} scan complete: +{} ~{} -{}",
+            folder_id, added, updated, deleted
+        );
+
+        // Emit scan complete event
+        let _ = app.emit_scan_complete(ScanCompleteEvent {
+            job_id: job_id.clone(),
+            added: added as u32,
+            skipped: scan_result.unchanged.len() as u32,
+            errors: scan_result.stats.errors as u32,
+            duration_ms: 0,
+        });
+
+        // Emit results event
+        let _ = app.emit(
+            "watched-folder:results",
+            ScanResults {
+                folder_id,
+                added,
+                updated,
+                deleted,
+            },
+        );
+
+        // Emit library updated events
+        if added > 0 {
+            let _ = app.emit_library_updated(LibraryUpdatedEvent::added(vec![]));
         }
+        if updated > 0 {
+            let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![]));
+        }
+        if deleted > 0 {
+            let _ = app.emit_library_updated(LibraryUpdatedEvent::deleted(vec![]));
+        }
+
+        let _ = app.emit(
+            "watched-folder:status",
+            WatcherStatus {
+                folder_id,
+                status: "idle".to_string(),
+                message: None,
+            },
+        );
     }
 
     pub async fn add_folder(&self, folder: WatchedFolder) -> Result<(), String> {
@@ -374,7 +578,11 @@ impl WatcherManager {
     }
 
     pub async fn remove_folder(&self, folder_id: i64) {
-        let cancel_tx = self.active_watchers.write().remove(&folder_id).map(|h| h.cancel_tx);
+        let cancel_tx = self
+            .active_watchers
+            .write()
+            .remove(&folder_id)
+            .map(|h| h.cancel_tx);
         if let Some(tx) = cancel_tx {
             let _ = tx.send(()).await;
         }
@@ -390,7 +598,26 @@ impl WatcherManager {
 
     /// Trigger a manual rescan for a specific folder
     pub async fn rescan_folder(&self, folder_id: i64) {
-        Self::trigger_rescan(&self.app, &self.backend_url, folder_id).await;
+        Self::trigger_rescan(&self.app, &self.db, folder_id).await;
+    }
+}
+
+/// Convert ExtractedMetadata to database TrackMetadata
+fn to_track_metadata(m: &ExtractedMetadata) -> TrackMetadata {
+    let content_hash = compute_content_hash(std::path::Path::new(&m.filepath)).ok();
+    TrackMetadata {
+        title: m.title.clone(),
+        artist: m.artist.clone(),
+        album: m.album.clone(),
+        album_artist: m.album_artist.clone(),
+        track_number: m.track_number.clone(),
+        track_total: m.track_total.clone(),
+        date: m.date.clone(),
+        duration: m.duration,
+        file_size: Some(m.file_size),
+        file_mtime_ns: m.file_mtime_ns,
+        file_inode: m.file_inode,
+        content_hash,
     }
 }
 
@@ -398,65 +625,35 @@ impl WatcherManager {
 // Tauri Commands
 // ============================================================================
 
-/// List all watched folders from the Python backend
+/// List all watched folders
 #[tauri::command]
-pub async fn watched_folders_list(
+pub fn watched_folders_list(
     state: State<'_, WatcherManager>,
 ) -> Result<Vec<WatchedFolder>, String> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/api/watched-folders", state.get_backend_url());
-
-    let response = client
-        .get(&url)
-        .send()
-        .await
+    let conn = state.get_db().conn().map_err(|e| e.to_string())?;
+    let folders = watched::get_watched_folders(&conn)
         .map_err(|e| format!("Failed to fetch watched folders: {}", e))?;
-
-    #[derive(Deserialize)]
-    struct FoldersResponse {
-        folders: Vec<WatchedFolder>,
-    }
-
-    let data: FoldersResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    Ok(data.folders)
+    Ok(folders.into_iter().map(WatchedFolder::from).collect())
 }
 
 /// Get a specific watched folder by ID
 #[tauri::command]
-pub async fn watched_folders_get(
+pub fn watched_folders_get(
     id: i64,
     state: State<'_, WatcherManager>,
 ) -> Result<WatchedFolder, String> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/api/watched-folders/{}", state.get_backend_url(), id);
-
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch watched folder: {}", e))?;
-
-    if !response.status().is_success() {
-        return Err(format!("Folder not found: {}", id));
-    }
-
-    let folder: WatchedFolder = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    Ok(folder)
+    let conn = state.get_db().conn().map_err(|e| e.to_string())?;
+    let folder = watched::get_watched_folder(&conn, id)
+        .map_err(|e| format!("Failed to fetch watched folder: {}", e))?
+        .ok_or_else(|| format!("Watched folder {} not found", id))?;
+    Ok(WatchedFolder::from(folder))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct AddWatchedFolderRequest {
     pub path: String,
     pub mode: Option<String>,
-    pub cadence_minutes: Option<i32>,
+    pub cadence_minutes: Option<i64>,
     pub enabled: Option<bool>,
 }
 
@@ -466,43 +663,40 @@ pub async fn watched_folders_add(
     request: AddWatchedFolderRequest,
     state: State<'_, WatcherManager>,
 ) -> Result<WatchedFolder, String> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/api/watched-folders", state.get_backend_url());
-
-    let response = client
-        .post(&url)
-        .json(&serde_json::json!({
-            "path": request.path,
-            "mode": request.mode.unwrap_or_else(|| "continuous".to_string()),
-            "cadence_minutes": request.cadence_minutes.unwrap_or(10),
-            "enabled": request.enabled.unwrap_or(true),
-        }))
-        .send()
-        .await
-        .map_err(|e| format!("Failed to add watched folder: {}", e))?;
-
-    if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("Failed to add folder: {}", error_text));
+    // Validate path exists
+    let path = std::path::Path::new(&request.path);
+    if !path.is_dir() {
+        return Err(format!(
+            "Path does not exist or is not a directory: {}",
+            request.path
+        ));
     }
 
-    let folder: WatchedFolder = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    let mode = request.mode.unwrap_or_else(|| "continuous".to_string());
+    let cadence_minutes = request.cadence_minutes.unwrap_or(10);
+    let enabled = request.enabled.unwrap_or(true);
 
-    // Start watching the new folder if enabled
-    if folder.enabled {
-        state.add_folder(folder.clone()).await?;
+    let folder = {
+        let conn = state.get_db().conn().map_err(|e| e.to_string())?;
+        watched::add_watched_folder(&conn, &request.path, &mode, cadence_minutes, enabled)
+            .map_err(|e| format!("Failed to add watched folder: {}", e))?
+            .ok_or_else(|| "Path already exists in watched folders".to_string())?
+    };
+
+    let result = WatchedFolder::from(folder);
+
+    // Start watching if enabled
+    if result.enabled {
+        state.add_folder(result.clone()).await?;
     }
 
-    Ok(folder)
+    Ok(result)
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateWatchedFolderRequest {
     pub mode: Option<String>,
-    pub cadence_minutes: Option<i32>,
+    pub cadence_minutes: Option<i64>,
     pub enabled: Option<bool>,
 }
 
@@ -513,41 +707,31 @@ pub async fn watched_folders_update(
     request: UpdateWatchedFolderRequest,
     state: State<'_, WatcherManager>,
 ) -> Result<WatchedFolder, String> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/api/watched-folders/{}", state.get_backend_url(), id);
+    let folder = {
+        let conn = state.get_db().conn().map_err(|e| e.to_string())?;
 
-    let mut body = serde_json::Map::new();
-    if let Some(mode) = &request.mode {
-        body.insert("mode".to_string(), serde_json::json!(mode));
-    }
-    if let Some(cadence) = request.cadence_minutes {
-        body.insert("cadence_minutes".to_string(), serde_json::json!(cadence));
-    }
-    if let Some(enabled) = request.enabled {
-        body.insert("enabled".to_string(), serde_json::json!(enabled));
-    }
+        // Check if folder exists
+        watched::get_watched_folder(&conn, id)
+            .map_err(|e| format!("Failed to fetch watched folder: {}", e))?
+            .ok_or_else(|| format!("Watched folder {} not found", id))?;
 
-    let response = client
-        .patch(&url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to update watched folder: {}", e))?;
+        watched::update_watched_folder(
+            &conn,
+            id,
+            request.mode.as_deref(),
+            request.cadence_minutes,
+            request.enabled,
+        )
+        .map_err(|e| format!("Failed to update watched folder: {}", e))?
+        .ok_or_else(|| format!("Watched folder {} not found", id))?
+    };
 
-    if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("Failed to update folder: {}", error_text));
-    }
+    let result = WatchedFolder::from(folder);
 
-    let folder: WatchedFolder = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    // Update the watcher
+    state.update_folder(result.clone()).await?;
 
-    // Update the watcher for this folder
-    state.update_folder(folder.clone()).await?;
-
-    Ok(folder)
+    Ok(result)
 }
 
 /// Remove a watched folder
@@ -556,21 +740,17 @@ pub async fn watched_folders_remove(
     id: i64,
     state: State<'_, WatcherManager>,
 ) -> Result<(), String> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/api/watched-folders/{}", state.get_backend_url(), id);
+    {
+        let conn = state.get_db().conn().map_err(|e| e.to_string())?;
 
-    let response = client
-        .delete(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to remove watched folder: {}", e))?;
-
-    if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("Failed to remove folder: {}", error_text));
+        if !watched::remove_watched_folder(&conn, id)
+            .map_err(|e| format!("Failed to remove watched folder: {}", e))?
+        {
+            return Err(format!("Watched folder {} not found", id));
+        }
     }
 
-    // Stop watching this folder
+    // Stop watching
     state.remove_folder(id).await;
 
     Ok(())
@@ -582,6 +762,14 @@ pub async fn watched_folders_rescan(
     id: i64,
     state: State<'_, WatcherManager>,
 ) -> Result<(), String> {
+    // Verify folder exists
+    {
+        let conn = state.get_db().conn().map_err(|e| e.to_string())?;
+        watched::get_watched_folder(&conn, id)
+            .map_err(|e| format!("Failed to fetch watched folder: {}", e))?
+            .ok_or_else(|| format!("Watched folder {} not found", id))?;
+    }
+
     state.rescan_folder(id).await;
     Ok(())
 }
@@ -924,7 +1112,7 @@ mod tests {
     #[test]
     fn test_supported_audio_extensions() {
         let supported = ["mp3", "flac", "m4a", "ogg", "wav", "aac", "wma", "opus"];
-        
+
         for ext in supported.iter() {
             let ext_lower = ext.to_lowercase();
             let is_audio = matches!(
@@ -938,7 +1126,7 @@ mod tests {
     #[test]
     fn test_unsupported_extensions() {
         let unsupported = ["txt", "jpg", "png", "pdf", "doc", "mp4", "avi"];
-        
+
         for ext in unsupported.iter() {
             let ext_lower = ext.to_lowercase();
             let is_audio = matches!(
@@ -952,14 +1140,18 @@ mod tests {
     #[test]
     fn test_case_insensitive_extensions() {
         let extensions = ["MP3", "FLAC", "M4A", "Ogg", "WAV", "AAC", "WMA", "OPUS"];
-        
+
         for ext in extensions.iter() {
             let ext_lower = ext.to_lowercase();
             let is_audio = matches!(
                 ext_lower.as_str(),
                 "mp3" | "flac" | "m4a" | "ogg" | "wav" | "aac" | "wma" | "opus"
             );
-            assert!(is_audio, "Extension {} (case insensitive) should be supported", ext);
+            assert!(
+                is_audio,
+                "Extension {} (case insensitive) should be supported",
+                ext
+            );
         }
     }
 }

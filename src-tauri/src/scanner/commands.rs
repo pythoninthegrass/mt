@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::db::{library, Database};
 use crate::events::{EventEmitter, LibraryUpdatedEvent, ScanCompleteEvent, ScanProgressEvent};
 use crate::scanner::artwork::{get_artwork, Artwork};
-use crate::scanner::fingerprint::FileFingerprint;
+use crate::scanner::fingerprint::{compute_content_hash, FileFingerprint};
 use crate::scanner::metadata::extract_metadata;
 use crate::scanner::scan::{scan_2phase, ProgressCallback, ScanResult2Phase};
 use crate::scanner::{ExtractedMetadata, ScanProgress, ScanStats};
@@ -117,18 +117,52 @@ pub async fn scan_paths_to_library(
     // Get database connection for updates
     let conn = db.conn().map_err(|e| e.to_string())?;
 
-    let added_count = scan_result.added.len();
+    let mut added_count = 0;
+    let mut reconciled_count = 0;
     let modified_count = scan_result.modified.len();
 
-    // Add new tracks to database
+    // Process "added" tracks - check for moves first, then add truly new tracks
     if !scan_result.added.is_empty() {
-        let tracks: Vec<(String, crate::db::TrackMetadata)> = scan_result
-            .added
-            .iter()
-            .map(|m| (m.filepath.clone(), to_db_metadata(m)))
-            .collect();
+        let mut truly_new: Vec<(String, crate::db::TrackMetadata)> = Vec::new();
 
-        library::add_tracks_bulk(&conn, &tracks).map_err(|e| e.to_string())?;
+        for m in &scan_result.added {
+            let mut was_reconciled = false;
+
+            if let Some(inode) = m.file_inode {
+                if let Ok(Some(track)) = library::find_missing_track_by_inode(&conn, inode) {
+                    if library::reconcile_moved_track(&conn, track.id, &m.filepath, Some(inode))
+                        .is_ok()
+                    {
+                        reconciled_count += 1;
+                        was_reconciled = true;
+                    }
+                }
+            }
+
+            if !was_reconciled {
+                if let Ok(hash) = compute_content_hash(std::path::Path::new(&m.filepath)) {
+                    if let Ok(Some(track)) = library::find_missing_track_by_content_hash(&conn, &hash)
+                    {
+                        if library::reconcile_moved_track(&conn, track.id, &m.filepath, m.file_inode)
+                            .is_ok()
+                        {
+                            reconciled_count += 1;
+                            was_reconciled = true;
+                        }
+                    }
+                }
+            }
+
+            if !was_reconciled {
+                truly_new.push((m.filepath.clone(), to_db_metadata(m)));
+            }
+        }
+
+        // Add truly new tracks to database
+        if !truly_new.is_empty() {
+            added_count = truly_new.len();
+            library::add_tracks_bulk(&conn, &truly_new).map_err(|e| e.to_string())?;
+        }
     }
 
     // Update modified tracks
@@ -159,7 +193,7 @@ pub async fn scan_paths_to_library(
     });
 
     // Emit library updated events (empty track_ids signals a bulk change - frontend should refresh)
-    if added_count > 0 {
+    if added_count > 0 || reconciled_count > 0 {
         let _ = app.emit_library_updated(LibraryUpdatedEvent::added(vec![]));
     }
     if modified_count > 0 {
@@ -219,6 +253,7 @@ pub fn get_track_artwork_url(filepath: String) -> Option<String> {
 
 /// Convert ExtractedMetadata to database TrackMetadata
 fn to_db_metadata(m: &ExtractedMetadata) -> crate::db::TrackMetadata {
+    let content_hash = compute_content_hash(std::path::Path::new(&m.filepath)).ok();
     crate::db::TrackMetadata {
         title: m.title.clone(),
         artist: m.artist.clone(),
@@ -230,5 +265,7 @@ fn to_db_metadata(m: &ExtractedMetadata) -> crate::db::TrackMetadata {
         duration: m.duration,
         file_size: Some(m.file_size),
         file_mtime_ns: m.file_mtime_ns,
+        file_inode: m.file_inode,
+        content_hash,
     }
 }

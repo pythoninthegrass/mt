@@ -21,12 +21,14 @@ pub fn extract_metadata(filepath: &str) -> ScanResult<ExtractedMetadata> {
     let fingerprint = FileFingerprint::from_path(path).unwrap_or(FileFingerprint {
         mtime_ns: None,
         size: 0,
+        inode: None,
     });
 
     let mut metadata = ExtractedMetadata {
         filepath: filepath.to_string(),
         file_size: fingerprint.size,
         file_mtime_ns: fingerprint.mtime_ns,
+        file_inode: fingerprint.inode,
         ..Default::default()
     };
 
@@ -70,13 +72,14 @@ pub fn extract_metadata(filepath: &str) -> ScanResult<ExtractedMetadata> {
     metadata.channels = properties.channels();
 
     // Get tag (primary or first available)
-    if let Some(tag) = tagged_file.primary_tag().or_else(|| tagged_file.first_tag()) {
+    if let Some(tag) = tagged_file
+        .primary_tag()
+        .or_else(|| tagged_file.first_tag())
+    {
         metadata.title = tag.title().map(|s| s.to_string());
         metadata.artist = tag.artist().map(|s| s.to_string());
         metadata.album = tag.album().map(|s| s.to_string());
-        metadata.album_artist = tag
-            .get_string(&ItemKey::AlbumArtist)
-            .map(|s| s.to_string());
+        metadata.album_artist = tag.get_string(&ItemKey::AlbumArtist).map(|s| s.to_string());
 
         // Track number can be in format "1" or "1/10"
         metadata.track_number = tag.track().map(|n| n.to_string());
@@ -159,6 +162,7 @@ where
             // Ensure fingerprint is set from inventory
             metadata.file_size = fingerprint.size;
             metadata.file_mtime_ns = fingerprint.mtime_ns;
+            metadata.file_inode = fingerprint.inode;
 
             // Update progress
             let count = completed.fetch_add(1, Ordering::Relaxed) + 1;
@@ -190,6 +194,7 @@ where
         // Ensure fingerprint is set from inventory
         metadata.file_size = fingerprint.size;
         metadata.file_mtime_ns = fingerprint.mtime_ns;
+        metadata.file_inode = fingerprint.inode;
 
         results.push(metadata);
 
@@ -226,6 +231,7 @@ where
             let mut metadata = extract_metadata_or_default(filepath);
             metadata.file_size = fingerprint.size;
             metadata.file_mtime_ns = fingerprint.mtime_ns;
+            metadata.file_inode = fingerprint.inode;
             results.push(metadata);
 
             if let Some(ref f) = progress {

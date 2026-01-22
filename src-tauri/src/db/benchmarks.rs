@@ -21,6 +21,8 @@ mod tests {
             duration: Some((180 + (i % 120)) as f64),
             file_size: Some(5_000_000 + (i * 100) as i64),
             file_mtime_ns: None,
+            file_inode: None,
+            content_hash: None,
         };
         (filepath, metadata)
     }
@@ -172,11 +174,7 @@ mod tests {
         let start = Instant::now();
         queue::add_files_to_queue(&conn, &filepaths, None).expect("Add to queue failed");
         let elapsed = start.elapsed();
-        println!(
-            "Added {} items to queue: {:?}",
-            filepaths.len(),
-            elapsed
-        );
+        println!("Added {} items to queue: {:?}", filepaths.len(), elapsed);
 
         // Benchmark get queue
         let iterations = 100;

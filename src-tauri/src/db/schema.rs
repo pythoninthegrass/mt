@@ -169,10 +169,7 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
     // Migration: Add filepath index for performance
     if !index_exists(conn, "idx_library_filepath")? {
         println!("[migration] Creating filepath index on library table...");
-        conn.execute(
-            "CREATE INDEX idx_library_filepath ON library(filepath)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX idx_library_filepath ON library(filepath)", [])?;
         println!("[migration] Filepath index created successfully");
     }
 
@@ -180,10 +177,7 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
     let library_columns = get_table_columns(conn, "library")?;
     if !library_columns.contains(&"file_mtime_ns".to_string()) {
         println!("[migration] Adding file_mtime_ns column to library table...");
-        conn.execute(
-            "ALTER TABLE library ADD COLUMN file_mtime_ns INTEGER",
-            [],
-        )?;
+        conn.execute("ALTER TABLE library ADD COLUMN file_mtime_ns INTEGER", [])?;
         println!("[migration] file_mtime_ns column added successfully");
     }
 
@@ -211,6 +205,41 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
         println!("[migration] Adding last_seen_at column to library table...");
         conn.execute("ALTER TABLE library ADD COLUMN last_seen_at INTEGER", [])?;
         println!("[migration] last_seen_at column added successfully");
+    }
+
+    // Migration: Add file_inode column for move detection (same-volume)
+    let library_columns = get_table_columns(conn, "library")?;
+    if !library_columns.contains(&"file_inode".to_string()) {
+        println!("[migration] Adding file_inode column to library table...");
+        conn.execute("ALTER TABLE library ADD COLUMN file_inode INTEGER", [])?;
+        println!("[migration] file_inode column added successfully");
+    }
+
+    // Migration: Add content_hash column for move detection (cross-volume fallback)
+    if !library_columns.contains(&"content_hash".to_string()) {
+        println!("[migration] Adding content_hash column to library table...");
+        conn.execute("ALTER TABLE library ADD COLUMN content_hash TEXT", [])?;
+        println!("[migration] content_hash column added successfully");
+    }
+
+    // Migration: Add index on file_inode for fast move detection lookups
+    if !index_exists(conn, "idx_library_file_inode")? {
+        println!("[migration] Creating file_inode index on library table...");
+        conn.execute(
+            "CREATE INDEX idx_library_file_inode ON library(file_inode) WHERE file_inode IS NOT NULL",
+            [],
+        )?;
+        println!("[migration] file_inode index created successfully");
+    }
+
+    // Migration: Add index on content_hash for move detection fallback
+    if !index_exists(conn, "idx_library_content_hash")? {
+        println!("[migration] Creating content_hash index on library table...");
+        conn.execute(
+            "CREATE INDEX idx_library_content_hash ON library(content_hash) WHERE content_hash IS NOT NULL",
+            [],
+        )?;
+        println!("[migration] content_hash index created successfully");
     }
 
     Ok(())
@@ -282,5 +311,7 @@ mod tests {
         assert!(columns.contains(&"file_mtime_ns".to_string()));
         assert!(columns.contains(&"missing".to_string()));
         assert!(columns.contains(&"last_seen_at".to_string()));
+        assert!(columns.contains(&"file_inode".to_string()));
+        assert!(columns.contains(&"content_hash".to_string()));
     }
 }

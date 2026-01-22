@@ -23,6 +23,11 @@ export function createSettingsView(Alpine) {
       pendingToken: null,
     },
 
+    reconcileScan: {
+      isRunning: false,
+      lastResult: null,
+    },
+
     isDraggingThreshold: false,
 
     async init() {
@@ -379,6 +384,41 @@ export function createSettingsView(Alpine) {
       } catch (error) {
         console.error('[settings] Failed to retry queued scrobbles:', error);
         Alpine.store('ui').toast('Failed to retry queued scrobbles', 'error');
+      }
+    },
+
+    // ============================================
+    // Library Reconciliation methods
+    // ============================================
+
+    async runReconcileScan() {
+      if (!window.__TAURI__) {
+        Alpine.store('ui').toast('Only available in desktop app', 'info');
+        return;
+      }
+
+      this.reconcileScan.isRunning = true;
+      try {
+        const { invoke } = window.__TAURI__.core;
+        const result = await invoke('library_reconcile_scan');
+        this.reconcileScan.lastResult = result;
+
+        const total = result.backfilled + result.duplicates_merged;
+        if (total > 0) {
+          Alpine.store('ui').toast(
+            `Scan complete: ${result.backfilled} backfilled, ${result.duplicates_merged} duplicates merged`,
+            'success'
+          );
+          // Refresh library to reflect merged/updated tracks
+          Alpine.store('library').load();
+        } else {
+          Alpine.store('ui').toast('Scan complete: no changes needed', 'info');
+        }
+      } catch (error) {
+        console.error('[settings] Reconcile scan failed:', error);
+        Alpine.store('ui').toast('Reconcile scan failed', 'error');
+      } finally {
+        this.reconcileScan.isRunning = false;
       }
     },
   }));

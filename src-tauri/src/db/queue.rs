@@ -13,7 +13,7 @@ pub fn get_queue(conn: &Connection) -> DbResult<Vec<QueueItem>> {
                 l.id, l.title, l.artist, l.album, l.album_artist,
                 l.track_number, l.track_total, l.date, l.duration, l.file_size,
                 l.play_count, l.last_played, l.added_date, l.missing, l.last_seen_at,
-                l.file_mtime_ns
+                l.file_mtime_ns, l.file_inode, l.content_hash
          FROM queue q
          LEFT JOIN library l ON q.filepath = l.filepath
          ORDER BY q.id",
@@ -38,6 +38,8 @@ pub fn get_queue(conn: &Connection) -> DbResult<Vec<QueueItem>> {
             duration: row.get("duration")?,
             file_size: row.get::<_, Option<i64>>("file_size")?.unwrap_or(0),
             file_mtime_ns: row.get("file_mtime_ns")?,
+            file_inode: row.get("file_inode")?,
+            content_hash: row.get("content_hash")?,
             added_date: row.get("added_date")?,
             last_played: row.get("last_played")?,
             play_count: row.get::<_, Option<i64>>("play_count")?.unwrap_or(0),
@@ -53,11 +55,7 @@ pub fn get_queue(conn: &Connection) -> DbResult<Vec<QueueItem>> {
 }
 
 /// Add tracks to the queue by track IDs
-pub fn add_to_queue(
-    conn: &Connection,
-    track_ids: &[i64],
-    position: Option<i64>,
-) -> DbResult<i64> {
+pub fn add_to_queue(conn: &Connection, track_ids: &[i64], position: Option<i64>) -> DbResult<i64> {
     // Get filepaths for track IDs
     let placeholders = track_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
     let sql = format!(
@@ -66,7 +64,10 @@ pub fn add_to_queue(
     );
 
     let mut stmt = conn.prepare(&sql)?;
-    let params: Vec<&dyn rusqlite::ToSql> = track_ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+    let params: Vec<&dyn rusqlite::ToSql> = track_ids
+        .iter()
+        .map(|id| id as &dyn rusqlite::ToSql)
+        .collect();
 
     let tracks: Vec<(i64, String)> = stmt
         .query_map(params.as_slice(), |row| Ok((row.get(0)?, row.get(1)?)))?

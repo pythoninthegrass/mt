@@ -958,13 +958,23 @@
             </li>
             <li>
               <button
-                class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
-                :class="$store.ui.settingsSection === 'appearance' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
-                @click="$store.ui.setSettingsSection('appearance')"
-                data-testid="settings-nav-appearance"
+              class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
+              :class="$store.ui.settingsSection === 'appearance' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
+              @click="$store.ui.setSettingsSection('appearance')"
+              data-testid="settings-nav-appearance"
               >
-                Appearance
+              Appearance
+            </button>
+            <li>
+              <button
+                class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors"
+                :class="$store.ui.settingsSection === 'library' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 text-foreground/80'"
+                @click="$store.ui.setSettingsSection('library')"
+                data-testid="settings-nav-library"
+              >
+                Library
               </button>
+            </li>
             </li>
             <li>
               <button
@@ -1138,6 +1148,62 @@
                   </button>
                 </div>
               </template>
+            </div>
+          </div>
+
+          <!-- Library Section -->
+          <div x-show="$store.ui.settingsSection === 'library'" data-testid="settings-section-library">
+            <h3 class="text-xl font-semibold mb-4">Library</h3>
+
+            <!-- Scanning -->
+            <div class="mb-8">
+              <h4 class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Scanning</h4>
+              <div class="space-y-4">
+                <div class="bg-muted/30 rounded-lg p-4">
+                  <div class="flex items-center justify-between mb-3">
+                    <div>
+                      <div class="font-medium text-sm">Reconciliation Scan</div>
+                      <div class="text-xs text-muted-foreground mt-0.5">
+                        Update file fingerprints and merge duplicate entries
+                      </div>
+                    </div>
+                    <button
+                      class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      :disabled="reconcileScan.isRunning"
+                      @click="runReconcileScan()"
+                      data-testid="settings-reconcile-scan"
+                    >
+                      <span x-text="reconcileScan.isRunning ? 'Scanning...' : 'Run Scan'"></span>
+                    </button>
+                  </div>
+
+                  <!-- Progress/Results -->
+                  <template x-if="reconcileScan.lastResult !== null">
+                    <div class="mt-3 pt-3 border-t border-border/50">
+                      <div class="text-xs text-muted-foreground mb-2">Last scan results:</div>
+                      <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div class="text-center">
+                          <div class="font-medium" x-text="reconcileScan.lastResult.backfilled"></div>
+                          <div class="text-xs text-muted-foreground">Backfilled</div>
+                        </div>
+                        <div class="text-center">
+                          <div class="font-medium" x-text="reconcileScan.lastResult.duplicates_merged"></div>
+                          <div class="text-xs text-muted-foreground">Duplicates Merged</div>
+                        </div>
+                        <div class="text-center">
+                          <div class="font-medium" x-text="reconcileScan.lastResult.errors"></div>
+                          <div class="text-xs text-muted-foreground">Errors</div>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
+                <p class="text-xs text-muted-foreground">
+                  Updates file fingerprints (inode and content hash) to enable move detection,
+                  and merges any duplicate entries found in your library.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -1975,7 +2041,7 @@
           <p class="text-xs text-muted-foreground mt-0.5">This track's file could not be located</p>
         </div>
       </div>
-      
+
       <div class="space-y-2 mb-4">
         <div>
           <span class="text-xs text-muted-foreground block mb-1">Original path:</span>
@@ -1988,7 +2054,7 @@
           <span class="text-xs text-foreground" x-text="$store.ui.missingTrackPopover?.lastSeenAt ? new Date($store.ui.missingTrackPopover.lastSeenAt).toLocaleString() : ''"></span>
         </div>
       </div>
-      
+
       <div class="flex gap-2 justify-end">
         <button
           class="px-3 py-1.5 rounded bg-muted hover:bg-muted/80 text-foreground text-xs transition-colors"

@@ -58,6 +58,7 @@ rayon = "1.10"
 base64 = "0.22"
 
 tauri-plugin-devtools = { version = "2", optional = true }
+sha2 = "0.10.9"
 
 [features]
 default = ["devtools"]

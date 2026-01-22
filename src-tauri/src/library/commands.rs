@@ -11,6 +11,7 @@ use crate::db::{
 };
 use crate::events::{EventEmitter, LibraryUpdatedEvent};
 use crate::scanner::artwork::{get_artwork, Artwork};
+use crate::scanner::fingerprint::{compute_content_hash, FileFingerprint};
 use crate::scanner::metadata::extract_metadata;
 
 /// Response for paginated library queries
@@ -94,7 +95,10 @@ pub fn library_get_track(db: State<'_, Database>, track_id: i64) -> Result<Optio
 
 /// Get artwork for a track by ID
 #[tauri::command]
-pub fn library_get_artwork(db: State<'_, Database>, track_id: i64) -> Result<Option<Artwork>, String> {
+pub fn library_get_artwork(
+    db: State<'_, Database>,
+    track_id: i64,
+) -> Result<Option<Artwork>, String> {
     let conn = db.conn().map_err(|e| e.to_string())?;
 
     let track = library::get_track_by_id(&conn, track_id).map_err(|e| e.to_string())?;
@@ -155,8 +159,8 @@ pub fn library_rescan_track(
         .ok_or_else(|| format!("Track with id {} not found", track_id))?;
 
     // Extract fresh metadata
-    let extracted =
-        extract_metadata(&track.filepath).map_err(|e| format!("Failed to extract metadata: {}", e))?;
+    let extracted = extract_metadata(&track.filepath)
+        .map_err(|e| format!("Failed to extract metadata: {}", e))?;
 
     // Convert to TrackMetadata for update
     let metadata = TrackMetadata {
@@ -170,6 +174,8 @@ pub fn library_rescan_track(
         duration: extracted.duration,
         file_size: Some(extracted.file_size),
         file_mtime_ns: extracted.file_mtime_ns,
+        file_inode: None,
+        content_hash: None,
     };
 
     // Update in database
@@ -317,6 +323,112 @@ pub fn library_mark_present(
     let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![track_id]));
 
     Ok(track)
+}
+
+#[derive(Clone, serde::Serialize)]
+pub struct ReconcileScanResult {
+    pub backfilled: u32,
+    pub duplicates_merged: u32,
+    pub errors: u32,
+}
+
+#[tauri::command]
+pub fn library_reconcile_scan(
+    app: AppHandle,
+    db: State<'_, Database>,
+) -> Result<ReconcileScanResult, String> {
+    let conn = db.conn().map_err(|e| e.to_string())?;
+
+    let mut backfilled = 0u32;
+    let mut errors = 0u32;
+
+    let tracks = library::get_tracks_needing_fingerprints(&conn).map_err(|e| e.to_string())?;
+
+    for track in tracks {
+        let path = std::path::Path::new(&track.filepath);
+        if !path.exists() {
+            continue;
+        }
+
+        let fingerprint = match FileFingerprint::from_path(path) {
+            Ok(fp) => fp,
+            Err(_) => {
+                errors += 1;
+                continue;
+            }
+        };
+
+        let content_hash = match compute_content_hash(path) {
+            Ok(h) => Some(h),
+            Err(_) => {
+                errors += 1;
+                None
+            }
+        };
+
+        match library::update_track_fingerprints(
+            &conn,
+            track.id,
+            fingerprint.inode,
+            content_hash.as_deref(),
+        ) {
+            Ok(true) => backfilled += 1,
+            Ok(false) => {}
+            Err(_) => errors += 1,
+        }
+    }
+
+    let mut duplicates_merged = 0u32;
+    let mut deleted_ids = Vec::new();
+
+    let inode_dups = library::find_duplicates_by_inode(&conn).map_err(|e| e.to_string())?;
+    for group in inode_dups {
+        if group.len() < 2 {
+            continue;
+        }
+        let keep = &group[0];
+        for dup in &group[1..] {
+            match library::merge_duplicate_tracks(&conn, keep.id, dup.id) {
+                Ok(true) => {
+                    duplicates_merged += 1;
+                    deleted_ids.push(dup.id);
+                }
+                Ok(false) => {}
+                Err(_) => errors += 1,
+            }
+        }
+    }
+
+    let hash_dups = library::find_duplicates_by_content_hash(&conn).map_err(|e| e.to_string())?;
+    for group in hash_dups {
+        if group.len() < 2 {
+            continue;
+        }
+        let keep = &group[0];
+        for dup in &group[1..] {
+            if deleted_ids.contains(&dup.id) {
+                continue;
+            }
+            match library::merge_duplicate_tracks(&conn, keep.id, dup.id) {
+                Ok(true) => {
+                    duplicates_merged += 1;
+                    deleted_ids.push(dup.id);
+                }
+                Ok(false) => {}
+                Err(_) => errors += 1,
+            }
+        }
+    }
+
+    if !deleted_ids.is_empty() {
+        let _ = app.emit_library_updated(LibraryUpdatedEvent::deleted(deleted_ids));
+    }
+
+    Ok(ReconcileScanResult {
+        backfilled,
+        duplicates_merged,
+        errors,
+    })
 }
 
 #[cfg(test)]

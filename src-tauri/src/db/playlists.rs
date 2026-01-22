@@ -89,7 +89,7 @@ pub fn get_playlist(conn: &Connection, playlist_id: i64) -> DbResult<Option<Play
         "SELECT l.id, l.filepath, l.title, l.artist, l.album, l.album_artist,
                 l.track_number, l.track_total, l.date, l.duration, l.file_size,
                 l.play_count, l.last_played, l.added_date, l.missing, l.last_seen_at,
-                l.file_mtime_ns, pi.position, pi.added_at
+                l.file_mtime_ns, l.file_inode, l.content_hash, pi.position, pi.added_at
          FROM playlist_items pi
          JOIN library l ON pi.track_id = l.id
          WHERE pi.playlist_id = ?
@@ -114,6 +114,8 @@ pub fn get_playlist(conn: &Connection, playlist_id: i64) -> DbResult<Option<Play
                     duration: row.get("duration")?,
                     file_size: row.get::<_, Option<i64>>("file_size")?.unwrap_or(0),
                     file_mtime_ns: row.get("file_mtime_ns")?,
+                    file_inode: row.get("file_inode")?,
+                    content_hash: row.get("content_hash")?,
                     added_date: row.get("added_date")?,
                     last_played: row.get("last_played")?,
                     play_count: row.get::<_, Option<i64>>("play_count")?.unwrap_or(0),
@@ -247,9 +249,8 @@ pub fn remove_track_from_playlist(
     conn.execute("DELETE FROM playlist_items WHERE id = ?", [id])?;
 
     // Reindex positions
-    let mut stmt = conn.prepare(
-        "SELECT id FROM playlist_items WHERE playlist_id = ? ORDER BY position",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT id FROM playlist_items WHERE playlist_id = ? ORDER BY position")?;
     let items: Vec<i64> = stmt
         .query_map([playlist_id], |row| row.get(0))?
         .filter_map(|r| r.ok())
@@ -314,7 +315,11 @@ pub fn get_playlist_track_count(conn: &Connection, playlist_id: i64) -> DbResult
 }
 
 /// Reorder playlists in the sidebar
-pub fn reorder_playlists(conn: &Connection, from_position: i64, to_position: i64) -> DbResult<bool> {
+pub fn reorder_playlists(
+    conn: &Connection,
+    from_position: i64,
+    to_position: i64,
+) -> DbResult<bool> {
     let mut stmt =
         conn.prepare("SELECT id FROM playlists ORDER BY position ASC, created_at ASC")?;
     let items: Vec<i64> = stmt

@@ -18,7 +18,7 @@ pub fn get_favorites(
         "SELECT l.id, l.filepath, l.title, l.artist, l.album, l.album_artist,
                 l.track_number, l.track_total, l.date, l.duration, l.file_size,
                 l.play_count, l.last_played, l.added_date, l.missing, l.last_seen_at,
-                l.file_mtime_ns, f.timestamp as favorited_date
+                l.file_mtime_ns, l.file_inode, l.content_hash, f.timestamp as favorited_date
          FROM favorites f
          JOIN library l ON f.track_id = l.id
          ORDER BY f.timestamp ASC
@@ -41,6 +41,8 @@ pub fn get_favorites(
                     duration: row.get("duration")?,
                     file_size: row.get::<_, Option<i64>>("file_size")?.unwrap_or(0),
                     file_mtime_ns: row.get("file_mtime_ns")?,
+                    file_inode: row.get("file_inode")?,
+                    content_hash: row.get("content_hash")?,
                     added_date: row.get("added_date")?,
                     last_played: row.get("last_played")?,
                     play_count: row.get::<_, Option<i64>>("play_count")?.unwrap_or(0),
@@ -65,7 +67,7 @@ pub fn get_top_25(conn: &Connection) -> DbResult<Vec<Track>> {
         "SELECT id, filepath, title, artist, album, album_artist,
                 track_number, track_total, date, duration, file_size,
                 play_count, last_played, added_date, missing, last_seen_at,
-                file_mtime_ns
+                file_mtime_ns, file_inode, content_hash
          FROM library
          WHERE play_count > 0
          ORDER BY play_count DESC, last_played DESC
@@ -87,6 +89,8 @@ pub fn get_top_25(conn: &Connection) -> DbResult<Vec<Track>> {
                 duration: row.get("duration")?,
                 file_size: row.get::<_, Option<i64>>("file_size")?.unwrap_or(0),
                 file_mtime_ns: row.get("file_mtime_ns")?,
+                file_inode: row.get("file_inode")?,
+                content_hash: row.get("content_hash")?,
                 added_date: row.get("added_date")?,
                 last_played: row.get("last_played")?,
                 play_count: row.get::<_, Option<i64>>("play_count")?.unwrap_or(0),
@@ -108,7 +112,7 @@ pub fn get_recently_played(conn: &Connection, days: i64, limit: i64) -> DbResult
         "SELECT id, filepath, title, artist, album, album_artist,
                 track_number, track_total, date, duration, file_size,
                 play_count, last_played, added_date, missing, last_seen_at,
-                file_mtime_ns
+                file_mtime_ns, file_inode, content_hash
          FROM library
          WHERE last_played IS NOT NULL
            AND last_played >= datetime('now', ?)
@@ -131,6 +135,8 @@ pub fn get_recently_played(conn: &Connection, days: i64, limit: i64) -> DbResult
                 duration: row.get("duration")?,
                 file_size: row.get::<_, Option<i64>>("file_size")?.unwrap_or(0),
                 file_mtime_ns: row.get("file_mtime_ns")?,
+                file_inode: row.get("file_inode")?,
+                content_hash: row.get("content_hash")?,
                 added_date: row.get("added_date")?,
                 last_played: row.get("last_played")?,
                 play_count: row.get::<_, Option<i64>>("play_count")?.unwrap_or(0),
@@ -152,7 +158,7 @@ pub fn get_recently_added(conn: &Connection, days: i64, limit: i64) -> DbResult<
         "SELECT id, filepath, title, artist, album, album_artist,
                 track_number, track_total, date, duration, file_size,
                 play_count, last_played, added_date, missing, last_seen_at,
-                file_mtime_ns
+                file_mtime_ns, file_inode, content_hash
          FROM library
          WHERE added_date IS NOT NULL
            AND added_date >= datetime('now', ?)
@@ -175,6 +181,8 @@ pub fn get_recently_added(conn: &Connection, days: i64, limit: i64) -> DbResult<
                 duration: row.get("duration")?,
                 file_size: row.get::<_, Option<i64>>("file_size")?.unwrap_or(0),
                 file_mtime_ns: row.get("file_mtime_ns")?,
+                file_inode: row.get("file_inode")?,
+                content_hash: row.get("content_hash")?,
                 added_date: row.get("added_date")?,
                 last_played: row.get("last_played")?,
                 play_count: row.get::<_, Option<i64>>("play_count")?.unwrap_or(0),
@@ -203,10 +211,7 @@ pub fn is_favorite(conn: &Connection, track_id: i64) -> DbResult<(bool, Option<S
 
 /// Add a track to favorites
 pub fn add_favorite(conn: &Connection, track_id: i64) -> DbResult<Option<String>> {
-    match conn.execute(
-        "INSERT INTO favorites (track_id) VALUES (?)",
-        [track_id],
-    ) {
+    match conn.execute("INSERT INTO favorites (track_id) VALUES (?)", [track_id]) {
         Ok(_) => {
             let timestamp: String = conn.query_row(
                 "SELECT timestamp FROM favorites WHERE track_id = ?",
