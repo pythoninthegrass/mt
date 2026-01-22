@@ -796,4 +796,588 @@ test.describe('Last.fm Integration', () => {
       expect(queueStatusCalled).toBe(true);
     });
   });
+
+  test.describe('Queue Management', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(300);
+    });
+
+    test('should display queued scrobbles count', async ({ page }) => {
+      // Mock authenticated state with queued scrobbles
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: 12,
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Should display queue count
+      const queueCount = page.locator('text=/12.*scrobbles queued/i');
+      await expect(queueCount).toBeVisible();
+    });
+
+    test('should show retry button when scrobbles are queued', async ({ page }) => {
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: 5,
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Retry button should be visible
+      const retryButton = page.locator('[data-testid="lastfm-retry-queue"]');
+      await expect(retryButton).toBeVisible();
+    });
+
+    test('should hide retry button when queue is empty', async ({ page }) => {
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: 0,
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Retry button should not be visible
+      const retryButton = page.locator('[data-testid="lastfm-retry-queue"]');
+      await expect(retryButton).not.toBeVisible();
+    });
+
+    test('should successfully retry queued scrobbles', async ({ page }) => {
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      // Initial queue status: 8 scrobbles
+      let queueStatusCallCount = 0;
+      await page.route('**/lastfm/queue-status', async (route) => {
+        queueStatusCallCount++;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: queueStatusCallCount === 1 ? 8 : 3, // After retry: 3 remaining
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-retry', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'Successfully retried 5 scrobbles',
+            remaining_queued: 3,
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Click retry button
+      await page.click('[data-testid="lastfm-retry-queue"]');
+      await page.waitForTimeout(1000);
+
+      // Should show success toast
+      const toast = page.locator('.toast, [role="alert"]').filter({ hasText: /retried.*scrobbles/i });
+      await expect(toast).toBeVisible({ timeout: 3000 });
+
+      // Queue count should update
+      await page.waitForTimeout(500);
+      const updatedCount = page.locator('text=/3.*scrobbles queued/i');
+      await expect(updatedCount).toBeVisible();
+    });
+
+    test('should handle retry errors gracefully', async ({ page }) => {
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: 5,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-retry', async (route) => {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            detail: 'Failed to retry scrobbles',
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Click retry button
+      await page.click('[data-testid="lastfm-retry-queue"]');
+      await page.waitForTimeout(1000);
+
+      // Should show error toast
+      const errorToast = page.locator('.toast, [role="alert"]').filter({ hasText: /failed|error/i });
+      await expect(errorToast).toBeVisible({ timeout: 3000 });
+    });
+
+    test('should update queue count dynamically', async ({ page }) => {
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      let currentQueueCount = 10;
+      await page.route('**/lastfm/queue-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: currentQueueCount,
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Verify initial count
+      const initialCount = page.locator('text=/10.*scrobbles queued/i');
+      await expect(initialCount).toBeVisible();
+
+      // Simulate queue count change
+      currentQueueCount = 7;
+      await page.evaluate(() => {
+        const settingsComponent = window.Alpine.$data(document.querySelector('[x-data*="settingsView"]'));
+        if (settingsComponent) {
+          settingsComponent.lastfm.queueStatus = { queued_scrobbles: 7 };
+        }
+      });
+
+      await page.waitForTimeout(300);
+
+      // Verify updated count
+      const updatedCount = page.locator('text=/7.*scrobbles queued/i');
+      await expect(updatedCount).toBeVisible();
+    });
+  });
+
+  test.describe('Loved Tracks Import', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(300);
+    });
+
+    test('should show import button when authenticated', async ({ page }) => {
+      // Simulate authenticated state
+      await page.evaluate(() => {
+        const settingsComponent = window.Alpine.$data(document.querySelector('[x-data*="settingsView"]'));
+        if (settingsComponent) {
+          settingsComponent.lastfm.authenticated = true;
+          settingsComponent.lastfm.username = 'testuser';
+        }
+      });
+
+      await page.waitForTimeout(300);
+
+      // Import button should be visible
+      const importButton = page.locator('[data-testid="lastfm-import-loved"]');
+      await expect(importButton).toBeVisible();
+    });
+
+    test('should hide import button when not authenticated', async ({ page }) => {
+      // Ensure not authenticated
+      await page.evaluate(() => {
+        const settingsComponent = window.Alpine.$data(document.querySelector('[x-data*="settingsView"]'));
+        if (settingsComponent) {
+          settingsComponent.lastfm.authenticated = false;
+          settingsComponent.lastfm.username = null;
+        }
+      });
+
+      await page.waitForTimeout(300);
+
+      // Import button should not be visible
+      const importButton = page.locator('[data-testid="lastfm-import-loved"]');
+      await expect(importButton).not.toBeVisible();
+    });
+
+    test('should successfully import loved tracks', async ({ page }) => {
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: 0,
+          }),
+        });
+      });
+
+      let importCalled = false;
+      await page.route('**/lastfm/import-loved-tracks', async (route) => {
+        importCalled = true;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'success',
+            total_loved_tracks: 150,
+            imported_count: 120,
+            message: 'Imported 120 tracks, 10 already favorited, 20 not in library',
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Click import button
+      await page.click('[data-testid="lastfm-import-loved"]');
+      await page.waitForTimeout(2000);
+
+      // Verify import was called
+      expect(importCalled).toBe(true);
+
+      // Should show success toast with details
+      const successToast = page.locator('.toast, [role="alert"]').filter({ hasText: /imported.*120/i });
+      await expect(successToast).toBeVisible({ timeout: 5000 });
+    });
+
+    test('should show loading state during import', async ({ page }) => {
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: 0,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/import-loved-tracks', async (route) => {
+        // Simulate slow import
+        await page.waitForTimeout(2000);
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'success',
+            total_loved_tracks: 50,
+            imported_count: 45,
+            message: 'Imported 45 tracks',
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Click import button
+      await page.click('[data-testid="lastfm-import-loved"]');
+
+      // Should show importing state
+      const importingText = page.locator('text=/importing/i');
+      await expect(importingText).toBeVisible({ timeout: 1000 });
+
+      // Wait for completion
+      await page.waitForTimeout(2500);
+
+      // Should no longer show importing
+      await expect(importingText).not.toBeVisible();
+    });
+
+    test('should handle import errors gracefully', async ({ page }) => {
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: 0,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/import-loved-tracks', async (route) => {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            detail: 'Failed to fetch loved tracks from Last.fm',
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Click import button
+      await page.click('[data-testid="lastfm-import-loved"]');
+      await page.waitForTimeout(1000);
+
+      // Should show error toast
+      const errorToast = page.locator('.toast, [role="alert"]').filter({ hasText: /failed|error/i });
+      await expect(errorToast).toBeVisible({ timeout: 3000 });
+    });
+
+    test('should require authentication for import', async ({ page }) => {
+      await page.route('**/lastfm/import-loved-tracks', async (route) => {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            detail: 'Not authenticated with Last.fm',
+          }),
+        });
+      });
+
+      // Simulate authenticated state (to show button)
+      await page.evaluate(() => {
+        const settingsComponent = window.Alpine.$data(document.querySelector('[x-data*="settingsView"]'));
+        if (settingsComponent) {
+          settingsComponent.lastfm.authenticated = true;
+          settingsComponent.lastfm.username = 'testuser';
+        }
+      });
+
+      await page.waitForTimeout(300);
+
+      // Click import button
+      await page.click('[data-testid="lastfm-import-loved"]');
+      await page.waitForTimeout(1000);
+
+      // Should show authentication error
+      const authError = page.locator('.toast, [role="alert"]').filter({ hasText: /not authenticated|please connect/i });
+      await expect(authError).toBeVisible({ timeout: 3000 });
+    });
+
+    test('should display import statistics', async ({ page }) => {
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/queue-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            queued_scrobbles: 0,
+          }),
+        });
+      });
+
+      await page.route('**/lastfm/import-loved-tracks', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'success',
+            total_loved_tracks: 200,
+            imported_count: 150,
+            message: 'Imported 150 tracks, 30 already favorited, 20 not in library',
+          }),
+        });
+      });
+
+      // Reload to load settings
+      await page.reload();
+      await waitForAlpine(page);
+      await page.click('[data-testid="sidebar-settings"]');
+      await page.waitForTimeout(500);
+      await page.click('[data-testid="settings-nav-lastfm"]');
+      await page.waitForTimeout(1500);
+
+      // Click import button
+      await page.click('[data-testid="lastfm-import-loved"]');
+      await page.waitForTimeout(2000);
+
+      // Should display detailed statistics
+      const detailedMessage = page.locator('text=/150.*tracks.*30.*already.*20.*not in library/i');
+      await expect(detailedMessage).toBeVisible({ timeout: 5000 });
+    });
+  });
 });
