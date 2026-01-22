@@ -2,6 +2,7 @@ pub mod audio;
 pub mod commands;
 pub mod db;
 pub mod dialog;
+pub mod library;
 pub mod media_keys;
 pub mod metadata;
 pub mod scanner;
@@ -19,6 +20,12 @@ use sidecar::{check_backend_health, get_backend_port, get_backend_url, SidecarMa
 use scanner::commands::{
     extract_file_metadata, get_track_artwork, get_track_artwork_url, scan_paths_metadata,
     scan_paths_to_library,
+};
+use library::commands::{
+    library_check_status, library_delete_track, library_get_all, library_get_artwork,
+    library_get_artwork_url, library_get_missing, library_get_stats, library_get_track,
+    library_locate_track, library_mark_missing, library_mark_present, library_rescan_track,
+    library_update_play_count,
 };
 use watcher::{
     watched_folders_add, watched_folders_get, watched_folders_list, watched_folders_remove,
@@ -221,6 +228,19 @@ pub fn run() {
             extract_file_metadata,
             get_track_artwork,
             get_track_artwork_url,
+            library_get_all,
+            library_get_stats,
+            library_get_track,
+            library_get_artwork,
+            library_get_artwork_url,
+            library_delete_track,
+            library_rescan_track,
+            library_update_play_count,
+            library_get_missing,
+            library_locate_track,
+            library_check_status,
+            library_mark_missing,
+            library_mark_present,
         ])
         .setup(|app| {
             // Initialize database
