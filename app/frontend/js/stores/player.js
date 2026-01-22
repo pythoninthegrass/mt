@@ -29,6 +29,7 @@ export function createPlayerStore(Alpine) {
     _playCountThreshold: 0.75,
     _scrobbleThreshold: 0.9, // Default 90%, will be updated from settings
     _scrobbleChecked: false,
+    _playRequestId: 0, // Guard against concurrent playTrack calls
 
     async init() {
       // Load Last.fm settings
@@ -166,10 +167,13 @@ export function createPlayerStore(Alpine) {
         return;
       }
 
+      // Increment request ID to mark any pending playTrack as stale
+      const requestId = ++this._playRequestId;
+
       if (track.missing) {
         console.log('[playback]', 'missing_track_attempted', { trackId: track.id, trackTitle: track.title });
         const result = await Alpine.store('ui').showMissingTrackModal(track);
-        
+
         if (result.result === 'located' && result.newPath) {
           track = { ...track, filepath: result.newPath, path: result.newPath, missing: false };
         } else {
@@ -181,11 +185,28 @@ export function createPlayerStore(Alpine) {
         trackId: track.id,
         trackTitle: track.title,
         trackArtist: track.artist,
-        trackPath: track.filepath || track.path
+        trackPath: track.filepath || track.path,
+        requestId
       });
 
       try {
+        // Stop current playback first for responsive feedback
+        await invoke('audio_stop');
+
+        // Check if this request was superseded while stopping
+        if (this._playRequestId !== requestId) {
+          console.log('[playback]', 'request_superseded_early', { requestId, currentId: this._playRequestId });
+          return;
+        }
+
         const info = await invoke('audio_load', { path: track.filepath || track.path });
+
+        // Check if this request was superseded while loading
+        if (this._playRequestId !== requestId) {
+          console.log('[playback]', 'request_superseded', { requestId, currentId: this._playRequestId });
+          return;
+        }
+
         const trackDurationMs = track.duration ? Math.round(track.duration * 1000) : 0;
         const durationMs = (info.duration_ms > 0 ? info.duration_ms : trackDurationMs) || 0;
         console.debug('[playTrack] duration sources:', {
@@ -209,8 +230,11 @@ export function createPlayerStore(Alpine) {
         await this._updateNowPlayingMetadata();
         await this._updateNowPlayingState();
       } catch (error) {
-        console.error('[playback]', 'play_track_error', { trackId: track.id, error: error.message });
-        this.isPlaying = false;
+        // Only log error if this request is still current
+        if (this._playRequestId === requestId) {
+          console.error('[playback]', 'play_track_error', { trackId: track.id, error: error.message });
+          this.isPlaying = false;
+        }
       }
     },
 
