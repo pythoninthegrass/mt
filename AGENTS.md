@@ -251,10 +251,34 @@ npx playwright test --debug tests/sidebar.spec.js
 npx playwright codegen
 ```
 
+**Browser Installation:**
+
+Playwright requires browser binaries that match the installed Playwright version. If tests fail with errors like:
+```
+Error: browserType.launch: Executable doesn't exist at .../webkit-XXXX/pw_run.sh
+```
+
+Run the following to install/update browsers:
+```bash
+# Install all browsers
+npx playwright install
+
+# Install specific browser only
+npx playwright install webkit
+npx playwright install chromium
+npx playwright install firefox
+
+# Check installed browsers vs required
+npx playwright --version
+ls ~/Library/Caches/ms-playwright/
+```
+
+Browser binaries are cached in `~/Library/Caches/ms-playwright/` (macOS). Each Playwright version requires specific browser builds (e.g., Playwright 1.57.0 requires webkit-2227).
+
 **Test counts by mode:**
-- `fast`: ~144 tests (webkit, ~53s)
-- `full`: ~432 tests (all browsers)
-- `tauri`: ~552 tests (all browsers + @tauri)
+- `fast`: ~269 tests (webkit only, ~1m)
+- `full`: ~807 tests (all 3 browsers)
+- `tauri`: ~900+ tests (all browsers + @tauri tagged tests)
 
 **Playwright Test Structure:**
 
