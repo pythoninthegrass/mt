@@ -80,6 +80,22 @@ export function createQueueStore(Alpine) {
         console.error('Failed to save queue:', error);
       }
     },
+
+    /**
+     * Sync full queue state to backend (clear and rebuild)
+     * Used when queue order changes in ways that can't be expressed as incremental operations
+     */
+    async _syncQueueToBackend() {
+      try {
+        await api.queue.clear();
+        if (this.items.length > 0) {
+          const trackIds = this.items.map(t => t.id);
+          await api.queue.add(trackIds);
+        }
+      } catch (error) {
+        console.error('[queue] Failed to sync to backend:', error);
+      }
+    },
     
     /**
      * Add tracks to queue
@@ -97,10 +113,17 @@ export function createQueueStore(Alpine) {
         queueSizeBefore: this.items.length
       });
 
+      // Update local state
       this.items.push(...tracksArray);
       this._originalOrder.push(...tracksArray);
 
-      await this.save();
+      // Persist to backend
+      try {
+        const trackIds = tracksArray.map(t => t.id);
+        await api.queue.add(trackIds);
+      } catch (error) {
+        console.error('[queue] Failed to persist add:', error);
+      }
 
       if (playNow && tracksArray.length > 0) {
         await this.playIndex(startIndex);
@@ -132,6 +155,7 @@ export function createQueueStore(Alpine) {
         currentIndex: this.currentIndex
       });
 
+      // Update local state
       this.items.splice(index, 0, ...tracksArray);
 
       // Adjust current index if needed
@@ -139,7 +163,13 @@ export function createQueueStore(Alpine) {
         this.currentIndex += tracksArray.length;
       }
 
-      await this.save();
+      // Persist to backend
+      try {
+        const trackIds = tracksArray.map(t => t.id);
+        await api.queue.add(trackIds, index);
+      } catch (error) {
+        console.error('[queue] Failed to persist insert:', error);
+      }
     },
 
     /**
@@ -178,6 +208,7 @@ export function createQueueStore(Alpine) {
         queueSizeBefore: this.items.length
       });
 
+      // Update local state
       this.items.splice(index, 1);
 
       // Adjust current index
@@ -193,7 +224,12 @@ export function createQueueStore(Alpine) {
         }
       }
 
-      await this.save();
+      // Persist to backend
+      try {
+        await api.queue.remove(index);
+      } catch (error) {
+        console.error('[queue] Failed to persist remove:', error);
+      }
     },
 
     async clear() {
@@ -202,12 +238,19 @@ export function createQueueStore(Alpine) {
         hadCurrentTrack: this.currentIndex >= 0
       });
 
+      // Update local state
       this.items = [];
       this.currentIndex = -1;
       this._originalOrder = [];
 
       Alpine.store('player').stop();
-      await this.save();
+
+      // Persist to backend
+      try {
+        await api.queue.clear();
+      } catch (error) {
+        console.error('[queue] Failed to persist clear:', error);
+      }
     },
     
     /**
@@ -229,6 +272,7 @@ export function createQueueStore(Alpine) {
         wasCurrentTrack: from === this.currentIndex
       });
 
+      // Update local state
       const [item] = this.items.splice(from, 1);
       this.items.splice(to, 0, item);
 
@@ -241,7 +285,12 @@ export function createQueueStore(Alpine) {
         this.currentIndex++;
       }
 
-      await this.save();
+      // Persist to backend
+      try {
+        await api.queue.move(from, to);
+      } catch (error) {
+        console.error('[queue] Failed to persist reorder:', error);
+      }
     },
     
     async playIndex(index) {
@@ -348,7 +397,7 @@ export function createQueueStore(Alpine) {
     
     async toggleShuffle() {
       this.shuffle = !this.shuffle;
-      
+
       if (this.shuffle) {
         this._originalOrder = [...this.items];
         this._shuffleItems();
@@ -360,9 +409,11 @@ export function createQueueStore(Alpine) {
           this.currentIndex = this.items.length > 0 ? 0 : -1;
         }
       }
-      
+
       this._saveLoopState();
-      await this.save();
+
+      // Sync queue order to backend
+      await this._syncQueueToBackend();
     },
     
     _shuffleItems() {
@@ -394,9 +445,12 @@ export function createQueueStore(Alpine) {
         currentIndex: this.currentIndex
       });
 
+      // Update local state
       this._shuffleItems();
       this._originalOrder = [...this.items];
-      await this.save();
+
+      // Sync shuffled order to backend
+      await this._syncQueueToBackend();
     },
 
     async cycleLoop() {

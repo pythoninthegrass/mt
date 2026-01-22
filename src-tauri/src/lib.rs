@@ -11,7 +11,8 @@ pub mod watcher;
 
 use commands::{
     audio_get_status, audio_get_volume, audio_load, audio_pause, audio_play, audio_seek,
-    audio_set_volume, audio_stop, AudioState,
+    audio_set_volume, audio_stop, queue_add, queue_add_files, queue_clear, queue_get,
+    queue_remove, queue_reorder, queue_shuffle, AudioState,
 };
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
@@ -241,6 +242,13 @@ pub fn run() {
             library_check_status,
             library_mark_missing,
             library_mark_present,
+            queue_get,
+            queue_add,
+            queue_add_files,
+            queue_remove,
+            queue_clear,
+            queue_reorder,
+            queue_shuffle,
         ])
         .setup(|app| {
             // Initialize database
