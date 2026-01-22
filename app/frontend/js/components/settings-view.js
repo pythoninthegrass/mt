@@ -291,7 +291,14 @@ export function createSettingsView(Alpine) {
         );
       } catch (error) {
         console.error('[settings] Failed to get Last.fm auth URL:', error);
-        Alpine.store('ui').toast('Failed to connect to Last.fm', 'error');
+        // Show the actual error message from backend
+        const errorMsg = error.message || error.toString();
+        Alpine.store('ui').toast(
+          errorMsg.includes('API keys not configured')
+            ? 'Last.fm API keys not configured. Set LASTFM_API_KEY and LASTFM_API_SECRET in .env file.'
+            : `Failed to connect: ${errorMsg}`,
+          'error'
+        );
         this.lastfm.pendingToken = null;
       } finally {
         this.lastfm.isConnecting = false;
@@ -317,7 +324,11 @@ export function createSettingsView(Alpine) {
         await this.loadQueueStatus();
       } catch (error) {
         console.error('[settings] Failed to complete Last.fm authentication:', error);
-        Alpine.store('ui').toast('Failed to complete authentication. Please try again.', 'error');
+        const errorMsg = error.message || error.toString();
+        Alpine.store('ui').toast(
+          `Failed to complete authentication: ${errorMsg}`,
+          'error'
+        );
       } finally {
         this.lastfm.isConnecting = false;
       }
