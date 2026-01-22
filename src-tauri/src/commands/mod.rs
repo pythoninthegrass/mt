@@ -1,10 +1,16 @@
 mod audio;
+mod favorites;
 mod playlists;
 mod queue;
 
 pub use audio::{
     audio_get_status, audio_get_volume, audio_load, audio_pause, audio_play, audio_seek,
     audio_set_volume, audio_stop, AudioState, PlaybackStatus,
+};
+
+pub use favorites::{
+    favorites_add, favorites_check, favorites_get, favorites_get_recently_added,
+    favorites_get_recently_played, favorites_get_top25, favorites_remove,
 };
 
 pub use playlists::{
