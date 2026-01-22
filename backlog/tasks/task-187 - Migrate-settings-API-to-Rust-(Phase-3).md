@@ -1,10 +1,10 @@
 ---
 id: task-187
 title: Migrate settings API to Rust (Phase 3)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-21 17:38'
-updated_date: '2026-01-21 18:32'
+updated_date: '2026-01-22 17:07'
 labels:
   - rust
   - migration
@@ -14,6 +14,7 @@ labels:
 dependencies:
   - task-173
 priority: medium
+ordinal: 2656.25
 ---
 
 ## Description
@@ -70,11 +71,48 @@ store.save()?;
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Settings storage implemented (database or Tauri Store)
-- [ ] #2 Get all settings working
-- [ ] #3 Update settings working
-- [ ] #4 Type coercion functional (booleans, integers)
-- [ ] #5 Settings events emitted on changes
-- [ ] #6 Default values handled correctly
-- [ ] #7 Frontend updated and working
+- [x] #1 Settings storage implemented (database or Tauri Store)
+- [x] #2 Get all settings working
+- [x] #3 Update settings working
+- [x] #4 Type coercion functional (booleans, integers)
+- [x] #5 Settings events emitted on changes
+- [x] #6 Default values handled correctly
+- [x] #7 Frontend updated and working
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Implementation Summary
+
+Implemented using Tauri Store API (Option B) as specified.
+
+### Backend (Rust)
+- Added `tauri-plugin-store` v2 dependency to Cargo.toml
+- Registered store plugin in lib.rs builder
+- Created `src-tauri/src/commands/settings.rs` with 5 Tauri commands:
+  - `settings_get_all` - Get all settings with defaults
+  - `settings_get` - Get single setting by key
+  - `settings_set` - Set single setting
+  - `settings_update` - Bulk update multiple settings
+  - `settings_reset` - Reset to defaults
+- Settings stored in `settings.json` file via Tauri Store
+- Default values: volume=75, shuffle=false, loop_mode="none", theme="dark", sidebar_width=250, queue_panel_height=300
+- Emits `settings://changed` event on any setting change
+- Emits `settings://reset` event on reset
+
+### Frontend
+- Added `api.settings` namespace to api.js with all commands:
+  - `getAll()`, `get(key)`, `set(key, value)`, `update(settings)`, `reset()`
+- Updated events.js to handle settings events:
+  - `settings://changed` applies changes to UI/player stores
+  - `settings://reset` logs reset action
+
+### Capabilities
+- Added `store:default` permission to capabilities/default.json
+
+### Notes
+- UI store still uses Alpine.$persist() for its local UI preferences (sidebarOpen, libraryViewMode, themePreset, etc.)
+- The Tauri Store provides persistent backend storage for settings that may need backend awareness
+- shuffle/loop_mode are session-only in queue store by design (not persisted)
+<!-- SECTION:NOTES:END -->

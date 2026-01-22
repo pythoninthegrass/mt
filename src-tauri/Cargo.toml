@@ -35,6 +35,9 @@ souvlaki = "0.8"
 # Audio metadata reading/writing
 lofty = "0.22"
 
+# Persistent key-value store
+tauri-plugin-store = "2"
+
 # Database
 rusqlite = { version = "0.38", features = ["bundled"] }
 r2d2 = "0.8"

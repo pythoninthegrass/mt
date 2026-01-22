@@ -31,8 +31,9 @@ export const Events = {
   // Playlist events
   PLAYLISTS_UPDATED: 'playlists:updated',
 
-  // Settings events
-  SETTINGS_UPDATED: 'settings:updated',
+  // Settings events (Tauri Store)
+  SETTINGS_CHANGED: 'settings://changed',
+  SETTINGS_RESET: 'settings://reset',
 };
 
 /**
@@ -149,15 +150,46 @@ export async function initEventListeners(Alpine) {
     }
   });
 
-  // Settings updated event
-  await subscribe(Events.SETTINGS_UPDATED, (payload) => {
-    const { key, value, previous_value } = payload;
+  // Settings changed event (from Tauri Store)
+  await subscribe(Events.SETTINGS_CHANGED, (payload) => {
+    const { key, value } = payload;
 
-    console.log(`[events] Settings ${key}:`, value, previous_value ? `(was: ${previous_value})` : '');
+    console.log(`[events] Settings changed: ${key} =`, value);
 
-    // Handle specific settings changes
-    // This could trigger UI updates or refresh relevant stores
-    // For now, we just log the change
+    // Apply settings changes to relevant stores
+    const ui = Alpine.store('ui');
+    const player = Alpine.store('player');
+
+    switch (key) {
+      case 'volume':
+        // Volume is managed by the player store
+        if (player && typeof value === 'number') {
+          player.volume = value;
+        }
+        break;
+      case 'theme':
+        // Theme is managed by the UI store
+        if (ui && typeof value === 'string') {
+          ui.theme = value;
+          ui.applyTheme();
+        }
+        break;
+      case 'sidebar_width':
+        // Sidebar width is managed by the UI store
+        if (ui && typeof value === 'number') {
+          ui.sidebarWidth = value;
+        }
+        break;
+      // shuffle and loop_mode are session-only, managed by queue store locally
+      default:
+        console.debug(`[events] Unhandled settings change: ${key}`);
+    }
+  });
+
+  // Settings reset event (from Tauri Store)
+  await subscribe(Events.SETTINGS_RESET, () => {
+    console.log('[events] Settings reset to defaults');
+    // Could trigger a full settings reload here if needed
   });
 
   console.log('[events] Tauri event listeners initialized');

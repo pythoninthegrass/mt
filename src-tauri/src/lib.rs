@@ -17,7 +17,9 @@ use commands::{
     favorites_remove, playlist_add_tracks, playlist_create, playlist_delete,
     playlist_generate_name, playlist_get, playlist_list, playlist_remove_track,
     playlist_reorder_tracks, playlist_update, playlists_reorder, queue_add, queue_add_files,
-    queue_clear, queue_get, queue_remove, queue_reorder, queue_shuffle, AudioState,
+    queue_clear, queue_get, queue_remove, queue_reorder, queue_shuffle,
+    settings_get, settings_get_all, settings_reset, settings_set, settings_update,
+    AudioState,
 };
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
@@ -199,6 +201,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             audio_load,
             audio_play,
@@ -271,6 +274,11 @@ pub fn run() {
             favorites_get_top25,
             favorites_get_recently_played,
             favorites_get_recently_added,
+            settings_get_all,
+            settings_get,
+            settings_set,
+            settings_update,
+            settings_reset,
         ])
         .setup(|app| {
             // Initialize database

@@ -2,6 +2,7 @@ mod audio;
 mod favorites;
 mod playlists;
 mod queue;
+mod settings;
 
 pub use audio::{
     audio_get_status, audio_get_volume, audio_load, audio_pause, audio_play, audio_seek,
@@ -22,4 +23,8 @@ pub use playlists::{
 pub use queue::{
     queue_add, queue_add_files, queue_clear, queue_get, queue_remove, queue_reorder,
     queue_shuffle,
+};
+
+pub use settings::{
+    settings_get, settings_get_all, settings_reset, settings_set, settings_update,
 };
