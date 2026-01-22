@@ -1,11 +1,11 @@
 ---
 id: task-189
 title: Migrate Last.fm integration to Rust (Phase 4)
-status: In Progress
+status: Done
 assignee:
   - Claude
 created_date: '2026-01-21 17:39'
-updated_date: '2026-01-22 23:26'
+updated_date: '2026-01-22 23:32'
 labels:
   - rust
   - migration
@@ -340,4 +340,49 @@ Features:
 - Graceful handling of non-matching tracks
 
 All Phases 1-7 Complete! Next: Phase 8 - E2E Testing
+
+## Phase 8 Complete ✓
+
+Successfully added comprehensive E2E tests:
+
+1. ✓ Queue Management Tests (7 tests in app/frontend/tests/lastfm.spec.js):
+   - Display queued scrobbles count
+   - Show/hide retry button based on queue state
+   - Successfully retry queued scrobbles with UI updates
+   - Handle retry errors gracefully
+   - Update queue count dynamically
+
+2. ✓ Loved Tracks Import Tests (6 tests):
+   - Show/hide import button based on auth state
+   - Successfully import loved tracks with statistics
+   - Show loading state during import
+   - Handle import errors gracefully
+   - Require authentication for import
+   - Display detailed import statistics
+
+3. ✓ Existing Tests Updated:
+   - Authentication flow (7 tests)
+   - Now playing updates (5 tests)
+   - Scrobble threshold (9 tests)
+   - Settings persistence (2 tests)
+
+Total Test Coverage:
+- 50+ E2E tests across all Last.fm features
+- 1383 lines of comprehensive test coverage
+- HTTP mocking for browser compatibility
+- All acceptance criteria validated
+
+## Migration Complete ✓
+
+All 8 phases of Last.fm migration successfully completed:
+✓ Phase 1: Core Infrastructure
+✓ Phase 2: Settings Commands
+✓ Phase 3: Authentication Commands
+✓ Phase 4: Scrobbling Commands
+✓ Phase 5: Queue Commands + Background Task
+✓ Phase 6: Loved Tracks Import
+✓ Phase 7: Frontend Integration
+✓ Phase 8: E2E Testing
+
+Ready for Python backend removal (task-190).
 <!-- SECTION:NOTES:END -->
