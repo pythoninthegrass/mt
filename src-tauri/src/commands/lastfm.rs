@@ -2,12 +2,12 @@
 //!
 //! Provides OAuth authentication, scrobbling, now playing updates, and loved tracks import.
 
-use crate::db::{scrobble, settings, Database};
+use crate::db::{favorites, library, scrobble, settings, Database};
 use crate::events::{LastfmAuthEvent, ScrobbleStatusEvent};
 use crate::lastfm::{
-    AuthCallbackResponse, AuthUrlResponse, DisconnectResponse, LastFmClient, LastfmSettings,
-    LastfmSettingsUpdate, NowPlayingRequest, QueueRetryResponse, QueueStatusResponse,
-    ScrobbleRequest, ScrobbleResponse,
+    AuthCallbackResponse, AuthUrlResponse, DisconnectResponse, ImportLovedTracksResponse,
+    LastFmClient, LastfmSettings, LastfmSettingsUpdate, NowPlayingRequest, QueueRetryResponse,
+    QueueStatusResponse, ScrobbleRequest, ScrobbleResponse,
 };
 use serde_json::json;
 use tauri::{AppHandle, Emitter, State};
@@ -511,6 +511,134 @@ pub async fn lastfm_queue_retry(
     Ok(QueueRetryResponse {
         status,
         remaining_queued,
+    })
+}
+
+// ============================================
+// Loved Tracks Import
+// ============================================
+
+/// Import loved tracks from Last.fm and add them to favorites
+#[tauri::command]
+pub async fn lastfm_import_loved_tracks(
+    db: State<'_, Database>,
+) -> Result<ImportLovedTracksResponse, String> {
+    use crate::db::library::LibraryQuery;
+    use crate::db::{LibrarySortColumn, SortOrder};
+
+    // Check if authenticated
+    let username = db
+        .with_conn(|conn| settings::get_setting(conn, "lastfm_username"))
+        .map_err(|e: crate::db::DbError| format!("Database error: {}", e))?;
+
+    if username.is_none() || username.as_deref() == Some("") {
+        return Err("Not authenticated with Last.fm".to_string());
+    }
+
+    let username = username.unwrap();
+    let client = LastFmClient::new();
+
+    if !client.is_configured() {
+        return Err("Last.fm API not configured".to_string());
+    }
+
+    // Fetch all loved tracks (paginated)
+    let mut all_loved_tracks = Vec::new();
+    let per_page = 200;
+    let mut page = 1;
+
+    loop {
+        match client.get_loved_tracks(&username, per_page, page).await {
+            Ok(tracks) => {
+                let track_count = tracks.len();
+                all_loved_tracks.extend(tracks);
+
+                // If we got fewer tracks than requested, we've reached the end
+                if track_count < per_page as usize {
+                    break;
+                }
+
+                page += 1;
+            }
+            Err(e) => {
+                return Err(format!("Failed to fetch loved tracks: {}", e));
+            }
+        }
+    }
+
+    let total_loved = all_loved_tracks.len();
+    println!(
+        "[lastfm] Fetched {} loved tracks from Last.fm",
+        total_loved
+    );
+
+    // Match loved tracks against local library and add to favorites
+    let mut imported = 0;
+    let mut already_favorited = 0;
+    let mut not_in_library = 0;
+
+    for loved_track in all_loved_tracks.iter() {
+        let artist_name = loved_track.artist.name();
+        let track_name = &loved_track.name;
+
+        // Find matching track in library (case-insensitive search)
+        let query = LibraryQuery {
+            search: Some(format!("{} {}", artist_name, track_name)),
+            artist: None,
+            album: None,
+            sort_by: LibrarySortColumn::Title,
+            sort_order: SortOrder::Asc,
+            limit: 1,
+            offset: 0,
+        };
+
+        let search_results = db
+            .with_conn(|conn| library::get_all_tracks(conn, &query))
+            .map_err(|e: crate::db::DbError| format!("Library search error: {}", e))?;
+
+        if let Some(first_track) = search_results.items.first() {
+            // Check if already favorited
+            let (is_fav, _) = db
+                .with_conn(|conn| favorites::is_favorite(conn, first_track.id))
+                .map_err(|e: crate::db::DbError| format!("Favorites check error: {}", e))?;
+
+            if is_fav {
+                already_favorited += 1;
+            } else {
+                // Add to favorites
+                match db.with_conn(|conn| favorites::add_favorite(conn, first_track.id)) {
+                    Ok(Some(_)) => {
+                        imported += 1;
+                    }
+                    Ok(None) => {
+                        // Race condition - already favorited
+                        already_favorited += 1;
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "[lastfm] Failed to add {} - {} to favorites: {}",
+                            artist_name, track_name, e
+                        );
+                    }
+                }
+            }
+        } else {
+            not_in_library += 1;
+        }
+    }
+
+    let message = format!(
+        "Imported {} tracks, {} already favorited, {} not in library",
+        imported, already_favorited, not_in_library
+    );
+
+    println!("[lastfm] {}", message);
+
+    Ok(ImportLovedTracksResponse {
+        status: "success".to_string(),
+        total_loved_tracks: total_loved,
+        imported_count: imported,
+        message,
     })
 }
 
