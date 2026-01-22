@@ -2,9 +2,10 @@
 id: task-189
 title: Migrate Last.fm integration to Rust (Phase 4)
 status: In Progress
-assignee: []
+assignee:
+  - Claude
 created_date: '2026-01-21 17:39'
-updated_date: '2026-01-21 18:32'
+updated_date: '2026-01-22 22:38'
 labels:
   - rust
   - migration
@@ -16,6 +17,7 @@ dependencies:
   - task-173
   - task-180
 priority: low
+ordinal: 4656.25
 ---
 
 ## Description
@@ -102,3 +104,83 @@ Migrate Last.fm API integration from Python to Rust, implementing OAuth 1.0a aut
 - [ ] #8 API error handling comprehensive
 - [ ] #9 Frontend updated and E2E tests passing
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+## Implementation Plan: Migrate Last.fm Integration to Rust
+
+### Phase 1: Core Infrastructure ✓
+1. Add dependencies to Cargo.toml (md5, hex, reqwest)
+2. Create module structure: src-tauri/src/lastfm/ (mod.rs, client.rs, rate_limiter.rs, signature.rs, types.rs, config.rs)
+3. Implement signature generation with test vectors from Python
+4. Implement rate limiter with tokio::sync::Mutex
+
+### Phase 2: Settings Commands
+5. Implement lastfm_get_settings command
+6. Implement lastfm_update_settings command (clamp 25-100%)
+7. Add event types to events.rs (LastfmAuthEvent, ScrobbleStatusEvent)
+
+### Phase 3: Authentication Commands
+8. Implement lastfm_get_auth_url (auth.getToken)
+9. Implement lastfm_auth_callback (auth.getSession)
+10. Implement lastfm_disconnect
+
+### Phase 4: Scrobbling Commands
+11. Implement should_scrobble threshold logic (fraction + min_time + max_cap)
+12. Implement lastfm_now_playing (non-critical, silent errors)
+13. Implement lastfm_scrobble (queue on failure)
+
+### Phase 5: Queue Commands + Background Task
+14. Implement lastfm_queue_status
+15. Implement lastfm_queue_retry (batch of 10, max 3 attempts)
+16. Implement background retry task using tauri::async_runtime::spawn (every 5 minutes when authenticated)
+17. Emit lastfm:queue-updated events
+
+### Phase 6: Loved Tracks Import
+18. Implement lastfm_import_loved_tracks (paginated, case-insensitive matching)
+
+### Phase 7: Frontend Integration
+19. Update app/frontend/js/api.js to use invoke() instead of HTTP
+
+### Phase 8: Testing
+20. Update E2E tests for Tauri invoke mocking
+21. Add Rust unit tests (signature, rate limiter, threshold logic)
+
+## API Key Security (Approved)
+- Dev builds: .env file with LASTFM_API_KEY, LASTFM_API_SECRET
+- Release builds: Salted hash (HMAC-SHA256) stored in settings
+
+## Background Retry Task (Approved)
+- Automatic: tauri::async_runtime::spawn task running every 5 minutes when authenticated
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Phase 1 Complete ✓
+
+Successfully implemented core Last.fm infrastructure:
+
+1. ✓ Added dependencies to Cargo.toml (md5 = "0.7", hex = "0.4")
+2. ✓ Created module structure:
+   - lastfm/mod.rs - Module exports
+   - lastfm/types.rs - All request/response types with serde
+   - lastfm/signature.rs - MD5 signature generation
+   - lastfm/rate_limiter.rs - tokio::sync::Mutex rate limiting (5/sec, 333/day)
+   - lastfm/config.rs - API key configuration (dev: .env, release: TODO salted hash)
+   - lastfm/client.rs - reqwest-based HTTP client with error handling
+
+3. ✓ Signature generation verified against Python:
+   - Created test_signature_vectors.py to generate test vectors
+   - All 4 test vectors pass (basic auth, format exclusion, scrobble, sorted order)
+   - Signatures match Python's hashlib.md5 byte-for-byte
+
+4. ✓ All 13 unit tests passing:
+   - Config tests (4 tests)
+   - Signature tests (4 tests)
+   - Rate limiter tests (3 tests)
+   - Client tests (2 tests)
+
+Next: Phase 2 - Settings Commands
+<!-- SECTION:NOTES:END -->

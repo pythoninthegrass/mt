@@ -60,6 +60,10 @@ base64 = "0.22"
 tauri-plugin-devtools = { version = "2", optional = true }
 sha2 = "0.10.9"
 
+# Last.fm integration
+md5 = "0.7"
+hex = "0.4"
+
 [features]
 default = ["devtools"]
 devtools = ["dep:tauri-plugin-devtools"]

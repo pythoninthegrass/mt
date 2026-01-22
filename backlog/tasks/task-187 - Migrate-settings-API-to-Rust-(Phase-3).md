@@ -4,7 +4,7 @@ title: Migrate settings API to Rust (Phase 3)
 status: Done
 assignee: []
 created_date: '2026-01-21 17:38'
-updated_date: '2026-01-22 17:07'
+updated_date: '2026-01-22 17:36'
 labels:
   - rust
   - migration
