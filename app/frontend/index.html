@@ -1415,10 +1415,7 @@
                        class="w-3 h-3 rounded-full"
                        :class="lastfm.authenticated ? 'bg-green-500' : (lastfm.pendingToken ? 'bg-yellow-500' : 'bg-red-500')"
                      ></div>
-                     <span class="text-sm font-medium">
-                       <span x-text="lastfm.authenticated ? 'Connected' : (lastfm.pendingToken ? 'Awaiting Authorization' : 'Not Connected')"></span>
-                       <span x-show="lastfm.username" x-text="' as ' + lastfm.username" class="text-muted-foreground"></span>
-                     </span>
+                     <span class="text-sm font-medium" x-text="lastfm.authenticated ? (lastfm.username ? 'Connected as ' + lastfm.username : 'Connected') : (lastfm.pendingToken ? 'Awaiting Authorization' : 'Not Connected')"></span>
                    </div>
                    <div class="flex gap-2">
                      <!-- Initial connect button -->
@@ -1545,16 +1542,16 @@
                  <div class="flex items-center justify-between mb-2">
                    <span class="text-sm font-medium">Queued Scrobbles</span>
                    <button
+                     x-show="lastfm.queueStatus.queued_scrobbles > 0"
                      class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
                      @click="retryQueuedScrobbles()"
-                     :disabled="lastfm.queueStatus.queued_scrobbles === 0"
                      data-testid="lastfm-retry-queue"
                    >
                      Retry All
                    </button>
                  </div>
                  <div class="text-sm text-muted-foreground">
-                   <span x-text="lastfm.queueStatus.queued_scrobbles || 0"></span> scrobbles waiting to be sent
+                   <span x-text="lastfm.queueStatus.queued_scrobbles || 0"></span> scrobbles queued
                  </div>
                </div>
              </div>

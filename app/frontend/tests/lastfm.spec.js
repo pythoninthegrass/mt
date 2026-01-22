@@ -16,6 +16,21 @@ test.describe('Last.fm Integration', () => {
 
   test.describe('Authentication Flow', () => {
     test.beforeEach(async ({ page }) => {
+      // Mock unauthenticated state for authentication flow tests
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: false,
+            authenticated: false,
+            username: null,
+            scrobble_threshold: 90,
+            configured: true,
+          }),
+        });
+      });
+
       // Navigate to settings
       await page.click('[data-testid="sidebar-settings"]');
       await page.waitForTimeout(500);
@@ -799,6 +814,20 @@ test.describe('Last.fm Integration', () => {
 
   test.describe('Queue Management', () => {
     test.beforeEach(async ({ page }) => {
+      // Mock authenticated state for queue management tests
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
       await page.click('[data-testid="sidebar-settings"]');
       await page.waitForTimeout(500);
       await page.click('[data-testid="settings-nav-lastfm"]');
@@ -1084,6 +1113,20 @@ test.describe('Last.fm Integration', () => {
 
   test.describe('Loved Tracks Import', () => {
     test.beforeEach(async ({ page }) => {
+      // Mock authenticated state for import tests
+      await page.route('**/lastfm/settings', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            enabled: true,
+            authenticated: true,
+            username: 'testuser',
+            scrobble_threshold: 90,
+          }),
+        });
+      });
+
       await page.click('[data-testid="sidebar-settings"]');
       await page.waitForTimeout(500);
       await page.click('[data-testid="settings-nav-lastfm"]');

@@ -26,7 +26,7 @@ src-tauri/src/
 ├── lastfm/
 │   ├── mod.rs              # Module exports
 │   ├── client.rs           # HTTP client with reqwest
-│   ├── config.rs           # API key configuration
+│   ├── config.rs            # API key configuration
 │   ├── signature.rs        # MD5 signature generation
 │   ├── rate_limiter.rs     # Request rate limiting
 │   └── types.rs            # Request/response types
@@ -36,10 +36,10 @@ src-tauri/src/
 
 **Key Design Decisions:**
 
-- **Async/await**: All API calls use tokio async runtime
+- **Async/await**: All API calls use `tokio` async runtime
 - **Rate limiting**: Enforced at client level (5/sec, 333/day)
-- **Error handling**: Custom error types with thiserror
-- **Type safety**: Strong typing with serde serialization
+- **Error handling**: Custom error types with `thiserror`
+- **Type safety**: Strong typing with `serde` serialization
 - **Event system**: Tauri events for real-time frontend updates
 
 ## Module Structure
