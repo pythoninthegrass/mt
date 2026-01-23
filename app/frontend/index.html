@@ -71,6 +71,14 @@
       margin: 0.25rem 0;
     }
 
+    /* Prevent text selection for sidebar controls */
+    .sidebar-no-select {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
     /* Column header styles */
     .column-header-active {
       background: hsl(var(--muted) / 0.3);
@@ -267,12 +275,13 @@
               <template x-for="section in sections" :key="section.id">
                 <li>
                   <button
-                    class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
+                    class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors sidebar-no-select"
                     :class="[
                       isActive(section.id) ? 'bg-primary/15 text-primary' : 'hover:bg-muted/70 hover:text-primary text-foreground/80',
                       isCollapsed ? 'justify-center' : ''
                     ]"
                     @click="loadSection(section.id)"
+                    @contextmenu.prevent
                     :title="isCollapsed ? section.label : ''"
                     :data-testid="'sidebar-section-' + section.id"
                   >
@@ -320,8 +329,9 @@
             <div class="flex items-center justify-between px-2 mb-2">
               <h3 class="text-[10px] font-semibold text-foreground/40 uppercase tracking-wider">Playlists</h3>
               <button
-                class="p-0.5 text-[#8E8E93] hover:text-foreground transition-colors"
+                class="p-0.5 text-[#8E8E93] hover:text-foreground transition-colors sidebar-no-select"
                 @click="createPlaylist()"
+                @contextmenu.prevent
                 title="New Playlist"
                 data-testid="create-playlist"
               >
@@ -420,8 +430,9 @@
           :class="isCollapsed ? 'gap-0 pr-0.75' : 'gap-1'"
         >
           <button
-            class="flex items-center justify-center p-1.5 rounded-md hover:bg-muted/70 transition-colors text-foreground/50 hover:text-primary"
+            class="flex items-center justify-center p-1.5 rounded-md hover:bg-muted/70 transition-colors text-foreground/50 hover:text-primary sidebar-no-select"
             @click="$store.ui.toggleSettings()"
+            @contextmenu.prevent
             title="Settings (⌘,)"
             data-testid="sidebar-settings"
           >
@@ -431,8 +442,9 @@
             </svg>
           </button>
           <button
-            class="flex items-center justify-center p-1.5 rounded-md hover:bg-muted/70 transition-colors text-foreground/50 hover:text-primary"
+            class="flex items-center justify-center p-1.5 rounded-md hover:bg-muted/70 transition-colors text-foreground/50 hover:text-primary sidebar-no-select"
             @click="toggleCollapse()"
+            @contextmenu.prevent
             :title="isCollapsed ? 'Expand' : 'Collapse'"
             data-testid="sidebar-collapse-toggle"
           >
