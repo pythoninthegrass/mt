@@ -1,16 +1,11 @@
 /**
  * Backend API Client
  *
- * Hybrid client that uses:
- * - Tauri commands for library operations (Rust backend)
- * - HTTP requests for operations still on Python FastAPI sidecar
+ * Pure Tauri client - all backend operations use Rust via Tauri commands.
+ * HTTP fallbacks are kept for browser-only development/testing.
  */
 
 let API_BASE = 'http://127.0.0.1:8765/api';
-
-export function setApiBase(url) {
-  API_BASE = url;
-}
 
 // Get Tauri invoke function if available
 const invoke = window.__TAURI__?.core?.invoke;

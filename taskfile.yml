@@ -5,23 +5,13 @@ shopt: ['globstar']
 
 dotenv: ['.env']
 
-env:
-  VENV_DIR: "{{.ROOT_DIR}}/.venv"
-  PATH: "{{.VENV_DIR}}/bin:{{.PATH}}"
-
 vars:
 
 includes:
-  bench:
-    taskfile: ./taskfiles/bench.yml
   npm:
     taskfile: ./taskfiles/npm.yml
-  pex:
-    taskfile: ./taskfiles/pex.yml
   tauri:
     taskfile: ./taskfiles/tauri.yml
-  uv:
-    taskfile: ./taskfiles/uv.yml
 
 tasks:
   default:
@@ -55,36 +45,25 @@ tasks:
   lint:
     desc: "Run linters"
     cmds:
-      - ruff check --fix --respect-gitignore
+      - cargo clippy --manifest-path src-tauri/Cargo.toml
+      - npm --prefix app/frontend run lint
 
   format:
     desc: "Run formatters"
     cmds:
-      - ruff format --respect-gitignore
+      - cargo fmt --manifest-path src-tauri/Cargo.toml
+      - npm --prefix app/frontend run format
 
   test:
     desc: "Run tests"
     cmds:
-      - pytest
+      - cargo test --manifest-path src-tauri/Cargo.toml
+      - npm --prefix app/frontend test
 
-  pyclean:
-    desc: "Remove .pyc and __pycache__"
+  test:e2e:
+    desc: "Run Playwright E2E tests"
     cmds:
-      - |
-        args=(
-          .
-          --debris
-          --verbose
-          -i .devbox
-        )
-        case "{{.CLI_ARGS}}" in
-          dry-run)
-            pyclean "${args[@]}" --dry-run
-            ;;
-          *)
-            pyclean "${args[@]}"
-            ;;
-        esac
+      - npm --prefix app/frontend run test:e2e
 
   build:
     desc: "Build Tauri app for current architecture"
@@ -115,8 +94,9 @@ tasks:
           --remove-empty-lines \
           --truncate-base64
     sources:
-      - "**/*.py"
-      - "**/*.zig"
+      - "**/*.rs"
+      - "**/*.js"
+      - "**/*.ts"
       - "**/*.toml"
       - "**/*.yml"
       - "**/*.yaml"

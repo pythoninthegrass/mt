@@ -3,7 +3,6 @@ import persist from '@alpinejs/persist';
 import intersect from '@alpinejs/intersect';
 import { initStores } from './js/stores/index.js';
 import { initComponents } from './js/components/index.js';
-import { setApiBase } from './js/api.js';
 import api from './js/api.js';
 import './styles.css';
 
@@ -108,19 +107,6 @@ async function initTauriDragDrop() {
   }
 }
 
-async function initBackendUrl() {
-  try {
-    if (window.__TAURI__) {
-      const { invoke } = window.__TAURI__.core;
-      const url = await invoke('get_backend_url');
-      setApiBase(url + '/api');
-      console.log('[main] Backend URL:', url);
-    }
-  } catch (error) {
-    console.warn('[main] Failed to get backend URL, using default:', error);
-  }
-}
-
 window.testDialog = async function() {
   console.log('[test] Testing dialog...');
   console.log('[test] window.__TAURI__:', window.__TAURI__ ? Object.keys(window.__TAURI__) : 'undefined');
@@ -173,14 +159,13 @@ async function initTitlebarDrag() {
   }
 }
 
-initBackendUrl().then(() => {
-  initStores(Alpine);
-  initComponents(Alpine);
-  initTauriDragDrop();
-  initGlobalKeyboardShortcuts();
-  initTitlebarDrag();
-  
-  Alpine.start();
-  console.log('[main] Alpine started with stores and components');
-  console.log('[main] Test dialog with: testDialog()');
-});
+// Initialize application
+initStores(Alpine);
+initComponents(Alpine);
+initTauriDragDrop();
+initGlobalKeyboardShortcuts();
+initTitlebarDrag();
+
+Alpine.start();
+console.log('[main] Alpine started with stores and components');
+console.log('[main] Test dialog with: testDialog()');

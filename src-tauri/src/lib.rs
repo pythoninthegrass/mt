@@ -8,7 +8,6 @@ pub mod library;
 pub mod media_keys;
 pub mod metadata;
 pub mod scanner;
-pub mod sidecar;
 pub mod watcher;
 
 use commands::{
@@ -27,7 +26,6 @@ use commands::{
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
 use metadata::{get_track_metadata, save_track_metadata};
-use sidecar::{check_backend_health, get_backend_port, get_backend_url, SidecarManager};
 use scanner::commands::{
     extract_file_metadata, get_track_artwork, get_track_artwork_url, scan_paths_metadata,
     scan_paths_to_library,
@@ -214,9 +212,6 @@ pub fn run() {
             audio_set_volume,
             audio_get_volume,
             audio_get_status,
-            get_backend_url,
-            get_backend_port,
-            check_backend_health,
             open_file_dialog,
             open_folder_dialog,
             open_add_music_dialog,
@@ -311,13 +306,7 @@ pub fn run() {
             app.manage(database);
             println!("Database initialized at: {}", db_path.display());
 
-            let sidecar = SidecarManager::start(app.handle())
-                .expect("Failed to start backend sidecar");
-            let backend_url = sidecar.get_url().to_string();
-            println!("Backend URL: {}", backend_url);
-            app.manage(sidecar);
-
-            // Pass database clone to watcher manager (migrated from Python backend)
+            // Pass database clone to watcher manager
             let watcher = WatcherManager::new(app.handle().clone(), database_for_watcher);
             app.manage(watcher);
             println!("Watcher manager initialized (using native Rust)");
@@ -390,14 +379,8 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                let app = window.app_handle();
-                // Graceful sidecar shutdown handled by SidecarManager Drop impl
-                if let Some(sidecar) = app.try_state::<SidecarManager>() {
-                    sidecar.shutdown();
-                }
-            }
+        .on_window_event(|_window, _event| {
+            // Window event handler (sidecar removed in migration)
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

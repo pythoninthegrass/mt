@@ -12,8 +12,6 @@ vars:
   APP_VERSION: '{{.APP_VERSION | default "1.0.0"}}'
   BUNDLE_ID: '{{.BUNDLE_ID | default "com.mt.desktop"}}'
   TAURI_DIR: "{{.ROOT_DIR}}/src-tauri"
-  SIDECAR_DIR: "{{.TAURI_DIR}}/bin"
-  BACKEND_DIR: "{{.ROOT_DIR}}/backend"
   MACOS_ARM64_TARGET: "aarch64-apple-darwin"
   MACOS_X64_TARGET: "x86_64-apple-darwin"
 
@@ -28,16 +26,12 @@ tasks:
           Version: {{.APP_VERSION}}
           Bundle ID: {{.BUNDLE_ID}}
           Tauri Directory: {{.TAURI_DIR}}
-          Sidecar Directory: {{.SIDECAR_DIR}}
 
         Available targets:
           - build:arm64     Build for Apple Silicon (arm64)
           - build:x64       Build for Intel (x86_64)
           - build           Build for current architecture
           - dev             Run development mode
-          - sidecar:arm64   Build Python sidecar for arm64
-          - sidecar:x64     Build Python sidecar for x64
-          - sidecar         Build sidecar for current arch
           - icons           Generate app icons from logo
 
         Output locations:
@@ -45,30 +39,6 @@ tasks:
           - DMG: {{.TAURI_DIR}}/target/*/release/bundle/dmg/{{.APP_NAME}}_*.dmg
         EOF
     silent: true
-
-  sidecar:
-    desc: "Build Python sidecar for current architecture"
-    cmds:
-      - task: :pex:build
-    sources:
-      - "{{.BACKEND_DIR}}/**/*.py"
-      - "{{.ROOT_DIR}}/pyproject.toml"
-
-  sidecar:arm64:
-    desc: "Build Python sidecar for Apple Silicon (arm64)"
-    cmds:
-      - task: :pex:build:arm64
-    sources:
-      - "{{.BACKEND_DIR}}/**/*.py"
-      - "{{.ROOT_DIR}}/pyproject.toml"
-
-  sidecar:x64:
-    desc: "Build Python sidecar for Intel (x86_64)"
-    cmds:
-      - task: :pex:build:x64
-    sources:
-      - "{{.BACKEND_DIR}}/**/*.py"
-      - "{{.ROOT_DIR}}/pyproject.toml"
 
   _build:
     internal: true
@@ -87,7 +57,6 @@ tasks:
     vars:
       CURRENT_TARGET: '{{if eq ARCH "arm64"}}{{.MACOS_ARM64_TARGET}}{{else}}{{.MACOS_X64_TARGET}}{{end}}'
     cmds:
-      - task: sidecar
       - task: _build
         vars:
           TARGET: "{{.CURRENT_TARGET}}"
@@ -95,15 +64,11 @@ tasks:
       - "{{.TAURI_DIR}}/src/**/*.rs"
       - "{{.TAURI_DIR}}/Cargo.toml"
       - "{{.TAURI_DIR}}/tauri.conf.json"
-      - "{{.SIDECAR_DIR}}/main*"
-      - "{{.ROOT_DIR}}/pyproject.toml"
-      - "{{.ROOT_DIR}}/uv.lock"
 
   build:arm64:
     desc: "Build Tauri app for Apple Silicon (arm64)"
     deps: [":npm:install"]
     cmds:
-      - task: sidecar:arm64
       - task: _build
         vars:
           TARGET: "{{.MACOS_ARM64_TARGET}}"
@@ -111,13 +76,11 @@ tasks:
       - "{{.TAURI_DIR}}/src/**/*.rs"
       - "{{.TAURI_DIR}}/Cargo.toml"
       - "{{.TAURI_DIR}}/tauri.conf.json"
-      - "{{.SIDECAR_DIR}}/main-{{.MACOS_ARM64_TARGET}}"
 
   build:x64:
     desc: "Build Tauri app for Intel (x86_64)"
     deps: [":npm:install"]
     cmds:
-      - task: sidecar:x64
       - task: _build
         vars:
           TARGET: "{{.MACOS_X64_TARGET}}"
@@ -125,11 +88,10 @@ tasks:
       - "{{.TAURI_DIR}}/src/**/*.rs"
       - "{{.TAURI_DIR}}/Cargo.toml"
       - "{{.TAURI_DIR}}/tauri.conf.json"
-      - "{{.SIDECAR_DIR}}/main-{{.MACOS_X64_TARGET}}"
 
   dev:
     desc: "Run Tauri in development mode"
-    deps: [":npm:install", "sidecar"]
+    deps: [":npm:install"]
     cmds:
       - npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri dev
     interactive: true
@@ -148,15 +110,8 @@ tasks:
     desc: "Clean Tauri build artifacts"
     cmds:
       - rm -rf {{.TAURI_DIR}}/target
-      - rm -rf {{.SIDECAR_DIR}}/main*
       - rm -rf {{.ROOT_DIR}}/build
       - rm -rf {{.ROOT_DIR}}/dist
-    silent: true
-
-  clean:sidecar:
-    desc: "Clean only sidecar binaries"
-    cmds:
-      - rm -rf {{.SIDECAR_DIR}}/main*
     silent: true
 
   clean:rust:
@@ -193,20 +148,6 @@ tasks:
           missing=1
         else
           echo "npx available"
-        fi
-
-        if ! command -v uv &> /dev/null; then
-          echo "uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
-          missing=1
-        else
-          echo "uv version: $(uv --version)"
-        fi
-
-        if ! command -v pex &> /dev/null; then
-          echo "pex not found. Install with: uv pip install pex"
-          missing=1
-        else
-          echo "pex version: $(pex --version)"
         fi
 
         if [[ $missing -eq 0 ]]; then

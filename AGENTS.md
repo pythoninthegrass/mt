@@ -27,20 +27,12 @@ Always use Context7 MCP when I need library/API documentation, code generation, 
 
 - alpinejs/alpine
 - dubzzz/fast-check
+- jdx/mise
 - microsoft/playwright (for E2E testing)
 - serial-ata/lofty-rs
 - tailwindlabs/tailwindcss
 - websites/last_fm_api
 - websites/rs_tauri_2_9_5
-
-### Python Libraries
-
-- hypothesisworks/hypothesis
-- itamarst/eliot
-- johnwmillr/lyricsgenius
-- ludo-technologies/pyscn
-- quodlibet/mutagen
-- spiraldb/ziggy-pydust
 
 ## Atomic Commit Workflow
 
@@ -155,14 +147,11 @@ npm run test:e2e:ui
 # Install runtimes
 mise install
 
-# Create Python virtual environment with Python 3.12-3.13
-uv venv --python ">=3.12,<3.13"
-
-# Install Python dependencies (including all extras)
-uv pip install -r pyproject.toml --all-extras
-
 # Copy environment configuration (Last.fm API keys are optional)
 cp .env.example .env
+
+# Install dependencies
+npm install
 ```
 
 ### Development Workflow
@@ -170,11 +159,7 @@ cp .env.example .env
 #### Task runner abstraction
 
 ```bash
-# After making Python backend changes, rebuild sidecar
-# ! This is called automatically by 'tauri:dev'
-task pex:build
-
-# Start development server (builds sidecar first)
+# Start development server
 task tauri:dev
 ```
 
@@ -313,14 +298,15 @@ test('should play track when clicked', async ({ page }) => {
 
 ### Task Runner Commands
 
-The project uses Taskfile (task-runner) for orchestrating build, test, and development workflows. The task system is organized into modular taskfiles:
+The project uses Taskfile (task-runner) for orchestrating build, test, and development workflows.
 
 **Main Taskfile Commands:**
 ```bash
 # Development
-task lint                     # Run Python linters (ruff)
-task format                   # Run Python formatters (ruff)
-task test                     # Run Python tests (pytest)
+task lint                     # Run Rust and JS linters
+task format                   # Run Rust and JS formatters
+task test                     # Run Rust and JS tests
+task test:e2e                 # Run Playwright E2E tests
 task pre-commit               # Run pre-commit hooks
 
 # Building
@@ -329,7 +315,6 @@ task build:arm64              # Build for Apple Silicon (arm64)
 task build:x64                # Build for Intel (x86_64)
 
 # Utilities
-task pyclean                  # Remove Python cache files
 task install                  # Install project dependencies via devbox
 ```
 
@@ -339,23 +324,8 @@ task tauri:dev                # Run Tauri in development mode
 task tauri:build              # Build Tauri app for current architecture
 task tauri:build:arm64        # Build Tauri app for Apple Silicon
 task tauri:build:x64          # Build Tauri app for Intel
-task tauri:sidecar            # Build Python sidecar for current arch
-task tauri:sidecar:arm64      # Build Python sidecar for arm64
-task tauri:sidecar:x64        # Build Python sidecar for x64
 task tauri:info               # Show Tauri build configuration
-```
-
-**PEX Taskfile Commands** (namespace: `pex:`):
-```bash
-task pex:build                # Build PEX sidecar for current arch
-task pex:build:arm64          # Build PEX sidecar for Apple Silicon
-task pex:build:x64            # Build PEX sidecar for Intel (x86_64)
-task pex:stage                # Stage backend files for PEX build
-task pex:clean                # Clean PEX staging directory
-task pex:clean:sidecar        # Clean PEX sidecar binaries
-task pex:check-deps           # Check if PEX dependencies are installed
-task pex:test                 # Test PEX sidecar runs correctly
-task pex:info                 # Show PEX build configuration
+task tauri:clean              # Clean Tauri build artifacts
 ```
 
 **NPM Taskfile Commands** (namespace: `npm:`):
@@ -364,27 +334,17 @@ task npm:install              # Install npm dependencies
 task npm:clean                # Clean npm cache and node_modules
 ```
 
-**UV Taskfile Commands** (namespace: `uv:`):
-```bash
-task uv:sync                  # Sync Python dependencies with uv
-task uv:lock                  # Update Python lockfile
-```
-
 **Build Pipeline:**
 
 When running `task build`, the following happens automatically:
 1. `npm:install` - Install frontend dependencies
-2. `pex:build` - Build Python sidecar for current architecture
-3. `tauri:build` - Build Rust backend and bundle with frontend + sidecar
+2. `tauri:build` - Build Rust backend and bundle with frontend
 
 **Development Workflow:**
 
 ```bash
-# Start development server (builds sidecar first)
+# Start development server
 task tauri:dev
-
-# After making Python backend changes, rebuild sidecar
-task pex:build
 
 # After making Rust backend changes, Tauri will auto-rebuild
 # (hot reload is automatic in dev mode)
@@ -486,77 +446,35 @@ wt remove feature -D
 
 ## Architecture Overview
 
-### Migration Status: Hybrid Architecture (Tauri + Python Backend Bridge)
+### Pure Rust + Tauri Architecture
 
-**Current State:** The application is in a transitional hybrid architecture during the Tauri migration:
+**Current State:** The application uses a modern Tauri architecture with a pure Rust backend:
 
-- **Frontend**: Tauri + basecoat/Alpine.js (complete)
-- **Backend**: Python FastAPI sidecar via PEX (temporary bridge to legacy Python code)
-- **Target**: Full Rust backend implementation
-
-**Python Sidecar Bridge (Temporary):**
-
-The application currently uses a Python backend as a **temporary bridge** during migration:
-
-1. **PEX SCIE Packaging** (`taskfiles/pex.yml`):
-   - Python backend packaged as standalone executable using PEX (Python EXecutable)
-   - SCIE (Self-Contained Interpreted Execution) format for zero-install Python apps
-   - Built for multiple architectures: arm64 (Apple Silicon) and x86_64 (Intel)
-   - Location: `src-tauri/bin/main-<target>` (e.g., `main-aarch64-apple-darwin`)
-   - Dependencies: FastAPI, uvicorn, pydantic, websockets, mutagen
-
-2. **Sidecar Management** (`src-tauri/src/sidecar.rs`):
-   - Rust `SidecarManager` spawns and manages Python backend process
-   - Dynamic port allocation (8765-8865 range)
-   - Health check polling before frontend initialization
-   - Automatic lifecycle management (start/stop with app)
-   - Environment variables: `MT_API_PORT`, `MT_DB_PATH`
-
-3. **FastAPI Backend** (`app/backend/main.py`):
-   - Minimal FastAPI server with health check and shutdown endpoints
-   - Listens on `127.0.0.1:<dynamic-port>` (localhost-only)
-   - CORS configured for Tauri frontend communication
-   - Environment: `MT_SIDECAR_HOST`, `MT_SIDECAR_PORT`
-
-4. **Tauri Configuration** (`src-tauri/tauri.conf.json`):
-   - `externalBin: ["bin/main"]` - Tauri bundles PEX executable
-   - Automatically selects correct architecture binary at runtime
-
-5. **Taskfile Integration**:
-   - Main Taskfile (`Taskfile.yml`): Coordinates all build tasks
-   - PEX Taskfile (`taskfiles/pex.yml`): Python sidecar build pipeline
-   - Tauri Taskfile (`taskfiles/tauri.yml`): Tauri app build pipeline
-   - Build order: `task tauri:build` → `task pex:build` → Tauri bundle
-
-**Migration Path:**
+- **Frontend**: Tauri + basecoat/Alpine.js
+- **Backend**: Native Rust (all 87 Tauri commands implemented)
+- **Database**: SQLite via rusqlite
+- **Audio**: Rodio/Symphonia for playback
 
 ```
-[Current]                    [Future]
-┌─────────────┐             ┌─────────────┐
-│   Frontend  │             │   Frontend  │
-│  (Tauri +   │             │  (Tauri +   │
-│  basecoat)  │             │  basecoat)  │
-└──────┬──────┘             └──────┬──────┘
-       │ HTTP                      │ Tauri
-       │                           │ Commands
-┌──────▼──────┐             ┌──────▼──────┐
-│   Python    │   →→→→→→    │    Rust     │
-│   FastAPI   │   Migrate   │   Backend   │
-│   Sidecar   │             │  (Native)   │
-└─────────────┘             └─────────────┘
+┌─────────────┐
+│   Frontend  │
+│  (Tauri +   │
+│  basecoat)  │
+└──────┬──────┘
+       │ Tauri
+       │ Commands
+┌──────▼──────┐
+│    Rust     │
+│   Backend   │
+│  (Native)   │
+└─────────────┘
 ```
 
-**Why Hybrid Architecture:**
-- Preserves working Python music library management code during migration
-- Allows incremental migration of backend features to Rust
-- Reduces risk by maintaining functional application throughout transition
-- PEX provides zero-dependency packaging for Python code
-
-**Future Work:**
-- Migrate music library scanning to Rust (using `symphonia` or similar)
-- Migrate database operations to native Rust (using `rusqlite`)
-- Remove Python backend and PEX build system
-- Direct Tauri command implementation for all backend operations
+**Key Features:**
+- Fast startup (no interpreter initialization)
+- Low memory footprint (no Python runtime)
+- Single binary distribution
+- Type-safe IPC via Tauri commands
 
 ### Core Components
 
