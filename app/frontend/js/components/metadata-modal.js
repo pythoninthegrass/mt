@@ -68,11 +68,11 @@ export function createMetadataModal(Alpine) {
     },
 
     get canNavigatePrev() {
-      return this.navigationEnabled && this._batchOrderedIds.length > 1;
+      return this.navigationEnabled && this.currentBatchIndex > 0;
     },
 
     get canNavigateNext() {
-      return this.navigationEnabled && this._batchOrderedIds.length > 1;
+      return this.navigationEnabled && this.currentBatchIndex >= 0 && this.currentBatchIndex < this._batchOrderedIds.length - 1;
     },
 
     get navIndicator() {
@@ -106,6 +106,11 @@ export function createMetadataModal(Alpine) {
 
       try {
         await this.loadMetadata();
+
+        // Initialize currentTrackId for navigation (use original selection order)
+        if (this.navigationEnabled && this._batchTrackIds.length > 0) {
+          this.currentTrackId = this._batchTrackIds[0];
+        }
       } catch (error) {
         console.error('[metadata] Failed to load metadata:', error);
         Alpine.store('ui').toast('Failed to load track metadata', 'error');

@@ -649,7 +649,9 @@ test.describe('Playlist Feature Parity (task-150)', () => {
 
     await page.waitForTimeout(300);
 
-    const playlistButton = page.locator('[data-testid="sidebar-playlist-1"]');
+    // Check a different playlist (not the one being dragged)
+    // Playlist 1 is at index 0, so check playlist 2 (at index 1)
+    const playlistButton = page.locator('[data-testid="sidebar-playlist-2"]');
     const classes = await playlistButton.getAttribute('class');
     expect(classes).toContain('opacity-50');
   });

@@ -1785,10 +1785,9 @@ test.describe('Playlist Feature Parity - Library Browser (task-150)', () => {
     });
     expect(isInPlaylistView).toBe(true);
 
-    const track1 = page.locator('[data-track-id]').first();
-    const track1Box = await track1.boundingBox();
-
-    await page.mouse.move(track1Box.x + 10, track1Box.y + track1Box.height / 2);
+    // Click on the drag handle itself to trigger drag state
+    const dragHandleBox = await dragHandle.boundingBox();
+    await page.mouse.move(dragHandleBox.x + dragHandleBox.width / 2, dragHandleBox.y + dragHandleBox.height / 2);
     await page.mouse.down();
 
     const draggingIndex = await page.evaluate(() => {
