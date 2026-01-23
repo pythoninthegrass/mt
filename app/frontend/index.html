@@ -1987,7 +1987,7 @@
   </div>
 
   <!-- Toast Notifications -->
-  <div class="fixed bottom-20 right-4 space-y-2 z-50">
+  <div x-data class="fixed bottom-20 right-4 space-y-2 z-50" data-testid="toast-container">
     <template x-for="toast in $store.ui.toasts" :key="toast.id">
       <div
         class="px-4 py-2 rounded shadow-lg cursor-pointer transition-opacity"
