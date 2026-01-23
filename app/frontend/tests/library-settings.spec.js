@@ -22,13 +22,13 @@ test.describe('Library Settings UI', () => {
     await expect(librarySection).toBeVisible();
   });
 
-  test('should display Reconciliation Scan subsection', async ({ page }) => {
+  test('should display Manual Scan subsection', async ({ page }) => {
     await page.click('[data-testid="settings-nav-library"]');
 
     const librarySection = page.locator('[data-testid="settings-section-library"]');
     await expect(librarySection).toBeVisible();
 
-    const scanTitle = librarySection.locator('text=Reconciliation Scan');
+    const scanTitle = librarySection.locator('text=Manual Scan');
     await expect(scanTitle).toBeVisible();
 
     const scanDescription = librarySection.locator('text=Update file fingerprints');
