@@ -391,7 +391,7 @@
               x-cloak
               @click.away="hidePlaylistContextMenu()"
               @keydown.escape.window="hidePlaylistContextMenu()"
-              class="fixed z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[140px]"
+              class="context-menu bg-card"
               :style="`left: ${contextMenuX}px; top: ${contextMenuY}px;`"
               data-testid="playlist-context-menu"
             >
