@@ -395,15 +395,20 @@ impl WatcherManager {
                 });
             });
 
-        // Run 2-phase scan
-        let scan_result = match scan_2phase(
-            &[folder.path.clone()],
-            &db_fingerprints,
-            true,
-            Some(&progress_callback),
-        ) {
-            Ok(r) => r,
-            Err(e) => {
+        // Run 2-phase scan in a blocking task to prevent UI freeze
+        let folder_path = folder.path.clone();
+        let scan_result = match tokio::task::spawn_blocking(move || {
+            scan_2phase(
+                &[folder_path],
+                &db_fingerprints,
+                true,
+                Some(&progress_callback),
+            )
+        })
+        .await
+        {
+            Ok(Ok(r)) => r,
+            Ok(Err(e)) => {
                 eprintln!("[watcher] Scan failed for folder {}: {}", folder_id, e);
                 let _ = app.emit(
                     "watched-folder:status",
@@ -411,6 +416,18 @@ impl WatcherManager {
                         folder_id,
                         status: "error".to_string(),
                         message: Some(format!("Scan failed: {}", e)),
+                    },
+                );
+                return;
+            }
+            Err(e) => {
+                eprintln!("[watcher] Scan task panicked for folder {}: {}", folder_id, e);
+                let _ = app.emit(
+                    "watched-folder:status",
+                    WatcherStatus {
+                        folder_id,
+                        status: "error".to_string(),
+                        message: Some(format!("Scan task failed: {}", e)),
                     },
                 );
                 return;
