@@ -348,3 +348,7 @@ mod tests {
         assert_eq!(length, 0);
     }
 }
+
+#[cfg(test)]
+#[path = "queue_props_test.rs"]
+mod queue_props_test;
