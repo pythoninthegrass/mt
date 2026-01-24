@@ -1,10 +1,10 @@
 ---
 id: task-190
 title: Remove Python backend and PEX sidecar (Phase 5)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-21 17:39'
-updated_date: '2026-01-22 01:15'
+updated_date: '2026-01-24 22:22'
 labels:
   - rust
   - migration
@@ -88,14 +88,14 @@ Final cleanup phase: Remove Python FastAPI backend, PEX build system, and all Py
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Python backend code deleted
-- [ ] #2 PEX build system removed
-- [ ] #3 Python dependencies removed from project
-- [ ] #4 Build system updated and simplified
-- [ ] #5 Documentation updated
-- [ ] #6 Performance benchmarks completed
-- [ ] #7 E2E tests passing on all platforms
-- [ ] #8 Application fully functional without Python
-- [ ] #9 Startup time improved
-- [ ] #10 Memory usage reduced
+- [x] #1 Python backend code deleted
+- [x] #2 PEX build system removed
+- [x] #3 Python dependencies removed from project
+- [x] #4 Build system updated and simplified
+- [x] #5 Documentation updated
+- [x] #6 Performance benchmarks completed
+- [x] #7 E2E tests passing on all platforms
+- [x] #8 Application fully functional without Python
+- [x] #9 Startup time improved
+- [x] #10 Memory usage reduced
 <!-- AC:END -->

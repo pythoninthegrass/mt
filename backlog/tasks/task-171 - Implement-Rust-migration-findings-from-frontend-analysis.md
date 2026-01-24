@@ -1,10 +1,10 @@
 ---
 id: task-171
 title: Implement Rust migration findings from frontend analysis
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-19 06:11'
-updated_date: '2026-01-21 18:33'
+updated_date: '2026-01-24 22:22'
 labels:
   - implementation
   - architecture
@@ -14,7 +14,7 @@ labels:
 dependencies:
   - task-170
 priority: medium
-ordinal: 562.5
+ordinal: 2000
 ---
 
 ## Description
