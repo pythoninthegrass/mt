@@ -25,16 +25,9 @@ export function createPlayerStore(Alpine) {
     _mediaKeyListeners: [],
     _previousVolume: 100,
     _seekDebounce: null,
-    _playCountUpdated: false,
-    _playCountThreshold: 0.75,
-    _scrobbleThreshold: 0.9, // Default 90%, will be updated from settings
-    _scrobbleChecked: false,
     _playRequestId: 0, // Guard against concurrent playTrack calls
 
     async init() {
-      // Load Last.fm settings
-      await this._loadLastfmSettings();
-
       this._progressListener = await listen('audio://progress', (event) => {
         if (this.isSeeking) return;
         const { position_ms, duration_ms, state } = event.payload;
@@ -47,22 +40,6 @@ export function createPlayerStore(Alpine) {
         const effectiveDuration = this.duration;
         this.progress = effectiveDuration > 0 ? (position_ms / effectiveDuration) * 100 : 0;
         this.isPlaying = state === 'Playing';
-
-        // Check for play count update
-        if (!this._playCountUpdated && effectiveDuration > 0 && this.currentTrack?.id) {
-          const ratio = position_ms / effectiveDuration;
-          if (ratio >= this._playCountThreshold) {
-            this._updatePlayCount();
-          }
-        }
-
-        // Check for scrobbling
-        if (!this._scrobbleChecked && effectiveDuration > 0 && this.currentTrack) {
-          const ratio = position_ms / effectiveDuration;
-          if (ratio >= this._scrobbleThreshold) {
-            this._checkScrobble();
-          }
-        }
       });
 
       this._trackEndedListener = await listen('audio://track-ended', () => {
@@ -84,73 +61,6 @@ export function createPlayerStore(Alpine) {
         this.volume = Math.round(status.volume * 100);
       } catch (e) {
         console.warn('Could not get initial audio status:', e);
-      }
-    },
-
-    async _loadLastfmSettings() {
-      try {
-        const settings = await api.lastfm.getSettings();
-        // Convert percentage to decimal (90% -> 0.9)
-        this._scrobbleThreshold = settings.scrobble_threshold / 100;
-      } catch (error) {
-        console.warn('[player] Failed to load Last.fm settings, using defaults:', error);
-        this._scrobbleThreshold = 0.9; // Default 90%
-      }
-    },
-
-    async _checkScrobble() {
-      if (!this.currentTrack || this._scrobbleChecked) return;
-
-      try {
-        const settings = await api.lastfm.getSettings();
-        if (!settings.enabled || !settings.authenticated) return;
-
-        // Log the threshold check values for debugging
-        const fractionPlayed = this.duration > 0 ? this.currentTime / this.duration : 0;
-        console.debug('[scrobble] Threshold check:', {
-          track: this.currentTrack.title,
-          currentTime: this.currentTime,
-          duration: this.duration,
-          fractionPlayed: fractionPlayed.toFixed(3),
-          thresholdFraction: this._scrobbleThreshold,
-          thresholdPercent: (this._scrobbleThreshold * 100).toFixed(0) + '%',
-          meetsThreshold: fractionPlayed >= this._scrobbleThreshold
-        });
-
-        // Prepare scrobble data
-        // Use Math.ceil for duration/played_time to avoid off-by-one threshold failures
-        // (frontend fraction check uses ms precision, but backend uses seconds)
-        const scrobbleData = {
-          artist: this.currentTrack.artist || 'Unknown Artist',
-          track: this.currentTrack.title || 'Unknown Track',
-          album: this.currentTrack.album || undefined,
-          timestamp: Math.floor(Date.now() / 1000), // Current time when scrobbled
-          duration: Math.ceil(this.duration / 1000), // Convert ms to seconds (ceil to avoid truncation)
-          played_time: Math.ceil(this.currentTime / 1000), // Time actually played (ceil to match frontend check)
-        };
-
-        // Scrobble in background
-        api.lastfm.scrobble(scrobbleData).then(result => {
-          if (result.status === 'threshold_not_met') {
-            console.debug('[scrobble] Threshold not met (backend):', scrobbleData.track);
-          } else if (result.status === 'queued') {
-            console.warn('[scrobble] Queued for retry:', result.message);
-          } else if (result.status === 'disabled') {
-            console.debug('[scrobble] Scrobbling disabled');
-          } else if (result.status === 'not_authenticated') {
-            console.debug('[scrobble] Not authenticated with Last.fm');
-          } else if (result.status === 'success') {
-            console.log('[scrobble] Successfully scrobbled:', scrobbleData.track);
-          } else {
-            console.warn('[scrobble] Unexpected response:', result);
-          }
-        }).catch(error => {
-          console.error('[scrobble] Failed to scrobble:', error);
-        });
-
-        this._scrobbleChecked = true;
-      } catch (error) {
-        console.error('[player] Failed to check scrobble settings:', error);
       }
     },
 
@@ -199,7 +109,10 @@ export function createPlayerStore(Alpine) {
           return;
         }
 
-        const info = await invoke('audio_load', { path: track.filepath || track.path });
+        const info = await invoke('audio_load', {
+          path: track.filepath || track.path,
+          trackId: track.id  // Pass track_id for backend play count tracking
+        });
 
         // Check if this request was superseded while loading
         if (this._playRequestId !== requestId) {
@@ -219,8 +132,6 @@ export function createPlayerStore(Alpine) {
         this.duration = durationMs;
         this.currentTime = 0;
         this.progress = 0;
-        this._playCountUpdated = false;
-        this._scrobbleChecked = false;
 
         await invoke('audio_play');
         this.isPlaying = true;
@@ -452,17 +363,6 @@ export function createPlayerStore(Alpine) {
           console.error('Failed to load artwork:', error);
         }
         this.artwork = null;
-      }
-    },
-
-    async _updatePlayCount() {
-      if (this._playCountUpdated || !this.currentTrack?.id) return;
-
-      this._playCountUpdated = true;
-      try {
-        await api.library.updatePlayCount(this.currentTrack.id);
-      } catch (error) {
-        console.error('Failed to update play count:', error);
       }
     },
 
