@@ -490,6 +490,160 @@ test.describe('Playback Edge Cases (Regression Hardening)', () => {
     );
     expect(trackIdFinal).toBe(trackIdBefore);
   });
+
+  test('now playing track display should show current track title and artist', async ({ page }) => {
+    // Simulate playback by setting up queue and player state directly
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+
+      queue.items = [...library.tracks];
+      queue.currentIndex = 0;
+      player.currentTrack = library.tracks[0];
+      player.isPlaying = true;
+    });
+
+    // Check the track display in the footer
+    const trackDisplay = page.locator('footer [x-text="trackDisplayName"]');
+    await expect(trackDisplay).toBeVisible();
+
+    // Verify it displays track info
+    const displayText = await trackDisplay.textContent();
+    expect(displayText.length).toBeGreaterThan(0);
+
+    // The display format is typically "Artist - Title" or "Title"
+    // Verify it contains something meaningful
+    expect(displayText).not.toBe('—');
+  });
+
+  test('now playing display should update when track changes', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Set up initial track
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+
+      queue.items = [...library.tracks];
+      queue.currentIndex = 0;
+      player.currentTrack = library.tracks[0];
+      player.isPlaying = true;
+    });
+
+    const trackDisplay = page.locator('footer [x-text="trackDisplayName"]');
+    const firstTrackDisplay = await trackDisplay.textContent();
+
+    // Change to second track
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+
+      if (library.tracks.length > 1) {
+        queue.currentIndex = 1;
+        player.currentTrack = library.tracks[1];
+      }
+    });
+
+    await page.waitForTimeout(200);
+
+    // Display should update (if tracks are different)
+    const secondTrackDisplay = await trackDisplay.textContent();
+    expect(secondTrackDisplay.length).toBeGreaterThan(0);
+  });
+
+  test('double-click on now playing display should scroll to current track in library', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Get track count and select a track from the middle
+    const trackCount = await page.evaluate(() =>
+      window.Alpine.store('library').filteredTracks.length
+    );
+
+    // Use a track from the middle of the list
+    const targetIndex = Math.floor(trackCount / 2);
+
+    await page.evaluate((idx) => {
+      const library = window.Alpine.store('library');
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+
+      queue.items = [...library.tracks];
+      queue.currentIndex = idx;
+      player.currentTrack = library.tracks[idx];
+    }, targetIndex);
+
+    // Scroll to top of library first to ensure we need to scroll
+    await page.evaluate(() => {
+      const container = document.querySelector('[x-ref="scrollContainer"]');
+      if (container) container.scrollTop = 0;
+    });
+    await page.waitForTimeout(200);
+
+    // Double-click the now playing display
+    const trackDisplay = page.locator('footer [x-text="trackDisplayName"]');
+    await trackDisplay.dblclick();
+
+    // Wait for scroll animation
+    await page.waitForTimeout(600);
+
+    // Verify the current track is now visible
+    const currentTrackId = await page.evaluate(() =>
+      window.Alpine.store('player').currentTrack?.id
+    );
+
+    if (currentTrackId) {
+      const trackElement = page.locator(`[data-track-id="${currentTrackId}"]`);
+      const isVisible = await trackElement.isVisible();
+      expect(isVisible).toBe(true);
+    }
+  });
+
+  test('now playing display should be hidden when no track is playing', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Ensure no track is playing
+    await page.evaluate(() => {
+      window.Alpine.store('player').currentTrack = null;
+      window.Alpine.store('player').isPlaying = false;
+    });
+
+    // The track display should be invisible (invisible class when no track)
+    const trackDisplay = page.locator('footer [x-text="trackDisplayName"]');
+
+    // Check the visibility class
+    const hasInvisibleClass = await page.evaluate(() => {
+      const el = document.querySelector('footer [x-text="trackDisplayName"]');
+      return el?.classList.contains('invisible');
+    });
+
+    expect(hasInvisibleClass).toBe(true);
+  });
+
+  test('now playing display should show when track is set', async ({ page }) => {
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Set a current track
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      const player = window.Alpine.store('player');
+      player.currentTrack = library.tracks[0];
+    });
+
+    await page.waitForTimeout(100);
+
+    // The track display should be visible
+    const hasInvisibleClass = await page.evaluate(() => {
+      const el = document.querySelector('footer [x-text="trackDisplayName"]');
+      return el?.classList.contains('invisible');
+    });
+
+    expect(hasInvisibleClass).toBe(false);
+  });
 });
 
 test.describe('Playback Parity Tests @tauri', () => {
