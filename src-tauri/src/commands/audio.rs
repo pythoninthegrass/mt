@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaybackStatus {
@@ -15,7 +15,7 @@ pub struct PlaybackStatus {
 }
 
 enum AudioCommand {
-    Load(String, Sender<Result<TrackInfo, String>>),
+    Load(String, Option<i64>, Sender<Result<TrackInfo, String>>),  // Add track_id
     Play(Sender<Result<(), String>>),
     Pause(Sender<Result<(), String>>),
     Stop(Sender<Result<(), String>>),
@@ -23,6 +23,17 @@ enum AudioCommand {
     SetVolume(f32, Sender<Result<(), String>>),
     GetVolume(Sender<f32>),
     GetStatus(Sender<PlaybackStatus>),
+}
+
+struct PlayCountState {
+    track_id: Option<i64>,
+    threshold_reached: bool,
+}
+
+struct ScrobbleState {
+    track_id: Option<i64>,
+    threshold_reached: bool,
+    threshold_percent: f64,
 }
 
 pub struct AudioState {
@@ -56,13 +67,32 @@ fn audio_thread(rx: Receiver<AudioCommand>, app: AppHandle) {
 
     let mut last_finished = false;
     let mut last_emit = std::time::Instant::now();
+    let mut play_count_state = PlayCountState {
+        track_id: None,
+        threshold_reached: false,
+    };
+    let mut scrobble_state = ScrobbleState {
+        track_id: None,
+        threshold_reached: false,
+        threshold_percent: 0.9, // Default 90%
+    };
 
     loop {
         match rx.recv_timeout(Duration::from_millis(100)) {
             Ok(cmd) => match cmd {
-                AudioCommand::Load(path, reply) => {
+                AudioCommand::Load(path, track_id, reply) => {
                     let result = engine.load(&path).map_err(|e| e.to_string());
+
+                    // Reset play count state for new track
+                    play_count_state.track_id = track_id;
+                    play_count_state.threshold_reached = false;
+
+                    // Reset scrobble state for new track
+                    scrobble_state.track_id = track_id;
+                    scrobble_state.threshold_reached = false;
+
                     last_finished = false;
+
                     let _ = reply.send(result);
                 }
                 AudioCommand::Play(reply) => {
@@ -112,6 +142,59 @@ fn audio_thread(rx: Receiver<AudioCommand>, app: AppHandle) {
             let progress = engine.get_progress();
             let _ = app.emit("audio://progress", &progress);
             last_emit = std::time::Instant::now();
+
+            // Check play count threshold (75%)
+            if !play_count_state.threshold_reached
+               && progress.duration_ms > 0
+               && play_count_state.track_id.is_some() {
+                let ratio = progress.position_ms as f64 / progress.duration_ms as f64;
+
+                if ratio >= 0.75 {
+                    if let Some(track_id) = play_count_state.track_id {
+                        // Spawn async task to avoid blocking audio thread
+                        let app_handle = app.clone();
+                        std::thread::spawn(move || {
+                            use crate::db::Database;
+                            use crate::db::library;
+
+                            let db = app_handle.state::<Database>();
+                            if let Ok(conn) = db.conn() {
+                                let _ = library::update_play_count(&conn, track_id);
+                                println!("[audio] Play count updated for track_id={}", track_id);
+                            }
+                        });
+                        play_count_state.threshold_reached = true;
+                    }
+                }
+            }
+
+            // Check scrobble threshold (90% default, configurable)
+            if !scrobble_state.threshold_reached
+               && progress.duration_ms > 0
+               && scrobble_state.track_id.is_some() {
+                let ratio = progress.position_ms as f64 / progress.duration_ms as f64;
+
+                if ratio >= scrobble_state.threshold_percent {
+                    if let Some(track_id) = scrobble_state.track_id {
+                        // Spawn async task to avoid blocking audio thread
+                        let app_handle = app.clone();
+                        std::thread::spawn(move || {
+                            use crate::commands::lastfm;
+                            use crate::db::Database;
+
+                            let db = app_handle.state::<Database>();
+                            if let Ok(conn) = db.conn() {
+                                // Queue scrobble from audio thread
+                                match lastfm::scrobble_from_audio_thread(&app_handle, &conn, track_id) {
+                                    Ok(_) => println!("[audio] Scrobble queued for track_id={}", track_id),
+                                    Err(e) => eprintln!("[audio] Failed to queue scrobble: {}", e),
+                                }
+                            }
+                        });
+                        scrobble_state.threshold_reached = true;
+                    }
+                }
+            }
         }
 
         if is_finished && !last_finished {
@@ -122,9 +205,9 @@ fn audio_thread(rx: Receiver<AudioCommand>, app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn audio_load(path: String, state: State<AudioState>) -> Result<TrackInfo, String> {
+pub fn audio_load(path: String, track_id: Option<i64>, state: State<AudioState>) -> Result<TrackInfo, String> {
     let (tx, rx) = mpsc::channel();
-    state.send_command(AudioCommand::Load(path, tx));
+    state.send_command(AudioCommand::Load(path, track_id, tx));
     rx.recv().map_err(|_| "Channel closed".to_string())?
 }
 

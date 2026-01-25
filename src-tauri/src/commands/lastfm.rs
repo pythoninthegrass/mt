@@ -381,6 +381,69 @@ fn queue_scrobble_for_retry(
     Ok(())
 }
 
+/// Scrobble a track from the audio thread (synchronous, called at 90% threshold)
+///
+/// This function is called by the audio thread when playback reaches the scrobble
+/// threshold. It queues the scrobble for immediate processing by the retry mechanism.
+pub(crate) fn scrobble_from_audio_thread(
+    app: &AppHandle,
+    conn: &rusqlite::Connection,
+    track_id: i64,
+) -> Result<(), String> {
+    // Check if scrobbling is enabled
+    let enabled = is_setting_truthy(settings::get_setting(conn, "lastfm_scrobbling_enabled")
+        .map_err(|e| format!("Database error: {}", e))?);
+
+    if !enabled {
+        return Ok(());
+    }
+
+    // Check if authenticated
+    let session_key = settings::get_setting(conn, "lastfm_session_key")
+        .map_err(|e| format!("Database error: {}", e))?;
+
+    if session_key.is_none() || session_key.as_deref() == Some("") {
+        return Ok(());
+    }
+
+    // Load track metadata
+    let track = library::get_track_by_id(conn, track_id)
+        .map_err(|e| format!("Failed to load track: {}", e))?
+        .ok_or_else(|| format!("Track {} not found", track_id))?;
+
+    // Check duration requirement (>=30s)
+    if track.duration.unwrap_or(0.0) < 30.0 {
+        return Ok(());
+    }
+
+    // Queue for scrobbling (bypass threshold check since audio thread already validated)
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let artist = track.artist.as_deref().unwrap_or("Unknown Artist");
+    let title = track.title.as_deref().unwrap_or("Unknown Track");
+    let album = track.album.as_deref();
+
+    scrobble::queue_scrobble(
+        conn,
+        artist,
+        title,
+        album,
+        timestamp as i64,
+    )
+    .map_err(|e| format!("Failed to queue scrobble: {}", e))?;
+
+    // Emit queued event
+    let _ = app.emit(
+        ScrobbleStatusEvent::EVENT_NAME,
+        ScrobbleStatusEvent::queued(artist.to_string(), title.to_string()),
+    );
+
+    Ok(())
+}
+
 // ============================================
 // Queue Commands
 // ============================================
