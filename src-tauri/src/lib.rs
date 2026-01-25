@@ -47,9 +47,8 @@ use watcher::{
     watched_folders_rescan, watched_folders_status, watched_folders_update, WatcherManager,
 };
 use serde::Serialize;
-use std::fs::File;
-use std::io::Write;
 use std::time::Duration;
+use tokio::io::AsyncWriteExt;
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
@@ -113,28 +112,31 @@ fn app_get_info() -> AppInfo {
 }
 
 #[tauri::command]
-fn export_diagnostics(path: String) -> Result<(), String> {
+async fn export_diagnostics(path: String) -> Result<(), String> {
     let mut content = String::new();
-    
+
     content.push_str("=== mt Diagnostics ===\n\n");
-    
+
     let info = app_get_info();
     content.push_str(&format!("Version: {}\n", info.version));
     content.push_str(&format!("Build: {}\n", info.build));
     content.push_str(&format!("Platform: {}\n", info.platform));
     content.push_str(&format!("Timestamp: {}\n", chrono::Utc::now().to_rfc3339()));
-    
+
     content.push_str("\n=== Environment ===\n\n");
     content.push_str(&format!("Rust version: {}\n", env!("CARGO_PKG_RUST_VERSION")));
-    
+
     if let Ok(cwd) = std::env::current_dir() {
         content.push_str(&format!("Working directory: {}\n", cwd.display()));
     }
-    
-    let mut file = File::create(&path).map_err(|e| format!("Failed to create file: {}", e))?;
+
+    let mut file = tokio::fs::File::create(&path)
+        .await
+        .map_err(|e| format!("Failed to create file: {}", e))?;
     file.write_all(content.as_bytes())
+        .await
         .map_err(|e| format!("Failed to write file: {}", e))?;
-    
+
     Ok(())
 }
 
