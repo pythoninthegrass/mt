@@ -67,9 +67,10 @@ export function createLibraryBrowser(Alpine) {
 
     _baseColumnWidths: { ...DEFAULT_COLUMN_WIDTHS },
     columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
-    columnVisibility: Alpine.$persist({ ...DEFAULT_COLUMN_VISIBILITY }).as('mt:columns:visibility'),
-    columnOrder: Alpine.$persist([...DEFAULT_COLUMN_ORDER]).as('mt:columns:order'),
-    _persistedWidths: Alpine.$persist({ ...DEFAULT_COLUMN_WIDTHS }).as('mt:columns:widths'),
+    // Column settings (backed by Rust settings store)
+    columnVisibility: { ...DEFAULT_COLUMN_VISIBILITY },
+    columnOrder: [...DEFAULT_COLUMN_ORDER],
+    _persistedWidths: { ...DEFAULT_COLUMN_WIDTHS },
 
     // Base column definitions
     baseColumns: [
@@ -364,10 +365,55 @@ export function createLibraryBrowser(Alpine) {
     },
 
     _initColumnSettings() {
+      // Load settings from backend
+      if (window.settings && window.settings.initialized) {
+        this.columnVisibility = window.settings.get('library:columnVisibility', { ...DEFAULT_COLUMN_VISIBILITY });
+        this.columnOrder = window.settings.get('library:columnOrder', [...DEFAULT_COLUMN_ORDER]);
+        this._persistedWidths = window.settings.get('library:columnWidths', { ...DEFAULT_COLUMN_WIDTHS });
+
+        console.log('[LibraryBrowser] Loaded column settings from backend');
+
+        // Setup watchers to sync changes to backend
+        // Using debounced watchers to avoid excessive IPC calls during rapid changes (e.g., resizing)
+        this.$nextTick(() => {
+          let visibilityTimeout;
+          this.$watch('columnVisibility', (value) => {
+            clearTimeout(visibilityTimeout);
+            visibilityTimeout = setTimeout(() => {
+              window.settings.set('library:columnVisibility', value).catch(err =>
+                console.error('[LibraryBrowser] Failed to sync columnVisibility:', err)
+              );
+            }, 500);
+          });
+
+          let orderTimeout;
+          this.$watch('columnOrder', (value) => {
+            clearTimeout(orderTimeout);
+            orderTimeout = setTimeout(() => {
+              window.settings.set('library:columnOrder', value).catch(err =>
+                console.error('[LibraryBrowser] Failed to sync columnOrder:', err)
+              );
+            }, 500);
+          });
+
+          let widthsTimeout;
+          this.$watch('_persistedWidths', (value) => {
+            clearTimeout(widthsTimeout);
+            widthsTimeout = setTimeout(() => {
+              window.settings.set('library:columnWidths', value).catch(err =>
+                console.error('[LibraryBrowser] Failed to sync columnWidths:', err)
+              );
+            }, 500);
+          });
+        });
+      } else {
+        console.log('[LibraryBrowser] Settings service not available, using defaults');
+      }
+
       this._migrateOldColumnStorage();
       this._sanitizeColumnWidths();
     },
-    
+
     _migrateOldColumnStorage() {
       const oldData = localStorage.getItem('mt:column-settings');
       if (oldData) {
@@ -382,7 +428,7 @@ export function createLibraryBrowser(Alpine) {
         }
       }
     },
-    
+
     _sanitizeColumnWidths() {
       const sanitizedWidths = { ...DEFAULT_COLUMN_WIDTHS };
       Object.keys(this._persistedWidths).forEach(key => {
