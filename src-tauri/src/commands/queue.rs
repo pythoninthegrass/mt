@@ -11,21 +11,21 @@ use crate::db::{queue, Database, QueueItem, QueueState, Track};
 use crate::events::{EventEmitter, QueueStateChangedEvent, QueueUpdatedEvent};
 
 /// Response for queue get operations
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct QueueResponse {
     pub items: Vec<QueueItem>,
     pub count: i64,
 }
 
 /// Response for queue add operations
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct QueueAddResponse {
     pub added: i64,
     pub queue_length: i64,
 }
 
 /// Response for queue add-files operations
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct QueueAddFilesResponse {
     pub added: i64,
     pub queue_length: i64,
@@ -33,7 +33,7 @@ pub struct QueueAddFilesResponse {
 }
 
 /// Response for queue operations that return success status
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct QueueOperationResponse {
     pub success: bool,
     pub queue_length: i64,
@@ -299,6 +299,8 @@ pub fn queue_set_loop(
 mod tests {
     use super::*;
 
+    // ==================== QueueResponse Tests ====================
+
     #[test]
     fn test_queue_response_serialization() {
         let response = QueueResponse {
@@ -312,6 +314,40 @@ mod tests {
     }
 
     #[test]
+    fn test_queue_response_empty() {
+        let response = QueueResponse {
+            items: vec![],
+            count: 0,
+        };
+
+        assert!(response.items.is_empty());
+        assert_eq!(response.count, 0);
+    }
+
+    #[test]
+    fn test_queue_response_clone() {
+        let response = QueueResponse {
+            items: vec![],
+            count: 5,
+        };
+
+        let cloned = response.clone();
+        assert_eq!(response.count, cloned.count);
+    }
+
+    #[test]
+    fn test_queue_response_count_matches_items() {
+        let response = QueueResponse {
+            items: vec![],
+            count: 0,
+        };
+
+        assert_eq!(response.items.len() as i64, response.count);
+    }
+
+    // ==================== QueueAddResponse Tests ====================
+
+    #[test]
     fn test_queue_add_response_serialization() {
         let response = QueueAddResponse {
             added: 3,
@@ -321,5 +357,203 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("\"added\":3"));
         assert!(json.contains("\"queue_length\":10"));
+    }
+
+    #[test]
+    fn test_queue_add_response_zero_added() {
+        let response = QueueAddResponse {
+            added: 0,
+            queue_length: 5,
+        };
+
+        assert_eq!(response.added, 0);
+        assert_eq!(response.queue_length, 5);
+    }
+
+    #[test]
+    fn test_queue_add_response_clone() {
+        let response = QueueAddResponse {
+            added: 10,
+            queue_length: 100,
+        };
+
+        let cloned = response.clone();
+        assert_eq!(response.added, cloned.added);
+        assert_eq!(response.queue_length, cloned.queue_length);
+    }
+
+    #[test]
+    fn test_queue_add_response_large_values() {
+        let response = QueueAddResponse {
+            added: 10000,
+            queue_length: 100000,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"added\":10000"));
+        assert!(json.contains("\"queue_length\":100000"));
+    }
+
+    // ==================== QueueAddFilesResponse Tests ====================
+
+    #[test]
+    fn test_queue_add_files_response_serialization() {
+        let response = QueueAddFilesResponse {
+            added: 5,
+            queue_length: 15,
+            tracks: vec![],
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"added\":5"));
+        assert!(json.contains("\"queue_length\":15"));
+        assert!(json.contains("\"tracks\":[]"));
+    }
+
+    #[test]
+    fn test_queue_add_files_response_empty_tracks() {
+        let response = QueueAddFilesResponse {
+            added: 0,
+            queue_length: 0,
+            tracks: vec![],
+        };
+
+        assert!(response.tracks.is_empty());
+        assert_eq!(response.added, 0);
+    }
+
+    #[test]
+    fn test_queue_add_files_response_clone() {
+        let response = QueueAddFilesResponse {
+            added: 3,
+            queue_length: 10,
+            tracks: vec![],
+        };
+
+        let cloned = response.clone();
+        assert_eq!(response.added, cloned.added);
+        assert_eq!(response.tracks.len(), cloned.tracks.len());
+    }
+
+    // ==================== QueueOperationResponse Tests ====================
+
+    #[test]
+    fn test_queue_operation_response_success() {
+        let response = QueueOperationResponse {
+            success: true,
+            queue_length: 10,
+        };
+
+        assert!(response.success);
+        assert_eq!(response.queue_length, 10);
+    }
+
+    #[test]
+    fn test_queue_operation_response_failure() {
+        let response = QueueOperationResponse {
+            success: false,
+            queue_length: 5,
+        };
+
+        assert!(!response.success);
+    }
+
+    #[test]
+    fn test_queue_operation_response_serialization() {
+        let response = QueueOperationResponse {
+            success: true,
+            queue_length: 25,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"success\":true"));
+        assert!(json.contains("\"queue_length\":25"));
+    }
+
+    #[test]
+    fn test_queue_operation_response_clone() {
+        let response = QueueOperationResponse {
+            success: true,
+            queue_length: 42,
+        };
+
+        let cloned = response.clone();
+        assert_eq!(response.success, cloned.success);
+        assert_eq!(response.queue_length, cloned.queue_length);
+    }
+
+    // ==================== Edge Cases ====================
+
+    #[test]
+    fn test_queue_response_deserialization() {
+        let json = r#"{"items":[],"count":0}"#;
+        let response: QueueResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.count, 0);
+        assert!(response.items.is_empty());
+    }
+
+    #[test]
+    fn test_queue_add_response_deserialization() {
+        let json = r#"{"added":5,"queue_length":20}"#;
+        let response: QueueAddResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.added, 5);
+        assert_eq!(response.queue_length, 20);
+    }
+
+    #[test]
+    fn test_queue_operation_response_deserialization() {
+        let json = r#"{"success":false,"queue_length":0}"#;
+        let response: QueueOperationResponse = serde_json::from_str(json).unwrap();
+        assert!(!response.success);
+        assert_eq!(response.queue_length, 0);
+    }
+
+    #[test]
+    fn test_queue_add_response_added_greater_than_length() {
+        // Edge case: added could theoretically be >= queue_length in some scenarios
+        let response = QueueAddResponse {
+            added: 10,
+            queue_length: 10, // Queue was empty, now has 10
+        };
+
+        assert_eq!(response.added, response.queue_length);
+    }
+
+    #[test]
+    fn test_queue_response_max_count() {
+        let response = QueueResponse {
+            items: vec![],
+            count: i64::MAX,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: QueueResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.count, i64::MAX);
+    }
+
+    // ==================== Boundary Conditions ====================
+
+    #[test]
+    fn test_queue_operation_response_zero_length() {
+        let response = QueueOperationResponse {
+            success: true,
+            queue_length: 0,
+        };
+
+        assert_eq!(response.queue_length, 0);
+    }
+
+    #[test]
+    fn test_queue_add_files_consistency() {
+        // The added count should logically match tracks.len() after a successful add
+        let response = QueueAddFilesResponse {
+            added: 3,
+            queue_length: 10,
+            tracks: vec![], // Note: in real usage, tracks would have 3 items
+        };
+
+        // This test verifies the response structure can hold mismatched values
+        // (validation should happen at the command level, not response level)
+        assert_eq!(response.added, 3);
     }
 }

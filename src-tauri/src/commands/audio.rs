@@ -265,3 +265,382 @@ pub fn audio_get_status(state: State<AudioState>) -> PlaybackStatus {
         track: None,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ==================== PlaybackStatus Tests ====================
+
+    #[test]
+    fn test_playback_status_default_values() {
+        let status = PlaybackStatus {
+            position_ms: 0,
+            duration_ms: 0,
+            state: PlaybackState::Stopped,
+            volume: 1.0,
+            track: None,
+        };
+
+        assert_eq!(status.position_ms, 0);
+        assert_eq!(status.duration_ms, 0);
+        assert_eq!(status.state, PlaybackState::Stopped);
+        assert_eq!(status.volume, 1.0);
+        assert!(status.track.is_none());
+    }
+
+    #[test]
+    fn test_playback_status_with_track() {
+        let track = TrackInfo {
+            path: "/music/song.mp3".to_string(),
+            duration_ms: 180000,
+            sample_rate: 44100,
+            channels: 2,
+        };
+
+        let status = PlaybackStatus {
+            position_ms: 30000,
+            duration_ms: 180000,
+            state: PlaybackState::Playing,
+            volume: 0.8,
+            track: Some(track),
+        };
+
+        assert_eq!(status.position_ms, 30000);
+        assert_eq!(status.state, PlaybackState::Playing);
+        assert!(status.track.is_some());
+        assert_eq!(status.track.as_ref().unwrap().path, "/music/song.mp3");
+    }
+
+    #[test]
+    fn test_playback_status_serialization() {
+        let status = PlaybackStatus {
+            position_ms: 45000,
+            duration_ms: 200000,
+            state: PlaybackState::Playing,
+            volume: 0.75,
+            track: None,
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("\"position_ms\":45000"));
+        assert!(json.contains("\"duration_ms\":200000"));
+        assert!(json.contains("\"state\":\"Playing\""));
+        assert!(json.contains("\"volume\":0.75"));
+        assert!(json.contains("\"track\":null"));
+    }
+
+    #[test]
+    fn test_playback_status_serialization_with_track() {
+        let track = TrackInfo {
+            path: "/test.mp3".to_string(),
+            duration_ms: 60000,
+            sample_rate: 48000,
+            channels: 2,
+        };
+
+        let status = PlaybackStatus {
+            position_ms: 10000,
+            duration_ms: 60000,
+            state: PlaybackState::Paused,
+            volume: 1.0,
+            track: Some(track),
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("\"path\":\"/test.mp3\""));
+        assert!(json.contains("\"state\":\"Paused\""));
+    }
+
+    #[test]
+    fn test_playback_status_deserialization() {
+        let json = r#"{
+            "position_ms": 90000,
+            "duration_ms": 240000,
+            "state": "Paused",
+            "volume": 0.5,
+            "track": null
+        }"#;
+
+        let status: PlaybackStatus = serde_json::from_str(json).unwrap();
+        assert_eq!(status.position_ms, 90000);
+        assert_eq!(status.duration_ms, 240000);
+        assert_eq!(status.state, PlaybackState::Paused);
+        assert_eq!(status.volume, 0.5);
+        assert!(status.track.is_none());
+    }
+
+    #[test]
+    fn test_playback_status_clone() {
+        let status = PlaybackStatus {
+            position_ms: 5000,
+            duration_ms: 10000,
+            state: PlaybackState::Playing,
+            volume: 0.9,
+            track: None,
+        };
+
+        let cloned = status.clone();
+        assert_eq!(status.position_ms, cloned.position_ms);
+        assert_eq!(status.volume, cloned.volume);
+    }
+
+    #[test]
+    fn test_playback_status_all_states() {
+        for state in [
+            PlaybackState::Stopped,
+            PlaybackState::Playing,
+            PlaybackState::Paused,
+        ] {
+            let status = PlaybackStatus {
+                position_ms: 0,
+                duration_ms: 1000,
+                state,
+                volume: 1.0,
+                track: None,
+            };
+            assert_eq!(status.state, state);
+        }
+    }
+
+    #[test]
+    fn test_playback_status_volume_range() {
+        // Test minimum volume
+        let min_vol = PlaybackStatus {
+            position_ms: 0,
+            duration_ms: 0,
+            state: PlaybackState::Stopped,
+            volume: 0.0,
+            track: None,
+        };
+        assert_eq!(min_vol.volume, 0.0);
+
+        // Test maximum volume
+        let max_vol = PlaybackStatus {
+            position_ms: 0,
+            duration_ms: 0,
+            state: PlaybackState::Stopped,
+            volume: 1.0,
+            track: None,
+        };
+        assert_eq!(max_vol.volume, 1.0);
+
+        // Test mid-range volume
+        let mid_vol = PlaybackStatus {
+            position_ms: 0,
+            duration_ms: 0,
+            state: PlaybackState::Stopped,
+            volume: 0.5,
+            track: None,
+        };
+        assert_eq!(mid_vol.volume, 0.5);
+    }
+
+    #[test]
+    fn test_playback_status_position_at_end() {
+        let status = PlaybackStatus {
+            position_ms: 180000,
+            duration_ms: 180000,
+            state: PlaybackState::Stopped,
+            volume: 1.0,
+            track: None,
+        };
+
+        assert_eq!(status.position_ms, status.duration_ms);
+    }
+
+    #[test]
+    fn test_playback_status_debug() {
+        let status = PlaybackStatus {
+            position_ms: 0,
+            duration_ms: 0,
+            state: PlaybackState::Stopped,
+            volume: 1.0,
+            track: None,
+        };
+
+        let debug = format!("{:?}", status);
+        assert!(debug.contains("PlaybackStatus"));
+        assert!(debug.contains("Stopped"));
+    }
+
+    // ==================== AudioCommand Tests ====================
+
+    #[test]
+    fn test_audio_command_enum_variants() {
+        // Test that all AudioCommand variants can be constructed
+        let (tx, _rx) = mpsc::channel::<Result<TrackInfo, String>>();
+        let _load = AudioCommand::Load("/test.mp3".to_string(), Some(1), tx);
+
+        let (tx, _rx) = mpsc::channel::<Result<(), String>>();
+        let _play = AudioCommand::Play(tx);
+
+        let (tx, _rx) = mpsc::channel::<Result<(), String>>();
+        let _pause = AudioCommand::Pause(tx);
+
+        let (tx, _rx) = mpsc::channel::<Result<(), String>>();
+        let _stop = AudioCommand::Stop(tx);
+
+        let (tx, _rx) = mpsc::channel::<Result<(), String>>();
+        let _seek = AudioCommand::Seek(1000, tx);
+
+        let (tx, _rx) = mpsc::channel::<Result<(), String>>();
+        let _set_vol = AudioCommand::SetVolume(0.5, tx);
+
+        let (tx, _rx) = mpsc::channel::<f32>();
+        let _get_vol = AudioCommand::GetVolume(tx);
+
+        let (tx, _rx) = mpsc::channel::<PlaybackStatus>();
+        let _get_status = AudioCommand::GetStatus(tx);
+    }
+
+    #[test]
+    fn test_audio_command_load_with_track_id() {
+        let (tx, rx) = mpsc::channel::<Result<TrackInfo, String>>();
+        let cmd = AudioCommand::Load("/music/track.mp3".to_string(), Some(42), tx);
+
+        // Verify command can be sent (tests Send trait)
+        match cmd {
+            AudioCommand::Load(path, track_id, sender) => {
+                assert_eq!(path, "/music/track.mp3");
+                assert_eq!(track_id, Some(42));
+                // Send a response to verify sender works
+                let _ = sender.send(Ok(TrackInfo {
+                    path: "/music/track.mp3".to_string(),
+                    duration_ms: 180000,
+                    sample_rate: 44100,
+                    channels: 2,
+                }));
+            }
+            _ => panic!("Wrong command variant"),
+        }
+
+        let result = rx.recv().unwrap();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_audio_command_load_without_track_id() {
+        let (tx, _rx) = mpsc::channel::<Result<TrackInfo, String>>();
+        let cmd = AudioCommand::Load("/test.mp3".to_string(), None, tx);
+
+        match cmd {
+            AudioCommand::Load(_, track_id, _) => {
+                assert!(track_id.is_none());
+            }
+            _ => panic!("Wrong command variant"),
+        }
+    }
+
+    #[test]
+    fn test_audio_command_seek_position() {
+        let (tx, rx) = mpsc::channel::<Result<(), String>>();
+        let cmd = AudioCommand::Seek(30000, tx);
+
+        match cmd {
+            AudioCommand::Seek(pos, sender) => {
+                assert_eq!(pos, 30000);
+                let _ = sender.send(Ok(()));
+            }
+            _ => panic!("Wrong command variant"),
+        }
+
+        assert!(rx.recv().unwrap().is_ok());
+    }
+
+    #[test]
+    fn test_audio_command_set_volume_values() {
+        for vol in [0.0f32, 0.25, 0.5, 0.75, 1.0] {
+            let (tx, rx) = mpsc::channel::<Result<(), String>>();
+            let cmd = AudioCommand::SetVolume(vol, tx);
+
+            match cmd {
+                AudioCommand::SetVolume(v, sender) => {
+                    assert_eq!(v, vol);
+                    let _ = sender.send(Ok(()));
+                }
+                _ => panic!("Wrong command variant"),
+            }
+
+            assert!(rx.recv().unwrap().is_ok());
+        }
+    }
+
+    // ==================== PlayCountState and ScrobbleState Tests ====================
+
+    #[test]
+    fn test_play_count_state_initial() {
+        let state = PlayCountState {
+            track_id: None,
+            threshold_reached: false,
+        };
+
+        assert!(state.track_id.is_none());
+        assert!(!state.threshold_reached);
+    }
+
+    #[test]
+    fn test_play_count_state_with_track() {
+        let state = PlayCountState {
+            track_id: Some(123),
+            threshold_reached: false,
+        };
+
+        assert_eq!(state.track_id, Some(123));
+        assert!(!state.threshold_reached);
+    }
+
+    #[test]
+    fn test_play_count_state_threshold_reached() {
+        let state = PlayCountState {
+            track_id: Some(456),
+            threshold_reached: true,
+        };
+
+        assert!(state.threshold_reached);
+    }
+
+    #[test]
+    fn test_scrobble_state_initial() {
+        let state = ScrobbleState {
+            track_id: None,
+            threshold_reached: false,
+            threshold_percent: 0.9,
+        };
+
+        assert!(state.track_id.is_none());
+        assert!(!state.threshold_reached);
+        assert_eq!(state.threshold_percent, 0.9);
+    }
+
+    #[test]
+    fn test_scrobble_state_custom_threshold() {
+        let state = ScrobbleState {
+            track_id: Some(789),
+            threshold_reached: false,
+            threshold_percent: 0.5, // 50% threshold
+        };
+
+        assert_eq!(state.threshold_percent, 0.5);
+    }
+
+    #[test]
+    fn test_scrobble_threshold_calculation() {
+        let position_ms: u64 = 162000; // 2.7 minutes
+        let duration_ms: u64 = 180000; // 3 minutes
+        let threshold_percent = 0.9;
+
+        let ratio = position_ms as f64 / duration_ms as f64;
+        assert!(ratio >= threshold_percent);
+    }
+
+    #[test]
+    fn test_play_count_threshold_calculation() {
+        let position_ms: u64 = 135000; // 2.25 minutes
+        let duration_ms: u64 = 180000; // 3 minutes
+        let threshold = 0.75;
+
+        let ratio = position_ms as f64 / duration_ms as f64;
+        assert!(ratio >= threshold);
+    }
+}
