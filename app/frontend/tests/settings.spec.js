@@ -656,3 +656,247 @@ test.describe('Sort Ignore Words Settings', () => {
     await expect(input).toBeEnabled();
   });
 });
+
+test.describe('Log Export', () => {
+  test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
+
+    // Mock Last.fm to prevent error toasts
+    await page.route(/\/api\/lastfm\/settings/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          enabled: false,
+          username: null,
+          authenticated: false,
+          configured: false,
+          scrobble_threshold: 50,
+        }),
+      });
+    });
+
+    await page.goto('/');
+    await waitForAlpine(page);
+  });
+
+  test('should use .log extension in save dialog', async ({ page }) => {
+    // Mock window.__TAURI__ to intercept the save dialog call
+    await page.evaluate(() => {
+      window.__TAURI__ = {
+        core: {
+          invoke: async () => { return; },
+        },
+        dialog: {
+          save: async (options) => {
+            // Capture the dialog options for verification
+            window._dialogOptions = options;
+            return null; // User cancelled
+          },
+        },
+      };
+    });
+
+    // Navigate to advanced settings
+    await page.click('[data-testid="sidebar-settings"]');
+    await page.click('[data-testid="settings-nav-advanced"]');
+    await page.waitForSelector('[data-testid="settings-section-advanced"]', { state: 'visible' });
+
+    // Click export logs button
+    await page.click('[data-testid="settings-export-logs"]');
+    await page.waitForTimeout(200);
+
+    // Verify dialog was called with .log extension
+    const capturedOptions = await page.evaluate(() => window._dialogOptions);
+    expect(capturedOptions).toBeDefined();
+    expect(capturedOptions.defaultPath).toMatch(/\.log$/);
+    expect(capturedOptions.filters[0].extensions).toContain('log');
+  });
+
+  test('should show loading state during export', async ({ page }) => {
+    // Mock window.__TAURI__ with delayed export
+    await page.evaluate(() => {
+      window.__TAURI__ = {
+        core: {
+          invoke: async () => {
+            // Simulate async file write taking 500ms
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return;
+          },
+        },
+        dialog: {
+          save: async () => {
+            return '/tmp/test-diagnostics.log';
+          },
+        },
+      };
+    });
+
+    // Navigate to advanced settings
+    await page.click('[data-testid="sidebar-settings"]');
+    await page.click('[data-testid="settings-nav-advanced"]');
+    await page.waitForSelector('[data-testid="settings-section-advanced"]', { state: 'visible' });
+
+    // Click export logs button
+    const exportButton = page.locator('[data-testid="settings-export-logs"]');
+    await exportButton.click();
+
+    // Verify button is disabled during export
+    await expect(exportButton).toBeDisabled();
+
+    // Verify loading text is visible
+    await expect(page.locator('text=Exporting...')).toBeVisible();
+
+    // Wait for export to complete
+    await page.waitForTimeout(600);
+
+    // Verify button is enabled again
+    await expect(exportButton).toBeEnabled();
+
+    // Verify loading text is hidden
+    await expect(page.locator('text=Exporting...')).not.toBeVisible();
+  });
+
+  test('should not freeze UI during export', async ({ page }) => {
+    // Mock window.__TAURI__ with delayed export
+    await page.evaluate(() => {
+      window.__TAURI__ = {
+        core: {
+          invoke: async () => {
+            // Simulate async file write taking 500ms
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return;
+          },
+        },
+        dialog: {
+          save: async () => {
+            return '/tmp/test-diagnostics.log';
+          },
+        },
+      };
+    });
+
+    // Navigate to advanced settings
+    await page.click('[data-testid="sidebar-settings"]');
+    await page.click('[data-testid="settings-nav-advanced"]');
+    await page.waitForSelector('[data-testid="settings-section-advanced"]', { state: 'visible' });
+
+    // Click export logs button
+    await page.click('[data-testid="settings-export-logs"]');
+
+    // While export is happening, verify UI is still responsive
+    // by clicking on another settings section
+    await page.waitForTimeout(100);
+
+    // Click on appearance section
+    await page.click('[data-testid="settings-nav-appearance"]');
+    await page.waitForTimeout(100);
+
+    // Verify navigation worked (UI not frozen)
+    const uiStore = await getAlpineStore(page, 'ui');
+    expect(uiStore.settingsSection).toBe('appearance');
+
+    // Navigate back to advanced to verify export completed
+    await page.click('[data-testid="settings-nav-advanced"]');
+    await page.waitForTimeout(600); // Wait for export to finish
+
+    // Verify export button is enabled (export completed)
+    await expect(page.locator('[data-testid="settings-export-logs"]')).toBeEnabled();
+  });
+
+  test('should show success toast after export completes', async ({ page }) => {
+    // Mock window.__TAURI__
+    await page.evaluate(() => {
+      window.__TAURI__ = {
+        core: {
+          invoke: async () => {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return;
+          },
+        },
+        dialog: {
+          save: async () => {
+            return '/tmp/test-diagnostics.log';
+          },
+        },
+      };
+    });
+
+    // Navigate to advanced settings
+    await page.click('[data-testid="sidebar-settings"]');
+    await page.click('[data-testid="settings-nav-advanced"]');
+    await page.waitForSelector('[data-testid="settings-section-advanced"]', { state: 'visible' });
+
+    // Click export logs button
+    await page.click('[data-testid="settings-export-logs"]');
+
+    // Wait for export to complete and verify success toast
+    await expect(page.locator('text=Diagnostics exported successfully')).toBeVisible({ timeout: 2000 });
+  });
+
+  test('should show error toast when export fails', async ({ page }) => {
+    // Mock window.__TAURI__ with failing export
+    await page.evaluate(() => {
+      window.__TAURI__ = {
+        core: {
+          invoke: async () => {
+            throw new Error('Failed to write file');
+          },
+        },
+        dialog: {
+          save: async () => {
+            return '/tmp/test-diagnostics.log';
+          },
+        },
+      };
+    });
+
+    // Navigate to advanced settings
+    await page.click('[data-testid="sidebar-settings"]');
+    await page.click('[data-testid="settings-nav-advanced"]');
+    await page.waitForSelector('[data-testid="settings-section-advanced"]', { state: 'visible' });
+
+    // Click export logs button
+    await page.click('[data-testid="settings-export-logs"]');
+
+    // Wait for error toast
+    await expect(page.locator('text=Failed to export diagnostics')).toBeVisible({ timeout: 2000 });
+
+    // Verify button is enabled again after error
+    await expect(page.locator('[data-testid="settings-export-logs"]')).toBeEnabled();
+  });
+
+  test('should handle user canceling file dialog', async ({ page }) => {
+    // Mock window.__TAURI__ with cancelled dialog
+    await page.evaluate(() => {
+      window.__TAURI__ = {
+        core: {
+          invoke: async () => {
+            return;
+          },
+        },
+        dialog: {
+          save: async () => {
+            return null; // User cancelled
+          },
+        },
+      };
+    });
+
+    // Navigate to advanced settings
+    await page.click('[data-testid="sidebar-settings"]');
+    await page.click('[data-testid="settings-nav-advanced"]');
+    await page.waitForSelector('[data-testid="settings-section-advanced"]', { state: 'visible' });
+
+    // Click export logs button
+    await page.click('[data-testid="settings-export-logs"]');
+    await page.waitForTimeout(200);
+
+    // Verify button is enabled (not stuck in loading state)
+    await expect(page.locator('[data-testid="settings-export-logs"]')).toBeEnabled();
+
+    // Verify no toast is shown
+    await expect(page.locator('.toast')).not.toBeVisible();
+  });
+});
