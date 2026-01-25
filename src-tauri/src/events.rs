@@ -144,6 +144,26 @@ impl QueueUpdatedEvent {
     }
 }
 
+/// Emitted when queue playback state changes (shuffle, loop, current index)
+#[derive(Clone, Debug, Serialize)]
+pub struct QueueStateChangedEvent {
+    pub current_index: i64,
+    pub shuffle_enabled: bool,
+    pub loop_mode: String,
+}
+
+impl QueueStateChangedEvent {
+    pub const EVENT_NAME: &'static str = "queue:state-changed";
+
+    pub fn new(current_index: i64, shuffle_enabled: bool, loop_mode: String) -> Self {
+        Self {
+            current_index,
+            shuffle_enabled,
+            loop_mode,
+        }
+    }
+}
+
 // ============================================
 // Favorites Events
 // ============================================
@@ -376,6 +396,7 @@ pub trait EventEmitter {
     fn emit_scan_progress(&self, event: ScanProgressEvent) -> Result<(), String>;
     fn emit_scan_complete(&self, event: ScanCompleteEvent) -> Result<(), String>;
     fn emit_queue_updated(&self, event: QueueUpdatedEvent) -> Result<(), String>;
+    fn emit_queue_state_changed(&self, event: QueueStateChangedEvent) -> Result<(), String>;
     fn emit_favorites_updated(&self, event: FavoritesUpdatedEvent) -> Result<(), String>;
     fn emit_playlists_updated(&self, event: PlaylistsUpdatedEvent) -> Result<(), String>;
     fn emit_settings_updated(&self, event: SettingsUpdatedEvent) -> Result<(), String>;
@@ -403,6 +424,12 @@ impl EventEmitter for tauri::AppHandle {
     fn emit_queue_updated(&self, event: QueueUpdatedEvent) -> Result<(), String> {
         use tauri::Emitter;
         self.emit(QueueUpdatedEvent::EVENT_NAME, event)
+            .map_err(|e| e.to_string())
+    }
+
+    fn emit_queue_state_changed(&self, event: QueueStateChangedEvent) -> Result<(), String> {
+        use tauri::Emitter;
+        self.emit(QueueStateChangedEvent::EVENT_NAME, event)
             .map_err(|e| e.to_string())
     }
 

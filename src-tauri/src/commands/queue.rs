@@ -7,8 +7,8 @@ use rand::rng;
 use rand::seq::SliceRandom;
 use tauri::{AppHandle, State};
 
-use crate::db::{queue, Database, QueueItem, Track};
-use crate::events::{EventEmitter, QueueUpdatedEvent};
+use crate::db::{queue, Database, QueueItem, QueueState, Track};
+use crate::events::{EventEmitter, QueueStateChangedEvent, QueueUpdatedEvent};
 
 /// Response for queue get operations
 #[derive(Clone, serde::Serialize)]
@@ -222,6 +222,77 @@ pub fn queue_shuffle(
         success: true,
         queue_length,
     })
+}
+
+/// Get queue playback state
+#[tauri::command]
+pub fn queue_get_playback_state(db: State<'_, Database>) -> Result<QueueState, String> {
+    let conn = db.conn().map_err(|e| e.to_string())?;
+    let state = queue::get_queue_state(&conn).map_err(|e| e.to_string())?;
+    Ok(state)
+}
+
+/// Set current index in queue playback state
+#[tauri::command]
+pub fn queue_set_current_index(
+    app: AppHandle,
+    db: State<'_, Database>,
+    index: i64,
+) -> Result<(), String> {
+    let conn = db.conn().map_err(|e| e.to_string())?;
+    queue::set_current_index(&conn, index).map_err(|e| e.to_string())?;
+
+    // Emit state changed event
+    let state = queue::get_queue_state(&conn).map_err(|e| e.to_string())?;
+    let _ = app.emit_queue_state_changed(QueueStateChangedEvent::new(
+        state.current_index,
+        state.shuffle_enabled,
+        state.loop_mode,
+    ));
+
+    Ok(())
+}
+
+/// Set shuffle enabled in queue playback state
+#[tauri::command]
+pub fn queue_set_shuffle(
+    app: AppHandle,
+    db: State<'_, Database>,
+    enabled: bool,
+) -> Result<(), String> {
+    let conn = db.conn().map_err(|e| e.to_string())?;
+    queue::set_shuffle_enabled(&conn, enabled).map_err(|e| e.to_string())?;
+
+    // Emit state changed event
+    let state = queue::get_queue_state(&conn).map_err(|e| e.to_string())?;
+    let _ = app.emit_queue_state_changed(QueueStateChangedEvent::new(
+        state.current_index,
+        state.shuffle_enabled,
+        state.loop_mode,
+    ));
+
+    Ok(())
+}
+
+/// Set loop mode in queue playback state
+#[tauri::command]
+pub fn queue_set_loop(
+    app: AppHandle,
+    db: State<'_, Database>,
+    mode: String,
+) -> Result<(), String> {
+    let conn = db.conn().map_err(|e| e.to_string())?;
+    queue::set_loop_mode(&conn, &mode).map_err(|e| e.to_string())?;
+
+    // Emit state changed event
+    let state = queue::get_queue_state(&conn).map_err(|e| e.to_string())?;
+    let _ = app.emit_queue_state_changed(QueueStateChangedEvent::new(
+        state.current_index,
+        state.shuffle_enabled,
+        state.loop_mode,
+    ));
+
+    Ok(())
 }
 
 #[cfg(test)]

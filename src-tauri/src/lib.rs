@@ -19,9 +19,9 @@ use commands::{
     lastfm_queue_status, lastfm_scrobble, lastfm_update_settings, playlist_add_tracks,
     playlist_create, playlist_delete, playlist_generate_name, playlist_get, playlist_list,
     playlist_remove_track, playlist_reorder_tracks, playlist_update, playlists_reorder,
-    queue_add, queue_add_files, queue_clear, queue_get, queue_remove, queue_reorder,
-    queue_shuffle, settings_get, settings_get_all, settings_reset, settings_set,
-    settings_update, AudioState,
+    queue_add, queue_add_files, queue_clear, queue_get, queue_get_playback_state, queue_remove,
+    queue_reorder, queue_set_current_index, queue_set_loop, queue_set_shuffle, queue_shuffle,
+    settings_get, settings_get_all, settings_reset, settings_set, settings_update, AudioState,
 };
 use dialog::{open_add_music_dialog, open_file_dialog, open_folder_dialog};
 use media_keys::{MediaKeyManager, NowPlayingInfo};
@@ -256,6 +256,10 @@ pub fn run() {
             queue_clear,
             queue_reorder,
             queue_shuffle,
+            queue_get_playback_state,
+            queue_set_current_index,
+            queue_set_shuffle,
+            queue_set_loop,
             playlist_list,
             playlist_create,
             playlist_get,
