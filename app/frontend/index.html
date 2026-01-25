@@ -1696,15 +1696,12 @@
               :style="`width: ${displayVolume}%`"
             ></div>
             <div
-              class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-foreground rounded-full transition-opacity"
+              class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-foreground rounded-full"
               :class="isDraggingVolume ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
               :style="`left: calc(${displayVolume}% - 5px)`"
             ></div>
             <div
               x-show="showVolumeTooltip || isDraggingVolume"
-              x-transition:enter="transition ease-out duration-100"
-              x-transition:enter-start="opacity-0 -translate-y-1"
-              x-transition:enter-end="opacity-100 translate-y-0"
               class="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-foreground text-background text-xs rounded whitespace-nowrap pointer-events-none"
               x-text="volumeTooltipText"
             ></div>
