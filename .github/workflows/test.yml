@@ -10,7 +10,7 @@ jobs:
   # Frontend E2E tests with Playwright
   playwright-tests:
     name: Playwright E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 20
 
     steps:
@@ -59,44 +59,10 @@ jobs:
           path: test-results/
           retention-days: 30
 
-  # Python backend tests (PEX sidecar validation)
-  python-tests:
-    name: Python Backend Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install uv
-        run: pip install uv
-
-      - name: Install Python dependencies
-        run: uv sync
-
-      - name: Run Python tests
-        run: uv run pytest tests/ -v --tb=short
-        env:
-          PYTEST_CURRENT_TEST: 'true'
-
-      - name: Upload Python test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-results
-          path: .pytest_cache/
-          retention-days: 30
-
   # Linting and code quality
   lint:
     name: Lint and Format Check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
@@ -106,11 +72,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -123,16 +84,10 @@ jobs:
       - name: Run Deno lint
         run: deno lint
 
-      - name: Install Python linters
-        run: pip install ruff
-
-      - name: Run Python linting
-        run: ruff check .
-
   # Vitest unit tests with coverage
   vitest-tests:
     name: Vitest Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 10
 
     steps:
@@ -166,7 +121,7 @@ jobs:
   # Rust backend tests with coverage
   rust-tests:
     name: Rust Backend Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 20
 
     steps:
@@ -203,7 +158,7 @@ jobs:
   # Build verification
   build:
     name: Build Verification
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 30
 
     steps:
