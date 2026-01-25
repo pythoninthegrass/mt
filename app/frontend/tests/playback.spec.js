@@ -311,6 +311,51 @@ test.describe('Volume Controls @tauri', () => {
     const updatedStore = await getAlpineStore(page, 'player');
     expect(updatedStore.muted).toBe(!initialMuted);
   });
+
+  test('should smoothly adjust volume when dragging slider', async ({ page }) => {
+    // Get volume bar element
+    const volumeBar = page.locator('[data-testid="player-volume"]');
+    const boundingBox = await volumeBar.boundingBox();
+
+    // Record initial volume
+    const initialStore = await getAlpineStore(page, 'player');
+    const initialVolume = initialStore.volume;
+
+    // Simulate dragging from 20% to 80% of volume bar
+    const startX = boundingBox.x + boundingBox.width * 0.2;
+    const endX = boundingBox.x + boundingBox.width * 0.8;
+    const centerY = boundingBox.y + boundingBox.height / 2;
+
+    // Perform drag gesture
+    await page.mouse.move(startX, centerY);
+    await page.mouse.down();
+
+    // Move through intermediate positions to simulate smooth drag
+    const steps = 10;
+    for (let i = 1; i <= steps; i++) {
+      const x = startX + ((endX - startX) * i) / steps;
+      await page.mouse.move(x, centerY);
+      await page.waitForTimeout(10); // Small delay between moves
+    }
+
+    await page.mouse.up();
+
+    // Wait for debounced volume update
+    await page.waitForTimeout(300);
+
+    // Verify volume changed and is in expected range
+    const finalStore = await getAlpineStore(page, 'player');
+    expect(finalStore.volume).toBeGreaterThan(initialVolume);
+    expect(finalStore.volume).toBeGreaterThan(70);
+    expect(finalStore.volume).toBeLessThan(90);
+
+    // Verify thumb and tooltip are visible during hover
+    await page.mouse.move(boundingBox.x + boundingBox.width * 0.5, centerY);
+
+    // The thumb should be visible on hover (opacity-100)
+    const thumbElement = volumeBar.locator('.absolute.top-1\\/2.-translate-y-1\\/2.w-2\\.5.h-2\\.5');
+    await expect(thumbElement).toBeVisible();
+  });
 });
 
 test.describe('Playback Edge Cases (Regression Hardening)', () => {
