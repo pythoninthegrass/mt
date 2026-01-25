@@ -28,11 +28,16 @@ export function createPlayerControls(Alpine) {
           this.player.seek(this.dragPosition);
         }
         if (this.isDraggingVolume) {
+          // Commit immediately on mouseup to prevent bounce-back
+          if (this._volumeDebounce) {
+            clearTimeout(this._volumeDebounce);
+            this._volumeDebounce = null;
+          }
+          this.player.setVolume(this.dragVolume);
           this.isDraggingVolume = false;
-          this.commitVolume(this.dragVolume);
         }
       });
-      
+
       document.addEventListener('mousemove', (event) => {
         if (this.isDraggingVolume) {
           this.updateDragVolume(event);
