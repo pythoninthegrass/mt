@@ -28,8 +28,8 @@ pub use playlists::{
 };
 
 pub use queue::{
-    queue_add, queue_add_files, queue_clear, queue_get, queue_remove, queue_reorder,
-    queue_shuffle,
+    queue_add, queue_add_files, queue_clear, queue_get, queue_get_playback_state, queue_remove,
+    queue_reorder, queue_set_current_index, queue_set_loop, queue_set_shuffle, queue_shuffle,
 };
 
 pub use settings::{

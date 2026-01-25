@@ -1,3 +1,6 @@
+// Allow Rust 2024 never type fallback warning until we migrate to edition 2024
+#![allow(dependency_on_unit_never_type_fallback)]
+
 pub mod audio;
 pub mod commands;
 pub mod db;

@@ -228,7 +228,7 @@ pub fn queue_shuffle(
 #[tauri::command]
 pub fn queue_get_playback_state(db: State<'_, Database>) -> Result<QueueState, String> {
     let conn = db.conn().map_err(|e| e.to_string())?;
-    let state = queue::get_queue_state(&conn).map_err(|e| e.to_string())?;
+    let state: QueueState = queue::get_queue_state(&conn).map_err(|e| e.to_string())?;
     Ok(state)
 }
 
