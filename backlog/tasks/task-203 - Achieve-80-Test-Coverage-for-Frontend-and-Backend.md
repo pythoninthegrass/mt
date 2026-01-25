@@ -4,7 +4,7 @@ title: Achieve 80% Test Coverage for Frontend and Backend
 status: In Progress
 assignee: []
 created_date: '2026-01-25 08:39'
-updated_date: '2026-01-25 19:06'
+updated_date: '2026-01-25 19:09'
 labels:
   - testing
   - coverage
@@ -52,7 +52,7 @@ Achieve 80% code coverage for both the Alpine.js frontend (E2E tests) and Rust/T
 - [x] #9 [ ] Create error-states.spec.js (network failures, missing tracks, invalid formats, API timeouts, toast notifications)
 - [x] #10 [ ] Enhance settings.spec.js (every toggle persists on reload, theme changes apply immediately, view modes persist)
 - [x] #11 [ ] Add Now Playing info click test (clicking track info in player bar)
-- [ ] #12 [ ] Test all column header interactions (sort, resize drag, reorder drag, visibility toggle)
+- [x] #12 [ ] Test all column header interactions (sort, resize drag, reorder drag, visibility toggle)
 - [x] #13 [ ] Add multi-track selection edge cases (Shift+click range, Cmd+click toggle, mixed selections)
 - [ ] #14 [ ] Expand frontend unit tests (Vitest) for store edge cases (player, library, ui, queue shuffling invariants)
 - [ ] #15 [ ] **Phase 3: Backend Rust Command Tests**
