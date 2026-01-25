@@ -132,7 +132,8 @@ pub fn get_track_by_id(conn: &Connection, track_id: i64) -> DbResult<Option<Trac
          FROM library WHERE id = ?",
     )?;
 
-    match stmt.query_row([track_id], row_to_track) {
+    let result = stmt.query_row([track_id], row_to_track);
+    match result {
         Ok(track) => Ok(Some(track)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.into()),
@@ -149,7 +150,8 @@ pub fn get_track_by_filepath(conn: &Connection, filepath: &str) -> DbResult<Opti
          FROM library WHERE filepath = ?",
     )?;
 
-    match stmt.query_row([filepath], row_to_track) {
+    let result = stmt.query_row([filepath], row_to_track);
+    match result {
         Ok(track) => Ok(Some(track)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.into()),
@@ -540,7 +542,8 @@ pub fn find_missing_track_by_inode(conn: &Connection, inode: u64) -> DbResult<Op
          FROM library WHERE file_inode = ? AND missing = 1 LIMIT 1",
     )?;
 
-    match stmt.query_row([inode as i64], row_to_track) {
+    let result = stmt.query_row([inode as i64], row_to_track);
+    match result {
         Ok(track) => Ok(Some(track)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.into()),
@@ -559,7 +562,8 @@ pub fn find_missing_track_by_content_hash(
          FROM library WHERE content_hash = ? AND missing = 1 LIMIT 1",
     )?;
 
-    match stmt.query_row([content_hash], row_to_track) {
+    let result = stmt.query_row([content_hash], row_to_track);
+    match result {
         Ok(track) => Ok(Some(track)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.into()),

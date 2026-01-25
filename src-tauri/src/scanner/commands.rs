@@ -129,10 +129,10 @@ pub async fn scan_paths_to_library(
             let mut was_reconciled = false;
 
             if let Some(inode) = m.file_inode {
-                if let Ok(Some(track)) = library::find_missing_track_by_inode(&conn, inode) {
-                    if library::reconcile_moved_track(&conn, track.id, &m.filepath, Some(inode))
-                        .is_ok()
-                    {
+                let track_result = library::find_missing_track_by_inode(&conn, inode);
+                if let Ok(Some(track)) = track_result {
+                    let reconcile_result = library::reconcile_moved_track(&conn, track.id, &m.filepath, Some(inode));
+                    if reconcile_result.is_ok() {
                         reconciled_count += 1;
                         was_reconciled = true;
                     }
@@ -141,11 +141,10 @@ pub async fn scan_paths_to_library(
 
             if !was_reconciled {
                 if let Ok(hash) = compute_content_hash(std::path::Path::new(&m.filepath)) {
-                    if let Ok(Some(track)) = library::find_missing_track_by_content_hash(&conn, &hash)
-                    {
-                        if library::reconcile_moved_track(&conn, track.id, &m.filepath, m.file_inode)
-                            .is_ok()
-                        {
+                    let track_result = library::find_missing_track_by_content_hash(&conn, &hash);
+                    if let Ok(Some(track)) = track_result {
+                        let reconcile_result = library::reconcile_moved_track(&conn, track.id, &m.filepath, m.file_inode);
+                        if reconcile_result.is_ok() {
                             reconciled_count += 1;
                             was_reconciled = true;
                         }

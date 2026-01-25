@@ -332,7 +332,8 @@ impl WatcherManager {
                 }
             };
 
-            match watched::get_watched_folder(&conn, folder_id) {
+            let folder_result = watched::get_watched_folder(&conn, folder_id);
+            match folder_result {
                 Ok(Some(f)) => f,
                 Ok(None) => {
                     eprintln!("[watcher] Folder {} not found", folder_id);
@@ -457,16 +458,15 @@ impl WatcherManager {
                     let mut was_reconciled = false;
 
                     if let Some(inode) = m.file_inode {
-                        if let Ok(Some(track)) = library::find_missing_track_by_inode(&conn, inode)
-                        {
-                            if library::reconcile_moved_track(
+                        let track_result = library::find_missing_track_by_inode(&conn, inode);
+                        if let Ok(Some(track)) = track_result {
+                            let reconcile_result = library::reconcile_moved_track(
                                 &conn,
                                 track.id,
                                 &m.filepath,
                                 Some(inode),
-                            )
-                            .is_ok()
-                            {
+                            );
+                            if reconcile_result.is_ok() {
                                 reconciled_count += 1;
                                 was_reconciled = true;
                             }
@@ -475,17 +475,15 @@ impl WatcherManager {
 
                     if !was_reconciled {
                         if let Ok(hash) = compute_content_hash(std::path::Path::new(&m.filepath)) {
-                            if let Ok(Some(track)) =
-                                library::find_missing_track_by_content_hash(&conn, &hash)
-                            {
-                                if library::reconcile_moved_track(
+                            let track_result = library::find_missing_track_by_content_hash(&conn, &hash);
+                            if let Ok(Some(track)) = track_result {
+                                let reconcile_result = library::reconcile_moved_track(
                                     &conn,
                                     track.id,
                                     &m.filepath,
                                     m.file_inode,
-                                )
-                                .is_ok()
-                                {
+                                );
+                                if reconcile_result.is_ok() {
                                     reconciled_count += 1;
                                     was_reconciled = true;
                                 }
@@ -523,7 +521,8 @@ impl WatcherManager {
             // Soft-delete tracks that no longer exist on filesystem (mark as missing)
             if !scan_result.deleted.is_empty() {
                 for filepath in &scan_result.deleted {
-                    if let Err(e) = library::mark_track_missing_by_filepath(&conn, filepath) {
+                    let mark_result = library::mark_track_missing_by_filepath(&conn, filepath);
+                    if let Err(e) = mark_result {
                         eprintln!("[watcher] Failed to mark track missing: {}", e);
                     }
                 }

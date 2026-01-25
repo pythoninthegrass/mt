@@ -3,7 +3,7 @@ name = "mt"
 version = "0.1.0"
 description = "Desktop music player for large collections"
 authors = ["pythoninthegrass"]
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "mt_lib"

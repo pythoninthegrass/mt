@@ -4,7 +4,7 @@ title: Migrate to Rust 2024 edition
 status: In Progress
 assignee: []
 created_date: '2026-01-25 05:26'
-updated_date: '2026-01-25 08:40'
+updated_date: '2026-01-25 23:04'
 labels:
   - rust
   - migration
@@ -67,10 +67,66 @@ After migration:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Cargo.toml edition field updated to "2024"
-- [ ] #2 All edition compatibility warnings resolved
-- [ ] #3 cargo fix --edition applied successfully
-- [ ] #4 Full test suite passes (cargo test)
+- [x] #1 Cargo.toml edition field updated to "2024"
+- [x] #2 All edition compatibility warnings resolved
+- [x] #3 cargo fix --edition applied successfully
+- [x] #4 Full test suite passes (cargo test)
 - [ ] #5 Manual testing confirms no behavioral regressions in Last.fm, scanner, watcher, and database operations
-- [ ] #6 Remove #![allow(dependency_on_unit_never_type_fallback)] lint suppression from lib.rs
+- [x] #6 Remove #![allow(dependency_on_unit_never_type_fallback)] lint suppression from lib.rs
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Implementation Summary
+
+All Rust 2024 edition compatibility warnings have been resolved by refactoring code to ensure proper drop order semantics.
+
+### Changes Made
+
+**1. Async functions in lastfm.rs (lines 240-260, 310-356)**
+- Fixed: Assigned `.await` results to variables before matching to ensure proper drop order of `client` and temporary values
+- Pattern: `let result = future.await; match result { ... }`
+
+**2. Match expression in lastfm.rs (line 672)**
+- Fixed: Assigned `db.with_conn(...)` result to variable before matching to prevent early drop of error value
+- Pattern: `let add_result = operation(); match add_result { ... }`
+
+**3. Track reconciliation in scanner/commands.rs (lines 132, 144)**
+- Fixed: Assigned `library::find_missing_track_*` and `library::reconcile_moved_track` results to variables
+- Pattern: `let track_result = find(); let reconcile_result = reconcile();`
+
+**4. File watcher in watcher.rs (lines 335, 460, 479, 526)**
+- Fixed: Similar pattern for database operations and track reconciliation
+- Pattern: Separate result assignment from conditional checks
+
+**5. Database queries in db/library.rs (lines 135, 152, 543, 562)**
+- Fixed: Assigned `stmt.query_row(...)` results to variables before matching
+- Pattern: `let result = stmt.query_row(...); match result { ... }`
+
+**6. Removed lint suppression from lib.rs**
+- Removed: `#![allow(dependency_on_unit_never_type_fallback)]`
+- Clean build with no warnings
+
+### Testing Results
+
+- ✅ All 320 tests pass
+- ✅ cargo build succeeds with no warnings
+- ✅ cargo test succeeds with no warnings
+- ⏳ Manual testing pending user validation
+
+### Drop Order Pattern
+
+The core issue in Rust 2024 is that temporaries in tail expressions (the last expression in a block) are dropped earlier than in Rust 2021. The fix pattern is:
+
+```rust
+// Rust 2021 (risky in 2024)
+match stmt.query_row([id], mapper) { ... }
+
+// Rust 2024 (safe)
+let result = stmt.query_row([id], mapper);
+match result { ... }
+```
+
+This ensures that the temporary returned by `query_row` doesn't outlive variables it depends on like `stmt`.
+<!-- SECTION:NOTES:END -->
