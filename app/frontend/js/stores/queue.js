@@ -32,51 +32,27 @@ export function createQueueStore(Alpine) {
      */
     async init() {
       await this.load();
-      await this._loadPlaybackState();
+      await this._initPlaybackState();
     },
 
     /**
-     * Load playback state from backend (shuffle, loop, currentIndex)
+     * Initialize playback state (session-only, resets on app start)
      */
-    async _loadPlaybackState() {
-      try {
-        const state = await api.queue.getPlaybackState();
-        this.currentIndex = state.current_index;
-        this.shuffle = state.shuffle_enabled;
-        this.loop = state.loop_mode;
+    async _initPlaybackState() {
+      // Reset to defaults - shuffle, loop, and currentIndex are session-only
+      this.currentIndex = -1;
+      this.shuffle = false;
+      this.loop = 'none';
+      this._originalOrder = [...this.items];
+      this._repeatOnePending = false;
 
-        // Restore original order if it was saved
-        if (state.original_order_json) {
-          try {
-            const originalIds = JSON.parse(state.original_order_json);
-            this._originalOrder = this.items.filter(track => originalIds.includes(track.id));
-          } catch (e) {
-            console.warn('Failed to parse original_order_json:', e);
-            this._originalOrder = [...this.items];
-          }
-        } else {
-          this._originalOrder = [...this.items];
-        }
-      } catch (error) {
-        console.error('Failed to load playback state:', error);
-        // Use defaults on error
-        this.currentIndex = -1;
-        this.shuffle = false;
-        this.loop = 'none';
-        this._originalOrder = [...this.items];
-      }
-    },
-
-    /**
-     * Persist current playback state to backend
-     */
-    async _savePlaybackState() {
+      // Persist the reset state to backend
       try {
         await api.queue.setCurrentIndex(this.currentIndex);
         await api.queue.setShuffle(this.shuffle);
         await api.queue.setLoop(this.loop);
       } catch (error) {
-        console.error('Failed to save playback state:', error);
+        console.error('Failed to initialize playback state:', error);
       }
     },
     
