@@ -1,9 +1,10 @@
 ---
 id: task-199
 title: Fix Playwright test infrastructure - Add proper API mocking for library tests
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-25 01:17'
+updated_date: '2026-01-25 04:52'
 labels:
   - testing
   - playwright
@@ -78,10 +79,11 @@ await page.addInitScript(() => {
 Start Python backend or Tauri app during test runs (slower but more accurate).
 
 ## Acceptance Criteria
-
-- [ ] All 118 failing library tests pass
-- [ ] Mock data includes representative tracks with all required fields
-- [ ] Tests remain fast (no real backend if Option 1/2 chosen)
-- [ ] Mocking approach is documented for future test additions
-- [ ] CI/CD pipeline updated if needed
+<!-- AC:BEGIN -->
+- [ ] #1 All 118 failing library tests pass
+- [ ] #2 Mock data includes representative tracks with all required fields
+- [ ] #3 Tests remain fast (no real backend if Option 1/2 chosen)
+- [ ] #4 Mocking approach is documented for future test additions
+- [ ] #5 CI/CD pipeline updated if needed
 <!-- SECTION:DESCRIPTION:END -->
+<!-- AC:END -->

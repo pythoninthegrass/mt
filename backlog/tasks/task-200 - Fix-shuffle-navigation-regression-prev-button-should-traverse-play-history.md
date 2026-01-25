@@ -1,9 +1,10 @@
 ---
 id: task-200
 title: Fix shuffle navigation regression - prev button should traverse play history
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-25 04:49'
+updated_date: '2026-01-25 04:52'
 labels:
   - bug
   - regression
