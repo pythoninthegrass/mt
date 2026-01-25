@@ -34,6 +34,9 @@ export function createQueueStore(Alpine) {
     // Flag to prevent event listener from overriding during initialization
     _initializing: false,
 
+    // Flag to prevent event listener from overriding during queue operations
+    _updating: false,
+
     /**
      * Initialize queue from backend
      */
@@ -660,10 +663,11 @@ export function createQueueStore(Alpine) {
     
     get playOrderItems() {
       if (this.items.length === 0) return [];
-      
+
       const current = this.currentIndex >= 0 ? this.currentIndex : 0;
       const result = [];
-      
+
+      // Show current track + upcoming tracks
       for (let i = current; i < this.items.length; i++) {
         result.push({
           track: this.items[i],
@@ -672,7 +676,8 @@ export function createQueueStore(Alpine) {
           isUpcoming: i > this.currentIndex,
         });
       }
-      
+
+      // If loop=all, append tracks from beginning up to current
       if (this.loop === 'all' && current > 0) {
         for (let i = 0; i < current; i++) {
           result.push({

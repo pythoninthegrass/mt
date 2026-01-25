@@ -882,33 +882,43 @@ export function createLibraryBrowser(Alpine) {
     },
 
     async handleDoubleClick(track, index) {
-      await this.queue.clear();
+      // Set flag to prevent backend events from overwriting our state during this operation
+      this.queue._updating = true;
 
-      if (this.queue.shuffle) {
-        // Shuffle enabled: Add all tracks, then shuffle with clicked track first
-        await this.queue.add(this.library.filteredTracks, false);
-        if (index >= 0 && index < this.queue.items.length) {
-          this.queue.currentIndex = index;
-          this.queue._shuffleItems();
-          await this.queue._syncQueueToBackend();
-          await this.queue.playIndex(0);
-        } else {
-          await this.player.playTrack(track);
-        }
-      } else {
-        // Shuffle disabled: Play clicked track, then enqueue subsequent tracks
-        if (index >= 0 && index < this.library.filteredTracks.length) {
-          // Add clicked track first (will be currently playing)
-          await this.queue.add([track], false);
-          // Add subsequent tracks (what comes after in the view)
-          if (index + 1 < this.library.filteredTracks.length) {
-            const subsequentTracks = this.library.filteredTracks.slice(index + 1);
-            await this.queue.add(subsequentTracks, false);
+      try {
+        await this.queue.clear();
+
+        if (this.queue.shuffle) {
+          // Shuffle enabled: Add all tracks, then shuffle with clicked track first
+          await this.queue.add(this.library.filteredTracks, false);
+          if (index >= 0 && index < this.queue.items.length) {
+            this.queue.currentIndex = index;
+            this.queue._shuffleItems();
+            await this.queue._syncQueueToBackend();
+            await this.queue.playIndex(0);
+          } else {
+            await this.player.playTrack(track);
           }
-          await this.queue.playIndex(0);
         } else {
-          await this.player.playTrack(track);
+          // Shuffle disabled: Play clicked track, then enqueue subsequent tracks
+          if (index >= 0 && index < this.library.filteredTracks.length) {
+            // Add clicked track first (will be currently playing)
+            await this.queue.add([track], false);
+            // Add subsequent tracks (what comes after in the view)
+            if (index + 1 < this.library.filteredTracks.length) {
+              const subsequentTracks = this.library.filteredTracks.slice(index + 1);
+              await this.queue.add(subsequentTracks, false);
+            }
+            await this.queue.playIndex(0);
+          } else {
+            await this.player.playTrack(track);
+          }
         }
+      } finally {
+        // Clear flag after a short delay to let any pending backend events pass
+        setTimeout(() => {
+          this.queue._updating = false;
+        }, 200);
       }
     },
 

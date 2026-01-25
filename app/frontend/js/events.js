@@ -113,6 +113,13 @@ export async function initEventListeners(Alpine) {
   await subscribe(Events.QUEUE_UPDATED, (payload) => {
     console.log('[events] queue:updated', payload);
 
+    // Skip if we're actively updating the queue (prevents race conditions)
+    const queue = Alpine.store('queue');
+    if (queue?._initializing || queue?._updating) {
+      console.log('[events] Skipping queue reload during', queue._initializing ? 'initialization' : 'active update');
+      return;
+    }
+
     // Debounce rapid queue updates to prevent race conditions
     if (queueReloadDebounce) {
       clearTimeout(queueReloadDebounce);
@@ -120,7 +127,8 @@ export async function initEventListeners(Alpine) {
 
     queueReloadDebounce = setTimeout(() => {
       const queue = Alpine.store('queue');
-      if (queue && queue.load) {
+      // Double-check flag hasn't been set during debounce period
+      if (queue && queue.load && !queue._initializing && !queue._updating) {
         queue.load();
       }
     }, 100); // 100ms debounce
@@ -130,14 +138,14 @@ export async function initEventListeners(Alpine) {
   await subscribe(Events.QUEUE_STATE_CHANGED, (payload) => {
     console.log('[events] queue:state-changed', payload);
 
-    // Update local state from backend event (skip during initialization to prevent race conditions)
+    // Update local state from backend event (skip during initialization or active updates to prevent race conditions)
     const queue = Alpine.store('queue');
-    if (queue && !queue._initializing) {
+    if (queue && !queue._initializing && !queue._updating) {
       queue.currentIndex = payload.current_index;
       queue.shuffle = payload.shuffle_enabled;
       queue.loop = payload.loop_mode;
-    } else if (queue?._initializing) {
-      console.log('[events] Skipping queue state update during initialization');
+    } else if (queue?._initializing || queue?._updating) {
+      console.log('[events] Skipping queue state update during', queue._initializing ? 'initialization' : 'active update');
     }
   });
 
