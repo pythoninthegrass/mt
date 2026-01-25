@@ -2,23 +2,24 @@ import { api } from '../api.js';
 
 export function createSidebar(Alpine) {
   Alpine.data('sidebar', () => ({
-    activeSection: Alpine.$persist('all').as('mt:sidebar:activeSection'),
+    // Settings (backed by Rust settings store)
+    activeSection: 'all',
     playlists: [],
-    isCollapsed: Alpine.$persist(false).as('mt:sidebar:isCollapsed'),
-    
+    isCollapsed: false,
+
     editingPlaylist: null,
     editingName: '',
     editingIsNew: false,
     dragOverPlaylistId: null,
-    
+
     reorderDraggingIndex: null,
     reorderDragOverIndex: null,
     reorderDragY: 0,
     reorderDragStartY: 0,
-    
+
     selectedPlaylistIds: [],
     selectionAnchorIndex: null,
-    
+
     sections: [
       { id: 'all', label: 'Music', icon: 'music' },
       { id: 'nowPlaying', label: 'Now Playing', icon: 'speaker' },
@@ -27,8 +28,9 @@ export function createSidebar(Alpine) {
       { id: 'added', label: 'Recently Added', icon: 'sparkles' },
       { id: 'top25', label: 'Top 25', icon: 'fire' },
     ],
-    
+
     init() {
+      this._initSettings();
       console.log('[Sidebar] Component initialized, drag handlers available:', {
         handlePlaylistDragOver: typeof this.handlePlaylistDragOver,
         handlePlaylistDragLeave: typeof this.handlePlaylistDragLeave,
@@ -37,6 +39,37 @@ export function createSidebar(Alpine) {
       this._migrateOldStorage();
       this.loadPlaylists();
       this.loadSection(this.activeSection);
+    },
+
+    /**
+     * Initialize settings from backend and setup watchers.
+     */
+    _initSettings() {
+      if (!window.settings || !window.settings.initialized) {
+        console.log('[Sidebar] Settings service not available, using defaults');
+        return;
+      }
+
+      // Load settings from backend
+      this.activeSection = window.settings.get('sidebar:activeSection', 'all');
+      this.isCollapsed = window.settings.get('sidebar:isCollapsed', false);
+
+      console.log('[Sidebar] Loaded settings from backend');
+
+      // Setup watchers to sync changes to backend
+      this.$nextTick(() => {
+        this.$watch('activeSection', (value) => {
+          window.settings.set('sidebar:activeSection', value).catch(err =>
+            console.error('[Sidebar] Failed to sync activeSection:', err)
+          );
+        });
+
+        this.$watch('isCollapsed', (value) => {
+          window.settings.set('sidebar:isCollapsed', value).catch(err =>
+            console.error('[Sidebar] Failed to sync isCollapsed:', err)
+          );
+        });
+      });
     },
     
     _migrateOldStorage() {
