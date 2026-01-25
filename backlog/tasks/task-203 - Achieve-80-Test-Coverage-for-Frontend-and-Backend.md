@@ -4,7 +4,7 @@ title: Achieve 80% Test Coverage for Frontend and Backend
 status: In Progress
 assignee: []
 created_date: '2026-01-25 08:39'
-updated_date: '2026-01-25 08:40'
+updated_date: '2026-01-25 19:06'
 labels:
   - testing
   - coverage
@@ -12,6 +12,7 @@ labels:
   - rust
 dependencies: []
 priority: high
+ordinal: 500
 ---
 
 ## Description
@@ -48,11 +49,11 @@ Achieve 80% code coverage for both the Alpine.js frontend (E2E tests) and Rust/T
 - [x] #6 [x] Create drag-and-drop.spec.js (18 tests: library-to-playlist, playlist reorder, queue drag, edge cases)
 - [x] #7 [x] Enhance context menu action tests (11 tests: Play Now, Add to Queue, Play Next, Edit Metadata, Remove)
 - [ ] #8 [ ] **Phase 2: Frontend E2E - Every Clickable Element**
-- [ ] #9 [ ] Create error-states.spec.js (network failures, missing tracks, invalid formats, API timeouts, toast notifications)
-- [ ] #10 [ ] Enhance settings.spec.js (every toggle persists on reload, theme changes apply immediately, view modes persist)
-- [ ] #11 [ ] Add Now Playing info click test (clicking track info in player bar)
+- [x] #9 [ ] Create error-states.spec.js (network failures, missing tracks, invalid formats, API timeouts, toast notifications)
+- [x] #10 [ ] Enhance settings.spec.js (every toggle persists on reload, theme changes apply immediately, view modes persist)
+- [x] #11 [ ] Add Now Playing info click test (clicking track info in player bar)
 - [ ] #12 [ ] Test all column header interactions (sort, resize drag, reorder drag, visibility toggle)
-- [ ] #13 [ ] Add multi-track selection edge cases (Shift+click range, Cmd+click toggle, mixed selections)
+- [x] #13 [ ] Add multi-track selection edge cases (Shift+click range, Cmd+click toggle, mixed selections)
 - [ ] #14 [ ] Expand frontend unit tests (Vitest) for store edge cases (player, library, ui, queue shuffling invariants)
 - [ ] #15 [ ] **Phase 3: Backend Rust Command Tests**
 - [ ] #16 [ ] Create src-tauri/src/commands/audio_test.rs - Test all 8 audio commands (audio_load, audio_play, audio_pause, audio_stop, audio_seek, audio_set_volume, audio_get_volume, audio_get_status)
@@ -213,4 +214,20 @@ npm run test:e2e:ui
 **Favorites (7):** favorites_get, favorites_check, favorites_add, favorites_remove, favorites_get_top25, favorites_get_recently_played, favorites_get_recently_added
 **Last.fm (10):** lastfm_get_auth_url, lastfm_auth_callback, lastfm_disconnect, lastfm_get_settings, lastfm_update_settings, lastfm_scrobble, lastfm_now_playing, lastfm_queue_retry, lastfm_queue_status, lastfm_import_loved_tracks
 **Settings (5):** settings_get_all, settings_get, settings_set, settings_update, settings_reset
+
+### 2026-01-25 - Phase 2 Progress
+
+- Created error-states.spec.js (32 tests) - network failures, API errors, toast notifications, loading states
+
+- Created settings.spec.js (26 tests) - theme persistence, view mode, sidebar state, sort settings
+
+- Added Now Playing info tests to playback.spec.js (5 tests) - display updates, double-click scroll
+
+- Added multi-track selection edge cases to library.spec.js (8 tests) - Shift+click range, Cmd+click toggle, mixed selection
+
+- Created ui.store.test.js Vitest unit tests (51 tests) - view navigation, theme, toast, modal, context menu
+
+**E2E Test Count: 338 -> 409 (71 new tests, 100% passing)**
+
+**Vitest Unit Test Count: 66 -> 117 (51 new tests)** (3 pre-existing failures in queue.props.test.js unrelated to this work)
 <!-- SECTION:NOTES:END -->

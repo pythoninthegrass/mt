@@ -4,7 +4,7 @@ title: Migrate to Rust 2024 edition
 status: In Progress
 assignee: []
 created_date: '2026-01-25 05:26'
-updated_date: '2026-01-25 05:41'
+updated_date: '2026-01-25 08:40'
 labels:
   - rust
   - migration
@@ -13,6 +13,7 @@ labels:
   - maintenance
 dependencies: []
 priority: low
+ordinal: 3000
 ---
 
 ## Description
