@@ -191,6 +191,10 @@ lib-cov
 coverage
 *.lcov
 
+# Rust coverage (cargo-llvm-cov, tarpaulin)
+src-tauri/coverage/
+tarpaulin-report.html
+
 # nyc test coverage
 .nyc_output
 

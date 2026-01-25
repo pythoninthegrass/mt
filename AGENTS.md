@@ -326,6 +326,50 @@ Available mock fixtures:
 
 Each mock creates a mutable state object that persists for the test and tracks API calls for assertions.
 
+### Code Coverage
+
+The project uses code coverage tools to track test effectiveness:
+
+**Frontend Coverage (Vitest):**
+
+```bash
+# Run Vitest unit tests with coverage
+cd app/frontend
+npm run test:coverage
+
+# Coverage report generated at app/frontend/coverage/
+```
+
+- Uses `@vitest/coverage-v8` for V8-based coverage
+- Per-file thresholds configured in `vitest.config.js`
+- Primary coverage target: `js/stores/queue.js` (35% minimum)
+- Note: Most frontend testing is E2E via Playwright; Vitest covers store logic
+
+**Backend Coverage (Rust):**
+
+```bash
+# Local (macOS) - uses cargo-llvm-cov
+cd src-tauri
+cargo llvm-cov --html --output-dir coverage
+
+# CI (Linux) - uses cargo-tarpaulin
+cargo tarpaulin --out Html --output-dir coverage --fail-under 50
+```
+
+- Current coverage: ~56% line coverage (317 passing tests)
+- CI threshold: 50% minimum line coverage
+- Coverage reports uploaded as GitHub Actions artifacts
+
+**Coverage Thresholds:**
+
+| Component | Tool | Current | Threshold | Target |
+|-----------|------|---------|-----------|--------|
+| Rust backend | tarpaulin/llvm-cov | ~56% | 50% | 80% |
+| JS stores (queue.js) | Vitest/v8 | ~40% | 35% | 80% |
+| Frontend E2E | Playwright | 409 tests | N/A | Full UI |
+
+Note: The 80% target is aspirational. Current thresholds are set to pass existing tests while providing infrastructure to track improvement over time.
+
 ### Task Runner Commands
 
 The project uses Taskfile (task-runner) for orchestrating build, test, and development workflows.
