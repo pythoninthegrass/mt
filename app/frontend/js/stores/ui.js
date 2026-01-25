@@ -2,34 +2,110 @@ export function createUIStore(Alpine) {
   Alpine.store('ui', {
     view: 'library',
     _previousView: 'library',
-    
-    sidebarOpen: Alpine.$persist(true).as('mt:ui:sidebarOpen'),
-    sidebarWidth: Alpine.$persist(250).as('mt:ui:sidebarWidth'),
-    libraryViewMode: Alpine.$persist('list').as('mt:ui:libraryViewMode'),
-    theme: Alpine.$persist('system').as('mt:ui:theme'),
-    themePreset: Alpine.$persist('light').as('mt:ui:themePreset'),
-    settingsSection: Alpine.$persist('general').as('mt:settings:activeSection'),
-    sortIgnoreWords: Alpine.$persist(true).as('mt:ui:sortIgnoreWords'),
-    sortIgnoreWordsList: Alpine.$persist('the, le, la, los, a').as('mt:ui:sortIgnoreWordsList'),
-    
+
+    // Settings (backed by Rust settings store)
+    sidebarOpen: true,
+    sidebarWidth: 250,
+    libraryViewMode: 'list',
+    theme: 'system',
+    themePreset: 'light',
+    settingsSection: 'general',
+    sortIgnoreWords: true,
+    sortIgnoreWordsList: 'the, le, la, los, a',
+
     modal: null,
     contextMenu: null,
     toasts: [],
     keyboardShortcutsEnabled: true,
     globalLoading: false,
     loadingMessage: '',
-    
+
     init() {
+      this._initSettings();
       this._migrateOldStorage();
       this.applyThemePreset();
-      
+
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (this.themePreset === 'light' && this.theme === 'system') {
           this.applyThemePreset();
         }
       });
     },
-    
+
+    /**
+     * Initialize settings from backend and setup watchers.
+     * Loads persisted settings from Rust settings store and syncs changes.
+     */
+    _initSettings() {
+      if (!window.settings || !window.settings.initialized) {
+        console.log('[ui] Settings service not available, using defaults');
+        return;
+      }
+
+      // Load settings from backend
+      this.sidebarOpen = window.settings.get('ui:sidebarOpen', true);
+      this.sidebarWidth = window.settings.get('ui:sidebarWidth', 250);
+      this.libraryViewMode = window.settings.get('ui:libraryViewMode', 'list');
+      this.theme = window.settings.get('ui:theme', 'system');
+      this.themePreset = window.settings.get('ui:themePreset', 'light');
+      this.settingsSection = window.settings.get('ui:settingsSection', 'general');
+      this.sortIgnoreWords = window.settings.get('ui:sortIgnoreWords', true);
+      this.sortIgnoreWordsList = window.settings.get('ui:sortIgnoreWordsList', 'the, le, la, los, a');
+
+      console.log('[ui] Loaded settings from backend');
+
+      // Setup watchers to sync changes to backend (skip initial sync)
+      this.$nextTick(() => {
+        this.$watch('sidebarOpen', (value) => {
+          window.settings.set('ui:sidebarOpen', value).catch(err =>
+            console.error('[ui] Failed to sync sidebarOpen:', err)
+          );
+        });
+
+        this.$watch('sidebarWidth', (value) => {
+          window.settings.set('ui:sidebarWidth', value).catch(err =>
+            console.error('[ui] Failed to sync sidebarWidth:', err)
+          );
+        });
+
+        this.$watch('libraryViewMode', (value) => {
+          window.settings.set('ui:libraryViewMode', value).catch(err =>
+            console.error('[ui] Failed to sync libraryViewMode:', err)
+          );
+        });
+
+        this.$watch('theme', (value) => {
+          window.settings.set('ui:theme', value).catch(err =>
+            console.error('[ui] Failed to sync theme:', err)
+          );
+        });
+
+        this.$watch('themePreset', (value) => {
+          window.settings.set('ui:themePreset', value).catch(err =>
+            console.error('[ui] Failed to sync themePreset:', err)
+          );
+        });
+
+        this.$watch('settingsSection', (value) => {
+          window.settings.set('ui:settingsSection', value).catch(err =>
+            console.error('[ui] Failed to sync settingsSection:', err)
+          );
+        });
+
+        this.$watch('sortIgnoreWords', (value) => {
+          window.settings.set('ui:sortIgnoreWords', value).catch(err =>
+            console.error('[ui] Failed to sync sortIgnoreWords:', err)
+          );
+        });
+
+        this.$watch('sortIgnoreWordsList', (value) => {
+          window.settings.set('ui:sortIgnoreWordsList', value).catch(err =>
+            console.error('[ui] Failed to sync sortIgnoreWordsList:', err)
+          );
+        });
+      });
+    },
+
     _migrateOldStorage() {
       const oldData = localStorage.getItem('mt:ui');
       if (oldData) {
