@@ -67,10 +67,29 @@ export function createLibraryStore(Alpine) {
 
       this.loading = true;
       try {
-        const data = await api.library.getTracks({ limit: 10000 });
+        // Map frontend sort keys to backend column names
+        const sortKeyMap = {
+          default: 'album',
+          index: 'track_number',
+          dateAdded: 'added_date',
+          lastPlayed: 'last_played',
+          playCount: 'play_count',
+        };
+
+        // Pass search/sort to backend, remove 10K limit
+        const data = await api.library.getTracks({
+          search: this.searchQuery.trim() || null,
+          sort: sortKeyMap[this.sortBy] || this.sortBy,
+          order: this.sortOrder,
+          limit: 999999,  // Effectively unlimited (backend defaults to 100 with null)
+          offset: 0
+        });
+
         this.tracks = data.tracks || [];
         this.totalTracks = data.total || this.tracks.length;
         this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+
+        // Apply only ignore-words normalization (backend already sorted)
         this.applyFilters();
 
         console.log('[library]', 'load_complete', {
@@ -196,24 +215,15 @@ export function createLibraryStore(Alpine) {
      * @param {string} query - Search query
      */
     search(query) {
-      console.log('[library]', 'search', {
-        query,
-        queryLength: query.length
-      });
-
       this.searchQuery = query;
 
-      // Debounce search
       if (this._searchDebounce) {
         clearTimeout(this._searchDebounce);
       }
 
+      // Debounce and reload from backend with search parameter
       this._searchDebounce = setTimeout(() => {
-        this.applyFilters();
-        console.log('[library]', 'search_results', {
-          query,
-          resultCount: this.filteredTracks.length
-        });
+        this.load();
       }, 150);
     },
     
@@ -245,91 +255,59 @@ export function createLibraryStore(Alpine) {
     },
 
     /**
-     * Apply search and sort filters
+     * Apply client-side filters (ignore-words normalization only)
+     * Backend now handles search and primary sorting
      */
     applyFilters() {
+      // Backend already did search/sort, we only apply ignore-words normalization
       let result = [...this.tracks];
 
-      // Apply search filter
-      if (this.searchQuery.trim()) {
-        const query = this.searchQuery.toLowerCase();
-        result = result.filter(track =>
-          track.title?.toLowerCase().includes(query) ||
-          track.artist?.toLowerCase().includes(query) ||
-          track.album?.toLowerCase().includes(query)
-        );
-      }
-
-      // Apply sorting
-      const sortKeyMap = {
-        index: 'track_number',
-        dateAdded: 'added_date',
-        lastPlayed: 'last_played',
-        playCount: 'play_count',
-      };
-
-      const parseTrackNumber = (val) => parseInt(String(val || '').split('/')[0], 10) || 999999;
-
-      // Get ignore words settings
       const uiStore = Alpine.store('ui');
       const ignoreWordsEnabled = uiStore.sortIgnoreWords;
       const ignoreWords = ignoreWordsEnabled
         ? uiStore.sortIgnoreWordsList.split(',').map(w => w.trim()).filter(Boolean)
         : [];
 
-      const compareValues = (aVal, bVal, key) => {
-        if (key === 'track_number') {
-          aVal = parseTrackNumber(aVal);
-          bVal = parseTrackNumber(bVal);
-        } else if (['duration', 'play_count'].includes(key)) {
-          aVal = Number(aVal) || 0;
-          bVal = Number(bVal) || 0;
-        } else if (['added_date', 'last_played'].includes(key)) {
-          aVal = aVal ? new Date(aVal).getTime() : 0;
-          bVal = bVal ? new Date(bVal).getTime() : 0;
-        } else {
-          // String comparison - strip ignored prefixes for artist, album, and title
-          const shouldStripPrefix = ignoreWordsEnabled && ['artist', 'album', 'title'].includes(key);
-          if (shouldStripPrefix) {
-            aVal = this._stripIgnoredPrefix(aVal, ignoreWords).toLowerCase();
-            bVal = this._stripIgnoredPrefix(bVal, ignoreWords).toLowerCase();
-          } else {
-            aVal = String(aVal || '').toLowerCase();
-            bVal = String(bVal || '').toLowerCase();
-          }
-        }
-        if (aVal < bVal) return -1;
-        if (aVal > bVal) return 1;
-        return 0;
-      };
-      
-      const applySort = (a, b, primaryKey) => {
+      // Only re-sort if ignore-words is enabled AND sorting by text field
+      const textSortFields = ['artist', 'album', 'title', 'default'];
+      if (ignoreWordsEnabled && ignoreWords.length > 0 && textSortFields.includes(this.sortBy)) {
+        const sortKey = this.sortBy === 'default' ? 'album' : this.sortBy;
         const dir = this.sortOrder === 'desc' ? -1 : 1;
-        let cmp = compareValues(a[primaryKey], b[primaryKey], primaryKey);
-        if (cmp !== 0) return cmp * dir;
-        
-        // Tiebreakers: Album > Track# > Artist (always ascending)
-        if (primaryKey !== 'album') {
-          cmp = compareValues(a.album, b.album, 'album');
-          if (cmp !== 0) return cmp;
-        }
-        if (primaryKey !== 'track_number') {
-          cmp = compareValues(a.track_number, b.track_number, 'track_number');
-          if (cmp !== 0) return cmp;
-        }
-        if (primaryKey !== 'artist') {
-          return compareValues(a.artist, b.artist, 'artist');
-        }
-        return 0;
-      };
-      
-      if (this.sortBy === 'default') {
-        result.sort((a, b) => applySort(a, b, 'album'));
-      } else {
-        const sortKey = sortKeyMap[this.sortBy] || this.sortBy;
-        result.sort((a, b) => applySort(a, b, sortKey));
+
+        result.sort((a, b) => {
+          // Primary sort with ignore-words stripping
+          const aVal = this._stripIgnoredPrefix(a[sortKey] || '', ignoreWords).toLowerCase();
+          const bVal = this._stripIgnoredPrefix(b[sortKey] || '', ignoreWords).toLowerCase();
+
+          if (aVal < bVal) return -dir;
+          if (aVal > bVal) return dir;
+
+          // Tiebreaker 1: Album (if not primary sort key)
+          if (sortKey !== 'album') {
+            const aAlbum = this._stripIgnoredPrefix(a.album || '', ignoreWords).toLowerCase();
+            const bAlbum = this._stripIgnoredPrefix(b.album || '', ignoreWords).toLowerCase();
+            if (aAlbum < bAlbum) return -1;
+            if (aAlbum > bAlbum) return 1;
+          }
+
+          // Tiebreaker 2: Track Number
+          const aTrack = parseInt(String(a.track_number || '').split('/')[0], 10) || 999999;
+          const bTrack = parseInt(String(b.track_number || '').split('/')[0], 10) || 999999;
+          if (aTrack < bTrack) return -1;
+          if (aTrack > bTrack) return 1;
+
+          // Tiebreaker 3: Artist (if not primary sort key)
+          if (sortKey !== 'artist') {
+            const aArtist = this._stripIgnoredPrefix(a.artist || '', ignoreWords).toLowerCase();
+            const bArtist = this._stripIgnoredPrefix(b.artist || '', ignoreWords).toLowerCase();
+            if (aArtist < bArtist) return -1;
+            if (aArtist > bArtist) return 1;
+          }
+
+          return 0;
+        });
       }
-      
+
       this.filteredTracks = result;
     },
     
@@ -338,25 +316,17 @@ export function createLibraryStore(Alpine) {
      * @param {string} field - Field to sort by
      */
     setSortBy(field) {
-      const previousSortBy = this.sortBy;
-      const previousSortOrder = this.sortOrder;
+      console.log('[library]', 'setSortBy', { field });
 
       if (this.sortBy === field) {
-        // Toggle order if same field
         this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
       } else {
         this.sortBy = field;
         this.sortOrder = 'asc';
       }
 
-      console.log('[library]', 'set_sort', {
-        field: this.sortBy,
-        order: this.sortOrder,
-        previousField: previousSortBy,
-        previousOrder: previousSortOrder
-      });
-
-      this.applyFilters();
+      // Reload from backend with new sort parameters
+      this.load();
     },
     
     /**
