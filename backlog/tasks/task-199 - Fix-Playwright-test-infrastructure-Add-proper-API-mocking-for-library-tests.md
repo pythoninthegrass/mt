@@ -4,7 +4,7 @@ title: Fix Playwright test infrastructure - Add proper API mocking for library t
 status: In Progress
 assignee: []
 created_date: '2026-01-25 01:17'
-updated_date: '2026-01-25 04:52'
+updated_date: '2026-01-25 05:26'
 labels:
   - testing
   - playwright
@@ -12,6 +12,7 @@ labels:
   - technical-debt
 dependencies: []
 priority: medium
+ordinal: 5000
 ---
 
 ## Description

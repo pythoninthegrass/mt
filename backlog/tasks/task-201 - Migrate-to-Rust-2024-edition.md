@@ -1,9 +1,10 @@
 ---
 id: task-201
 title: Migrate to Rust 2024 edition
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-25 05:26'
+updated_date: '2026-01-25 05:41'
 labels:
   - rust
   - migration
