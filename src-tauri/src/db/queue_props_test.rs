@@ -88,20 +88,20 @@ mod tests {
         fn add_to_queue_preserves_count(track_ids in track_id_list_strategy()) {
             let conn = create_test_db();
 
-            // Add tracks to library first
-            for &track_id in &track_ids {
-                add_test_track(&conn, &format!("/path/track{}.mp3", track_id), &format!("Track {}", track_id));
-            }
+            // Add tracks to library with unique filepaths and collect actual IDs
+            let actual_ids: Vec<i64> = track_ids.iter().enumerate().map(|(i, &_track_id)| {
+                add_test_track(&conn, &format!("/path/track{}.mp3", i), &format!("Track {}", i))
+            }).collect();
 
-            // Add to queue
-            let added = add_to_queue(&conn, &track_ids, None).unwrap();
+            // Add to queue using actual library IDs
+            let added = add_to_queue(&conn, &actual_ids, None).unwrap();
 
             // Get queue
             let queue = get_queue(&conn).unwrap();
 
             // Should add all tracks
-            prop_assert_eq!(queue.len(), track_ids.len());
-            prop_assert_eq!(added, track_ids.len() as i64);
+            prop_assert_eq!(queue.len(), actual_ids.len());
+            prop_assert_eq!(added, actual_ids.len() as i64);
         }
 
         /// Adding tracks preserves track identity
@@ -111,13 +111,13 @@ mod tests {
 
             let conn = create_test_db();
 
-            // Add tracks to library
-            for &track_id in &track_ids {
-                add_test_track(&conn, &format!("/path/track{}.mp3", track_id), &format!("Track {}", track_id));
-            }
+            // Add tracks to library with unique filepaths and collect actual IDs
+            let actual_ids: Vec<i64> = track_ids.iter().enumerate().map(|(i, &_track_id)| {
+                add_test_track(&conn, &format!("/path/track{}.mp3", i), &format!("Track {}", i))
+            }).collect();
 
-            // Add to queue
-            add_to_queue(&conn, &track_ids, None).unwrap();
+            // Add to queue using actual library IDs
+            add_to_queue(&conn, &actual_ids, None).unwrap();
 
             // Get queue
             let queue = get_queue(&conn).unwrap();
@@ -126,7 +126,7 @@ mod tests {
             let queue_ids: Vec<i64> = queue.iter().map(|item| item.track.id).collect();
 
             // Should contain all tracks (order preserved)
-            prop_assert_eq!(queue_ids.len(), track_ids.len());
+            prop_assert_eq!(queue_ids.len(), actual_ids.len());
         }
 
         /// Queue positions are sequential
@@ -410,12 +410,14 @@ mod tests {
 
             add_to_queue(&conn, &track_ids, None).unwrap();
 
-            // Perform operations
+            // Perform operations with unique track counter
+            let mut new_track_counter = 0;
             for op in operations {
                 match op {
                     0 => {
-                        // Add
-                        let new_id = add_test_track(&conn, &format!("/path/new{}.mp3", op), &format!("New {}", op));
+                        // Add with unique filepath
+                        let new_id = add_test_track(&conn, &format!("/path/new{}.mp3", new_track_counter), &format!("New {}", new_track_counter));
+                        new_track_counter += 1;
                         let _ = add_to_queue(&conn, &[new_id], None);
                     }
                     1 => {
