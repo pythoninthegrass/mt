@@ -1,7 +1,7 @@
 ---
 id: task-200
 title: Fix shuffle navigation regression - prev button should traverse play history
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-25 04:49'
 updated_date: '2026-01-25 05:40'
@@ -38,7 +38,7 @@ The queue store maintains tracks in play order (physically reordered when shuffl
 - [x] #3 Update playNext() to push current track to history before advancing
 - [x] #4 Clear history appropriately (on shuffle toggle, queue clear, manual queue jumps)
 - [x] #5 Handle edge cases: restart track >3s, loop modes, empty queue
-- [ ] #6 Verify with manual testing: play 5 shuffled tracks, hit prev 5 times, should go back through same 5 tracks
+- [x] #6 Verify with manual testing: play 5 shuffled tracks, hit prev 5 times, should go back through same 5 tracks
 - [x] #7 Add Playwright test for shuffle navigation history
 
 ## Technical Approach
