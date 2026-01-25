@@ -132,9 +132,9 @@ task build
 | Layer | Task Command | Tests | Duration |
 |-------|--------------|-------|----------|
 | **All Tests** | `task test` | Rust + Vitest | ~30s |
-| **Rust Backend** | `task test` | 317 tests | ~15s |
-| **Vitest Unit** | `task npm:test` | 179 tests | ~2s |
-| **Playwright E2E** | `task test:e2e` | 409 tests | ~1m |
+| **Rust Backend** | `task test` | 320 tests | ~15s |
+| **Vitest Unit** | `task npm:test` | 210 tests | ~2s |
+| **Playwright E2E** | `task test:e2e` | 413 tests | ~1m |
 
 ```bash
 # Run all tests (Rust + Vitest unit tests)
@@ -194,9 +194,9 @@ npm run format                        # Frontend formatting (Prettier)
 cargo fmt                             # Rust formatting
 
 # Run tests directly
-cargo test --manifest-path src-tauri/Cargo.toml  # Rust backend (317 tests)
-npm --prefix app/frontend test                    # Vitest unit (179 tests)
-npm --prefix app/frontend run test:e2e            # Playwright E2E (409 tests)
+cargo test --manifest-path src-tauri/Cargo.toml  # Rust backend (320 tests)
+npm --prefix app/frontend test                    # Vitest unit (210 tests)
+npm --prefix app/frontend run test:e2e            # Playwright E2E (413 tests)
 
 # Run pre-commit hooks
 pre-commit run --all-files
@@ -216,8 +216,8 @@ Tests are controlled by the `E2E_MODE` env var to optimize for different scenari
 
 | Mode | Browsers | @tauri tests | Tests | Duration |
 |------|----------|--------------|-------|----------|
-| `fast` (default) | WebKit only | Skipped | ~409 | ~1m |
-| `full` | All 3 | Skipped | ~1227 | ~3m |
+| `fast` (default) | WebKit only | Skipped | ~413 | ~1m |
+| `full` | All 3 | Skipped | ~1239 | ~3m |
 | `tauri` | All 3 | Included | ~1300+ | ~4m |
 
 Tests tagged with `@tauri` in their describe block require the Tauri runtime (audio playback, queue behavior, etc.) and will fail in browser-only mode.
@@ -275,8 +275,8 @@ ls ~/Library/Caches/ms-playwright/
 Browser binaries are cached in `~/Library/Caches/ms-playwright/` (macOS). Each Playwright version requires specific browser builds (e.g., Playwright 1.57.0 requires webkit-2227).
 
 **Test counts by mode:**
-- `fast`: ~409 tests (webkit only, ~1m)
-- `full`: ~1227 tests (all 3 browsers, ~3m)
+- `fast`: ~413 tests (webkit only, ~1m)
+- `full`: ~1239 tests (all 3 browsers, ~3m)
 - `tauri`: ~1300+ tests (all browsers + @tauri tagged tests, ~4m)
 
 **Playwright Test Structure:**
@@ -370,7 +370,7 @@ cargo llvm-cov --html --output-dir coverage
 cargo tarpaulin --out Html --output-dir coverage --fail-under 50
 ```
 
-- Current coverage: ~56% line coverage (317 passing tests)
+- Current coverage: ~56% line coverage (320 passing tests)
 - CI threshold: 50% minimum line coverage
 - Coverage reports uploaded as GitHub Actions artifacts
 
@@ -378,9 +378,9 @@ cargo tarpaulin --out Html --output-dir coverage --fail-under 50
 
 | Component | Tool | Tests | Current | Threshold |
 |-----------|------|-------|---------|-----------|
-| Rust backend | tarpaulin/llvm-cov | 317 | ~56% | 50% |
-| Vitest unit | @vitest/coverage-v8 | 179 | ~40% | 35% |
-| Playwright E2E | Playwright | 409 | N/A | N/A |
+| Rust backend | tarpaulin/llvm-cov | 320 | ~56% | 50% |
+| Vitest unit | @vitest/coverage-v8 | 210 | ~40% | 35% |
+| Playwright E2E | Playwright | 413 | N/A | N/A |
 
 Note: The 80% target is aspirational. Current thresholds are set to pass existing tests while providing infrastructure to track improvement over time.
 
