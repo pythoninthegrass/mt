@@ -533,6 +533,73 @@ export const api = {
     async save(state) {
       console.debug('Queue save (local only):', state);
     },
+
+    /**
+     * Get queue playback state (uses Tauri command)
+     * @returns {Promise<{current_index: number, shuffle_enabled: boolean, loop_mode: string, original_order_json: string|null}>}
+     */
+    async getPlaybackState() {
+      if (invoke) {
+        try {
+          return await invoke('queue_get_playback_state');
+        } catch (error) {
+          console.error('[api.queue.getPlaybackState] Tauri error:', error);
+          throw new ApiError(500, error.toString());
+        }
+      }
+      throw new ApiError(500, 'Queue playback state not available in browser mode');
+    },
+
+    /**
+     * Set current index in queue (uses Tauri command)
+     * @param {number} index - New current index
+     * @returns {Promise<void>}
+     */
+    async setCurrentIndex(index) {
+      if (invoke) {
+        try {
+          return await invoke('queue_set_current_index', { index });
+        } catch (error) {
+          console.error('[api.queue.setCurrentIndex] Tauri error:', error);
+          throw new ApiError(500, error.toString());
+        }
+      }
+      console.debug('Queue setCurrentIndex (no-op in browser):', index);
+    },
+
+    /**
+     * Set shuffle enabled in queue (uses Tauri command)
+     * @param {boolean} enabled - Whether shuffle is enabled
+     * @returns {Promise<void>}
+     */
+    async setShuffle(enabled) {
+      if (invoke) {
+        try {
+          return await invoke('queue_set_shuffle', { enabled });
+        } catch (error) {
+          console.error('[api.queue.setShuffle] Tauri error:', error);
+          throw new ApiError(500, error.toString());
+        }
+      }
+      console.debug('Queue setShuffle (no-op in browser):', enabled);
+    },
+
+    /**
+     * Set loop mode in queue (uses Tauri command)
+     * @param {string} mode - Loop mode ('none', 'all', 'one')
+     * @returns {Promise<void>}
+     */
+    async setLoop(mode) {
+      if (invoke) {
+        try {
+          return await invoke('queue_set_loop', { mode });
+        } catch (error) {
+          console.error('[api.queue.setLoop] Tauri error:', error);
+          throw new ApiError(500, error.toString());
+        }
+      }
+      console.debug('Queue setLoop (no-op in browser):', mode);
+    },
   },
 
   // ============================================

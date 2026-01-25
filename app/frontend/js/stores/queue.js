@@ -31,23 +31,53 @@ export function createQueueStore(Alpine) {
      * Initialize queue from backend
      */
     async init() {
-      this._loadLoopState();
       await this.load();
+      await this._loadPlaybackState();
     },
-    
-    _loadLoopState() {
-      // Shuffle and loop are session-only - always start fresh
-      this.shuffle = false;
-      this.loop = 'none';
+
+    /**
+     * Load playback state from backend (shuffle, loop, currentIndex)
+     */
+    async _loadPlaybackState() {
       try {
-        localStorage.removeItem('mt:loop-state');
-      } catch (e) {
-        // ignore
+        const state = await api.queue.getPlaybackState();
+        this.currentIndex = state.current_index;
+        this.shuffle = state.shuffle_enabled;
+        this.loop = state.loop_mode;
+
+        // Restore original order if it was saved
+        if (state.original_order_json) {
+          try {
+            const originalIds = JSON.parse(state.original_order_json);
+            this._originalOrder = this.items.filter(track => originalIds.includes(track.id));
+          } catch (e) {
+            console.warn('Failed to parse original_order_json:', e);
+            this._originalOrder = [...this.items];
+          }
+        } else {
+          this._originalOrder = [...this.items];
+        }
+      } catch (error) {
+        console.error('Failed to load playback state:', error);
+        // Use defaults on error
+        this.currentIndex = -1;
+        this.shuffle = false;
+        this.loop = 'none';
+        this._originalOrder = [...this.items];
       }
     },
-    
-    _saveLoopState() {
-      // No-op: shuffle and loop are session-only, not persisted
+
+    /**
+     * Persist current playback state to backend
+     */
+    async _savePlaybackState() {
+      try {
+        await api.queue.setCurrentIndex(this.currentIndex);
+        await api.queue.setShuffle(this.shuffle);
+        await api.queue.setLoop(this.loop);
+      } catch (error) {
+        console.error('Failed to save playback state:', error);
+      }
     },
     
     async load() {
@@ -351,12 +381,12 @@ export function createQueueStore(Alpine) {
     
     async playIndex(index) {
       if (index < 0 || index >= this.items.length) return;
-      
+
       this.currentIndex = index;
       const track = this.items[index];
-      
+
       await Alpine.store('player').playTrack(track);
-      await this.save();
+      await api.queue.setCurrentIndex(this.currentIndex);
     },
     
     async playNext() {
@@ -466,7 +496,9 @@ export function createQueueStore(Alpine) {
         }
       }
 
-      this._saveLoopState();
+      // Persist state to backend
+      await api.queue.setShuffle(this.shuffle);
+      await api.queue.setCurrentIndex(this.currentIndex);
 
       // Sync queue order to backend
       await this._syncQueueToBackend();
@@ -521,8 +553,7 @@ export function createQueueStore(Alpine) {
 
       this.loop = newMode;
       this._repeatOnePending = false;
-      this._saveLoopState();
-      await this.save();
+      await api.queue.setLoop(this.loop);
     },
 
     /**
@@ -538,8 +569,7 @@ export function createQueueStore(Alpine) {
 
         this.loop = mode;
         this._repeatOnePending = false;
-        this._saveLoopState();
-        await this.save();
+        await api.queue.setLoop(this.loop);
       }
     },
     

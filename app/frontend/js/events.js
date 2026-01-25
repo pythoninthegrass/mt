@@ -24,6 +24,7 @@ export const Events = {
 
   // Queue events
   QUEUE_UPDATED: 'queue:updated',
+  QUEUE_STATE_CHANGED: 'queue:state-changed',
 
   // Favorites events
   FAVORITES_UPDATED: 'favorites:updated',
@@ -126,13 +127,15 @@ export async function initEventListeners(Alpine) {
   });
 
   // Queue state changed event (shuffle, loop mode, current index)
-  await subscribe('queue:state-changed', (payload) => {
+  await subscribe(Events.QUEUE_STATE_CHANGED, (payload) => {
     console.log('[events] queue:state-changed', payload);
 
-    // State changes are less frequent, reload immediately
+    // Update local state from backend event
     const queue = Alpine.store('queue');
-    if (queue && queue.load) {
-      queue.load();
+    if (queue) {
+      queue.currentIndex = payload.current_index;
+      queue.shuffle = payload.shuffle_enabled;
+      queue.loop = payload.loop_mode;
     }
   });
 
