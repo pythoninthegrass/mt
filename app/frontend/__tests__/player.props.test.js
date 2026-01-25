@@ -167,7 +167,7 @@ describe('Player Store - Property-Based Tests', () => {
       }
     );
 
-    test.prop([fc.integer({ min: 1, max: 600000 }), fc.float({ min: 0, max: 1 })])(
+    test.prop([fc.integer({ min: 1, max: 600000 }), fc.float({ min: 0, max: 1, noNaN: true })])(
       'seekPercent results in position within duration',
       async (duration, percent) => {
         store.duration = duration;
@@ -417,7 +417,7 @@ describe('Player Store - Property-Based Tests', () => {
   });
 
   describe('Threshold Checks', () => {
-    test.prop([fc.integer({ min: 1000, max: 600000 }), fc.float({ min: 0, max: 1 })])(
+    test.prop([fc.integer({ min: 1000, max: 600000 }), fc.float({ min: 0, max: 1, noNaN: true })])(
       'play count threshold check is correct',
       async (duration, threshold) => {
         store.duration = duration;
@@ -438,7 +438,7 @@ describe('Player Store - Property-Based Tests', () => {
       }
     );
 
-    test.prop([fc.integer({ min: 1000, max: 600000 }), fc.float({ min: 0.5, max: 1 })])(
+    test.prop([fc.integer({ min: 1000, max: 600000 }), fc.float({ min: 0.5, max: 1, noNaN: true })])(
       'scrobble threshold check is correct',
       async (duration, threshold) => {
         store.duration = duration;
