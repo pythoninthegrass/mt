@@ -130,12 +130,14 @@ export async function initEventListeners(Alpine) {
   await subscribe(Events.QUEUE_STATE_CHANGED, (payload) => {
     console.log('[events] queue:state-changed', payload);
 
-    // Update local state from backend event
+    // Update local state from backend event (skip during initialization to prevent race conditions)
     const queue = Alpine.store('queue');
-    if (queue) {
+    if (queue && !queue._initializing) {
       queue.currentIndex = payload.current_index;
       queue.shuffle = payload.shuffle_enabled;
       queue.loop = payload.loop_mode;
+    } else if (queue?._initializing) {
+      console.log('[events] Skipping queue state update during initialization');
     }
   });
 

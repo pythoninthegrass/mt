@@ -31,12 +31,23 @@ export function createQueueStore(Alpine) {
     _playHistory: [],
     _maxHistorySize: 100,
 
+    // Flag to prevent event listener from overriding during initialization
+    _initializing: false,
+
     /**
      * Initialize queue from backend
      */
     async init() {
-      await this.load();
-      await this._initPlaybackState();
+      this._initializing = true;
+      try {
+        await this.load();
+        await this._initPlaybackState();
+      } finally {
+        // Use a small delay to ensure backend events from initialization have been processed
+        setTimeout(() => {
+          this._initializing = false;
+        }, 100);
+      }
     },
 
     /**
