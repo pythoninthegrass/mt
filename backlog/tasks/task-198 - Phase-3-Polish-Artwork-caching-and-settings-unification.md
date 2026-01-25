@@ -1,10 +1,10 @@
 ---
 id: task-198
 title: 'Phase 3: Polish - Artwork caching and settings unification'
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-01-24 22:30'
-updated_date: '2026-01-25 06:05'
+updated_date: '2026-01-25 07:12'
 labels:
   - implementation
   - frontend
