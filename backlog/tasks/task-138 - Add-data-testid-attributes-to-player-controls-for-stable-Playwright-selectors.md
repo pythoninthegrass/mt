@@ -4,7 +4,7 @@ title: Add data-testid attributes to player controls for stable Playwright selec
 status: Done
 assignee: []
 created_date: '2026-01-16 04:03'
-updated_date: '2026-01-16 04:08'
+updated_date: '2026-01-24 22:28'
 labels:
   - testing
   - ui
@@ -12,6 +12,7 @@ labels:
   - foundation
 dependencies: []
 priority: high
+ordinal: 70382.8125
 ---
 
 ## Description

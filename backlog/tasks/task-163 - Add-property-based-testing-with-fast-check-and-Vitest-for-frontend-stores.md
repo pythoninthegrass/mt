@@ -4,7 +4,7 @@ title: Add property-based testing with fast-check and Vitest for frontend stores
 status: Done
 assignee: []
 created_date: '2026-01-17 09:08'
-updated_date: '2026-01-17 09:11'
+updated_date: '2026-01-24 22:28'
 labels:
   - testing
   - frontend
@@ -12,6 +12,7 @@ labels:
   - vitest
 dependencies: []
 priority: medium
+ordinal: 58382.8125
 ---
 
 ## Description

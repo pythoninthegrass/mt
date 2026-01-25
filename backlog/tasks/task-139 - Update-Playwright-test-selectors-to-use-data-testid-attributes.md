@@ -4,7 +4,7 @@ title: Update Playwright test selectors to use data-testid attributes
 status: Done
 assignee: []
 created_date: '2026-01-16 04:03'
-updated_date: '2026-01-16 04:12'
+updated_date: '2026-01-24 22:28'
 labels:
   - testing
   - playwright
@@ -12,6 +12,7 @@ labels:
 dependencies:
   - task-138
 priority: high
+ordinal: 69382.8125
 ---
 
 ## Description

@@ -4,7 +4,7 @@ title: 'Add Playwright test: double-click populates queue with entire library'
 status: Done
 assignee: []
 created_date: '2026-01-16 04:04'
-updated_date: '2026-01-16 04:18'
+updated_date: '2026-01-24 22:28'
 labels:
   - testing
   - playwright
@@ -14,6 +14,7 @@ labels:
 dependencies:
   - task-140
 priority: medium
+ordinal: 66382.8125
 ---
 
 ## Description

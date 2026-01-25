@@ -5,7 +5,7 @@ status: Done
 assignee:
   - Claude
 created_date: '2026-01-21 17:39'
-updated_date: '2026-01-22 23:32'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - migration
@@ -17,7 +17,7 @@ dependencies:
   - task-173
   - task-180
 priority: low
-ordinal: 4656.25
+ordinal: 35382.8125
 ---
 
 ## Description

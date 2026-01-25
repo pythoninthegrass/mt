@@ -4,7 +4,7 @@ title: Analyze FastAPI PEX sidecar for Rust backend migration
 status: Done
 assignee: []
 created_date: '2026-01-19 06:16'
-updated_date: '2026-01-21 17:31'
+updated_date: '2026-01-24 22:28'
 labels:
   - analysis
   - backend
@@ -14,7 +14,7 @@ labels:
   - sidecar
 dependencies: []
 priority: medium
-ordinal: 609.375
+ordinal: 3382.8125
 ---
 
 ## Description

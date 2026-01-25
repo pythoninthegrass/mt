@@ -4,7 +4,7 @@ title: 'Finish playlists in Tauri UI (remove sidebar stubs, wire real flows)'
 status: Done
 assignee: []
 created_date: '2026-01-16 04:59'
-updated_date: '2026-01-16 05:10'
+updated_date: '2026-01-24 22:28'
 labels:
   - ui
   - playlists
@@ -14,6 +14,7 @@ milestone: Tauri Migration
 dependencies:
   - task-104
 priority: medium
+ordinal: 62382.8125
 ---
 
 ## Description

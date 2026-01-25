@@ -4,7 +4,7 @@ title: 'Add Playwright test: rapid Next clicks remain stable'
 status: Done
 assignee: []
 created_date: '2026-01-16 04:04'
-updated_date: '2026-01-16 04:18'
+updated_date: '2026-01-24 22:28'
 labels:
   - testing
   - playwright
@@ -14,6 +14,7 @@ labels:
 dependencies:
   - task-139
 priority: medium
+ordinal: 65382.8125
 ---
 
 ## Description

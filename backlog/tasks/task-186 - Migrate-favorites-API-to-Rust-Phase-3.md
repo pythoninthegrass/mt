@@ -4,7 +4,7 @@ title: Migrate favorites API to Rust (Phase 3)
 status: Done
 assignee: []
 created_date: '2026-01-21 17:38'
-updated_date: '2026-01-22 16:48'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - migration
@@ -15,7 +15,7 @@ dependencies:
   - task-173
   - task-180
 priority: medium
-ordinal: 1656.25
+ordinal: 20382.8125
 ---
 
 ## Description

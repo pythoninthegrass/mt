@@ -4,7 +4,7 @@ title: Migrate library management API to Rust (Phase 2)
 status: Done
 assignee: []
 created_date: '2026-01-21 17:37'
-updated_date: '2026-01-21 23:45'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - migration
@@ -16,6 +16,7 @@ dependencies:
   - task-180
   - task-181
 priority: high
+ordinal: 53382.8125
 ---
 
 ## Description

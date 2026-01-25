@@ -4,7 +4,7 @@ title: Implement Play Next and Add to Queue functionality in Tauri UI
 status: Done
 assignee: []
 created_date: '2026-01-16 23:29'
-updated_date: '2026-01-16 23:33'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - queue
@@ -12,6 +12,7 @@ labels:
   - feature
 dependencies: []
 priority: high
+ordinal: 60382.8125
 ---
 
 ## Description

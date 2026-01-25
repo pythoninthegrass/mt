@@ -4,7 +4,7 @@ title: Fix playback issues with tracks missing duration metadata
 status: Done
 assignee: []
 created_date: '2026-01-16 05:31'
-updated_date: '2026-01-16 05:35'
+updated_date: '2026-01-24 22:28'
 labels:
   - bug
   - playback
@@ -12,6 +12,7 @@ labels:
   - tauri-migration
 dependencies: []
 priority: high
+ordinal: 61382.8125
 ---
 
 ## Description

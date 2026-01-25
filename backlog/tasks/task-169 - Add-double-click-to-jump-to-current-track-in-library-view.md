@@ -4,9 +4,10 @@ title: Add double-click to jump to current track in library view
 status: Done
 assignee: []
 created_date: '2026-01-19 05:21'
-updated_date: '2026-01-19 05:39'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
+ordinal: 56382.8125
 ---
 
 ## Description

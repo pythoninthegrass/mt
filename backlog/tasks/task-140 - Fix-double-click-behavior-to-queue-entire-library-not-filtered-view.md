@@ -4,7 +4,7 @@ title: Fix double-click behavior to queue entire library (not filtered view)
 status: Done
 assignee: []
 created_date: '2026-01-16 04:03'
-updated_date: '2026-01-16 04:16'
+updated_date: '2026-01-24 22:28'
 labels:
   - bug
   - queue
@@ -12,6 +12,7 @@ labels:
   - behavior-change
 dependencies: []
 priority: medium
+ordinal: 68382.8125
 ---
 
 ## Description

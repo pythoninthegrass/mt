@@ -4,7 +4,7 @@ title: Migrate settings API to Rust (Phase 3)
 status: Done
 assignee: []
 created_date: '2026-01-21 17:38'
-updated_date: '2026-01-22 17:36'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - migration
@@ -14,7 +14,7 @@ labels:
 dependencies:
   - task-173
 priority: medium
-ordinal: 2656.25
+ordinal: 28382.8125
 ---
 
 ## Description

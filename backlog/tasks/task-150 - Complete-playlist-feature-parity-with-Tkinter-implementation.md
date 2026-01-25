@@ -4,7 +4,7 @@ title: Complete playlist feature parity with Tkinter implementation
 status: Done
 assignee: []
 created_date: '2026-01-16 06:38'
-updated_date: '2026-01-17 04:13'
+updated_date: '2026-01-24 22:28'
 labels:
   - ui
   - playlists
@@ -14,7 +14,7 @@ milestone: Tauri Migration
 dependencies:
   - task-147
 priority: medium
-ordinal: 500
+ordinal: 2382.8125
 ---
 
 ## Description

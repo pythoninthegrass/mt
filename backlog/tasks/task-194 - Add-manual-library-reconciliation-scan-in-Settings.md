@@ -4,7 +4,7 @@ title: Add manual library reconciliation scan in Settings
 status: Done
 assignee: []
 created_date: '2026-01-22 21:35'
-updated_date: '2026-01-22 22:00'
+updated_date: '2026-01-24 22:28'
 labels:
   - settings
   - library
@@ -14,7 +14,7 @@ labels:
 dependencies:
   - task-193
 priority: high
-ordinal: 1656.25
+ordinal: 19382.8125
 ---
 
 ## Description

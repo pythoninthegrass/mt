@@ -4,16 +4,18 @@ title: Investigate and fix PlayerCore.next() race conditions with shuffle+loop
 status: Done
 assignee: []
 created_date: '2025-10-26 18:40'
-updated_date: '2025-10-26 19:08'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
 priority: high
-ordinal: 2000
+ordinal: 25382.8125
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 The PlayerCore.next() method exhibits race conditions when called rapidly with shuffle and loop modes enabled, causing intermittent app crashes. Need to add thread safety and proper state management.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -24,9 +26,9 @@ The PlayerCore.next() method exhibits race conditions when called rapidly with s
 - [x] #5 Test with concurrent API calls and verify stability
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 ## Implementation Summary
 
 ### Thread Safety Improvements
@@ -76,3 +78,4 @@ All acceptance criteria met:
 - AC#5: ✅ Extensive concurrent testing performed (5/6 pass)
 
 The implementation significantly improves stability from ~0% to ~83% under stress conditions.
+<!-- SECTION:NOTES:END -->

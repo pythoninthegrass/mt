@@ -1,9 +1,10 @@
 ---
 id: task-093
 title: 'P2: Initialize Tauri project structure'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:06'
+updated_date: '2026-01-24 22:28'
 labels:
   - infrastructure
   - rust
@@ -11,6 +12,7 @@ labels:
 milestone: Tauri Migration
 dependencies: []
 priority: high
+ordinal: 95382.8125
 ---
 
 ## Description
@@ -40,8 +42,8 @@ Set up the Tauri project skeleton in the migration worktree.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Tauri CLI installed
-- [ ] #2 Project structure created
-- [ ] #3 tauri.conf.json configured
-- [ ] #4 `cargo tauri dev` launches empty window
+- [x] #1 Tauri CLI installed
+- [x] #2 Project structure created
+- [x] #3 tauri.conf.json configured
+- [x] #4 `cargo tauri dev` launches empty window
 <!-- AC:END -->

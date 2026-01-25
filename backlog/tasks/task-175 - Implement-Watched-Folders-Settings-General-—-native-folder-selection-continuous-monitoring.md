@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-01-20 00:42'
-updated_date: '2026-01-20 07:25'
+updated_date: '2026-01-24 22:28'
 labels:
   - tauri-migration
   - feature
@@ -14,7 +14,7 @@ labels:
   - file-watcher
 dependencies: []
 priority: medium
-ordinal: 1000
+ordinal: 7382.8125
 ---
 
 ## Description

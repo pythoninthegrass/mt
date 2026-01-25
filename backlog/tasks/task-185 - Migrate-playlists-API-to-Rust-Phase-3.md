@@ -4,7 +4,7 @@ title: Migrate playlists API to Rust (Phase 3)
 status: Done
 assignee: []
 created_date: '2026-01-21 17:38'
-updated_date: '2026-01-22 01:10'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - migration
@@ -15,6 +15,7 @@ dependencies:
   - task-173
   - task-180
 priority: medium
+ordinal: 50382.8125
 ---
 
 ## Description

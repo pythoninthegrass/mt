@@ -4,7 +4,7 @@ title: Batch delete playlists via multi-select and Delete/Backspace
 status: Done
 assignee: []
 created_date: '2026-01-17 04:35'
-updated_date: '2026-01-17 04:38'
+updated_date: '2026-01-24 22:28'
 labels:
   - ui
   - playlists
@@ -12,6 +12,7 @@ labels:
 milestone: Tauri Migration
 dependencies: []
 priority: medium
+ordinal: 59382.8125
 ---
 
 ## Description

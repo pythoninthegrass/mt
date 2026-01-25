@@ -4,7 +4,7 @@ title: Remove Python backend and PEX sidecar (Phase 5)
 status: Done
 assignee: []
 created_date: '2026-01-21 17:39'
-updated_date: '2026-01-24 22:22'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - migration
@@ -23,7 +23,7 @@ dependencies:
   - task-187
   - task-188
 priority: medium
-ordinal: 5656.25
+ordinal: 37382.8125
 ---
 
 ## Description

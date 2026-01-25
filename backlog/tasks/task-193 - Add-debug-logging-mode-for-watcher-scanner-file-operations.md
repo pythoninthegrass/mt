@@ -4,7 +4,7 @@ title: Add debug logging mode for watcher/scanner file operations
 status: Done
 assignee: []
 created_date: '2026-01-22 21:34'
-updated_date: '2026-01-22 22:00'
+updated_date: '2026-01-24 22:28'
 labels:
   - debugging
   - logging
@@ -13,7 +13,7 @@ labels:
   - dx
 dependencies: []
 priority: medium
-ordinal: 2656.25
+ordinal: 27382.8125
 ---
 
 ## Description

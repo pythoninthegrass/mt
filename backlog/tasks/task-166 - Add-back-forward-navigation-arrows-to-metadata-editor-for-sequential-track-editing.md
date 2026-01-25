@@ -6,13 +6,14 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-01-18 00:21'
-updated_date: '2026-01-18 03:28'
+updated_date: '2026-01-24 22:28'
 labels:
   - feature
   - ui
   - metadata
 dependencies: []
 priority: medium
+ordinal: 57382.8125
 ---
 
 ## Description

@@ -4,13 +4,14 @@ title: Add delay before playlist reorder activation
 status: Done
 assignee: []
 created_date: '2026-01-22 16:31'
-updated_date: '2026-01-22 16:31'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - playlists
   - ux
 dependencies: []
 priority: low
+ordinal: 49382.8125
 ---
 
 ## Description

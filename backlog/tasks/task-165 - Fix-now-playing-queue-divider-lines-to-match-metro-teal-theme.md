@@ -4,14 +4,14 @@ title: Fix now playing queue divider lines to match metro-teal theme
 status: Done
 assignee: []
 created_date: '2026-01-18 00:05'
-updated_date: '2026-01-18 03:20'
+updated_date: '2026-01-24 22:28'
 labels:
   - ui
   - styling
   - bug
 dependencies: []
 priority: low
-ordinal: 382.8125
+ordinal: 1382.8125
 ---
 
 ## Description

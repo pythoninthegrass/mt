@@ -4,14 +4,14 @@ title: Implement synthetic library benchmarking for scan performance
 status: Done
 assignee: []
 created_date: '2026-01-17 10:29'
-updated_date: '2026-01-18 23:29'
+updated_date: '2026-01-24 22:28'
 labels:
   - performance
   - testing
   - scanning
 dependencies: []
 priority: high
-ordinal: 6125
+ordinal: 39382.8125
 ---
 
 ## Description

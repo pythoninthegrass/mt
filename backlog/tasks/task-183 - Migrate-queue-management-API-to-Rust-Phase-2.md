@@ -4,7 +4,7 @@ title: Migrate queue management API to Rust (Phase 2)
 status: Done
 assignee: []
 created_date: '2026-01-21 17:38'
-updated_date: '2026-01-22 00:41'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - migration
@@ -15,6 +15,7 @@ dependencies:
   - task-173
   - task-180
 priority: high
+ordinal: 52382.8125
 ---
 
 ## Description

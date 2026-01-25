@@ -4,7 +4,7 @@ title: Fix 6 failing E2E tests in library.spec.js and sidebar.spec.js
 status: Done
 assignee: []
 created_date: '2026-01-23 05:20'
-updated_date: '2026-01-23 05:34'
+updated_date: '2026-01-24 22:28'
 labels:
   - testing
   - e2e
@@ -12,6 +12,7 @@ labels:
   - bug
 dependencies: []
 priority: medium
+ordinal: 48382.8125
 ---
 
 ## Description

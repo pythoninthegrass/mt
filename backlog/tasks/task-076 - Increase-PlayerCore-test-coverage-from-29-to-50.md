@@ -4,11 +4,11 @@ title: Increase PlayerCore test coverage from 29% to 50%+
 status: Done
 assignee: []
 created_date: '2025-10-26 04:51'
-updated_date: '2026-01-18 22:45'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
 priority: medium
-ordinal: 28382.8125
+ordinal: 47382.8125
 ---
 
 ## Description

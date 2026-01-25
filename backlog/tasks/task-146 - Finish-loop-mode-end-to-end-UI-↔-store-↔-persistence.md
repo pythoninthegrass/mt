@@ -4,7 +4,7 @@ title: Finish loop mode end-to-end (UI ↔ store ↔ persistence)
 status: Done
 assignee: []
 created_date: '2026-01-16 04:59'
-updated_date: '2026-01-16 05:04'
+updated_date: '2026-01-24 22:28'
 labels:
   - ui
   - queue
@@ -13,7 +13,7 @@ labels:
 milestone: Tauri Migration
 dependencies: []
 priority: medium
-ordinal: 1000
+ordinal: 8382.8125
 ---
 
 ## Description

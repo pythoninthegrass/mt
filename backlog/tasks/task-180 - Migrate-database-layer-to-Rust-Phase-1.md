@@ -4,7 +4,7 @@ title: Migrate database layer to Rust (Phase 1)
 status: Done
 assignee: []
 created_date: '2026-01-21 17:37'
-updated_date: '2026-01-21 20:47'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - migration
@@ -14,6 +14,7 @@ labels:
 dependencies:
   - task-173
 priority: high
+ordinal: 55382.8125
 ---
 
 ## Description

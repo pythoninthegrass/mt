@@ -4,7 +4,7 @@ title: Fix drag-and-drop from library to playlist (broken drop + premature curso
 status: Done
 assignee: []
 created_date: '2026-01-20 07:24'
-updated_date: '2026-01-20 09:30'
+updated_date: '2026-01-24 22:28'
 labels:
   - bug
   - frontend
@@ -14,7 +14,7 @@ labels:
 dependencies:
   - task-150
 priority: high
-ordinal: 750
+ordinal: 5382.8125
 ---
 
 ## Description

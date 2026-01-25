@@ -4,10 +4,10 @@ title: Fix context menu highlight to use theme primary color
 status: Done
 assignee: []
 created_date: '2025-10-21 06:27'
-updated_date: '2026-01-16 22:05'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
-ordinal: 21000
+ordinal: 44382.8125
 ---
 
 ## Description

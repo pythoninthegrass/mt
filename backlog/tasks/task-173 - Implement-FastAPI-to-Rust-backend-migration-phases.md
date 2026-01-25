@@ -4,7 +4,7 @@ title: Implement FastAPI to Rust backend migration phases
 status: Done
 assignee: []
 created_date: '2026-01-19 06:16'
-updated_date: '2026-01-24 22:22'
+updated_date: '2026-01-24 22:28'
 labels:
   - implementation
   - backend
@@ -15,7 +15,7 @@ labels:
 dependencies:
   - task-172
 priority: medium
-ordinal: 656.25
+ordinal: 4382.8125
 ---
 
 ## Description

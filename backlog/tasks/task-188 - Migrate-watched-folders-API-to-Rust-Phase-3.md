@@ -4,7 +4,7 @@ title: Migrate watched folders API to Rust (Phase 3)
 status: Done
 assignee: []
 created_date: '2026-01-21 17:39'
-updated_date: '2026-01-22 18:37'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - migration
@@ -18,7 +18,7 @@ dependencies:
   - task-181
   - task-182
 priority: medium
-ordinal: 3656.25
+ordinal: 32382.8125
 ---
 
 ## Description
