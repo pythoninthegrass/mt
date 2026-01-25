@@ -896,10 +896,15 @@ export function createLibraryBrowser(Alpine) {
           await this.player.playTrack(track);
         }
       } else {
-        // Shuffle disabled: Add only clicked track and subsequent tracks
+        // Shuffle disabled: Play clicked track, then enqueue subsequent tracks
         if (index >= 0 && index < this.library.filteredTracks.length) {
-          const subsequentTracks = this.library.filteredTracks.slice(index);
-          await this.queue.add(subsequentTracks, false);
+          // Add clicked track first (will be currently playing)
+          await this.queue.add([track], false);
+          // Add subsequent tracks (what comes after in the view)
+          if (index + 1 < this.library.filteredTracks.length) {
+            const subsequentTracks = this.library.filteredTracks.slice(index + 1);
+            await this.queue.add(subsequentTracks, false);
+          }
           await this.queue.playIndex(0);
         } else {
           await this.player.playTrack(track);
