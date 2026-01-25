@@ -54,56 +54,8 @@ export function createUIStore(Alpine) {
 
       console.log('[ui] Loaded settings from backend');
 
-      // Setup watchers to sync changes to backend (skip initial sync)
-      this.$nextTick(() => {
-        this.$watch('sidebarOpen', (value) => {
-          window.settings.set('ui:sidebarOpen', value).catch(err =>
-            console.error('[ui] Failed to sync sidebarOpen:', err)
-          );
-        });
-
-        this.$watch('sidebarWidth', (value) => {
-          window.settings.set('ui:sidebarWidth', value).catch(err =>
-            console.error('[ui] Failed to sync sidebarWidth:', err)
-          );
-        });
-
-        this.$watch('libraryViewMode', (value) => {
-          window.settings.set('ui:libraryViewMode', value).catch(err =>
-            console.error('[ui] Failed to sync libraryViewMode:', err)
-          );
-        });
-
-        this.$watch('theme', (value) => {
-          window.settings.set('ui:theme', value).catch(err =>
-            console.error('[ui] Failed to sync theme:', err)
-          );
-        });
-
-        this.$watch('themePreset', (value) => {
-          window.settings.set('ui:themePreset', value).catch(err =>
-            console.error('[ui] Failed to sync themePreset:', err)
-          );
-        });
-
-        this.$watch('settingsSection', (value) => {
-          window.settings.set('ui:settingsSection', value).catch(err =>
-            console.error('[ui] Failed to sync settingsSection:', err)
-          );
-        });
-
-        this.$watch('sortIgnoreWords', (value) => {
-          window.settings.set('ui:sortIgnoreWords', value).catch(err =>
-            console.error('[ui] Failed to sync sortIgnoreWords:', err)
-          );
-        });
-
-        this.$watch('sortIgnoreWordsList', (value) => {
-          window.settings.set('ui:sortIgnoreWordsList', value).catch(err =>
-            console.error('[ui] Failed to sync sortIgnoreWordsList:', err)
-          );
-        });
-      });
+      // Note: Watchers for syncing to backend are set up after store creation
+      // using Alpine.effect() (see bottom of createUIStore function)
     },
 
     _migrateOldStorage() {
@@ -470,4 +422,89 @@ export function createUIStore(Alpine) {
       this.missingTrackModal = null;
     },
   });
+
+  // Setup watchers to sync store changes to backend settings
+  // Using Alpine.effect() because stores don't have access to $watch
+  if (window.settings && window.settings.initialized) {
+    const store = Alpine.store('ui');
+    let isInitializing = true;
+
+    // Skip the first effect run to avoid syncing initial values
+    Alpine.nextTick(() => {
+      isInitializing = false;
+    });
+
+    // Watch each setting property and sync to backend
+    Alpine.effect(() => {
+      const value = store.sidebarOpen;
+      if (!isInitializing) {
+        window.settings.set('ui:sidebarOpen', value).catch(err =>
+          console.error('[ui] Failed to sync sidebarOpen:', err)
+        );
+      }
+    });
+
+    Alpine.effect(() => {
+      const value = store.sidebarWidth;
+      if (!isInitializing) {
+        window.settings.set('ui:sidebarWidth', value).catch(err =>
+          console.error('[ui] Failed to sync sidebarWidth:', err)
+        );
+      }
+    });
+
+    Alpine.effect(() => {
+      const value = store.libraryViewMode;
+      if (!isInitializing) {
+        window.settings.set('ui:libraryViewMode', value).catch(err =>
+          console.error('[ui] Failed to sync libraryViewMode:', err)
+        );
+      }
+    });
+
+    Alpine.effect(() => {
+      const value = store.theme;
+      if (!isInitializing) {
+        window.settings.set('ui:theme', value).catch(err =>
+          console.error('[ui] Failed to sync theme:', err)
+        );
+      }
+    });
+
+    Alpine.effect(() => {
+      const value = store.themePreset;
+      if (!isInitializing) {
+        window.settings.set('ui:themePreset', value).catch(err =>
+          console.error('[ui] Failed to sync themePreset:', err)
+        );
+      }
+    });
+
+    Alpine.effect(() => {
+      const value = store.settingsSection;
+      if (!isInitializing) {
+        window.settings.set('ui:settingsSection', value).catch(err =>
+          console.error('[ui] Failed to sync settingsSection:', err)
+        );
+      }
+    });
+
+    Alpine.effect(() => {
+      const value = store.sortIgnoreWords;
+      if (!isInitializing) {
+        window.settings.set('ui:sortIgnoreWords', value).catch(err =>
+          console.error('[ui] Failed to sync sortIgnoreWords:', err)
+        );
+      }
+    });
+
+    Alpine.effect(() => {
+      const value = store.sortIgnoreWordsList;
+      if (!isInitializing) {
+        window.settings.set('ui:sortIgnoreWordsList', value).catch(err =>
+          console.error('[ui] Failed to sync sortIgnoreWordsList:', err)
+        );
+      }
+    });
+  }
 }
