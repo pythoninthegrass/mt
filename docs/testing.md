@@ -275,9 +275,9 @@ proptest! {
 | Layer | Task Command | Tests | Duration |
 |-------|--------------|-------|----------|
 | **All Tests** | `task test` | Rust + Vitest | ~30s |
-| **Rust Backend** | `task test` | 317 tests | ~15s |
-| **Vitest Unit** | `task npm:test` | 179 tests | ~2s |
-| **Playwright E2E** | `task test:e2e` | 409 tests | ~1m |
+| **Rust Backend** | `task test` | 320 tests | ~15s |
+| **Vitest Unit** | `task npm:test` | 210 tests | ~2s |
+| **Playwright E2E** | `task test:e2e` | 413 tests | ~1m |
 
 ```bash
 # Run all tests (Rust + Vitest)
@@ -344,7 +344,7 @@ npx playwright codegen                        # Generate test code
 
 | Mode | Browsers | @tauri tests | Tests | Duration |
 |------|----------|--------------|-------|----------|
-| `fast` (default) | WebKit only | Skipped | ~409 | ~1m |
+| `fast` (default) | WebKit only | Skipped | ~413 | ~1m |
 | `full` | All 3 | Skipped | ~1227 | ~3m |
 | `tauri` | All 3 | Included | ~1300+ | ~4m |
 
@@ -439,10 +439,10 @@ tests/
 
 | Layer | Tests | Duration | Description |
 |-------|-------|----------|-------------|
-| **Rust Backend** | 317 | ~15s | Unit + property tests (proptest) |
-| **Vitest Unit** | 179 | ~2s | Store unit + property tests (fast-check) |
-| **Playwright E2E** | 409 | ~1m | Browser integration tests (webkit) |
-| **Total Active** | **905** | ~1.5m | Full test suite (fast mode) |
+| **Rust Backend** | 320 | ~15s | Unit + property tests (proptest) |
+| **Vitest Unit** | 210 | ~2s | Store unit + property tests (fast-check) |
+| **Playwright E2E** | 413 | ~1m | Browser integration tests (webkit) |
+| **Total Active** | **943** | ~1.5m | Full test suite (fast mode) |
 
 - **Python Tests** [DEPRECATED]: Legacy tests remain for reference only
 
@@ -584,11 +584,11 @@ prop_assert_eq!(&queue[i].track.filepath, &expected_filepath);
 
 | Test Layer | Target | Current |
 |------------|--------|---------|
-| **Rust Backend** | < 20s | ~15s (317 tests) |
-| **Vitest Unit** | < 5s | ~2s (179 tests) |
-| **Playwright (fast)** | < 2m | ~1m (409 tests) |
+| **Rust Backend** | < 20s | ~15s (320 tests) |
+| **Vitest Unit** | < 5s | ~2s (210 tests) |
+| **Playwright (fast)** | < 2m | ~1m (413 tests) |
 | **Playwright (full)** | < 5m | ~3m (1227 tests) |
-| **Full Suite** | < 2m | ~1.5m (905 tests) |
+| **Full Suite** | < 2m | ~1.5m (943 tests) |
 
 ## Adding New Tests
 
