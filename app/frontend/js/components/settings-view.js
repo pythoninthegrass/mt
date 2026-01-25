@@ -197,7 +197,7 @@ export function createSettingsView(Alpine) {
         const { save } = window.__TAURI__.dialog;
 
         const path = await save({
-          defaultPath: `mt-diagnostics-${new Date().toISOString().slice(0, 10)}.log`,
+          defaultPath: `mt_diagnostics_${new Date().toISOString().slice(0, 10)}.log`,
           filters: [{ name: 'Log Files', extensions: ['log'] }],
         });
 
