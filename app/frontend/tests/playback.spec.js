@@ -356,6 +356,65 @@ test.describe('Volume Controls @tauri', () => {
     const thumbElement = volumeBar.locator('.absolute.top-1\\/2.-translate-y-1\\/2.w-2\\.5.h-2\\.5');
     await expect(thumbElement).toBeVisible();
   });
+
+  test('should not bounce back when rapidly clicking volume slider', async ({ page }) => {
+    // Get volume bar element
+    const volumeBar = page.locator('[data-testid="player-volume"]');
+    const boundingBox = await volumeBar.boundingBox();
+    const centerY = boundingBox.y + boundingBox.height / 2;
+
+    // Rapidly click at different positions
+    const positions = [0.2, 0.8, 0.5, 0.9, 0.3];
+
+    for (const pos of positions) {
+      const clickX = boundingBox.x + boundingBox.width * pos;
+      await page.mouse.click(clickX, centerY);
+
+      // Very short wait to simulate rapid clicking
+      await page.waitForTimeout(50);
+
+      // Check that volume is approximately at clicked position
+      const store = await getAlpineStore(page, 'player');
+      const expectedVolume = Math.round(pos * 100);
+
+      // Allow some tolerance for rounding
+      expect(store.volume).toBeGreaterThan(expectedVolume - 10);
+      expect(store.volume).toBeLessThan(expectedVolume + 10);
+    }
+  });
+
+  test('should handle rapid drag direction changes without bounce-back', async ({ page }) => {
+    // Get volume bar element
+    const volumeBar = page.locator('[data-testid="player-volume"]');
+    const boundingBox = await volumeBar.boundingBox();
+    const centerY = boundingBox.y + boundingBox.height / 2;
+
+    // Start drag at 50%
+    const midX = boundingBox.x + boundingBox.width * 0.5;
+    await page.mouse.move(midX, centerY);
+    await page.mouse.down();
+
+    // Rapidly change direction: right, left, right, left
+    const positions = [0.8, 0.3, 0.9, 0.2, 0.7];
+
+    for (const pos of positions) {
+      const x = boundingBox.x + boundingBox.width * pos;
+      await page.mouse.move(x, centerY);
+      // Very small delay to simulate rapid movement
+      await page.waitForTimeout(5);
+    }
+
+    // Release at final position (70%)
+    await page.mouse.up();
+
+    // Wait for volume to settle
+    await page.waitForTimeout(100);
+
+    // Volume should be at or near final drag position (70%)
+    const finalStore = await getAlpineStore(page, 'player');
+    expect(finalStore.volume).toBeGreaterThan(60);
+    expect(finalStore.volume).toBeLessThan(80);
+  });
 });
 
 test.describe('Playback Edge Cases (Regression Hardening)', () => {
