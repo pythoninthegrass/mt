@@ -121,24 +121,39 @@ After completing development with multiple atomic commits:
 
 ```bash
 # Development mode with hot-reload
-npm run tauri:dev
-# or
 task tauri:dev
 
 # Build the application
-npm run tauri:build
+task build
+```
 
-# Run backend tests
-cargo test
+### Running Tests (Task Commands)
 
-# Run frontend tests (unit)
-npm test
+| Layer | Task Command | Tests | Duration |
+|-------|--------------|-------|----------|
+| **All Tests** | `task test` | Rust + Vitest | ~30s |
+| **Rust Backend** | `task test` | 317 tests | ~15s |
+| **Vitest Unit** | `task npm:test` | 179 tests | ~2s |
+| **Playwright E2E** | `task test:e2e` | 409 tests | ~1m |
 
-# Run Playwright E2E tests
-npm run test:e2e
+```bash
+# Run all tests (Rust + Vitest unit tests)
+task test
 
-# Run Playwright E2E tests in UI mode (interactive)
-npm run test:e2e:ui
+# Run only Vitest unit/property tests
+task npm:test
+
+# Run Vitest in watch mode (development)
+task npm:test:watch
+
+# Run Playwright E2E tests (fast mode - webkit only)
+task test:e2e
+
+# Run E2E with all browsers
+E2E_MODE=full task test:e2e
+
+# Run E2E in interactive UI mode
+task npm:test:e2e:ui
 ```
 
 ### Initial setup
@@ -163,7 +178,7 @@ npm install
 task tauri:dev
 ```
 
-#### Raw commands
+#### Raw commands (without task runner)
 
 ```bash
 # Install dependencies
@@ -178,11 +193,10 @@ cargo clippy                          # Rust linting
 npm run format                        # Frontend formatting (Prettier)
 cargo fmt                             # Rust formatting
 
-# Test execution tiers - run different tests based on workflow stage
-npm test                              # Unit tests (frontend)
-cargo test                            # Unit tests (backend)
-npm run test:e2e                      # E2E tests with Playwright
-npm run test:e2e:ui                   # E2E tests in interactive UI mode
+# Run tests directly
+cargo test --manifest-path src-tauri/Cargo.toml  # Rust backend (317 tests)
+npm --prefix app/frontend test                    # Vitest unit (179 tests)
+npm --prefix app/frontend run test:e2e            # Playwright E2E (409 tests)
 
 # Run pre-commit hooks
 pre-commit run --all-files
@@ -200,11 +214,11 @@ The application uses Playwright for end-to-end testing of the Tauri application.
 
 Tests are controlled by the `E2E_MODE` env var to optimize for different scenarios:
 
-| Mode | Browsers | @tauri tests | Use case |
-|------|----------|--------------|----------|
-| `fast` (default) | WebKit only | Skipped | Fast local dev (~53s) |
-| `full` | All 3 | Skipped | Cross-browser validation |
-| `tauri` | All 3 | Included | Full Tauri test harness |
+| Mode | Browsers | @tauri tests | Tests | Duration |
+|------|----------|--------------|-------|----------|
+| `fast` (default) | WebKit only | Skipped | ~409 | ~1m |
+| `full` | All 3 | Skipped | ~1227 | ~3m |
+| `tauri` | All 3 | Included | ~1300+ | ~4m |
 
 Tests tagged with `@tauri` in their describe block require the Tauri runtime (audio playback, queue behavior, etc.) and will fail in browser-only mode.
 
@@ -261,9 +275,9 @@ ls ~/Library/Caches/ms-playwright/
 Browser binaries are cached in `~/Library/Caches/ms-playwright/` (macOS). Each Playwright version requires specific browser builds (e.g., Playwright 1.57.0 requires webkit-2227).
 
 **Test counts by mode:**
-- `fast`: ~269 tests (webkit only, ~1m)
-- `full`: ~807 tests (all 3 browsers)
-- `tauri`: ~900+ tests (all browsers + @tauri tagged tests)
+- `fast`: ~409 tests (webkit only, ~1m)
+- `full`: ~1227 tests (all 3 browsers, ~3m)
+- `tauri`: ~1300+ tests (all browsers + @tauri tagged tests, ~4m)
 
 **Playwright Test Structure:**
 
@@ -362,11 +376,11 @@ cargo tarpaulin --out Html --output-dir coverage --fail-under 50
 
 **Coverage Thresholds:**
 
-| Component | Tool | Current | Threshold | Target |
-|-----------|------|---------|-----------|--------|
-| Rust backend | tarpaulin/llvm-cov | ~56% | 50% | 80% |
-| JS stores (queue.js) | Vitest/v8 | ~40% | 35% | 80% |
-| Frontend E2E | Playwright | 409 tests | N/A | Full UI |
+| Component | Tool | Tests | Current | Threshold |
+|-----------|------|-------|---------|-----------|
+| Rust backend | tarpaulin/llvm-cov | 317 | ~56% | 50% |
+| Vitest unit | @vitest/coverage-v8 | 179 | ~40% | 35% |
+| Playwright E2E | Playwright | 409 | N/A | N/A |
 
 Note: The 80% target is aspirational. Current thresholds are set to pass existing tests while providing infrastructure to track improvement over time.
 

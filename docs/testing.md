@@ -270,6 +270,98 @@ proptest! {
 
 ## Running Tests
 
+### Quick Reference (Task Commands)
+
+| Layer | Task Command | Tests | Duration |
+|-------|--------------|-------|----------|
+| **All Tests** | `task test` | Rust + Vitest | ~30s |
+| **Rust Backend** | `task test` | 317 tests | ~15s |
+| **Vitest Unit** | `task npm:test` | 179 tests | ~2s |
+| **Playwright E2E** | `task test:e2e` | 409 tests | ~1m |
+
+```bash
+# Run all tests (Rust + Vitest)
+task test
+
+# Run Vitest unit/property tests only
+task npm:test
+
+# Run Vitest in watch mode
+task npm:test:watch
+
+# Run Playwright E2E tests
+task test:e2e                    # fast mode (webkit only)
+E2E_MODE=full task test:e2e      # all browsers
+task npm:test:e2e:ui             # interactive UI mode
+```
+
+### JavaScript Tests (Vitest)
+
+```bash
+# Via task runner
+task npm:test                         # Run all unit/property tests
+task npm:test:watch                   # Watch mode for development
+
+# Direct npm commands
+npm --prefix app/frontend test        # Run all tests
+npm --prefix app/frontend test -- __tests__/*.props.test.js  # Property tests only
+npm --prefix app/frontend test -- __tests__/library.store.test.js  # Specific file
+npm --prefix app/frontend run test:coverage  # With coverage report
+```
+
+### Rust Tests
+
+```bash
+# Via task runner (included in `task test`)
+task test
+
+# Direct cargo commands
+cargo test --manifest-path src-tauri/Cargo.toml           # All tests
+cargo test --manifest-path src-tauri/Cargo.toml props     # Property tests only
+cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture  # Verbose output
+
+# More property test examples
+PROPTEST_CASES=1000 cargo test --manifest-path src-tauri/Cargo.toml props
+```
+
+### E2E Tests (Playwright)
+
+```bash
+# Via task runner
+task test:e2e                         # Fast mode (webkit only, ~1m)
+E2E_MODE=full task test:e2e           # All browsers (~3m)
+E2E_MODE=tauri task test:e2e          # Include @tauri tests (~4m)
+task npm:test:e2e:ui                  # Interactive UI mode
+
+# Direct playwright commands
+npx playwright test tests/library.spec.js     # Specific file
+npx playwright test --headed                  # See browser
+npx playwright test --debug tests/sidebar.spec.js  # Debug mode
+npx playwright codegen                        # Generate test code
+```
+
+**E2E_MODE Options:**
+
+| Mode | Browsers | @tauri tests | Tests | Duration |
+|------|----------|--------------|-------|----------|
+| `fast` (default) | WebKit only | Skipped | ~409 | ~1m |
+| `full` | All 3 | Skipped | ~1227 | ~3m |
+| `tauri` | All 3 | Included | ~1300+ | ~4m |
+
+### Coverage Reports
+
+```bash
+# Frontend coverage (Vitest)
+cd app/frontend && npm run test:coverage
+# Report at: app/frontend/coverage/
+
+# Backend coverage (macOS - uses llvm-cov)
+cd src-tauri && cargo llvm-cov --html --output-dir coverage
+
+# Backend coverage (Linux CI - uses tarpaulin)
+cargo tarpaulin --out Html --output-dir coverage --fail-under 50
+```
+
 ### Python Tests [DEPRECATED]
 
 ```bash
@@ -279,86 +371,10 @@ uv run pytest tests/test_unit_*.py
 # Run ONLY property tests (fast, for invariant validation)
 uv run pytest tests/test_props_*.py
 
-# Run property tests with more examples (thorough)
-uv run pytest tests/test_props_*.py --hypothesis-profile=thorough
-
-# Run property tests with statistics
-uv run pytest tests/test_props_*.py --hypothesis-show-statistics
-
-# Run ONLY E2E tests (slower, for integration validation)
-uv run pytest tests/test_e2e_*.py
-
-# Run unit + property tests (fast development feedback)
-uv run pytest tests/test_unit_*.py tests/test_props_*.py
-
 # Run all tests
 uv run pytest tests/
 
-# Note: -v and -p no:pydust flags are configured by default in pyproject.toml
-```
-
-### JavaScript Tests
-
-```bash
-# Run ALL JavaScript tests (unit + property)
-npm test
-
-# Run ONLY property tests (fast, for invariant validation)
-npm test -- __tests__/*.props.test.js
-
-# Run specific property test file
-npm test -- __tests__/queue.props.test.js
-npm test -- __tests__/player-utils.props.test.js
-
-# Run with coverage
-npm test -- --coverage
-
-# Run in watch mode (for development)
-npm test -- --watch
-```
-
-### Rust Tests
-
-```bash
-# Run ALL Rust tests (unit + property)
-cargo test
-
-# Run ONLY property tests
-cargo test props_test
-
-# Run specific property test module
-cargo test queue_props_test --lib
-
-# Run with verbose output
-cargo test -- --nocapture
-
-# Run with more property test examples (set PROPTEST_CASES env var)
-PROPTEST_CASES=1000 cargo test queue_props_test
-
-# Run property tests with shrinking disabled (faster, less precise)
-PROPTEST_MAX_SHRINK_ITERS=0 cargo test props_test
-```
-
-### E2E Tests (Playwright)
-
-```bash
-# Run E2E tests (fast mode - webkit only, skip @tauri tests)
-npm run test:e2e
-
-# Run E2E tests (full mode - all browsers, skip @tauri tests)
-E2E_MODE=full npm run test:e2e
-
-# Run E2E tests (tauri mode - all browsers, include @tauri tests)
-E2E_MODE=tauri npm run test:e2e
-
-# Run E2E tests in UI mode (interactive debugging)
-npm run test:e2e:ui
-
-# Run specific test file
-npx playwright test tests/library.spec.js
-
-# Run tests in headed mode (see browser)
-npx playwright test --headed
+# Note: Python backend is deprecated - use Rust tests instead
 ```
 
 ## Test Organization
@@ -388,12 +404,16 @@ tests/
 └── test_e2e_integration.py       # E2E integration workflow tests (6 tests)
 ```
 
-### JavaScript Tests
+### JavaScript Tests (Vitest)
 
 ```
 app/frontend/__tests__/
-├── queue.props.test.js           # Property tests for queue store (30 tests)
-├── player-utils.props.test.js    # Property tests for player utilities (26 tests)
+├── library.store.test.js         # Library store unit tests (62 tests)
+├── ui.store.test.js              # UI store unit tests (51 tests)
+├── queue.store.test.js           # Queue shuffle invariant tests (13 tests)
+├── queue.props.test.js           # Queue property tests (30 tests)
+├── player.props.test.js          # Player property tests (38 tests)
+├── player-utils.props.test.js    # Player utility tests (32 tests)
 └── setup-player-mocks.js         # Test setup and mocks
 ```
 
@@ -417,13 +437,14 @@ tests/
 
 **Test Suite Summary:**
 
-- **Python Unit Tests** [DEPRECATED]: 51 tests (~0.07s) - Fast, isolated logic testing with mocks
-- **Python Property Tests** [DEPRECATED]: 36 tests (~0.39s) - Invariant validation with Hypothesis
-- **Python E2E/Integration Tests** [DEPRECATED]: 59 tests (~25s) - Full system integration testing
-- **JavaScript Property Tests**: 56 tests (~1.5s) - Frontend invariant validation with fast-check
-- **Rust Property Tests**: 11 tests (~2s) - Backend invariant validation with proptest
-- **E2E Tests (Playwright)**: ~269 tests (fast mode), ~807 tests (full mode) - Cross-browser integration testing
-- **Total Active Tests**: ~346 tests (fast mode) covering property-based, unit, and E2E testing
+| Layer | Tests | Duration | Description |
+|-------|-------|----------|-------------|
+| **Rust Backend** | 317 | ~15s | Unit + property tests (proptest) |
+| **Vitest Unit** | 179 | ~2s | Store unit + property tests (fast-check) |
+| **Playwright E2E** | 409 | ~1m | Browser integration tests (webkit) |
+| **Total Active** | **905** | ~1.5m | Full test suite (fast mode) |
+
+- **Python Tests** [DEPRECATED]: Legacy tests remain for reference only
 
 ## Decision Tree
 
@@ -561,16 +582,13 @@ prop_assert_eq!(&queue[i].track.filepath, &expected_filepath);
 
 ## Performance Goals
 
-- **JavaScript Property Tests**: < 2 seconds total (100 examples per test)
-- **Rust Property Tests**: < 5 seconds total (256 examples per test default)
-- **E2E Tests (Playwright)**:
-  - Fast mode (webkit only): ~1 minute
-  - Full mode (all browsers): ~3-5 minutes
-  - Tauri mode (all + @tauri): ~5-7 minutes
-- **Python Tests** [DEPRECATED]:
-  - Unit tests: < 1 second total
-  - Property tests: < 5 seconds total (50 examples)
-  - E2E tests: < 30 seconds total
+| Test Layer | Target | Current |
+|------------|--------|---------|
+| **Rust Backend** | < 20s | ~15s (317 tests) |
+| **Vitest Unit** | < 5s | ~2s (179 tests) |
+| **Playwright (fast)** | < 2m | ~1m (409 tests) |
+| **Playwright (full)** | < 5m | ~3m (1227 tests) |
+| **Full Suite** | < 2m | ~1.5m (905 tests) |
 
 ## Adding New Tests
 
