@@ -587,6 +587,223 @@ test.describe('Queue Parity Tests @tauri', () => {
   });
 });
 
+test.describe('Shuffle Navigation History (task-200) @tauri', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+  });
+
+  test('prev button should traverse play history when shuffle is enabled', async ({ page }) => {
+    // Add tracks to queue and start playing
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Enable shuffle
+    await page.locator('[data-testid="player-shuffle"]').click();
+    await page.waitForFunction(
+      () => window.Alpine.store('queue').shuffle === true,
+      null,
+      { timeout: 5000 }
+    );
+
+    // Play through 5 tracks and record their IDs
+    const playedTrackIds = [];
+
+    for (let i = 0; i < 5; i++) {
+      const trackId = await page.evaluate(() => {
+        const queue = window.Alpine.store('queue');
+        return queue.currentTrack?.id;
+      });
+
+      playedTrackIds.push(trackId);
+
+      // Skip to next track (don't skip on last iteration)
+      if (i < 4) {
+        await page.locator('[data-testid="player-next"]').click();
+        await page.waitForTimeout(300);
+      }
+    }
+
+    // Now hit prev 5 times and verify we go back through the same tracks
+    const reversedTrackIds = [];
+
+    for (let i = 0; i < 5; i++) {
+      await page.locator('[data-testid="player-prev"]').click();
+      await page.waitForTimeout(300);
+
+      const trackId = await page.evaluate(() => {
+        const queue = window.Alpine.store('queue');
+        return queue.currentTrack?.id;
+      });
+
+      reversedTrackIds.push(trackId);
+    }
+
+    // Reverse the played track IDs to match expected order
+    const expectedIds = [...playedTrackIds].slice(0, 4).reverse();
+
+    // Verify we went back through the same tracks (excluding the last one we were on)
+    expect(reversedTrackIds.slice(0, 4)).toEqual(expectedIds);
+  });
+
+  test('play history should be cleared when shuffle is toggled', async ({ page }) => {
+    // Add tracks and start playing
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Enable shuffle
+    await page.locator('[data-testid="player-shuffle"]').click();
+    await page.waitForTimeout(300);
+
+    // Play through a few tracks
+    await page.locator('[data-testid="player-next"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-testid="player-next"]').click();
+    await page.waitForTimeout(300);
+
+    // Verify history exists (internal check)
+    const historyBeforeToggle = await page.evaluate(() => {
+      return window.Alpine.store('queue')._playHistory.length;
+    });
+    expect(historyBeforeToggle).toBeGreaterThan(0);
+
+    // Toggle shuffle off
+    await page.locator('[data-testid="player-shuffle"]').click();
+    await page.waitForTimeout(300);
+
+    // Verify history was cleared
+    const historyAfterToggle = await page.evaluate(() => {
+      return window.Alpine.store('queue')._playHistory.length;
+    });
+    expect(historyAfterToggle).toBe(0);
+  });
+
+  test('play history should be cleared on manual track selection', async ({ page }) => {
+    // Add tracks and start playing
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Play through a few tracks to build history
+    await page.locator('[data-testid="player-next"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-testid="player-next"]').click();
+    await page.waitForTimeout(300);
+
+    // Verify history exists
+    const historyBeforeManualJump = await page.evaluate(() => {
+      return window.Alpine.store('queue')._playHistory.length;
+    });
+    expect(historyBeforeManualJump).toBeGreaterThan(0);
+
+    // Manually select a different track from the queue
+    await callAlpineStoreMethod(page, 'queue', 'playIndex', 5);
+    await page.waitForTimeout(300);
+
+    // Verify history was cleared
+    const historyAfterManualJump = await page.evaluate(() => {
+      return window.Alpine.store('queue')._playHistory.length;
+    });
+    expect(historyAfterManualJump).toBe(0);
+  });
+
+  test('play history should be cleared when queue is cleared', async ({ page }) => {
+    // Add tracks and start playing
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Play through tracks to build history
+    await page.locator('[data-testid="player-next"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-testid="player-next"]').click();
+    await page.waitForTimeout(300);
+
+    // Verify history exists
+    const historyBeforeClear = await page.evaluate(() => {
+      return window.Alpine.store('queue')._playHistory.length;
+    });
+    expect(historyBeforeClear).toBeGreaterThan(0);
+
+    // Clear queue
+    await callAlpineStoreMethod(page, 'queue', 'clear');
+    await page.waitForTimeout(300);
+
+    // Verify history was cleared
+    const historyAfterClear = await page.evaluate(() => {
+      return window.Alpine.store('queue')._playHistory.length;
+    });
+    expect(historyAfterClear).toBe(0);
+  });
+
+  test('prev button should restart track if >3s played, not use history', async ({ page }) => {
+    // Add tracks and start playing
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Play to next track to build history
+    await page.locator('[data-testid="player-next"]').click();
+    await page.waitForTimeout(300);
+
+    const trackIdBefore = await page.evaluate(() => {
+      return window.Alpine.store('queue').currentTrack?.id;
+    });
+
+    // Simulate >3s of playback
+    await page.evaluate(() => {
+      window.Alpine.store('player').currentTime = 4000;
+    });
+
+    // Hit prev - should restart current track, not go to history
+    await page.locator('[data-testid="player-prev"]').click();
+    await page.waitForTimeout(300);
+
+    const trackIdAfter = await page.evaluate(() => {
+      return window.Alpine.store('queue').currentTrack?.id;
+    });
+
+    // Should be same track (restarted)
+    expect(trackIdAfter).toBe(trackIdBefore);
+
+    // Position should be near 0
+    const position = await page.evaluate(() => {
+      return window.Alpine.store('player').currentTime;
+    });
+    expect(position).toBeLessThan(1000);
+  });
+
+  test('history should be limited to 100 tracks', async ({ page }) => {
+    // This is more of a unit test, but verify the limit is enforced
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Simulate pushing 150 items to history
+    await page.evaluate(() => {
+      const queue = window.Alpine.store('queue');
+      for (let i = 0; i < 150; i++) {
+        queue._pushToHistory(i);
+      }
+    });
+
+    // Verify history is capped at 100
+    const historyLength = await page.evaluate(() => {
+      return window.Alpine.store('queue')._playHistory.length;
+    });
+    expect(historyLength).toBe(100);
+
+    // Verify oldest items were removed (should start at 50, not 0)
+    const firstHistoryItem = await page.evaluate(() => {
+      return window.Alpine.store('queue')._playHistory[0];
+    });
+    expect(firstHistoryItem).toBe(50);
+  });
+});
+
 test.describe('Loop Mode Tests (task-146) @tauri', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
