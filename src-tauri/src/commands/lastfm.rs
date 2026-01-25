@@ -240,7 +240,7 @@ pub async fn lastfm_now_playing(
     let client = LastFmClient::new();
 
     // Update now playing (non-critical - silent errors)
-    match client
+    let result = client
         .update_now_playing(
             &session_key,
             &request.artist,
@@ -248,8 +248,9 @@ pub async fn lastfm_now_playing(
             request.album.as_deref(),
             request.duration,
         )
-        .await
-    {
+        .await;
+
+    match result {
         Ok(_) => Ok(json!({ "status": "success" })),
         Err(e) => {
             // Now Playing updates are not critical, just log and return success
@@ -311,7 +312,7 @@ pub async fn lastfm_scrobble(
     let client = LastFmClient::new();
 
     // Attempt to scrobble
-    match client
+    let result = client
         .scrobble(
             &session_key,
             &request.artist,
@@ -319,8 +320,9 @@ pub async fn lastfm_scrobble(
             request.timestamp,
             request.album.as_deref(),
         )
-        .await
-    {
+        .await;
+
+    match result {
         Ok(accepted) => {
             if accepted > 0 {
                 // Emit success event
@@ -644,22 +646,54 @@ pub async fn lastfm_import_loved_tracks(
         let artist_name = loved_track.artist.name();
         let track_name = &loved_track.name;
 
-        // Find matching track in library (case-insensitive search)
+        // Find matching track in library using separate artist and title filters
+        // This is more accurate than combining them into a single search string
         let query = LibraryQuery {
-            search: Some(format!("{} {}", artist_name, track_name)),
-            artist: None,
+            search: Some(track_name.clone()),  // Search in title field
+            artist: Some(artist_name.to_string()),  // Exact artist filter
             album: None,
             sort_by: LibrarySortColumn::Title,
             sort_order: SortOrder::Asc,
-            limit: 1,
+            limit: 5,  // Get top 5 matches to find best one
             offset: 0,
         };
 
-        let search_results = db
+        let mut search_results = db
             .with_conn(|conn| library::get_all_tracks(conn, &query))
             .map_err(|e: crate::db::DbError| format!("Library search error: {}", e))?;
 
+        // If no results with artist filter, try a more lenient search
+        if search_results.items.is_empty() {
+            let fallback_query = LibraryQuery {
+                search: Some(format!("{} {}", artist_name, track_name)),
+                artist: None,
+                album: None,
+                sort_by: LibrarySortColumn::Title,
+                sort_order: SortOrder::Asc,
+                limit: 5,
+                offset: 0,
+            };
+
+            search_results = db
+                .with_conn(|conn| library::get_all_tracks(conn, &fallback_query))
+                .map_err(|e: crate::db::DbError| format!("Library search error: {}", e))?;
+        }
+
+        // Check if we found any matches
+        if search_results.items.is_empty() {
+            not_in_library += 1;
+            println!(
+                "[lastfm] No match found for: {} - {}",
+                artist_name, track_name
+            );
+            continue;
+        }
+
         if let Some(first_track) = search_results.items.first() {
+            println!(
+                "[lastfm] Found match: {} - {} -> {} (ID: {})",
+                artist_name, track_name, first_track.filepath, first_track.id
+            );
             // Check if already favorited
             let (is_fav, _) = db
                 .with_conn(|conn| favorites::is_favorite(conn, first_track.id))
@@ -669,7 +703,8 @@ pub async fn lastfm_import_loved_tracks(
                 already_favorited += 1;
             } else {
                 // Add to favorites
-                match db.with_conn(|conn| favorites::add_favorite(conn, first_track.id)) {
+                let add_result = db.with_conn(|conn| favorites::add_favorite(conn, first_track.id));
+                match add_result {
                     Ok(Some(_)) => {
                         imported += 1;
                     }
