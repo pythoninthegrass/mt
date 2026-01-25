@@ -14,6 +14,10 @@ import {
   clearApiCalls,
   findApiCalls,
 } from './fixtures/mock-playlists.js';
+import {
+  createLibraryState,
+  setupLibraryMocks,
+} from './fixtures/mock-library.js';
 
 const setColumnSettings = async (page, { widths, visibility, order }) => {
   await page.evaluate(({ widths, visibility, order }) => {
@@ -47,6 +51,8 @@ const clearColumnSettings = async (page) => {
 
 test.describe('Library Browser', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
@@ -149,6 +155,8 @@ test.describe('Library Browser', () => {
 
 test.describe('Search Functionality', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
@@ -227,6 +235,8 @@ test.describe('Search Functionality', () => {
 
 test.describe('Sorting', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
@@ -279,6 +289,8 @@ test.describe('Sorting', () => {
 
 test.describe('Track Selection', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
@@ -358,6 +370,8 @@ test.describe('Track Selection', () => {
 
 test.describe('Context Menu', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
@@ -421,6 +435,8 @@ test.describe('Context Menu', () => {
 
 test.describe('Section Navigation', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
   });
@@ -471,6 +487,8 @@ test.describe('Section Navigation', () => {
 
 test.describe('Responsive Layout', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
   });
@@ -500,11 +518,13 @@ test.describe('Responsive Layout', () => {
 
 test.describe('Column Customization', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
     await page.waitForSelector('[data-track-id]', { state: 'visible' });
-    
+
     await clearColumnSettings(page);
   });
 
@@ -1372,6 +1392,8 @@ test.describe('Column Customization', () => {
  */
 test.describe('Column Padding Consistency (task-135)', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
@@ -1840,6 +1862,8 @@ test.describe('Playlist Feature Parity - Library Browser (task-150)', () => {
  */
 test.describe('Metadata Editing (task-149)', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
@@ -2103,6 +2127,8 @@ test.describe('Metadata Editing (task-149)', () => {
 
 test.describe('Metadata Editor Navigation (task-166)', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });

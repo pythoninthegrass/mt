@@ -4,9 +4,15 @@ import {
   getAlpineStore,
   setAlpineStoreProperty,
 } from './fixtures/helpers.js';
+import {
+  createLibraryState,
+  setupLibraryMocks,
+} from './fixtures/mock-library.js';
 
 test.describe('Missing Track Status Column', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
@@ -71,6 +77,8 @@ test.describe('Missing Track Status Column', () => {
 
 test.describe('Missing Track Popover', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
@@ -262,6 +270,8 @@ test.describe('Missing Track Popover', () => {
 
 test.describe('Missing Track Modal', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
@@ -389,6 +399,8 @@ test.describe('Missing Track API Integration', () => {
   // API is imported as an ES module in the app, not exposed on window.
   // These tests verify the methods exist via the library store which uses the API.
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
   });
@@ -420,6 +432,8 @@ test.describe('Missing Track API Integration', () => {
 
 test.describe('Missing Track Playback Interception', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.goto('/');
     await waitForAlpine(page);
     await page.waitForSelector('[data-track-id]', { state: 'visible' });

@@ -296,6 +296,36 @@ test('should play track when clicked', async ({ page }) => {
 - Organize tests by feature in separate files
 - Use Playwright's auto-waiting features instead of arbitrary timeouts
 
+**API Mocking for Tests:**
+
+When running Playwright tests in browser mode (without Tauri backend), the frontend falls back to HTTP requests at `http://127.0.0.1:8765/api/*` which fails. Use the mock fixtures to intercept these requests:
+
+```javascript
+import { test } from '@playwright/test';
+import { createLibraryState, setupLibraryMocks } from './fixtures/mock-library.js';
+import { createPlaylistState, setupPlaylistMocks } from './fixtures/mock-playlists.js';
+
+test.describe('My Test Suite', () => {
+  test.beforeEach(async ({ page }) => {
+    // Set up mocks BEFORE page.goto()
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
+
+    // Optional: also mock playlists
+    const playlistState = createPlaylistState();
+    await setupPlaylistMocks(page, playlistState);
+
+    await page.goto('/');
+  });
+});
+```
+
+Available mock fixtures:
+- `mock-library.js`: Library API (`/api/library`, track CRUD operations)
+- `mock-playlists.js`: Playlist API (`/api/playlists`, playlist CRUD operations)
+
+Each mock creates a mutable state object that persists for the test and tracks API calls for assertions.
+
 ### Task Runner Commands
 
 The project uses Taskfile (task-runner) for orchestrating build, test, and development workflows.

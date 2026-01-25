@@ -3,9 +3,15 @@ import {
   waitForAlpine,
   getAlpineStore,
 } from './fixtures/helpers.js';
+import {
+  createLibraryState,
+  setupLibraryMocks,
+} from './fixtures/mock-library.js';
 
 test.describe('Sorting - Ignore Words Feature', () => {
   test.beforeEach(async ({ page }) => {
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
     await page.setViewportSize({ width: 1624, height: 1057 });
     await page.goto('/');
     await waitForAlpine(page);
