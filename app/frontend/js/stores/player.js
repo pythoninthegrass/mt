@@ -284,9 +284,11 @@ export function createPlayerStore(Alpine) {
         previousVolume: this.volume
       });
 
+      // Update volume optimistically for immediate UI feedback
+      this.volume = clampedVol;
+
       try {
         await invoke('audio_set_volume', { volume: clampedVol / 100 });
-        this.volume = clampedVol;
         if (clampedVol > 0) {
           this.muted = false;
         }
