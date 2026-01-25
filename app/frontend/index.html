@@ -1403,11 +1403,15 @@
                   <div class="text-xs text-muted-foreground mt-0.5">Restore all settings to their defaults</div>
                 </button>
                 <button
-                  class="w-full text-left px-4 py-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  class="w-full text-left px-4 py-3 rounded-lg border border-border hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   @click="exportLogs()"
+                  :disabled="isExportingLogs"
                   data-testid="settings-export-logs"
                 >
-                  <div class="font-medium text-sm">Export Logs</div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium text-sm">Export Logs</span>
+                    <span x-show="isExportingLogs" class="text-xs text-muted-foreground">Exporting...</span>
+                  </div>
                   <div class="text-xs text-muted-foreground mt-0.5">Save diagnostic information for troubleshooting</div>
                 </button>
               </div>

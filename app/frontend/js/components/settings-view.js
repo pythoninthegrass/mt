@@ -28,6 +28,7 @@ export function createSettingsView(Alpine) {
       lastResult: null,
     },
 
+    isExportingLogs: false,
     isDraggingThreshold: false,
 
     async init() {
@@ -190,22 +191,28 @@ export function createSettingsView(Alpine) {
         return;
       }
 
+      this.isExportingLogs = true;
       try {
         const { invoke } = window.__TAURI__.core;
         const { save } = window.__TAURI__.dialog;
 
         const path = await save({
-          defaultPath: `mt-diagnostics-${new Date().toISOString().slice(0, 10)}.txt`,
-          filters: [{ name: 'Text', extensions: ['txt'] }],
+          defaultPath: `mt-diagnostics-${new Date().toISOString().slice(0, 10)}.log`,
+          filters: [{ name: 'Log Files', extensions: ['log'] }],
         });
 
-        if (!path) return;
+        if (!path) {
+          this.isExportingLogs = false;
+          return;
+        }
 
         await invoke('export_diagnostics', { path });
         Alpine.store('ui').toast('Diagnostics exported successfully', 'success');
       } catch (error) {
         console.error('[settings] Failed to export logs:', error);
         Alpine.store('ui').toast('Failed to export diagnostics', 'error');
+      } finally {
+        this.isExportingLogs = false;
       }
     },
 
