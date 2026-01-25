@@ -379,6 +379,7 @@
                       @dragleave="handlePlaylistDragLeave($event, playlist)"
                       @drop.prevent="handlePlaylistDrop($event, playlist)"
                       :data-testid="'sidebar-playlist-' + playlist.playlistId"
+                      :data-playlist-id="playlist.playlistId"
                       :data-playlist-reorder-index="index"
                       :data-selected="isPlaylistSelected(playlist.playlistId) ? 'true' : 'false'"
                     >
