@@ -4,7 +4,7 @@ title: 'Phase 2: State consolidation - Queue state and scrobbling in Rust'
 status: In Progress
 assignee: []
 created_date: '2026-01-24 22:30'
-updated_date: '2026-01-24 22:31'
+updated_date: '2026-01-25 04:56'
 labels:
   - implementation
   - frontend
@@ -47,11 +47,11 @@ This is the core architectural improvement - establishing backend as single sour
 - [ ] #2 Tauri commands for queue playback state implemented
 - [ ] #3 queue:state-changed events emitted from backend
 - [ ] #4 Frontend queue store reads state from backend
-- [ ] #5 Queue events re-enabled without race conditions
+- [x] #5 Queue events re-enabled without race conditions
 - [ ] #6 Shuffle/loop state persists across app restarts
-- [ ] #7 Scrobble threshold checking moved to Rust audio loop
+- [x] #7 Scrobble threshold checking moved to Rust audio loop
 - [ ] #8 Scrobble status events emitted for frontend display
-- [ ] #9 Frontend _checkScrobble() logic removed
+- [x] #9 Frontend _checkScrobble() logic removed
 - [ ] #10 All existing tests pass
 - [ ] #11 Manual testing confirms queue state and scrobbling work correctly
 <!-- AC:END -->
