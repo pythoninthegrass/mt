@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { formatTime } from '../utils/formatting.js';
 
 const { invoke } = window.__TAURI__?.core ?? { invoke: async () => console.warn('Tauri not available') };
 const { listen } = window.__TAURI__?.event ?? { listen: async () => () => {} };
@@ -423,20 +424,12 @@ export function createPlayerStore(Alpine) {
       }
     },
 
-    formatTime(ms) {
-      if (!ms || ms < 0) return '0:00';
-      const totalSeconds = Math.floor(ms / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    },
-
     get formattedCurrentTime() {
-      return this.formatTime(this.currentTime);
+      return formatTime(this.currentTime);
     },
 
     get formattedDuration() {
-      return this.formatTime(this.duration);
+      return formatTime(this.duration);
     },
   });
 }

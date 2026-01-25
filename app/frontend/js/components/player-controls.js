@@ -1,9 +1,11 @@
 /**
  * Player Controls Component
- * 
+ *
  * Bottom player controls bar with transport controls, progress bar,
  * volume control, and now playing info.
  */
+
+import { formatTime, formatBytes } from '../utils/formatting.js';
 
 /**
  * Create the player controls Alpine component
@@ -136,15 +138,7 @@ export function createPlayerControls(Alpine) {
       if (!this.player.duration) return 0;
       return (this.displayPosition / this.player.duration) * 100;
     },
-    
-    formatTime(ms) {
-      if (!ms || isNaN(ms)) return '0:00';
-      const totalSeconds = Math.floor(ms / 1000);
-      const mins = Math.floor(totalSeconds / 60);
-      const secs = totalSeconds % 60;
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    },
-    
+
     /**
      * Handle play/pause toggle
      */
@@ -313,20 +307,12 @@ export function createPlayerControls(Alpine) {
       const tracks = this.library.tracks;
       const count = tracks.length;
       const totalBytes = tracks.reduce((sum, t) => sum + (t.file_size || 0), 0);
-      const sizeStr = this.formatBytes(totalBytes);
+      const sizeStr = formatBytes(totalBytes);
       const totalSeconds = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
       const durationStr = this.formatDurationLong(totalSeconds);
       return `${count} files  ${sizeStr}  ${durationStr}`;
     },
-    
-    formatBytes(bytes) {
-      if (!bytes || bytes === 0) return '0 B';
-      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(1024));
-      const value = bytes / Math.pow(1024, i);
-      return `${value.toFixed(1)} ${units[i]}`;
-    },
-    
+
     formatDurationLong(seconds) {
       if (!seconds || isNaN(seconds)) return '0m';
       const days = Math.floor(seconds / 86400);

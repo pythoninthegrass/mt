@@ -4,6 +4,7 @@ import intersect from '@alpinejs/intersect';
 import { initStores } from './js/stores/index.js';
 import { initComponents } from './js/components/index.js';
 import api from './js/api.js';
+import { formatTime, formatDuration, formatBytes } from './js/utils/formatting.js';
 import './styles.css';
 
 // Register Alpine plugins
@@ -11,6 +12,11 @@ Alpine.plugin(persist);
 Alpine.plugin(intersect);
 
 window.Alpine = Alpine;
+
+// Make formatting utilities globally available for HTML templates
+window.formatTime = formatTime;
+window.formatDuration = formatDuration;
+window.formatBytes = formatBytes;
 
 // Flags to track internal drag state and prevent click-after-drag
 window._mtInternalDragActive = false;

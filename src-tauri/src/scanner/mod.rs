@@ -7,6 +7,7 @@
 //! This enables no-op rescans to complete quickly without parsing any tags.
 
 pub mod artwork;
+pub mod artwork_cache;
 #[cfg(test)]
 mod benchmarks;
 pub mod commands;

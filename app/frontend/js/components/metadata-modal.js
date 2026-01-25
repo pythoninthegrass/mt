@@ -1,3 +1,5 @@
+import { formatDuration } from '../utils/formatting.js';
+
 export function createMetadataModal(Alpine) {
   Alpine.data('metadataModal', () => ({
     isOpen: false,
@@ -176,7 +178,7 @@ export function createMetadataModal(Alpine) {
         };
         this.fileInfo = {
           format: 'Unknown',
-          duration: this.formatDuration(track.duration),
+          duration: formatDuration(track.duration),
           bitrate: '—',
           sample_rate: '—',
           channels: '—',
@@ -203,7 +205,7 @@ export function createMetadataModal(Alpine) {
 
       this.fileInfo = {
         format: data.format || 'Unknown',
-        duration: this.formatDuration(data.duration_ms ? data.duration_ms / 1000 : 0),
+        duration: formatDuration(data.duration_ms ? data.duration_ms / 1000 : 0),
         bitrate: data.bitrate ? `${data.bitrate} kbps` : '—',
         sample_rate: data.sample_rate ? `${data.sample_rate} Hz` : '—',
         channels: data.channels ? (data.channels === 1 ? 'Mono' : data.channels === 2 ? 'Stereo' : `${data.channels} ch`) : '—',
@@ -269,7 +271,7 @@ export function createMetadataModal(Alpine) {
       const totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
       this.fileInfo = {
         format: 'Multiple',
-        duration: this.formatDuration(totalDuration),
+        duration: formatDuration(totalDuration),
         bitrate: '—',
         sample_rate: '—',
         channels: '—',
@@ -458,13 +460,6 @@ export function createMetadataModal(Alpine) {
 
     navigateNext() {
       this.navigate(1);
-    },
-
-    formatDuration(seconds) {
-      if (!seconds) return '0:00';
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
     },
 
     handleKeydown(event) {

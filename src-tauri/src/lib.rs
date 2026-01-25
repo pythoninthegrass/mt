@@ -313,6 +313,11 @@ pub fn run() {
             app.manage(database);
             println!("Database initialized at: {}", db_path.display());
 
+            // Initialize artwork cache
+            let artwork_cache = scanner::artwork_cache::ArtworkCache::new();
+            app.manage(artwork_cache);
+            println!("Artwork cache initialized (LRU cache size: 100)");
+
             // Pass database clone to watcher manager
             let watcher = WatcherManager::new(app.handle().clone(), database_for_watcher);
             app.manage(watcher);

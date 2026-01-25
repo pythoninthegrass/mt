@@ -10,7 +10,8 @@ use crate::db::{
     library, Database, LibrarySortColumn, LibraryStats, SortOrder, Track, TrackMetadata,
 };
 use crate::events::{EventEmitter, LibraryUpdatedEvent};
-use crate::scanner::artwork::{get_artwork, Artwork};
+use crate::scanner::artwork::Artwork;
+use crate::scanner::artwork_cache::ArtworkCache;
 use crate::scanner::fingerprint::{compute_content_hash, FileFingerprint};
 use crate::scanner::metadata::extract_metadata;
 
@@ -93,10 +94,11 @@ pub fn library_get_track(db: State<'_, Database>, track_id: i64) -> Result<Optio
     library::get_track_by_id(&conn, track_id).map_err(|e| e.to_string())
 }
 
-/// Get artwork for a track by ID
+/// Get artwork for a track by ID (uses LRU cache)
 #[tauri::command]
 pub fn library_get_artwork(
     db: State<'_, Database>,
+    cache: State<'_, ArtworkCache>,
     track_id: i64,
 ) -> Result<Option<Artwork>, String> {
     let conn = db.conn().map_err(|e| e.to_string())?;
@@ -104,15 +106,16 @@ pub fn library_get_artwork(
     let track = library::get_track_by_id(&conn, track_id).map_err(|e| e.to_string())?;
 
     match track {
-        Some(t) => Ok(get_artwork(&t.filepath)),
+        Some(t) => Ok(cache.get_or_load(track_id, &t.filepath)),
         None => Err(format!("Track with id {} not found", track_id)),
     }
 }
 
-/// Get artwork data URL for a track by ID (for use in img src)
+/// Get artwork data URL for a track by ID (for use in img src, uses LRU cache)
 #[tauri::command]
 pub fn library_get_artwork_url(
     db: State<'_, Database>,
+    cache: State<'_, ArtworkCache>,
     track_id: i64,
 ) -> Result<Option<String>, String> {
     let conn = db.conn().map_err(|e| e.to_string())?;
@@ -120,7 +123,10 @@ pub fn library_get_artwork_url(
     let track = library::get_track_by_id(&conn, track_id).map_err(|e| e.to_string())?;
 
     match track {
-        Some(t) => Ok(crate::scanner::artwork::get_artwork_data_url(&t.filepath)),
+        Some(t) => {
+            let artwork = cache.get_or_load(track_id, &t.filepath);
+            Ok(artwork.map(|a| format!("data:{};base64,{}", a.mime_type, a.data)))
+        }
         None => Err(format!("Track with id {} not found", track_id)),
     }
 }
@@ -149,6 +155,7 @@ pub fn library_delete_track(
 pub fn library_rescan_track(
     app: AppHandle,
     db: State<'_, Database>,
+    cache: State<'_, ArtworkCache>,
     track_id: i64,
 ) -> Result<Track, String> {
     let conn = db.conn().map_err(|e| e.to_string())?;
@@ -180,6 +187,9 @@ pub fn library_rescan_track(
 
     // Update in database
     library::update_track_metadata(&conn, track_id, &metadata).map_err(|e| e.to_string())?;
+
+    // Invalidate artwork cache since metadata (and potentially artwork) changed
+    cache.invalidate(track_id);
 
     // Get updated track
     let updated_track = library::get_track_by_id(&conn, track_id)
