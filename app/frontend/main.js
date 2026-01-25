@@ -5,6 +5,7 @@ import { initStores } from './js/stores/index.js';
 import { initComponents } from './js/components/index.js';
 import api from './js/api.js';
 import { formatTime, formatDuration, formatBytes } from './js/utils/formatting.js';
+import { settings } from './js/services/settings.js';
 import './styles.css';
 
 // Register Alpine plugins
@@ -166,12 +167,34 @@ async function initTitlebarDrag() {
 }
 
 // Initialize application
-initStores(Alpine);
-initComponents(Alpine);
-initTauriDragDrop();
-initGlobalKeyboardShortcuts();
-initTitlebarDrag();
+async function initApp() {
+  // Initialize settings service first (loads settings from backend)
+  if (window.__TAURI__) {
+    try {
+      await settings.init();
+      console.log('[main] Settings service initialized');
+    } catch (error) {
+      console.error('[main] Failed to initialize settings:', error);
+    }
+  } else {
+    console.log('[main] Running in browser mode, settings service disabled');
+  }
 
-Alpine.start();
-console.log('[main] Alpine started with stores and components');
-console.log('[main] Test dialog with: testDialog()');
+  // Initialize stores and components
+  initStores(Alpine);
+  initComponents(Alpine);
+  initTauriDragDrop();
+  initGlobalKeyboardShortcuts();
+  initTitlebarDrag();
+
+  // Start Alpine
+  Alpine.start();
+  console.log('[main] Alpine started with stores and components');
+  console.log('[main] Test dialog with: testDialog()');
+}
+
+// Make settings service globally available
+window.settings = settings;
+
+// Start the app
+initApp();
