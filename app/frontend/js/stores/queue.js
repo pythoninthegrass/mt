@@ -40,7 +40,8 @@ export function createQueueStore(Alpine) {
     async init() {
       this._initializing = true;
       try {
-        await this.load();
+        // Clear queue on startup (session-only, like shuffle/loop/currentIndex)
+        await this.clear();
         await this._initPlaybackState();
       } finally {
         // Use a small delay to ensure backend events from initialization have been processed

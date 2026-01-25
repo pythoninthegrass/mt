@@ -883,19 +883,27 @@ export function createLibraryBrowser(Alpine) {
 
     async handleDoubleClick(track, index) {
       await this.queue.clear();
-      await this.queue.add(this.library.filteredTracks, false);
 
-      // If shuffle is enabled, set current index to clicked track then shuffle
-      // This keeps the clicked track at index 0 with remaining tracks shuffled
-      if (this.queue.shuffle && index >= 0 && index < this.queue.items.length) {
-        this.queue.currentIndex = index;
-        this.queue._shuffleItems();
-        await this.queue._syncQueueToBackend();
-        await this.queue.playIndex(0);
-      } else if (index >= 0 && index < this.library.filteredTracks.length) {
-        await this.queue.playIndex(index);
+      if (this.queue.shuffle) {
+        // Shuffle enabled: Add all tracks, then shuffle with clicked track first
+        await this.queue.add(this.library.filteredTracks, false);
+        if (index >= 0 && index < this.queue.items.length) {
+          this.queue.currentIndex = index;
+          this.queue._shuffleItems();
+          await this.queue._syncQueueToBackend();
+          await this.queue.playIndex(0);
+        } else {
+          await this.player.playTrack(track);
+        }
       } else {
-        await this.player.playTrack(track);
+        // Shuffle disabled: Add only clicked track and subsequent tracks
+        if (index >= 0 && index < this.library.filteredTracks.length) {
+          const subsequentTracks = this.library.filteredTracks.slice(index);
+          await this.queue.add(subsequentTracks, false);
+          await this.queue.playIndex(0);
+        } else {
+          await this.player.playTrack(track);
+        }
       }
     },
 
