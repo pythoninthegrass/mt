@@ -1,10 +1,10 @@
 ---
 id: task-197
 title: 'Phase 2: State consolidation - Queue state and scrobbling in Rust'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-24 22:30'
-updated_date: '2026-01-25 05:26'
+updated_date: '2026-01-25 05:32'
 labels:
   - implementation
   - frontend
@@ -15,6 +15,7 @@ labels:
 dependencies:
   - task-170
 priority: high
+ordinal: 250
 ---
 
 ## Description
@@ -53,7 +54,7 @@ This is the core architectural improvement - establishing backend as single sour
 - [x] #8 Scrobble status events emitted for frontend display
 - [x] #9 Frontend _checkScrobble() logic removed
 - [x] #10 All existing tests pass
-- [ ] #11 Manual testing confirms queue state and scrobbling work correctly
+- [x] #11 Manual testing confirms queue state and scrobbling work correctly
 <!-- AC:END -->
 
 ## Implementation Notes
