@@ -29,6 +29,9 @@ vi.mock('../js/api.js', () => ({
       remove: vi.fn().mockResolvedValue({}),
       clear: vi.fn().mockResolvedValue({}),
       move: vi.fn().mockResolvedValue({}),
+      setShuffle: vi.fn().mockResolvedValue({}),
+      setLoop: vi.fn().mockResolvedValue({}),
+      setCurrentIndex: vi.fn().mockResolvedValue({}),
     }
   }
 }));
