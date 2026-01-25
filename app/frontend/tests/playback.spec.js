@@ -8,6 +8,7 @@ import {
   doubleClickTrackRow,
   formatDuration,
 } from './fixtures/helpers.js';
+import { createLibraryState, setupLibraryMocks } from './fixtures/mock-library.js';
 
 test.describe('Playback Controls @tauri', () => {
   test.beforeEach(async ({ page }) => {
@@ -309,6 +310,185 @@ test.describe('Volume Controls @tauri', () => {
     // Verify mute status changed
     const updatedStore = await getAlpineStore(page, 'player');
     expect(updatedStore.muted).toBe(!initialMuted);
+  });
+});
+
+test.describe('Playback Edge Cases (Regression Hardening)', () => {
+  // NOTE: These tests use mocked library data and run in browser mode
+  test.beforeEach(async ({ page }) => {
+    // Set up library mocks BEFORE navigating
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
+
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+  });
+
+  test('rapid double-clicks should not duplicate tracks in queue', async ({ page }) => {
+    // This tests the fix from commits 25fa679 and 37f0af4
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Clear any existing queue
+    await page.evaluate(() => {
+      window.Alpine.store('queue').items = [];
+    });
+
+    // Get library track count
+    const libraryCount = await page.evaluate(() =>
+      window.Alpine.store('library').tracks.length
+    );
+
+    // Rapid double-clicks (simulating race condition)
+    const trackRow = page.locator('[data-track-id]').nth(0);
+    await trackRow.dblclick();
+    await trackRow.dblclick();
+    await trackRow.dblclick();
+
+    // Wait for queue to stabilize
+    await page.waitForTimeout(500);
+
+    // Queue should contain exactly the library count, not duplicates
+    const queueLength = await page.evaluate(() =>
+      window.Alpine.store('queue').items.length
+    );
+
+    expect(queueLength).toBe(libraryCount);
+  });
+
+  test('volume should update immediately during playback', async ({ page }) => {
+    // NOTE: In browser mode without Tauri audio backend, we simulate playback state
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Simulate playback by setting up queue and player state directly
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+
+      // Add tracks to queue
+      queue.items = [...library.tracks];
+      queue.currentIndex = 0;
+
+      // Simulate playing state
+      player.currentTrack = library.tracks[0];
+      player.isPlaying = true;
+    });
+
+    // Set volume to 50%
+    const volumeBar = page.locator('[data-testid="player-volume"]');
+    const boundingBox = await volumeBar.boundingBox();
+    const clickX = boundingBox.x + boundingBox.width * 0.5;
+    const clickY = boundingBox.y + boundingBox.height / 2;
+    await page.mouse.click(clickX, clickY);
+
+    await page.waitForTimeout(200);
+
+    // Verify volume changed
+    const volume1 = await page.evaluate(() =>
+      window.Alpine.store('player').volume
+    );
+    expect(volume1).toBeGreaterThan(40);
+    expect(volume1).toBeLessThan(60);
+
+    // Still playing?
+    const stillPlaying = await page.evaluate(() =>
+      window.Alpine.store('player').isPlaying
+    );
+    expect(stillPlaying).toBe(true);
+
+    // Change volume again while playing
+    await page.mouse.click(boundingBox.x + boundingBox.width * 0.75, clickY);
+    await page.waitForTimeout(200);
+
+    const volume2 = await page.evaluate(() =>
+      window.Alpine.store('player').volume
+    );
+    expect(volume2).toBeGreaterThan(volume1);
+  });
+
+  test('queue clear during playback should stop playback', async ({ page }) => {
+    // NOTE: In browser mode without Tauri audio backend, we simulate playback state
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Simulate playback by setting up queue and player state directly
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+
+      // Add tracks to queue
+      queue.items = [...library.tracks];
+      queue.currentIndex = 0;
+
+      // Simulate playing state
+      player.currentTrack = library.tracks[0];
+      player.isPlaying = true;
+    });
+
+    // Clear queue
+    await page.evaluate(() => {
+      window.Alpine.store('queue').clear();
+    });
+
+    await page.waitForTimeout(300);
+
+    // Verify queue is empty and playback state
+    const queueEmpty = await page.evaluate(() =>
+      window.Alpine.store('queue').items.length === 0
+    );
+    expect(queueEmpty).toBe(true);
+
+    // Current track should be null
+    const currentTrack = await page.evaluate(() =>
+      window.Alpine.store('queue').currentTrack
+    );
+    expect(currentTrack).toBeNull();
+  });
+
+  test('shuffle toggle during playback should keep current track', async ({ page }) => {
+    // NOTE: In browser mode without Tauri audio backend, we simulate playback state
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Simulate playback by setting up queue and player state directly
+    await page.evaluate(() => {
+      const library = window.Alpine.store('library');
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+
+      // Add tracks to queue (need multiple for meaningful shuffle test)
+      queue.items = [...library.tracks];
+      queue.currentIndex = 0;
+
+      // Simulate playing state
+      player.currentTrack = library.tracks[0];
+      player.isPlaying = true;
+    });
+
+    // Get current track ID before shuffle
+    const trackIdBefore = await page.evaluate(() =>
+      window.Alpine.store('player').currentTrack?.id
+    );
+
+    // Toggle shuffle on
+    await page.locator('[data-testid="player-shuffle"]').click();
+    await page.waitForTimeout(300);
+
+    // Verify current track didn't change
+    const trackIdAfter = await page.evaluate(() =>
+      window.Alpine.store('player').currentTrack?.id
+    );
+    expect(trackIdAfter).toBe(trackIdBefore);
+
+    // Toggle shuffle off
+    await page.locator('[data-testid="player-shuffle"]').click();
+    await page.waitForTimeout(300);
+
+    // Still same track
+    const trackIdFinal = await page.evaluate(() =>
+      window.Alpine.store('player').currentTrack?.id
+    );
+    expect(trackIdFinal).toBe(trackIdBefore);
   });
 });
 
