@@ -53,6 +53,15 @@ pub struct QueueItem {
     pub track: Track,
 }
 
+/// Queue playback state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueueState {
+    pub current_index: i64,
+    pub shuffle_enabled: bool,
+    pub loop_mode: String,
+    pub original_order_json: Option<String>,
+}
+
 /// Playlist metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Playlist {

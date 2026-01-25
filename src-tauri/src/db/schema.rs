@@ -113,6 +113,16 @@ pub const CREATE_TABLES: &[(&str, &str)] = &[
             updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
         )",
     ),
+    (
+        "queue_state",
+        "CREATE TABLE IF NOT EXISTS queue_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            current_index INTEGER DEFAULT -1,
+            shuffle_enabled INTEGER DEFAULT 0,
+            loop_mode TEXT DEFAULT 'none',
+            original_order_json TEXT
+        )",
+    ),
 ];
 
 /// Create all database tables
@@ -274,7 +284,7 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         create_tables(&conn).expect("Failed to create tables");
 
-        // Verify all 9 tables exist
+        // Verify all 10 tables exist
         let mut stmt = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
             .unwrap();
@@ -284,9 +294,10 @@ mod tests {
             .filter_map(|r| r.ok())
             .collect();
 
-        assert_eq!(tables.len(), 9);
+        assert_eq!(tables.len(), 10);
         assert!(tables.contains(&"library".to_string()));
         assert!(tables.contains(&"queue".to_string()));
+        assert!(tables.contains(&"queue_state".to_string()));
         assert!(tables.contains(&"playlists".to_string()));
         assert!(tables.contains(&"playlist_items".to_string()));
         assert!(tables.contains(&"favorites".to_string()));

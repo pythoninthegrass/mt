@@ -4,7 +4,7 @@
 
 use rusqlite::{params, Connection};
 
-use crate::db::{library::get_track_by_filepath, DbResult, QueueItem, Track};
+use crate::db::{library::get_track_by_filepath, DbResult, QueueItem, QueueState, Track};
 
 /// Get all items in the queue with track metadata
 pub fn get_queue(conn: &Connection) -> DbResult<Vec<QueueItem>> {
@@ -242,6 +242,102 @@ pub fn reorder_queue(conn: &Connection, from_position: i64, to_position: i64) ->
 pub fn get_queue_length(conn: &Connection) -> DbResult<i64> {
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM queue", [], |row| row.get(0))?;
     Ok(count)
+}
+
+/// Get queue playback state
+pub fn get_queue_state(conn: &Connection) -> DbResult<QueueState> {
+    let result = conn.query_row(
+        "SELECT current_index, shuffle_enabled, loop_mode, original_order_json
+         FROM queue_state WHERE id = 1",
+        [],
+        |row| {
+            Ok(QueueState {
+                current_index: row.get(0)?,
+                shuffle_enabled: row.get::<_, i64>(1)? != 0,
+                loop_mode: row.get(2)?,
+                original_order_json: row.get(3)?,
+            })
+        },
+    );
+
+    match result {
+        Ok(state) => Ok(state),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            // Initialize default state if not exists
+            let default_state = QueueState {
+                current_index: -1,
+                shuffle_enabled: false,
+                loop_mode: "none".to_string(),
+                original_order_json: None,
+            };
+            set_queue_state(conn, &default_state)?;
+            Ok(default_state)
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Set queue playback state
+pub fn set_queue_state(conn: &Connection, state: &QueueState) -> DbResult<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO queue_state (id, current_index, shuffle_enabled, loop_mode, original_order_json)
+         VALUES (1, ?, ?, ?, ?)",
+        params![
+            state.current_index,
+            if state.shuffle_enabled { 1 } else { 0 },
+            &state.loop_mode,
+            &state.original_order_json
+        ],
+    )?;
+    Ok(())
+}
+
+/// Update current index in queue state
+pub fn set_current_index(conn: &Connection, index: i64) -> DbResult<()> {
+    // Ensure state exists
+    let _ = get_queue_state(conn)?;
+
+    conn.execute(
+        "UPDATE queue_state SET current_index = ? WHERE id = 1",
+        params![index],
+    )?;
+    Ok(())
+}
+
+/// Update shuffle enabled in queue state
+pub fn set_shuffle_enabled(conn: &Connection, enabled: bool) -> DbResult<()> {
+    // Ensure state exists
+    let _ = get_queue_state(conn)?;
+
+    conn.execute(
+        "UPDATE queue_state SET shuffle_enabled = ? WHERE id = 1",
+        params![if enabled { 1 } else { 0 }],
+    )?;
+    Ok(())
+}
+
+/// Update loop mode in queue state
+pub fn set_loop_mode(conn: &Connection, mode: &str) -> DbResult<()> {
+    // Ensure state exists
+    let _ = get_queue_state(conn)?;
+
+    conn.execute(
+        "UPDATE queue_state SET loop_mode = ? WHERE id = 1",
+        params![mode],
+    )?;
+    Ok(())
+}
+
+/// Update original order JSON in queue state
+pub fn set_original_order_json(conn: &Connection, json: Option<String>) -> DbResult<()> {
+    // Ensure state exists
+    let _ = get_queue_state(conn)?;
+
+    conn.execute(
+        "UPDATE queue_state SET original_order_json = ? WHERE id = 1",
+        params![json],
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]
