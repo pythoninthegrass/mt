@@ -456,6 +456,8 @@ impl EventEmitter for tauri::AppHandle {
 mod tests {
     use super::*;
 
+    // ==================== LibraryUpdatedEvent Tests ====================
+
     #[test]
     fn test_library_updated_event_serialization() {
         let event = LibraryUpdatedEvent::added(vec![1, 2, 3]);
@@ -463,6 +465,108 @@ mod tests {
         assert!(json.contains("\"action\":\"added\""));
         assert!(json.contains("\"track_ids\":[1,2,3]"));
     }
+
+    #[test]
+    fn test_library_updated_event_added() {
+        let event = LibraryUpdatedEvent::added(vec![1, 2, 3]);
+        assert_eq!(event.action, "added");
+        assert_eq!(event.track_ids, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_library_updated_event_modified() {
+        let event = LibraryUpdatedEvent::modified(vec![10, 20]);
+        assert_eq!(event.action, "modified");
+        assert_eq!(event.track_ids, vec![10, 20]);
+    }
+
+    #[test]
+    fn test_library_updated_event_deleted() {
+        let event = LibraryUpdatedEvent::deleted(vec![5]);
+        assert_eq!(event.action, "deleted");
+        assert_eq!(event.track_ids, vec![5]);
+    }
+
+    #[test]
+    fn test_library_updated_event_empty_ids() {
+        let event = LibraryUpdatedEvent::added(vec![]);
+        assert!(event.track_ids.is_empty());
+    }
+
+    #[test]
+    fn test_library_updated_event_name() {
+        assert_eq!(LibraryUpdatedEvent::EVENT_NAME, "library:updated");
+    }
+
+    #[test]
+    fn test_library_updated_event_clone() {
+        let event = LibraryUpdatedEvent::added(vec![1, 2]);
+        let cloned = event.clone();
+        assert_eq!(event.action, cloned.action);
+        assert_eq!(event.track_ids, cloned.track_ids);
+    }
+
+    // ==================== ScanProgressEvent Tests ====================
+
+    #[test]
+    fn test_scan_progress_event_serialization() {
+        let event = ScanProgressEvent {
+            job_id: "job-123".to_string(),
+            status: "scanning".to_string(),
+            scanned: 100,
+            found: 50,
+            errors: 2,
+            current_path: Some("/music/album".to_string()),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"job_id\":\"job-123\""));
+        assert!(json.contains("\"status\":\"scanning\""));
+        assert!(json.contains("\"scanned\":100"));
+        assert!(json.contains("\"found\":50"));
+    }
+
+    #[test]
+    fn test_scan_progress_event_without_path() {
+        let event = ScanProgressEvent {
+            job_id: "job-456".to_string(),
+            status: "complete".to_string(),
+            scanned: 1000,
+            found: 500,
+            errors: 0,
+            current_path: None,
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"current_path\":null"));
+    }
+
+    #[test]
+    fn test_scan_progress_event_name() {
+        assert_eq!(ScanProgressEvent::EVENT_NAME, "library:scan-progress");
+    }
+
+    // ==================== ScanCompleteEvent Tests ====================
+
+    #[test]
+    fn test_scan_complete_event_serialization() {
+        let event = ScanCompleteEvent {
+            job_id: "job-789".to_string(),
+            added: 250,
+            skipped: 50,
+            errors: 5,
+            duration_ms: 30000,
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"added\":250"));
+        assert!(json.contains("\"skipped\":50"));
+        assert!(json.contains("\"duration_ms\":30000"));
+    }
+
+    #[test]
+    fn test_scan_complete_event_name() {
+        assert_eq!(ScanCompleteEvent::EVENT_NAME, "library:scan-complete");
+    }
+
+    // ==================== QueueUpdatedEvent Tests ====================
 
     #[test]
     fn test_queue_updated_event_serialization() {
@@ -473,12 +577,174 @@ mod tests {
     }
 
     #[test]
+    fn test_queue_updated_event_added() {
+        let event = QueueUpdatedEvent::added(vec![0, 1, 2], 10);
+        assert_eq!(event.action, "added");
+        assert_eq!(event.positions, Some(vec![0, 1, 2]));
+        assert_eq!(event.queue_length, 10);
+    }
+
+    #[test]
+    fn test_queue_updated_event_removed() {
+        let event = QueueUpdatedEvent::removed(5, 9);
+        assert_eq!(event.action, "removed");
+        assert_eq!(event.positions, Some(vec![5]));
+        assert_eq!(event.queue_length, 9);
+    }
+
+    #[test]
+    fn test_queue_updated_event_cleared() {
+        let event = QueueUpdatedEvent::cleared();
+        assert_eq!(event.action, "cleared");
+        assert!(event.positions.is_none());
+        assert_eq!(event.queue_length, 0);
+    }
+
+    #[test]
+    fn test_queue_updated_event_reordered() {
+        let event = QueueUpdatedEvent::reordered(2, 5, 10);
+        assert_eq!(event.action, "reordered");
+        assert_eq!(event.positions, Some(vec![2, 5]));
+        assert_eq!(event.queue_length, 10);
+    }
+
+    #[test]
+    fn test_queue_updated_event_shuffled() {
+        let event = QueueUpdatedEvent::shuffled(15);
+        assert_eq!(event.action, "shuffled");
+        assert!(event.positions.is_none());
+        assert_eq!(event.queue_length, 15);
+    }
+
+    #[test]
+    fn test_queue_updated_event_name() {
+        assert_eq!(QueueUpdatedEvent::EVENT_NAME, "queue:updated");
+    }
+
+    // ==================== QueueStateChangedEvent Tests ====================
+
+    #[test]
+    fn test_queue_state_changed_event() {
+        let event = QueueStateChangedEvent::new(5, true, "all".to_string());
+        assert_eq!(event.current_index, 5);
+        assert!(event.shuffle_enabled);
+        assert_eq!(event.loop_mode, "all");
+    }
+
+    #[test]
+    fn test_queue_state_changed_event_serialization() {
+        let event = QueueStateChangedEvent::new(0, false, "none".to_string());
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"current_index\":0"));
+        assert!(json.contains("\"shuffle_enabled\":false"));
+        assert!(json.contains("\"loop_mode\":\"none\""));
+    }
+
+    #[test]
+    fn test_queue_state_changed_event_name() {
+        assert_eq!(QueueStateChangedEvent::EVENT_NAME, "queue:state-changed");
+    }
+
+    #[test]
+    fn test_queue_state_changed_loop_modes() {
+        for mode in ["none", "one", "all"] {
+            let event = QueueStateChangedEvent::new(0, false, mode.to_string());
+            assert_eq!(event.loop_mode, mode);
+        }
+    }
+
+    // ==================== FavoritesUpdatedEvent Tests ====================
+
+    #[test]
     fn test_favorites_updated_event_serialization() {
         let event = FavoritesUpdatedEvent::added(42);
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("\"action\":\"added\""));
         assert!(json.contains("\"track_id\":42"));
     }
+
+    #[test]
+    fn test_favorites_updated_event_added() {
+        let event = FavoritesUpdatedEvent::added(123);
+        assert_eq!(event.action, "added");
+        assert_eq!(event.track_id, 123);
+    }
+
+    #[test]
+    fn test_favorites_updated_event_removed() {
+        let event = FavoritesUpdatedEvent::removed(456);
+        assert_eq!(event.action, "removed");
+        assert_eq!(event.track_id, 456);
+    }
+
+    #[test]
+    fn test_favorites_updated_event_name() {
+        assert_eq!(FavoritesUpdatedEvent::EVENT_NAME, "favorites:updated");
+    }
+
+    // ==================== PlaylistsUpdatedEvent Tests ====================
+
+    #[test]
+    fn test_playlists_updated_event_created() {
+        let event = PlaylistsUpdatedEvent::created(1);
+        assert_eq!(event.action, "created");
+        assert_eq!(event.playlist_id, 1);
+        assert!(event.track_ids.is_none());
+    }
+
+    #[test]
+    fn test_playlists_updated_event_renamed() {
+        let event = PlaylistsUpdatedEvent::renamed(2);
+        assert_eq!(event.action, "renamed");
+        assert_eq!(event.playlist_id, 2);
+    }
+
+    #[test]
+    fn test_playlists_updated_event_deleted() {
+        let event = PlaylistsUpdatedEvent::deleted(3);
+        assert_eq!(event.action, "deleted");
+        assert_eq!(event.playlist_id, 3);
+    }
+
+    #[test]
+    fn test_playlists_updated_event_tracks_added() {
+        let event = PlaylistsUpdatedEvent::tracks_added(4, vec![10, 20, 30]);
+        assert_eq!(event.action, "tracks_added");
+        assert_eq!(event.playlist_id, 4);
+        assert_eq!(event.track_ids, Some(vec![10, 20, 30]));
+    }
+
+    #[test]
+    fn test_playlists_updated_event_tracks_removed() {
+        let event = PlaylistsUpdatedEvent::tracks_removed(5, vec![15, 25]);
+        assert_eq!(event.action, "tracks_removed");
+        assert_eq!(event.playlist_id, 5);
+        assert_eq!(event.track_ids, Some(vec![15, 25]));
+    }
+
+    #[test]
+    fn test_playlists_updated_event_reordered() {
+        let event = PlaylistsUpdatedEvent::reordered(6);
+        assert_eq!(event.action, "reordered");
+        assert_eq!(event.playlist_id, 6);
+        assert!(event.track_ids.is_none());
+    }
+
+    #[test]
+    fn test_playlists_updated_event_serialization() {
+        let event = PlaylistsUpdatedEvent::tracks_added(1, vec![1, 2]);
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"action\":\"tracks_added\""));
+        assert!(json.contains("\"playlist_id\":1"));
+        assert!(json.contains("\"track_ids\":[1,2]"));
+    }
+
+    #[test]
+    fn test_playlists_updated_event_name() {
+        assert_eq!(PlaylistsUpdatedEvent::EVENT_NAME, "playlists:updated");
+    }
+
+    // ==================== SettingsUpdatedEvent Tests ====================
 
     #[test]
     fn test_settings_updated_event_serialization() {
@@ -490,5 +756,192 @@ mod tests {
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("\"key\":\"volume\""));
         assert!(json.contains("\"value\":0.8"));
+    }
+
+    #[test]
+    fn test_settings_updated_event_without_previous() {
+        let event = SettingsUpdatedEvent::new(
+            "theme".to_string(),
+            serde_json::json!("dark"),
+            None,
+        );
+        assert_eq!(event.key, "theme");
+        assert_eq!(event.value, serde_json::json!("dark"));
+        assert!(event.previous_value.is_none());
+    }
+
+    #[test]
+    fn test_settings_updated_event_with_object_value() {
+        let event = SettingsUpdatedEvent::new(
+            "columns".to_string(),
+            serde_json::json!({"title": true, "artist": true}),
+            None,
+        );
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"key\":\"columns\""));
+    }
+
+    #[test]
+    fn test_settings_updated_event_name() {
+        assert_eq!(SettingsUpdatedEvent::EVENT_NAME, "settings:updated");
+    }
+
+    // ==================== LastfmAuthEvent Tests ====================
+
+    #[test]
+    fn test_lastfm_auth_event_authenticated() {
+        let event = LastfmAuthEvent::authenticated("testuser".to_string());
+        assert_eq!(event.state, "authenticated");
+        assert_eq!(event.username, Some("testuser".to_string()));
+    }
+
+    #[test]
+    fn test_lastfm_auth_event_disconnected() {
+        let event = LastfmAuthEvent::disconnected();
+        assert_eq!(event.state, "disconnected");
+        assert!(event.username.is_none());
+    }
+
+    #[test]
+    fn test_lastfm_auth_event_pending() {
+        let event = LastfmAuthEvent::pending();
+        assert_eq!(event.state, "pending");
+        assert!(event.username.is_none());
+    }
+
+    #[test]
+    fn test_lastfm_auth_event_serialization() {
+        let event = LastfmAuthEvent::authenticated("user123".to_string());
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"state\":\"authenticated\""));
+        assert!(json.contains("\"username\":\"user123\""));
+    }
+
+    #[test]
+    fn test_lastfm_auth_event_name() {
+        assert_eq!(LastfmAuthEvent::EVENT_NAME, "lastfm:auth");
+    }
+
+    // ==================== ScrobbleStatusEvent Tests ====================
+
+    #[test]
+    fn test_scrobble_status_event_success() {
+        let event = ScrobbleStatusEvent::success("Artist".to_string(), "Track".to_string());
+        assert_eq!(event.status, "success");
+        assert_eq!(event.artist, "Artist");
+        assert_eq!(event.track, "Track");
+        assert!(event.message.is_none());
+    }
+
+    #[test]
+    fn test_scrobble_status_event_queued() {
+        let event = ScrobbleStatusEvent::queued("Artist".to_string(), "Track".to_string());
+        assert_eq!(event.status, "queued");
+        assert_eq!(event.message, Some("Queued for retry".to_string()));
+    }
+
+    #[test]
+    fn test_scrobble_status_event_failed() {
+        let event = ScrobbleStatusEvent::failed(
+            "Artist".to_string(),
+            "Track".to_string(),
+            "Network error".to_string(),
+        );
+        assert_eq!(event.status, "failed");
+        assert_eq!(event.message, Some("Network error".to_string()));
+    }
+
+    #[test]
+    fn test_scrobble_status_event_serialization() {
+        let event = ScrobbleStatusEvent::success("Test Artist".to_string(), "Test Track".to_string());
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"status\":\"success\""));
+        assert!(json.contains("\"artist\":\"Test Artist\""));
+        assert!(json.contains("\"track\":\"Test Track\""));
+    }
+
+    #[test]
+    fn test_scrobble_status_event_name() {
+        assert_eq!(ScrobbleStatusEvent::EVENT_NAME, "lastfm:scrobble-status");
+    }
+
+    // ==================== LastfmQueueUpdatedEvent Tests ====================
+
+    #[test]
+    fn test_lastfm_queue_updated_event() {
+        let event = LastfmQueueUpdatedEvent::new(5);
+        assert_eq!(event.queued_count, 5);
+    }
+
+    #[test]
+    fn test_lastfm_queue_updated_event_zero() {
+        let event = LastfmQueueUpdatedEvent::new(0);
+        assert_eq!(event.queued_count, 0);
+    }
+
+    #[test]
+    fn test_lastfm_queue_updated_event_serialization() {
+        let event = LastfmQueueUpdatedEvent::new(10);
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"queued_count\":10"));
+    }
+
+    #[test]
+    fn test_lastfm_queue_updated_event_name() {
+        assert_eq!(LastfmQueueUpdatedEvent::EVENT_NAME, "lastfm:queue-updated");
+    }
+
+    // ==================== Event Name Consistency Tests ====================
+
+    #[test]
+    fn test_all_event_names_follow_convention() {
+        // All event names should follow "domain:action" pattern
+        let event_names = [
+            LibraryUpdatedEvent::EVENT_NAME,
+            ScanProgressEvent::EVENT_NAME,
+            ScanCompleteEvent::EVENT_NAME,
+            QueueUpdatedEvent::EVENT_NAME,
+            QueueStateChangedEvent::EVENT_NAME,
+            FavoritesUpdatedEvent::EVENT_NAME,
+            PlaylistsUpdatedEvent::EVENT_NAME,
+            SettingsUpdatedEvent::EVENT_NAME,
+            LastfmAuthEvent::EVENT_NAME,
+            ScrobbleStatusEvent::EVENT_NAME,
+            LastfmQueueUpdatedEvent::EVENT_NAME,
+        ];
+
+        for name in event_names {
+            assert!(name.contains(':'), "Event name '{}' should contain ':'", name);
+            let parts: Vec<&str> = name.split(':').collect();
+            assert_eq!(parts.len(), 2, "Event name '{}' should have exactly one ':'", name);
+            assert!(!parts[0].is_empty(), "Event name '{}' should have non-empty domain", name);
+            assert!(!parts[1].is_empty(), "Event name '{}' should have non-empty action", name);
+        }
+    }
+
+    // ==================== Clone and Debug Tests ====================
+
+    #[test]
+    fn test_all_events_are_clone() {
+        let _ = LibraryUpdatedEvent::added(vec![1]).clone();
+        let _ = QueueUpdatedEvent::added(vec![0], 1).clone();
+        let _ = FavoritesUpdatedEvent::added(1).clone();
+        let _ = PlaylistsUpdatedEvent::created(1).clone();
+        let _ = QueueStateChangedEvent::new(0, false, "none".to_string()).clone();
+        let _ = LastfmAuthEvent::authenticated("user".to_string()).clone();
+        let _ = ScrobbleStatusEvent::success("a".to_string(), "t".to_string()).clone();
+        let _ = LastfmQueueUpdatedEvent::new(0).clone();
+    }
+
+    #[test]
+    fn test_all_events_are_debug() {
+        let debug = format!("{:?}", LibraryUpdatedEvent::added(vec![1]));
+        assert!(debug.contains("LibraryUpdatedEvent"));
+
+        let debug = format!("{:?}", QueueUpdatedEvent::cleared());
+        assert!(debug.contains("QueueUpdatedEvent"));
+
+        let debug = format!("{:?}", FavoritesUpdatedEvent::added(1));
+        assert!(debug.contains("FavoritesUpdatedEvent"));
     }
 }

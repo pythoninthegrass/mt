@@ -13,6 +13,9 @@ pub mod metadata;
 pub mod scanner;
 pub mod watcher;
 
+#[cfg(test)]
+mod concurrency_test;
+
 use commands::{
     audio_get_status, audio_get_volume, audio_load, audio_pause, audio_play, audio_seek,
     audio_set_volume, audio_stop, favorites_add, favorites_check, favorites_get,
