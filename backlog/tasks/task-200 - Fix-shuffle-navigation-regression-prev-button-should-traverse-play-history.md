@@ -4,7 +4,7 @@ title: Fix shuffle navigation regression - prev button should traverse play hist
 status: In Progress
 assignee: []
 created_date: '2026-01-25 04:49'
-updated_date: '2026-01-25 04:52'
+updated_date: '2026-01-25 05:40'
 labels:
   - bug
   - regression
@@ -13,6 +13,7 @@ labels:
   - Phase 2
 dependencies: []
 priority: high
+ordinal: 500
 ---
 
 ## Description
@@ -32,13 +33,13 @@ The queue store maintains tracks in play order (physically reordered when shuffl
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Add play history tracking to queue store (array of previously played indices/track IDs)
-- [ ] #2 Update playPrevious() to pop from history when available
-- [ ] #3 Update playNext() to push current track to history before advancing
-- [ ] #4 Clear history appropriately (on shuffle toggle, queue clear, manual queue jumps)
-- [ ] #5 Handle edge cases: restart track >3s, loop modes, empty queue
+- [x] #1 Add play history tracking to queue store (array of previously played indices/track IDs)
+- [x] #2 Update playPrevious() to pop from history when available
+- [x] #3 Update playNext() to push current track to history before advancing
+- [x] #4 Clear history appropriately (on shuffle toggle, queue clear, manual queue jumps)
+- [x] #5 Handle edge cases: restart track >3s, loop modes, empty queue
 - [ ] #6 Verify with manual testing: play 5 shuffled tracks, hit prev 5 times, should go back through same 5 tracks
-- [ ] #7 Add Playwright test for shuffle navigation history
+- [x] #7 Add Playwright test for shuffle navigation history
 
 ## Technical Approach
 
@@ -57,4 +58,49 @@ The queue store maintains tracks in play order (physically reordered when shuffl
 
 This is a regression introduced after implementing Phase 2 state consolidation. The original Python/Tkinter implementation maintained play history correctly.
 <!-- SECTION:DESCRIPTION:END -->
+
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Implementation Complete
+
+### Changes Made
+
+**queue.js store:**
+- Added `_playHistory` array and `_maxHistorySize: 100` to track play order
+- Modified `playNext()` to push current index to history before advancing
+- Modified `playPrevious()` to pop from history when available (with >3s restart logic)
+- Added `_pushToHistory()` and `_popFromHistory()` helper methods
+- Clear history on: shuffle toggle, queue clear, manual `playIndex()` calls
+- Updated `_initPlaybackState()` to reset history on app start
+
+**queue.spec.js tests:**
+- Added comprehensive test suite for shuffle navigation history
+- Tests cover: history traversal, clearing on shuffle toggle, clearing on manual selection, clearing on queue clear, >3s restart behavior, 100-track limit
+
+### Commits
+- `7dcad78` - feat: add play history tracking for shuffle navigation
+- `30ab5c9` - test: add Playwright tests for shuffle navigation history
+
+### Manual Testing Required
+
+The Playwright tests require the full Tauri runtime with an actual music library loaded. To verify AC #6:
+
+1. Run `task tauri:dev` to start the application
+2. Load a music library with multiple tracks
+3. Enable shuffle mode
+4. Play through 5-10 tracks (click next repeatedly)
+5. Hit prev button repeatedly
+6. **Expected:** Should traverse back through the exact same tracks in reverse order
+7. **Expected:** After going back through history, hitting next should go forward again
+
+### Edge Cases to Test Manually
+
+1. **Restart track >3s:** Seek >3s into a track, hit prev → should restart track, not use history
+2. **Shuffle toggle:** Enable shuffle, play tracks, toggle shuffle off → history should be cleared
+3. **Manual track selection:** Build history, click a track in queue → history should be cleared
+4. **Queue clear:** Build history, clear queue → history should be cleared
+5. **Loop modes:** Verify history works correctly with loop=all and loop=one
+<!-- SECTION:NOTES:END -->
