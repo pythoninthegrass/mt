@@ -106,12 +106,35 @@ export async function initEventListeners(Alpine) {
     library.fetchTracks();
   });
 
-  // Queue updated event - DISABLED
-  // The frontend manages queue state locally and the backend events were causing
-  // race conditions with playback. The queue store already syncs changes to the
-  // backend via API calls, so we don't need to react to backend events.
-  // If external queue changes are needed in the future (e.g., multi-device sync),
-  // this will need careful synchronization to avoid interfering with playback.
+  // Queue updated event - with debouncing to prevent race conditions
+  let queueReloadDebounce = null;
+
+  await subscribe(Events.QUEUE_UPDATED, (payload) => {
+    console.log('[events] queue:updated', payload);
+
+    // Debounce rapid queue updates to prevent race conditions
+    if (queueReloadDebounce) {
+      clearTimeout(queueReloadDebounce);
+    }
+
+    queueReloadDebounce = setTimeout(() => {
+      const queue = Alpine.store('queue');
+      if (queue && queue.load) {
+        queue.load();
+      }
+    }, 100); // 100ms debounce
+  });
+
+  // Queue state changed event (shuffle, loop mode, current index)
+  await subscribe('queue:state-changed', (payload) => {
+    console.log('[events] queue:state-changed', payload);
+
+    // State changes are less frequent, reload immediately
+    const queue = Alpine.store('queue');
+    if (queue && queue.load) {
+      queue.load();
+    }
+  });
 
   // Favorites updated event
   await subscribe(Events.FAVORITES_UPDATED, (payload) => {
