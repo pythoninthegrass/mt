@@ -26,7 +26,11 @@ export function createQueueStore(Alpine) {
     
     // Original order preserved for unshuffle
     _originalOrder: [],
-    
+
+    // Play history for prev button navigation
+    _playHistory: [],
+    _maxHistorySize: 100,
+
     /**
      * Initialize queue from backend
      */
@@ -45,6 +49,7 @@ export function createQueueStore(Alpine) {
       this.loop = 'none';
       this._originalOrder = [...this.items];
       this._repeatOnePending = false;
+      this._playHistory = [];
 
       // Persist the reset state to backend
       try {
@@ -304,6 +309,7 @@ export function createQueueStore(Alpine) {
       this.items = [];
       this.currentIndex = -1;
       this._originalOrder = [];
+      this._playHistory = [];
 
       Alpine.store('player').stop();
 
@@ -355,8 +361,18 @@ export function createQueueStore(Alpine) {
       }
     },
     
-    async playIndex(index) {
+    /**
+     * Play track at specific index
+     * @param {number} index - Index to play
+     * @param {boolean} fromNavigation - If true, this is from playNext/playPrevious and history shouldn't be cleared
+     */
+    async playIndex(index, fromNavigation = false) {
       if (index < 0 || index >= this.items.length) return;
+
+      // Clear history on manual jumps (not from prev/next navigation)
+      if (!fromNavigation) {
+        this._playHistory = [];
+      }
 
       this.currentIndex = index;
       const track = this.items[index];
@@ -367,7 +383,7 @@ export function createQueueStore(Alpine) {
     
     async playNext() {
       if (this.items.length === 0) return;
-      
+
       if (this.loop === 'one') {
         if (this._repeatOnePending) {
           this._repeatOnePending = false;
@@ -375,13 +391,18 @@ export function createQueueStore(Alpine) {
           this._saveLoopState();
         } else {
           this._repeatOnePending = true;
-          await this.playIndex(this.currentIndex);
+          await this.playIndex(this.currentIndex, true);
           return;
         }
       }
-      
+
+      // Push current track to history before advancing
+      if (this.currentIndex >= 0) {
+        this._pushToHistory(this.currentIndex);
+      }
+
       let nextIndex = this.currentIndex + 1;
-      
+
       if (nextIndex >= this.items.length) {
         if (this.loop === 'all') {
           if (this.shuffle) {
@@ -393,22 +414,31 @@ export function createQueueStore(Alpine) {
           return;
         }
       }
-      
-      await this.playIndex(nextIndex);
+
+      await this.playIndex(nextIndex, true);
     },
     
     async playPrevious() {
       if (this.items.length === 0) return;
-      
+
       const player = Alpine.store('player');
-      
+
+      // If > 3 seconds into track, restart current track instead
       if (player.currentTime > 3000) {
         await player.seek(0);
         return;
       }
-      
+
+      // Try to use play history first
+      if (this._playHistory.length > 0) {
+        const prevIndex = this._popFromHistory();
+        await this.playIndex(prevIndex, true);
+        return;
+      }
+
+      // Fallback: navigate backward in queue array
       let prevIndex = this.currentIndex - 1;
-      
+
       if (prevIndex < 0) {
         if (this.loop === 'all') {
           prevIndex = this.items.length - 1;
@@ -416,8 +446,8 @@ export function createQueueStore(Alpine) {
           prevIndex = 0;
         }
       }
-      
-      await this.playIndex(prevIndex);
+
+      await this.playIndex(prevIndex, true);
     },
     
     /**
@@ -460,6 +490,9 @@ export function createQueueStore(Alpine) {
     async toggleShuffle() {
       this.shuffle = !this.shuffle;
 
+      // Clear play history on shuffle toggle
+      this._playHistory = [];
+
       if (this.shuffle) {
         this._originalOrder = [...this.items];
         this._shuffleItems();
@@ -482,23 +515,44 @@ export function createQueueStore(Alpine) {
     
     _shuffleItems() {
       if (this.items.length < 2) return;
-      
+
       const currentTrack = this.currentIndex >= 0 ? this.items[this.currentIndex] : null;
-      const otherTracks = currentTrack 
+      const otherTracks = currentTrack
         ? this.items.filter((_, i) => i !== this.currentIndex)
         : [...this.items];
-      
+
       for (let i = otherTracks.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
       }
-      
+
       if (currentTrack) {
         this.items = [currentTrack, ...otherTracks];
         this.currentIndex = 0;
       } else {
         this.items = otherTracks;
       }
+    },
+
+    /**
+     * Push index to play history
+     * @param {number} index - Index to push to history
+     */
+    _pushToHistory(index) {
+      this._playHistory.push(index);
+
+      // Limit history size to prevent memory issues
+      if (this._playHistory.length > this._maxHistorySize) {
+        this._playHistory.shift();
+      }
+    },
+
+    /**
+     * Pop index from play history
+     * @returns {number} Previous index from history
+     */
+    _popFromHistory() {
+      return this._playHistory.pop();
     },
     
     async shuffleQueue() {
