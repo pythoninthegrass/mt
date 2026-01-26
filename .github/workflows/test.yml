@@ -10,15 +10,16 @@ jobs:
   # Frontend E2E tests with Playwright
   playwright-tests:
     name: Playwright E2E Tests
-    runs-on: self-hosted
+    # runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -45,7 +46,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report
           path: playwright-report/
@@ -53,7 +54,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-results
           path: test-results/
@@ -62,14 +63,14 @@ jobs:
   # Linting and code quality
   lint:
     name: Lint and Format Check
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
@@ -87,15 +88,15 @@ jobs:
   # Vitest unit tests with coverage
   vitest-tests:
     name: Vitest Unit Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -112,7 +113,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vitest-coverage
           path: app/frontend/coverage/
@@ -121,12 +122,12 @@ jobs:
   # Rust backend tests with coverage
   rust-tests:
     name: Rust Backend Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -149,7 +150,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rust-coverage
           path: src-tauri/coverage/
@@ -158,15 +159,15 @@ jobs:
   # Build verification
   build:
     name: Build Verification
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
