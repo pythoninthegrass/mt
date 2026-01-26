@@ -462,6 +462,9 @@ Worktrunk automatically detects remote branches and creates worktrees at compute
 **Basic worktree operations:**
 
 ```bash
+# list existing worktrees
+wt list
+
 # Switch to existing worktree for a branch
 wt switch feature
 

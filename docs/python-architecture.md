@@ -17,24 +17,46 @@ The application entry point follows a structured initialization sequence:
 5. **Component Setup** - All subsystem initialization and connection
 6. **Event Loop** - Tkinter main loop with error handling
 
-### Central Orchestrator (`core/player.py`)
+### Central Orchestrator (`core/player/`)
 
-The `MusicPlayer` class serves as the central orchestrator, managing:
+The `core/player/` package contains the `MusicPlayer` class and its composed managers, serving as the central orchestrator. The package uses a **manager composition pattern** to separate concerns:
 
-- **Window Management**: Size, position, and platform-specific styling (macOS integration)
-- **Component Lifecycle**: Initialization order and dependency injection
-- **UI Layout**: PanedWindow-based two-panel design (library + content)
-- **Event Coordination**: User interactions, media keys, and file system events
-- **State Persistence**: Window preferences and application settings
+#### Package Structure
 
-#### Key Components Integration
+```
+core/player/
+├── __init__.py      # MusicPlayer class - main orchestrator
+├── handlers.py      # PlayerEventHandlers - event callbacks
+├── library.py       # PlayerLibraryManager - library operations
+├── progress.py      # PlayerProgressController - playback progress
+├── queue.py         # PlayerQueueHandler - queue operations
+├── ui.py            # PlayerUIManager - UI component management
+└── window.py        # PlayerWindowManager - window lifecycle
+```
+
+#### Manager Composition Pattern
+
+The `MusicPlayer` class composes specialized manager classes, each handling a specific domain:
+
+```python
+# Manager classes composed into MusicPlayer
+PlayerWindowManager    # Window size, position, macOS styling
+PlayerUIManager        # UI component lifecycle and layout
+PlayerEventHandlers    # User interactions, media keys, file events
+PlayerLibraryManager   # Library scanning, filtering, display
+PlayerQueueHandler     # Queue operations and playback order
+PlayerProgressController  # Progress tracking and seeking
+```
+
+#### Core Subsystems
 
 ```python
 # Core subsystems initialized in setup_components()
-self.db = MusicDatabase()                 # SQLite data layer
-self.queue_manager = QueueManager()       # Queue operations
-self.library_manager = LibraryManager()   # Library scanning/management
-self.player_core = PlayerCore()           # Audio playback engine
+self.db = MusicDatabase(DB_NAME, DB_TABLES)  # SQLite data layer (facade)
+self.queue_manager = QueueManager(self.db)    # Queue operations
+self.library_manager = LibraryManager(self.db) # Library scanning
+self.favorites_manager = FavoritesManager(self.db) # Favorites/likes
+self.player_core = PlayerCore()               # VLC audio engine
 ```
 
 #### UI Component Architecture
@@ -44,30 +66,60 @@ self.player_core = PlayerCore()           # Audio playback engine
 self.library_view = LibraryView()         # Left panel library browser
 self.queue_view = QueueView()             # Right panel queue display
 self.progress_bar = ProgressBar()         # Bottom progress/controls
+self.search_bar = SearchBar()             # Library search interface
+self.status_bar = StatusBar()             # Status display
 ```
 
-## Data Layer (`core/db.py`)
+## Data Layer (`core/db/`)
 
-### Database Design
+The `core/db/` package implements a **facade pattern** for database operations, with specialized modules for each domain:
 
-SQLite-based persistence with two main tables:
+### Package Structure
+
+```
+core/db/
+├── __init__.py      # Facade exports (MusicDatabase, DB_TABLES)
+├── database.py      # MusicDatabase class - core operations
+├── library.py       # Library track CRUD operations
+├── queue.py         # Queue management operations
+├── favorites.py     # Favorites and dynamic playlist views
+├── playlists.py     # Custom playlist operations
+└── preferences.py   # User preferences persistence
+```
+
+### Database Schema
+
+SQLite-based persistence with the following tables:
 
 - **`library`**: Music file metadata and indexing
   - File paths, metadata (artist, album, title, duration)
-  - Content hashing for deduplication
-  - Last modified timestamps for incremental scanning
+  - Play count and last played timestamps
+  - Added date for "Recently Added" views
 
 - **`queue`**: Current playback queue state
-  - Track references, position, play order
-  - Shuffle state and loop configuration
+  - Track references by filepath
   - Session persistence across app restarts
+
+- **`favorites`**: Liked tracks
+  - Foreign key to library with timestamps
+  - Unique constraint prevents duplicates
+
+- **`playlists`** / **`playlist_items`**: Custom playlists
+  - Playlist metadata with creation timestamps
+  - Ordered track references with position tracking
+
+- **`settings`**: Key-value preference storage
+  - Window geometry, volume, loop/shuffle state
+
+- **`lyrics_cache`**: Cached lyrics data
+  - Artist/title lookup with source URLs
 
 ### Database Operations
 
-The `MusicDatabase` class provides:
+The `MusicDatabase` facade provides:
 
-- **Schema Management**: Automatic table creation and migration
-- **Query Interface**: High-level operations for library and queue
+- **Schema Management**: Automatic table creation via `DB_TABLES` dict
+- **Query Interface**: High-level operations delegated to domain modules
 - **Preference Storage**: JSON-serialized configuration data
 - **Transaction Safety**: Atomic operations for data consistency
 
@@ -84,9 +136,66 @@ The `LibraryManager` handles:
 
 ### Performance Optimizations
 
-- **Zig Integration**: High-performance directory scanning via `core/_scan.py`
+- **Zig Integration**: High-performance directory scanning via `src/scan.zig`
 - **Batch Operations**: Bulk database insertions for large libraries
 - **Background Processing**: Non-blocking UI during scan operations
+
+## Zig Performance Extension (`src/`)
+
+The `src/` directory contains a Zig-based native extension for high-performance file system operations, built using [ziggy-pydust](https://github.com/spiraldb/ziggy-pydust) for Python FFI.
+
+### Module Structure
+
+```
+src/
+├── build.zig          # Zig build configuration
+├── pydust.build.zig   # Pydust integration
+└── scan.zig           # Music directory scanner
+```
+
+### scan.zig - Directory Scanner
+
+High-performance recursive directory scanner for audio files:
+
+```zig
+// Exposed to Python
+pub fn scan_music_directory(args: struct { root_path: []const u8 }) u64
+```
+
+**Features:**
+- **Audio Detection**: Recognizes `.mp3`, `.flac`, `.m4a`, `.ogg`, `.wav`, `.wma`, `.aac`, `.opus`, `.m4p`, `.mp4`
+- **Recursive Walking**: Uses `std.fs.Dir.walk()` for efficient traversal
+- **Smart Filtering**: Skips hidden directories, `__pycache__`, `.DS_Store`
+- **Memory Safety**: Uses Zig's `GeneralPurposeAllocator` with leak detection
+
+### Build Process
+
+```bash
+# Build via Python script
+uv run python build.py
+
+# Or via hatch during package installation
+hatch build
+
+# Output: core/_scan.so (Python extension)
+```
+
+### Python Integration
+
+```python
+# Import the Zig extension
+from core._scan import scan_music_directory
+
+# Count audio files in directory
+count = scan_music_directory("/path/to/music")
+```
+
+### Why Zig?
+
+- **Performance**: 10-100x faster than pure Python for large directory trees
+- **Memory Efficiency**: Zero-copy string handling, no GC pressure
+- **Safety**: Compile-time memory safety without runtime overhead
+- **Cross-Platform**: Single codebase for macOS/Linux
 
 ## Queue System (`core/queue.py`)
 
@@ -122,14 +231,101 @@ The `PlayerCore` class wraps VLC functionality:
 - **Thread Safety**: UI updates via `window.after()` for main thread execution
 - **Event Handling**: VLC event callbacks with proper synchronization
 
-## User Interface (`core/gui.py`)
+## API Server (`api/server.py`)
+
+The `APIServer` class provides programmatic control of the music player via a socket-based JSON protocol, enabling LLM and automation tool integration.
+
+### Architecture
+
+```
+┌─────────────────┐     JSON/Socket      ┌─────────────────┐
+│  External Tool  │ ◄──────────────────► │   APIServer     │
+│  (LLM, Script)  │     localhost:5555   │  (Background)   │
+└─────────────────┘                      └────────┬────────┘
+                                                  │
+                                         window.after()
+                                                  │
+                                         ┌────────▼────────┐
+                                         │   MusicPlayer   │
+                                         │  (Main Thread)  │
+                                         └─────────────────┘
+```
+
+### Threading Model
+
+- **Server Thread**: Daemon thread handles socket connections
+- **Client Threads**: Each client request spawns a handler thread
+- **Main Thread Execution**: Commands execute via `window.after()` for thread safety
+- **Timeout Handling**: 1-second socket timeout for graceful shutdown
+
+### Command Surface
+
+```python
+# Playback controls
+'play_pause', 'play', 'pause', 'stop', 'next', 'previous'
+
+# Track selection
+'select_track', 'play_track_at_index'
+
+# Queue management
+'add_to_queue', 'clear_queue', 'remove_from_queue'
+
+# UI navigation
+'switch_view', 'select_library_item', 'select_queue_item'
+
+# Slider controls
+'set_volume', 'seek', 'seek_to_position'
+
+# Utility controls
+'toggle_loop', 'toggle_shuffle', 'toggle_favorite'
+
+# Media key simulation
+'media_key'
+
+# Search
+'search', 'clear_search'
+
+# Info queries
+'get_status', 'get_current_track', 'get_queue', 'get_library'
+```
+
+### Configuration
+
+```bash
+# Enable API server
+MT_API_SERVER_ENABLED=true uv run main.py
+
+# Custom port (default: 5555)
+MT_API_SERVER_PORT=5555 uv run main.py
+```
+
+### Security
+
+- **Localhost Only**: Binds to `localhost` only, not exposed externally
+- **No Authentication**: Designed for local automation, not network access
+
+## User Interface (`core/gui/`)
+
+The `core/gui/` package contains modular UI components built with Tkinter/ttk.
+
+### Package Structure
+
+```
+core/gui/
+├── __init__.py          # Exports (LibraryView, QueueView, etc.)
+├── library_search.py    # LibraryView - left panel browser
+├── queue_view.py        # QueueView - right panel queue display
+├── player_controls.py   # PlayerControls - transport buttons
+├── progress_status.py   # ProgressBar, StatusBar
+└── music_player.py      # Legacy stub (deprecated)
+```
 
 ### Component Structure
 
-- **LibraryView**: Left panel with collapsible sections for different library views
-- **QueueView**: Right panel tree display of current playback queue
-- **PlayerControls**: Bottom panel transport controls and volume
-- **ProgressBar**: Custom canvas-based progress indication with seeking
+- **LibraryView** (`library_search.py`): Left panel with collapsible sections for library views, search, and playlists
+- **QueueView** (`queue_view.py`): Right panel tree display with drag-and-drop reordering
+- **PlayerControls** (`player_controls.py`): Bottom panel transport controls (play/pause, prev/next, loop, shuffle)
+- **ProgressBar** (`progress_status.py`): Custom canvas-based progress indication with click-to-seek
 
 ### Theming System (`core/theme.py`)
 
