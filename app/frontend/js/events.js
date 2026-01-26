@@ -8,7 +8,7 @@
  * Event naming convention: `domain:action` (e.g., `library:updated`)
  */
 
-const { listen } = window.__TAURI__?.event ?? { listen: async () => () => {} };
+const { listen } = window.__TAURI__?.event ?? { listen: () => Promise.resolve(() => {}) };
 
 // Store unlisten functions for cleanup
 const listeners = [];
@@ -98,7 +98,7 @@ export async function initEventListeners(Alpine) {
 
   // Scan complete event
   await subscribe(Events.SCAN_COMPLETE, (payload) => {
-    const { job_id, added, skipped, errors, duration_ms } = payload;
+    const { added, skipped, errors, duration_ms } = payload;
     const library = Alpine.store('library');
 
     console.log(
@@ -181,7 +181,7 @@ export async function initEventListeners(Alpine) {
 
   // Playlists updated event
   await subscribe(Events.PLAYLISTS_UPDATED, (payload) => {
-    const { action, playlist_id, track_ids } = payload;
+    const { action, playlist_id } = payload;
     const library = Alpine.store('library');
 
     console.log(`[events] Playlists ${action}: playlist ${playlist_id}`);

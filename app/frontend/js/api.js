@@ -5,7 +5,7 @@
  * HTTP fallbacks are kept for browser-only development/testing.
  */
 
-let API_BASE = 'http://127.0.0.1:8765/api';
+const API_BASE = 'http://127.0.0.1:8765/api';
 
 // Get Tauri invoke function if available
 const invoke = window.__TAURI__?.core?.invoke;
@@ -66,7 +66,7 @@ export const api = {
    * Health check
    * @returns {Promise<{status: string}>}
    */
-  async health() {
+  health() {
     return request('/health');
   },
 
@@ -530,7 +530,7 @@ export const api = {
       });
     },
 
-    async save(state) {
+    save(state) {
       console.debug('Queue save (local only):', state);
     },
 
@@ -779,7 +779,7 @@ export const api = {
      * Get current playback state
      * @returns {Promise<{playing: boolean, position: number, track: object|null}>}
      */
-    async getState() {
+    getState() {
       return request('/playback/state');
     },
 
@@ -788,7 +788,7 @@ export const api = {
      * @param {number} position - Position in seconds
      * @returns {Promise<void>}
      */
-    async updatePosition(position) {
+    updatePosition(position) {
       return request('/playback/position', {
         method: 'POST',
         body: JSON.stringify({ position }),
@@ -805,7 +805,7 @@ export const api = {
      * Get all preferences
      * @returns {Promise<object>}
      */
-    async get() {
+    get() {
       return request('/preferences');
     },
 
@@ -814,7 +814,7 @@ export const api = {
      * @param {object} prefs - Preferences to update
      * @returns {Promise<object>}
      */
-    async update(prefs) {
+    update(prefs) {
       return request('/preferences', {
         method: 'PATCH',
         body: JSON.stringify(prefs),
@@ -826,7 +826,7 @@ export const api = {
      * @param {string} key - Preference key
      * @returns {Promise<any>}
      */
-    async getValue(key) {
+    getValue(key) {
       return request(`/preferences/${encodeURIComponent(key)}`);
     },
 
@@ -836,7 +836,7 @@ export const api = {
      * @param {any} value - Preference value
      * @returns {Promise<void>}
      */
-    async setValue(key, value) {
+    setValue(key, value) {
       return request(`/preferences/${encodeURIComponent(key)}`, {
         method: 'PUT',
         body: JSON.stringify({ value }),
@@ -1256,15 +1256,15 @@ export const api = {
   },
 
   watchedFolders: {
-    async list() {
+    list() {
       return request('/watched-folders');
     },
 
-    async get(id) {
+    get(id) {
       return request(`/watched-folders/${id}`);
     },
 
-    async add(path, mode = 'continuous', cadenceMinutes = 10, enabled = true) {
+    add(path, mode = 'continuous', cadenceMinutes = 10, enabled = true) {
       return request('/watched-folders', {
         method: 'POST',
         body: JSON.stringify({
@@ -1276,20 +1276,20 @@ export const api = {
       });
     },
 
-    async update(id, updates) {
+    update(id, updates) {
       return request(`/watched-folders/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(updates),
       });
     },
 
-    async remove(id) {
+    remove(id) {
       return request(`/watched-folders/${id}`, {
         method: 'DELETE',
       });
     },
 
-    async rescan(id) {
+    rescan(id) {
       return request(`/watched-folders/${id}/rescan`, {
         method: 'POST',
       });

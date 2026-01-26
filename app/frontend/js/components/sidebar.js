@@ -80,7 +80,7 @@ export function createSidebar(Alpine) {
           if (data.activeSection) this.activeSection = data.activeSection;
           if (data.isCollapsed !== undefined) this.isCollapsed = data.isCollapsed;
           localStorage.removeItem('mt:sidebar');
-        } catch (e) {
+        } catch (_e) {
           localStorage.removeItem('mt:sidebar');
         }
       }
@@ -349,7 +349,7 @@ export function createSidebar(Alpine) {
       this.dragOverPlaylistId = playlist.playlistId;
     },
 
-    handlePlaylistDragLeave(event, playlist) {
+    handlePlaylistDragLeave(_event, playlist) {
       console.log('[Sidebar] handlePlaylistDragLeave called', {
         playlistId: playlist?.playlistId,
         playlistName: playlist?.name,
@@ -619,7 +619,7 @@ export function createSidebar(Alpine) {
       this.contextMenuPlaylist = null;
     },
 
-    async renamePlaylist() {
+    renamePlaylist() {
       if (!this.contextMenuPlaylist) return;
 
       const playlist = this.contextMenuPlaylist;

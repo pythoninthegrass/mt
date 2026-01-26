@@ -7,7 +7,7 @@
 
 import { api } from '../api.js';
 
-const { listen } = window.__TAURI__?.event ?? { listen: async () => () => {} };
+const { listen } = window.__TAURI__?.event ?? { listen: () => Promise.resolve(() => {}) };
 
 export function createLibraryStore(Alpine) {
   Alpine.store('library', {
@@ -260,7 +260,7 @@ export function createLibraryStore(Alpine) {
      */
     applyFilters() {
       // Backend already did search/sort, we only apply ignore-words normalization
-      let result = [...this.tracks];
+      const result = [...this.tracks];
 
       const uiStore = Alpine.store('ui');
       const ignoreWordsEnabled = uiStore.sortIgnoreWords;

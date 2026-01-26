@@ -71,7 +71,7 @@ export function createUIStore(Alpine) {
           if (data.libraryViewMode !== undefined) this.libraryViewMode = data.libraryViewMode;
           if (data.theme !== undefined) this.theme = data.theme;
           localStorage.removeItem('mt:ui');
-        } catch (e) {
+        } catch (_e) {
           localStorage.removeItem('mt:ui');
         }
       }

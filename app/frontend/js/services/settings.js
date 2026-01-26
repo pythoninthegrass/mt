@@ -25,31 +25,32 @@ class SettingsService {
     if (this.initialized) return;
     if (this.initPromise) return this.initPromise;
 
-    this.initPromise = (async () => {
-      try {
-        // Load all settings from backend
-        const response = await invoke('settings_get_all');
-        this.cache = new Map(Object.entries(response.settings));
+    this.initPromise = this._doInit();
+    await this.initPromise;
+  }
 
-        // Listen for settings changes from backend
-        await listen('settings://changed', (event) => {
-          const { key, value } = event.payload;
-          this.cache.set(key, value);
+  async _doInit() {
+    try {
+      // Load all settings from backend
+      const response = await invoke('settings_get_all');
+      this.cache = new Map(Object.entries(response.settings));
 
-          // Notify all watchers for this key
-          const watchers = this.listeners.get(key) || [];
-          watchers.forEach((fn) => fn(value));
-        });
+      // Listen for settings changes from backend
+      await listen('settings://changed', (event) => {
+        const { key, value } = event.payload;
+        this.cache.set(key, value);
 
-        this.initialized = true;
-        console.log('[Settings]', 'Initialized with', this.cache.size, 'settings');
-      } catch (error) {
-        console.error('[Settings]', 'Failed to initialize:', error);
-        throw error;
-      }
-    })();
+        // Notify all watchers for this key
+        const watchers = this.listeners.get(key) || [];
+        watchers.forEach((fn) => fn(value));
+      });
 
-    return this.initPromise;
+      this.initialized = true;
+      console.log('[Settings]', 'Initialized with', this.cache.size, 'settings');
+    } catch (error) {
+      console.error('[Settings]', 'Failed to initialize:', error);
+      throw error;
+    }
   }
 
   /**
@@ -126,21 +127,17 @@ class SettingsService {
    * @returns {Object} Reactive proxy object
    */
   createReactive(key, defaultValue) {
-    const self = this;
-    let value = this.get(key, defaultValue);
-
     // Watch for external changes
-    this.watch(key, (newValue) => {
-      value = newValue;
+    this.watch(key, (_newValue) => {
+      // Value is tracked by getter
     });
 
     return {
       get value() {
-        return self.get(key, defaultValue);
+        return this.get(key, defaultValue);
       },
       set value(newValue) {
-        value = newValue;
-        self.set(key, newValue).catch((err) => {
+        this.set(key, newValue).catch((err) => {
           console.error('[Settings]', 'Error setting', key, ':', err);
         });
       },

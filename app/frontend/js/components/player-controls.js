@@ -5,7 +5,7 @@
  * volume control, and now playing info.
  */
 
-import { formatBytes, formatTime } from '../utils/formatting.js';
+import { formatBytes } from '../utils/formatting.js';
 
 /**
  * Create the player controls Alpine component

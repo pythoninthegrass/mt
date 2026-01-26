@@ -202,7 +202,7 @@ export function createLibraryBrowser(Alpine) {
           .map((col) => col.key);
 
         if (distributionKeys.length > 0) {
-          let distributionTotal = distributionKeys.reduce((sum, key) => sum + newWidths[key], 0);
+          const distributionTotal = distributionKeys.reduce((sum, key) => sum + newWidths[key], 0);
           let distributed = 0;
 
           distributionKeys.forEach((key, idx) => {
@@ -223,7 +223,7 @@ export function createLibraryBrowser(Alpine) {
           .map((col) => col.key);
 
         if (shrinkable.length > 0) {
-          let shrinkTotal = shrinkable.reduce((sum, key) => sum + newWidths[key], 0);
+          const shrinkTotal = shrinkable.reduce((sum, key) => sum + newWidths[key], 0);
           let toShrink = Math.abs(difference);
 
           shrinkable.forEach((key, idx) => {
@@ -439,7 +439,7 @@ export function createLibraryBrowser(Alpine) {
           }
           if (data.order && Array.isArray(data.order)) this.columnOrder = data.order;
           localStorage.removeItem('mt:column-settings');
-        } catch (e) {
+        } catch (_e) {
           localStorage.removeItem('mt:column-settings');
         }
       }
@@ -519,7 +519,7 @@ export function createLibraryBrowser(Alpine) {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
 
-      const wasResizingCol = this.resizingColumn;
+      // const wasResizingCol = this.resizingColumn;
       this.resizingColumn = null;
       this.resizingNeighbor = null;
       this.resizeNeighborStartWidth = 0;
@@ -1075,7 +1075,7 @@ export function createLibraryBrowser(Alpine) {
       const menuHeight = 320;
       const menuWidth = 200;
       const submenuWidth = 200;
-      const submenuGap = 8;
+      // const submenuGap = 8;
       let x = event.clientX;
       let y = event.clientY;
 
@@ -1320,7 +1320,7 @@ export function createLibraryBrowser(Alpine) {
       this.contextMenu = null;
     },
 
-    async editMetadata(track) {
+    editMetadata(track) {
       const tracks = this.getSelectedTracks();
       if (tracks.length === 0) {
         tracks.push(track);

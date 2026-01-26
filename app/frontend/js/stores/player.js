@@ -2,12 +2,8 @@ import { api } from '../api.js';
 import { formatTime } from '../utils/formatting.js';
 
 const { invoke } = window.__TAURI__?.core ??
-  { invoke: async () => console.warn('Tauri not available') };
-const { listen } = window.__TAURI__?.event ?? { listen: async () => () => {} };
-
-// Scrobbling state
-let scrobbleCheckInterval = null;
-let currentScrobbleData = null;
+  { invoke: () => Promise.resolve(console.warn('Tauri not available')) };
+const { listen } = window.__TAURI__?.event ?? { listen: () => Promise.resolve(() => {}) };
 
 export function createPlayerStore(Alpine) {
   Alpine.store('player', {
@@ -248,7 +244,7 @@ export function createPlayerStore(Alpine) {
       }
     },
 
-    async seek(positionMs) {
+    seek(positionMs) {
       // Handle NaN/Infinity
       if (!Number.isFinite(positionMs)) {
         positionMs = 0;
@@ -408,7 +404,7 @@ export function createPlayerStore(Alpine) {
       this._updateLastfmNowPlaying();
     },
 
-    async _updateLastfmNowPlaying() {
+    _updateLastfmNowPlaying() {
       if (!this.currentTrack) return;
 
       try {
