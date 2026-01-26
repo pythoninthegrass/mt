@@ -121,7 +121,16 @@ pub async fn scan_paths_to_library(
     let mut reconciled_count = 0;
     let modified_count = scan_result.modified.len();
 
+    // IMPORTANT: Mark deleted tracks as missing FIRST
+    // This is required because reconciliation of "added" tracks looks for tracks
+    // where missing=1. If a file is moved (delete + add in same scan), we need to
+    // mark the old path as missing before we can reconcile it with the new path.
+    for filepath in &scan_result.deleted {
+        let _ = library::mark_track_missing_by_filepath(&conn, filepath);
+    }
+
     // Process "added" tracks - check for moves first, then add truly new tracks
+    // Now that deleted tracks are marked missing, reconciliation by inode/hash will work
     if !scan_result.added.is_empty() {
         let mut truly_new: Vec<(String, crate::db::TrackMetadata)> = Vec::new();
 
@@ -175,9 +184,13 @@ pub async fn scan_paths_to_library(
         library::update_tracks_bulk(&conn, &updates).map_err(|e| e.to_string())?;
     }
 
-    // Mark deleted tracks as missing
-    for filepath in &scan_result.deleted {
-        let _ = library::mark_track_missing_by_filepath(&conn, filepath);
+    // Clear missing flag for unchanged files that were previously missing but have reappeared
+    // This handles the case where a file is moved out and then moved back to the same location
+    let mut recovered_count = 0;
+    if !scan_result.unchanged.is_empty() {
+        if let Ok(count) = library::mark_tracks_present_by_filepaths(&conn, &scan_result.unchanged) {
+            recovered_count = count;
+        }
     }
 
     let duration_ms = start_time.elapsed().as_millis() as u64;
@@ -192,7 +205,7 @@ pub async fn scan_paths_to_library(
     });
 
     // Emit library updated events (empty track_ids signals a bulk change - frontend should refresh)
-    if added_count > 0 || reconciled_count > 0 {
+    if added_count > 0 || reconciled_count > 0 || recovered_count > 0 {
         let _ = app.emit_library_updated(LibraryUpdatedEvent::added(vec![]));
     }
     if modified_count > 0 {

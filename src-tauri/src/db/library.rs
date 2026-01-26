@@ -490,6 +490,38 @@ pub fn mark_track_present(conn: &Connection, track_id: i64) -> DbResult<bool> {
     Ok(updated > 0)
 }
 
+/// Mark a track as present by filepath (clears missing flag if file reappears)
+pub fn mark_track_present_by_filepath(conn: &Connection, filepath: &str) -> DbResult<bool> {
+    let updated = conn.execute(
+        "UPDATE library SET missing = 0, last_seen_at = strftime('%s','now') WHERE filepath = ? AND missing = 1",
+        [filepath],
+    )?;
+    Ok(updated > 0)
+}
+
+/// Mark multiple tracks as present by their filepaths (batch operation)
+/// Returns the number of tracks that were updated
+pub fn mark_tracks_present_by_filepaths(conn: &Connection, filepaths: &[String]) -> DbResult<usize> {
+    if filepaths.is_empty() {
+        return Ok(0);
+    }
+
+    // Batch update only tracks that are currently marked as missing
+    let placeholders: String = filepaths.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let sql = format!(
+        "UPDATE library SET missing = 0, last_seen_at = strftime('%s','now') WHERE filepath IN ({}) AND missing = 1",
+        placeholders
+    );
+
+    let params: Vec<&dyn rusqlite::ToSql> = filepaths
+        .iter()
+        .map(|s| s as &dyn rusqlite::ToSql)
+        .collect();
+
+    let updated = conn.execute(&sql, params.as_slice())?;
+    Ok(updated)
+}
+
 /// Update track filepath
 pub fn update_track_filepath(conn: &Connection, track_id: i64, new_path: &str) -> DbResult<bool> {
     let updated = conn.execute(
@@ -1130,5 +1162,204 @@ mod tests {
         assert_eq!(updated.filepath, "/volume2/song.mp3");
         assert_eq!(updated.file_inode, Some(99999));
         assert!(!updated.missing);
+    }
+
+    #[test]
+    fn test_mark_track_present_by_filepath() {
+        let conn = setup_test_db();
+
+        // Add a track
+        let metadata = TrackMetadata {
+            title: Some("Test Song".to_string()),
+            ..Default::default()
+        };
+        let track_id = add_track(&conn, "/music/test.mp3", &metadata).unwrap();
+
+        // Mark it as missing
+        mark_track_missing_by_filepath(&conn, "/music/test.mp3").unwrap();
+
+        let track = get_track_by_id(&conn, track_id).unwrap().unwrap();
+        assert!(track.missing, "Track should be marked as missing");
+
+        // Now mark it as present by filepath
+        let result = mark_track_present_by_filepath(&conn, "/music/test.mp3").unwrap();
+        assert!(result, "Should return true when track was updated");
+
+        let track = get_track_by_id(&conn, track_id).unwrap().unwrap();
+        assert!(!track.missing, "Track should no longer be missing");
+
+        // Calling again should return false (no rows updated since already present)
+        let result = mark_track_present_by_filepath(&conn, "/music/test.mp3").unwrap();
+        assert!(!result, "Should return false when track was already present");
+    }
+
+    #[test]
+    fn test_mark_tracks_present_by_filepaths_batch() {
+        let conn = setup_test_db();
+
+        // Add multiple tracks
+        let paths = vec![
+            "/music/song1.mp3",
+            "/music/song2.mp3",
+            "/music/song3.mp3",
+        ];
+
+        for path in &paths {
+            let metadata = TrackMetadata {
+                title: Some(format!("Song {}", path)),
+                ..Default::default()
+            };
+            add_track(&conn, path, &metadata).unwrap();
+        }
+
+        // Mark first two as missing
+        mark_track_missing_by_filepath(&conn, "/music/song1.mp3").unwrap();
+        mark_track_missing_by_filepath(&conn, "/music/song2.mp3").unwrap();
+
+        // Batch mark all three as present (only 2 should be updated)
+        let filepaths: Vec<String> = paths.iter().map(|s| s.to_string()).collect();
+        let count = mark_tracks_present_by_filepaths(&conn, &filepaths).unwrap();
+        assert_eq!(count, 2, "Should have updated 2 missing tracks");
+
+        // Verify all tracks are now present
+        for path in &paths {
+            let track = get_track_by_filepath(&conn, path).unwrap().unwrap();
+            assert!(!track.missing, "Track {} should not be missing", path);
+        }
+
+        // Calling again should return 0 (no missing tracks to update)
+        let count = mark_tracks_present_by_filepaths(&conn, &filepaths).unwrap();
+        assert_eq!(count, 0, "Should return 0 when no tracks need updating");
+    }
+
+    #[test]
+    fn test_mark_tracks_present_empty_list() {
+        let conn = setup_test_db();
+
+        // Should handle empty list gracefully
+        let count = mark_tracks_present_by_filepaths(&conn, &[]).unwrap();
+        assert_eq!(count, 0, "Should return 0 for empty filepath list");
+    }
+
+    #[test]
+    fn test_file_move_out_and_back_scenario() {
+        // This test simulates the exact bug scenario:
+        // 1. File exists at /music/song.mp3
+        // 2. File is moved OUT (watcher marks it missing)
+        // 3. File is moved BACK to same location
+        // 4. Scanner sees file as "unchanged" (same path, same fingerprint)
+        // 5. The missing flag should be cleared
+
+        let conn = setup_test_db();
+
+        // Initial state: track exists and is present
+        let metadata = TrackMetadata {
+            title: Some("Beginbot Takes 10 Years".to_string()),
+            artist: Some("Beginbot".to_string()),
+            file_inode: Some(12345),
+            content_hash: Some("sha256:abc123".to_string()),
+            ..Default::default()
+        };
+        let track_id = add_track(&conn, "/music/Beginbot/song.m4a", &metadata).unwrap();
+
+        let track = get_track_by_id(&conn, track_id).unwrap().unwrap();
+        assert!(!track.missing, "Initial state: track should not be missing");
+
+        // Step 2: File moved out - watcher marks it missing
+        mark_track_missing_by_filepath(&conn, "/music/Beginbot/song.m4a").unwrap();
+
+        let track = get_track_by_id(&conn, track_id).unwrap().unwrap();
+        assert!(track.missing, "After move out: track should be missing");
+
+        // Step 3 & 4: File moved back to same location
+        // Scanner sees it as "unchanged" and calls mark_tracks_present_by_filepaths
+        let unchanged_files = vec!["/music/Beginbot/song.m4a".to_string()];
+        let recovered = mark_tracks_present_by_filepaths(&conn, &unchanged_files).unwrap();
+
+        assert_eq!(recovered, 1, "Should recover 1 track");
+
+        // Step 5: Verify missing flag is cleared
+        let track = get_track_by_id(&conn, track_id).unwrap().unwrap();
+        assert!(!track.missing, "After move back: track should NOT be missing");
+        assert_eq!(track.filepath, "/music/Beginbot/song.m4a");
+        assert_eq!(track.title, Some("Beginbot Takes 10 Years".to_string()));
+    }
+
+    #[test]
+    fn test_locate_to_existing_path_removes_duplicate() {
+        // This test simulates the scenario where:
+        // 1. Track A exists at /music/song.mp3 with play history
+        // 2. File is moved, Track A becomes missing
+        // 3. Watcher detects the file at new location, adds Track B (duplicate)
+        // 4. User uses "Locate" to point Track A to the new path
+        // 5. Track B (duplicate) should be removed, Track A should be updated
+        //
+        // The library_locate_track command handles this, but we test the
+        // underlying operations here.
+
+        let conn = setup_test_db();
+
+        // Track A: Original with play history (10 plays)
+        let metadata_a = TrackMetadata {
+            title: Some("My Song".to_string()),
+            artist: Some("Artist".to_string()),
+            file_inode: Some(11111),
+            content_hash: Some("sha256:original".to_string()),
+            ..Default::default()
+        };
+        let track_a_id = add_track(&conn, "/music/old/song.mp3", &metadata_a).unwrap();
+
+        // Simulate play history
+        for _ in 0..10 {
+            update_play_count(&conn, track_a_id).unwrap();
+        }
+
+        let track_a = get_track_by_id(&conn, track_a_id).unwrap().unwrap();
+        assert_eq!(track_a.play_count, 10);
+
+        // File moved - Track A becomes missing
+        mark_track_missing_by_filepath(&conn, "/music/old/song.mp3").unwrap();
+
+        // Track B: Duplicate added by watcher at new location (0 plays)
+        let metadata_b = TrackMetadata {
+            title: Some("My Song".to_string()),
+            artist: Some("Artist".to_string()),
+            file_inode: Some(22222), // Different inode (moved to new volume)
+            content_hash: Some("sha256:original".to_string()),
+            ..Default::default()
+        };
+        let track_b_id = add_track(&conn, "/music/new/song.mp3", &metadata_b).unwrap();
+
+        // Now we have 2 tracks
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM library", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 2);
+
+        // User uses "Locate" to point Track A to the new path
+        // First, check if there's already a track at the new path
+        let existing = get_track_by_filepath(&conn, "/music/new/song.mp3").unwrap();
+        assert!(existing.is_some());
+        assert_eq!(existing.as_ref().unwrap().id, track_b_id);
+
+        // Delete the duplicate (Track B)
+        let deleted = delete_track(&conn, track_b_id).unwrap();
+        assert!(deleted);
+
+        // Update Track A's filepath
+        update_track_filepath(&conn, track_a_id, "/music/new/song.mp3").unwrap();
+
+        // Verify: Only 1 track remains
+        let final_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM library", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(final_count, 1);
+
+        // Verify: Track A has the new path and preserved play count
+        let track_a_updated = get_track_by_id(&conn, track_a_id).unwrap().unwrap();
+        assert_eq!(track_a_updated.filepath, "/music/new/song.mp3");
+        assert!(!track_a_updated.missing);
+        assert_eq!(track_a_updated.play_count, 10, "Play history should be preserved");
+        assert_eq!(track_a_updated.title, Some("My Song".to_string()));
     }
 }

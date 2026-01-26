@@ -448,7 +448,21 @@ impl WatcherManager {
             let modified_count = scan_result.modified.len();
             let deleted_count = scan_result.deleted.len();
 
+            // IMPORTANT: Mark deleted tracks as missing FIRST
+            // This is required because reconciliation of "added" tracks looks for tracks
+            // where missing=1. If a file is moved (delete + add in same scan), we need to
+            // mark the old path as missing before we can reconcile it with the new path.
+            if !scan_result.deleted.is_empty() {
+                for filepath in &scan_result.deleted {
+                    let mark_result = library::mark_track_missing_by_filepath(&conn, filepath);
+                    if let Err(e) = mark_result {
+                        eprintln!("[watcher] Failed to mark track missing: {}", e);
+                    }
+                }
+            }
+
             // Process "added" tracks - check for moves first, then add truly new tracks
+            // Now that deleted tracks are marked missing, reconciliation by inode/hash will work
             let mut added_count = 0;
             let mut reconciled_count = 0;
             if !scan_result.added.is_empty() {
@@ -469,6 +483,10 @@ impl WatcherManager {
                             if reconcile_result.is_ok() {
                                 reconciled_count += 1;
                                 was_reconciled = true;
+                                println!(
+                                    "[watcher] Reconciled moved track {} by inode: {} -> {}",
+                                    track.id, track.filepath, m.filepath
+                                );
                             }
                         }
                     }
@@ -486,6 +504,10 @@ impl WatcherManager {
                                 if reconcile_result.is_ok() {
                                     reconciled_count += 1;
                                     was_reconciled = true;
+                                    println!(
+                                        "[watcher] Reconciled moved track {} by content hash: {} -> {}",
+                                        track.id, track.filepath, m.filepath
+                                    );
                                 }
                             }
                         }
@@ -518,12 +540,22 @@ impl WatcherManager {
                 }
             }
 
-            // Soft-delete tracks that no longer exist on filesystem (mark as missing)
-            if !scan_result.deleted.is_empty() {
-                for filepath in &scan_result.deleted {
-                    let mark_result = library::mark_track_missing_by_filepath(&conn, filepath);
-                    if let Err(e) = mark_result {
-                        eprintln!("[watcher] Failed to mark track missing: {}", e);
+            // Clear missing flag for unchanged files that were previously missing but have reappeared
+            // This handles the case where a file is moved out and then moved back to the same location
+            let mut recovered_count = 0;
+            if !scan_result.unchanged.is_empty() {
+                match library::mark_tracks_present_by_filepaths(&conn, &scan_result.unchanged) {
+                    Ok(count) => {
+                        if count > 0 {
+                            recovered_count = count;
+                            println!(
+                                "[watcher] Recovered {} previously missing track(s) that reappeared",
+                                count
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[watcher] Failed to mark recovered tracks present: {}", e);
                     }
                 }
             }
@@ -534,7 +566,7 @@ impl WatcherManager {
             }
 
             (
-                (added_count + reconciled_count) as i32,
+                (added_count + reconciled_count + recovered_count) as i32,
                 modified_count as i32,
                 deleted_count as i32,
             )

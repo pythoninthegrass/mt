@@ -341,8 +341,13 @@ export function createUIStore(Alpine) {
 
       try {
         const { open } = window.__TAURI__.dialog;
+        // Default to the directory of the original file path
+        const originalPath = this.missingTrackPopover.filepath;
+        const defaultDir = originalPath ? originalPath.substring(0, originalPath.lastIndexOf('/')) : undefined;
+
         const selected = await open({
           multiple: false,
+          defaultPath: defaultDir,
           filters: [
             { name: 'Audio Files', extensions: ['mp3', 'flac', 'ogg', 'm4a', 'wav', 'aac', 'wma', 'opus'] },
             { name: 'All Files', extensions: ['*'] }
@@ -390,8 +395,13 @@ export function createUIStore(Alpine) {
 
       try {
         const { open } = window.__TAURI__.dialog;
+        // Default to the directory of the original file path
+        const originalPath = this.missingTrackModal.filepath;
+        const defaultDir = originalPath ? originalPath.substring(0, originalPath.lastIndexOf('/')) : undefined;
+
         const selected = await open({
           multiple: false,
+          defaultPath: defaultDir,
           filters: [
             { name: 'Audio Files', extensions: ['mp3', 'flac', 'ogg', 'm4a', 'wav', 'aac', 'wma', 'opus'] },
             { name: 'All Files', extensions: ['*'] }

@@ -233,6 +233,8 @@ pub fn library_get_missing(db: State<'_, Database>) -> Result<MissingTracksRespo
 }
 
 /// Update a missing track's filepath after user locates the file
+/// If the new path already exists as another track (duplicate), the duplicate is removed
+/// and the original track's path is updated (preserving play history, favorites, etc.)
 #[tauri::command]
 pub fn library_locate_track(
     app: AppHandle,
@@ -252,7 +254,26 @@ pub fn library_locate_track(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Track with id {} not found", track_id))?;
 
-    // Update the filepath
+    // Check if another track already exists at the new path (duplicate scenario)
+    // This can happen when:
+    // 1. A file was moved, creating a "missing" track at old path
+    // 2. The watcher detected the file at new location and added it as a "new" track
+    // 3. User uses "Locate" to point the missing track to the same file
+    let mut deleted_duplicate_id: Option<i64> = None;
+    if let Ok(Some(existing_track)) = library::get_track_by_filepath(&conn, &new_path) {
+        if existing_track.id != track_id {
+            // There's a duplicate track at this path - remove it
+            // The original track (being located) takes precedence to preserve play history
+            println!(
+                "[locate] Removing duplicate track {} at path {} (keeping original track {})",
+                existing_track.id, new_path, track_id
+            );
+            library::delete_track(&conn, existing_track.id).map_err(|e| e.to_string())?;
+            deleted_duplicate_id = Some(existing_track.id);
+        }
+    }
+
+    // Update the filepath (also clears missing flag and updates last_seen_at)
     library::update_track_filepath(&conn, track_id, &new_path).map_err(|e| e.to_string())?;
 
     // Get updated track
@@ -260,8 +281,13 @@ pub fn library_locate_track(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Track not found after update".to_string())?;
 
-    // Emit standardized library updated event
+    // Emit library updated events
     let _ = app.emit_library_updated(LibraryUpdatedEvent::modified(vec![track_id]));
+
+    // If we removed a duplicate, emit deleted event for it
+    if let Some(dup_id) = deleted_duplicate_id {
+        let _ = app.emit_library_updated(LibraryUpdatedEvent::deleted(vec![dup_id]));
+    }
 
     Ok(updated_track)
 }
