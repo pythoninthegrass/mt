@@ -3,8 +3,70 @@ name: Test Suite
 on:
   push:
     branches: [main, tauri-migration]
+    paths:
+      # Rust source and config
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '**/build.rs'
+      # JavaScript/TypeScript source
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.jsx'
+      - '**/*.tsx'
+      - '**/*.mjs'
+      # Frontend assets and templates
+      - '**/*.html'
+      - '**/*.css'
+      # Node.js config
+      - '**/package.json'
+      - '**/package-lock.json'
+      - '**/tsconfig.json'
+      - '**/vite.config.js'
+      - '**/vitest.config.js'
+      - '**/playwright.config.js'
+      # Tauri config
+      - '**/tauri.conf.json'
+      # Task runner config
+      - 'taskfile.yml'
+      # Test files
+      - 'tests/**/*'
+      - '**/tests/**/*'
+      # CI workflow itself
+      - '.github/workflows/test.yml'
   pull_request:
     branches: [main, tauri-migration]
+    paths:
+      # Rust source and config
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '**/build.rs'
+      # JavaScript/TypeScript source
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.jsx'
+      - '**/*.tsx'
+      - '**/*.mjs'
+      # Frontend assets and templates
+      - '**/*.html'
+      - '**/*.css'
+      # Node.js config
+      - '**/package.json'
+      - '**/package-lock.json'
+      - '**/tsconfig.json'
+      - '**/vite.config.js'
+      - '**/vitest.config.js'
+      - '**/playwright.config.js'
+      # Tauri config
+      - '**/tauri.conf.json'
+      # Task runner config
+      - 'taskfile.yml'
+      # Test files
+      - 'tests/**/*'
+      - '**/tests/**/*'
+      # CI workflow itself
+      - '.github/workflows/test.yml'
 
 # Cancel in-progress runs when a new push supersedes them
 concurrency:
