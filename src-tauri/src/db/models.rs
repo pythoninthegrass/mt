@@ -178,16 +178,13 @@ pub struct PaginatedResult<T> {
 
 /// Sort order for queries
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum SortOrder {
     Asc,
+    #[default]
     Desc,
 }
 
-impl Default for SortOrder {
-    fn default() -> Self {
-        SortOrder::Desc
-    }
-}
 
 impl SortOrder {
     pub fn as_sql(&self) -> &'static str {
@@ -200,21 +197,18 @@ impl SortOrder {
 
 /// Valid sort columns for library queries
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum LibrarySortColumn {
     Title,
     Artist,
     Album,
+    #[default]
     AddedDate,
     PlayCount,
     Duration,
     LastPlayed,
 }
 
-impl Default for LibrarySortColumn {
-    fn default() -> Self {
-        LibrarySortColumn::AddedDate
-    }
-}
 
 impl LibrarySortColumn {
     pub fn as_sql(&self) -> &'static str {
@@ -228,9 +222,13 @@ impl LibrarySortColumn {
             LibrarySortColumn::LastPlayed => "last_played",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
+impl std::str::FromStr for LibrarySortColumn {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
             "title" => LibrarySortColumn::Title,
             "artist" => LibrarySortColumn::Artist,
             "album" => LibrarySortColumn::Album,
@@ -239,7 +237,7 @@ impl LibrarySortColumn {
             "duration" => LibrarySortColumn::Duration,
             "last_played" => LibrarySortColumn::LastPlayed,
             _ => LibrarySortColumn::AddedDate,
-        }
+        })
     }
 }
 
@@ -268,16 +266,18 @@ mod tests {
 
     #[test]
     fn test_sort_column_from_str() {
+        use std::str::FromStr;
+
         assert_eq!(
-            LibrarySortColumn::from_str("title"),
+            LibrarySortColumn::from_str("title").unwrap(),
             LibrarySortColumn::Title
         );
         assert_eq!(
-            LibrarySortColumn::from_str("ARTIST"),
+            LibrarySortColumn::from_str("ARTIST").unwrap(),
             LibrarySortColumn::Artist
         );
         assert_eq!(
-            LibrarySortColumn::from_str("invalid"),
+            LibrarySortColumn::from_str("invalid").unwrap(),
             LibrarySortColumn::AddedDate
         );
     }

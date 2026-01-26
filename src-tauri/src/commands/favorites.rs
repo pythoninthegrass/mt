@@ -51,7 +51,7 @@ pub fn favorites_get(
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> Result<FavoritesResponse, String> {
-    let limit = limit.unwrap_or(100).min(1000).max(1);
+    let limit = limit.unwrap_or(100).clamp(1, 1000);
     let offset = offset.unwrap_or(0).max(0);
 
     let conn = db.conn().map_err(|e| e.to_string())?;
@@ -146,8 +146,8 @@ pub fn favorites_get_recently_played(
     days: Option<i64>,
     limit: Option<i64>,
 ) -> Result<RecentTracksResponse, String> {
-    let days = days.unwrap_or(14).min(365).max(1);
-    let limit = limit.unwrap_or(100).min(1000).max(1);
+    let days = days.unwrap_or(14).clamp(1, 365);
+    let limit = limit.unwrap_or(100).clamp(1, 1000);
 
     let conn = db.conn().map_err(|e| e.to_string())?;
     let tracks = favorites::get_recently_played(&conn, days, limit).map_err(|e| e.to_string())?;
@@ -162,8 +162,8 @@ pub fn favorites_get_recently_added(
     days: Option<i64>,
     limit: Option<i64>,
 ) -> Result<RecentTracksResponse, String> {
-    let days = days.unwrap_or(14).min(365).max(1);
-    let limit = limit.unwrap_or(100).min(1000).max(1);
+    let days = days.unwrap_or(14).clamp(1, 365);
+    let limit = limit.unwrap_or(100).clamp(1, 1000);
 
     let conn = db.conn().map_err(|e| e.to_string())?;
     let tracks = favorites::get_recently_added(&conn, days, limit).map_err(|e| e.to_string())?;

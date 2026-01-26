@@ -14,10 +14,7 @@ use tauri::{AppHandle, Emitter, State};
 
 /// Helper to check if a setting is truthy
 fn is_setting_truthy(value: Option<String>) -> bool {
-    match value.as_deref() {
-        Some("1") | Some("true") | Some("yes") | Some("on") => true,
-        _ => false,
-    }
+    matches!(value.as_deref(), Some("1") | Some("true") | Some("yes") | Some("on"))
 }
 
 /// Helper to parse setting as u8

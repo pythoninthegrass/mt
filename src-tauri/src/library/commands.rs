@@ -7,7 +7,7 @@ use std::path::Path;
 use tauri::{AppHandle, State};
 
 use crate::db::{
-    library, Database, LibrarySortColumn, LibraryStats, SortOrder, Track, TrackMetadata,
+    library, Database, LibraryStats, SortOrder, Track, TrackMetadata,
 };
 use crate::events::{EventEmitter, LibraryUpdatedEvent};
 use crate::scanner::artwork::Artwork;
@@ -32,6 +32,7 @@ pub struct MissingTracksResponse {
 }
 
 /// Get all tracks with filtering, sorting, and pagination
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn library_get_all(
     db: State<'_, Database>,
@@ -54,7 +55,7 @@ pub fn library_get_all(
         album,
         sort_by: sort_by
             .as_ref()
-            .map(|s| LibrarySortColumn::from_str(s))
+            .and_then(|s| s.parse().ok())
             .unwrap_or_default(),
         sort_order: sort_order
             .as_ref()
@@ -260,8 +261,8 @@ pub fn library_locate_track(
     // 2. The watcher detected the file at new location and added it as a "new" track
     // 3. User uses "Locate" to point the missing track to the same file
     let mut deleted_duplicate_id: Option<i64> = None;
-    if let Ok(Some(existing_track)) = library::get_track_by_filepath(&conn, &new_path) {
-        if existing_track.id != track_id {
+    if let Ok(Some(existing_track)) = library::get_track_by_filepath(&conn, &new_path)
+        && existing_track.id != track_id {
             // There's a duplicate track at this path - remove it
             // The original track (being located) takes precedence to preserve play history
             println!(
@@ -271,7 +272,6 @@ pub fn library_locate_track(
             library::delete_track(&conn, existing_track.id).map_err(|e| e.to_string())?;
             deleted_duplicate_id = Some(existing_track.id);
         }
-    }
 
     // Update the filepath (also clears missing flag and updates last_seen_at)
     library::update_track_filepath(&conn, track_id, &new_path).map_err(|e| e.to_string())?;
