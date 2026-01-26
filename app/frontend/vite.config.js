@@ -1,14 +1,14 @@
-import { defineConfig } from 'vite'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from "vite";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [
     tailwindcss(),
     {
-      name: 'css-hmr-fix',
+      name: "css-hmr-fix",
       handleHotUpdate({ file, server }) {
-        if (file.endsWith('.css')) {
-          server.ws.send({ type: 'full-reload' });
+        if (file.endsWith(".css")) {
+          server.ws.send({ type: "full-reload" });
           return [];
         }
       },
@@ -22,11 +22,11 @@ export default defineConfig({
   css: {
     devSourcemap: true,
   },
-  envPrefix: ['VITE_', 'TAURI_'],
+  envPrefix: ["VITE_", "TAURI_"],
   build: {
-    target: ['es2021', 'chrome100', 'safari13'],
-    minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
+    target: ["es2021", "chrome100", "safari13"],
+    minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     sourcemap: !!process.env.TAURI_DEBUG,
-    outDir: 'dist',
+    outDir: "dist",
   },
-})
+});
