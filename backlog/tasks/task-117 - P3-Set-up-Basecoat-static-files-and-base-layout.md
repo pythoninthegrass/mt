@@ -1,10 +1,10 @@
 ---
 id: task-117
 title: 'P3: Set up Basecoat static files and base layout'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 06:43'
-updated_date: '2026-01-19 00:41'
+updated_date: '2026-01-26 01:28'
 labels:
   - frontend
   - basecoat

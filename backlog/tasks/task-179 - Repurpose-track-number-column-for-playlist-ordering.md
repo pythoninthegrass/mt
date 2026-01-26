@@ -1,10 +1,10 @@
 ---
 id: task-179
 title: Repurpose track number column for playlist ordering
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-20 09:30'
-updated_date: '2026-01-21 18:33'
+updated_date: '2026-01-26 01:33'
 labels:
   - enhancement
   - frontend
@@ -12,7 +12,7 @@ labels:
   - ux
 dependencies: []
 priority: medium
-ordinal: 750
+ordinal: 4875
 ---
 
 ## Description

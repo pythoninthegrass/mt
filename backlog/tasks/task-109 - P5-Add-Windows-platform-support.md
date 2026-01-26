@@ -4,7 +4,7 @@ title: 'P5: Add Windows platform support'
 status: To Do
 assignee: []
 created_date: '2026-01-12 04:09'
-updated_date: '2026-01-19 00:41'
+updated_date: '2026-01-26 01:32'
 labels:
   - windows
   - platform
@@ -14,7 +14,7 @@ dependencies:
   - task-094
   - task-098
 priority: low
-ordinal: 23000
+ordinal: 36000
 ---
 
 ## Description

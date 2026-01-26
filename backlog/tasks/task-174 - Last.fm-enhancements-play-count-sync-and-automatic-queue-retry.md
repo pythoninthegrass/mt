@@ -1,14 +1,16 @@
 ---
 id: task-174
 title: 'Last.fm enhancements: play count sync and automatic queue retry'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-20 00:38'
+updated_date: '2026-01-26 01:33'
 labels:
   - enhancement
   - lastfm
 dependencies: []
 priority: low
+ordinal: 12375
 ---
 
 ## Description

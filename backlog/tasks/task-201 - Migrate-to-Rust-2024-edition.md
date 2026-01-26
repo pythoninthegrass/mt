@@ -1,10 +1,10 @@
 ---
 id: task-201
 title: Migrate to Rust 2024 edition
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-25 05:26'
-updated_date: '2026-01-25 23:04'
+updated_date: '2026-01-25 23:16'
 labels:
   - rust
   - migration
@@ -71,7 +71,7 @@ After migration:
 - [x] #2 All edition compatibility warnings resolved
 - [x] #3 cargo fix --edition applied successfully
 - [x] #4 Full test suite passes (cargo test)
-- [ ] #5 Manual testing confirms no behavioral regressions in Last.fm, scanner, watcher, and database operations
+- [x] #5 Manual testing confirms no behavioral regressions in Last.fm, scanner, watcher, and database operations
 - [x] #6 Remove #![allow(dependency_on_unit_never_type_fallback)] lint suppression from lib.rs
 <!-- AC:END -->
 

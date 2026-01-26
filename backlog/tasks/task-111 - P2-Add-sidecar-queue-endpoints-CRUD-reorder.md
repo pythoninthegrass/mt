@@ -1,10 +1,10 @@
 ---
 id: task-111
 title: 'P2: Add sidecar queue endpoints (CRUD, reorder)'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 06:35'
-updated_date: '2026-01-19 00:41'
+updated_date: '2026-01-26 01:28'
 labels:
   - backend
   - python

@@ -1,10 +1,10 @@
 ---
 id: task-115
 title: 'P4: Implement Rust audio engine with symphonia + rodio'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 06:36'
-updated_date: '2026-01-19 00:41'
+updated_date: '2026-01-26 01:29'
 labels:
   - rust
   - audio
