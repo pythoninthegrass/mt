@@ -85,8 +85,8 @@ pub fn get_folder_artwork(filepath: &str) -> Option<Artwork> {
     // Try exact filenames first
     for filename in ARTWORK_FILENAMES {
         let artwork_path = folder.join(filename);
-        if artwork_path.exists() {
-            if let Ok(data) = fs::read(&artwork_path) {
+        if artwork_path.exists()
+            && let Ok(data) = fs::read(&artwork_path) {
                 let ext = artwork_path.extension()?.to_str()?.to_lowercase();
                 let mime_type = match ext.as_str() {
                     "jpg" | "jpeg" => "image/jpeg",
@@ -103,7 +103,6 @@ pub fn get_folder_artwork(filepath: &str) -> Option<Artwork> {
                     filename: Some(filename.to_string()),
                 });
             }
-        }
     }
 
     // Try case-insensitive search

@@ -491,8 +491,8 @@ impl WatcherManager {
                         }
                     }
 
-                    if !was_reconciled {
-                        if let Ok(hash) = compute_content_hash(std::path::Path::new(&m.filepath)) {
+                    if !was_reconciled
+                        && let Ok(hash) = compute_content_hash(std::path::Path::new(&m.filepath)) {
                             let track_result = library::find_missing_track_by_content_hash(&conn, &hash);
                             if let Ok(Some(track)) = track_result {
                                 let reconcile_result = library::reconcile_moved_track(
@@ -511,7 +511,6 @@ impl WatcherManager {
                                 }
                             }
                         }
-                    }
 
                     if !was_reconciled {
                         truly_new.push((m.filepath.clone(), to_track_metadata(m)));

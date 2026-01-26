@@ -149,8 +149,8 @@ fn audio_thread(rx: Receiver<AudioCommand>, app: AppHandle) {
                && play_count_state.track_id.is_some() {
                 let ratio = progress.position_ms as f64 / progress.duration_ms as f64;
 
-                if ratio >= 0.75 {
-                    if let Some(track_id) = play_count_state.track_id {
+                if ratio >= 0.75
+                    && let Some(track_id) = play_count_state.track_id {
                         // Spawn async task to avoid blocking audio thread
                         let app_handle = app.clone();
                         std::thread::spawn(move || {
@@ -165,7 +165,6 @@ fn audio_thread(rx: Receiver<AudioCommand>, app: AppHandle) {
                         });
                         play_count_state.threshold_reached = true;
                     }
-                }
             }
 
             // Check scrobble threshold (90% default, configurable)
@@ -174,8 +173,8 @@ fn audio_thread(rx: Receiver<AudioCommand>, app: AppHandle) {
                && scrobble_state.track_id.is_some() {
                 let ratio = progress.position_ms as f64 / progress.duration_ms as f64;
 
-                if ratio >= scrobble_state.threshold_percent {
-                    if let Some(track_id) = scrobble_state.track_id {
+                if ratio >= scrobble_state.threshold_percent
+                    && let Some(track_id) = scrobble_state.track_id {
                         // Spawn async task to avoid blocking audio thread
                         let app_handle = app.clone();
                         std::thread::spawn(move || {
@@ -193,7 +192,6 @@ fn audio_thread(rx: Receiver<AudioCommand>, app: AppHandle) {
                         });
                         scrobble_state.threshold_reached = true;
                     }
-                }
             }
         }
 

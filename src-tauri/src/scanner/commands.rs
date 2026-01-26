@@ -148,8 +148,8 @@ pub async fn scan_paths_to_library(
                 }
             }
 
-            if !was_reconciled {
-                if let Ok(hash) = compute_content_hash(std::path::Path::new(&m.filepath)) {
+            if !was_reconciled
+                && let Ok(hash) = compute_content_hash(std::path::Path::new(&m.filepath)) {
                     let track_result = library::find_missing_track_by_content_hash(&conn, &hash);
                     if let Ok(Some(track)) = track_result {
                         let reconcile_result = library::reconcile_moved_track(&conn, track.id, &m.filepath, m.file_inode);
@@ -159,7 +159,6 @@ pub async fn scan_paths_to_library(
                         }
                     }
                 }
-            }
 
             if !was_reconciled {
                 truly_new.push((m.filepath.clone(), to_db_metadata(m)));
@@ -187,11 +186,10 @@ pub async fn scan_paths_to_library(
     // Clear missing flag for unchanged files that were previously missing but have reappeared
     // This handles the case where a file is moved out and then moved back to the same location
     let mut recovered_count = 0;
-    if !scan_result.unchanged.is_empty() {
-        if let Ok(count) = library::mark_tracks_present_by_filepaths(&conn, &scan_result.unchanged) {
+    if !scan_result.unchanged.is_empty()
+        && let Ok(count) = library::mark_tracks_present_by_filepaths(&conn, &scan_result.unchanged) {
             recovered_count = count;
         }
-    }
 
     let duration_ms = start_time.elapsed().as_millis() as u64;
 

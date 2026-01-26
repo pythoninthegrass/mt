@@ -86,11 +86,10 @@ pub fn settings_get_all(app: AppHandle) -> Result<AllSettingsResponse, String> {
 
     // Also include any extra keys that might be in the store
     for key in store.keys() {
-        if !settings.contains_key(&key) {
-            if let Some(value) = store.get(&key) {
+        if !settings.contains_key(&key)
+            && let Some(value) = store.get(&key) {
                 settings.insert(key, value.clone());
             }
-        }
     }
 
     Ok(AllSettingsResponse { settings })
