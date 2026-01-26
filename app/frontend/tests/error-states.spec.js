@@ -119,7 +119,7 @@ test.describe('API Error Responses', () => {
     // Attempt to access non-existent track via store method
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.library.getTrack(9999);
         return { success: true };
       } catch (e) {
@@ -143,7 +143,7 @@ test.describe('API Error Responses', () => {
     // Attempt to get stats
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.library.getStats();
         return { success: true };
       } catch (e) {
@@ -166,7 +166,7 @@ test.describe('API Error Responses', () => {
     // Empty responses should be handled as null
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         const stats = await api.library.getStats();
         return { success: true, result: stats };
       } catch (e) {
@@ -365,7 +365,7 @@ test.describe('Playlist API Error Handling', () => {
     // Attempt to create playlist
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.playlists.create('Test Playlist');
         return { success: true };
       } catch (e) {
@@ -392,7 +392,7 @@ test.describe('Playlist API Error Handling', () => {
 
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.playlists.delete(1);
         return { success: true };
       } catch (e) {
@@ -423,7 +423,7 @@ test.describe('Queue API Error Handling', () => {
 
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.queue.add([1, 2, 3]);
         return { success: true };
       } catch (e) {
@@ -446,7 +446,7 @@ test.describe('Queue API Error Handling', () => {
 
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.queue.clear();
         return { success: true };
       } catch (e) {
@@ -590,7 +590,7 @@ test.describe('Settings Error Handling', () => {
     // Attempt to get settings
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.settings.getAll();
         return { success: true };
       } catch (e) {
@@ -632,7 +632,7 @@ test.describe('Last.fm API Error Handling', () => {
 
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.lastfm.scrobble({
           artist: 'Test Artist',
           track: 'Test Track',
@@ -660,7 +660,7 @@ test.describe('Last.fm API Error Handling', () => {
 
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.lastfm.getAuthUrl();
         return { success: true };
       } catch (e) {
@@ -696,7 +696,7 @@ test.describe('Favorites API Error Handling', () => {
 
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.favorites.add(1);
         return { success: true };
       } catch (e) {
@@ -723,7 +723,7 @@ test.describe('Favorites API Error Handling', () => {
 
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.favorites.remove(9999);
         return { success: true };
       } catch (e) {
@@ -755,7 +755,7 @@ test.describe('Watched Folders API Error Handling', () => {
 
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.watchedFolders.list();
         return { success: true };
       } catch (e) {
@@ -782,7 +782,7 @@ test.describe('Watched Folders API Error Handling', () => {
 
     const result = await page.evaluate(async () => {
       try {
-        const { api } = await import('./js/api.js');
+        const { api } = await import('/js/api.js');
         await api.watchedFolders.add('/nonexistent/path');
         return { success: true };
       } catch (e) {
