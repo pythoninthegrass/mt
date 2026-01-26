@@ -78,12 +78,11 @@
       "Cargo.lock"
     ],
 
-    "options": {
-      "indentWidth": 2,        // Match existing code style
-      "lineWidth": 100,        // Standard for modern displays
-      "semiColons": true,      // Match existing code style
-      "singleQuote": true,     // Match existing code style
-      "proseWrap": "preserve"  // Don't reflow comments
-    }
+    // Flat options format (new in Deno 2.x)
+    "indentWidth": 2,        // Match existing code style
+    "lineWidth": 100,        // Standard for modern displays
+    "semiColons": true,      // Match existing code style
+    "singleQuote": true,     // Match existing code style
+    "proseWrap": "preserve"  // Don't reflow comments
   }
 }
