@@ -26,16 +26,19 @@ export default defineConfig({
   testMatch: '**/*.spec.js',
 
   // Maximum time one test can run for
-  timeout: 60000,
+  timeout: 30000,
 
   // Run tests in files in parallel
   fullyParallel: true,
 
+  // Optimize for CI performance
+  workers: process.env.CI ? 4 : undefined,
+
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
 
-  // Retry on CI only
-  retries: process.env.CI ? 2 : 0,
+  // Reduce retries since we have maxFailures now (1 retry instead of 2)
+  retries: process.env.CI ? 1 : 0,
 
   // Stop after N test failures (fail-fast for CI)
   maxFailures: process.env.CI ? 5 : undefined,
@@ -69,10 +72,10 @@ export default defineConfig({
     timezoneId: 'America/Chicago',
 
     // Default timeout for actions (click, fill, etc.)
-    actionTimeout: 10000,
+    actionTimeout: 5000,
 
     // Default timeout for navigation
-    navigationTimeout: 30000,
+    navigationTimeout: 15000,
   },
 
   // Skip @tauri tests by default (they require Tauri runtime, not browser)
