@@ -55,9 +55,14 @@ tasks:
       - deno fmt
 
   test:
-    desc: "Run tests"
+    desc: "Run tests (uses cargo-nextest if available, otherwise cargo test)"
     cmds:
-      - cargo test --manifest-path src-tauri/Cargo.toml
+      - |
+        if command -v cargo-nextest &> /dev/null; then
+          cargo nextest run --manifest-path src-tauri/Cargo.toml
+        else
+          cargo test --manifest-path src-tauri/Cargo.toml
+        fi
       - npm --prefix app/frontend test
 
   test:e2e:
@@ -79,6 +84,20 @@ tasks:
     desc: "Build Tauri app for Intel (x86_64)"
     cmds:
       - task: tauri:build:x64
+
+  build:timings:
+    desc: "Analyze build performance bottlenecks"
+    dir: src-tauri
+    cmds:
+      - cargo build --timings
+      - |
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          open target/cargo-timings/cargo-timing.html
+        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+          xdg-open target/cargo-timings/cargo-timing.html 2>/dev/null || echo "Open target/cargo-timings/cargo-timing.html in your browser"
+        else
+          echo "Open target/cargo-timings/cargo-timing.html in your browser"
+        fi
 
   repomix:
     desc: "Create llm snapshot of repo"
