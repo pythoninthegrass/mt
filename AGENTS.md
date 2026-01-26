@@ -185,6 +185,10 @@ task tauri:dev
 npm install                           # Frontend dependencies
 cargo build                           # Rust backend dependencies
 
+# Fast syntax/type checking (no binary output, 2-3x faster than build)
+cargo check --manifest-path src-tauri/Cargo.toml  # Quick validation during development
+cargo check --all-features            # Check with all feature combinations
+
 # Run linting
 npm run lint                          # Frontend linting (ESLint)
 cargo clippy                          # Rust linting
@@ -401,6 +405,7 @@ task pre-commit               # Run pre-commit hooks
 task build                    # Build Tauri app for current arch
 task build:arm64              # Build for Apple Silicon (arm64)
 task build:x64                # Build for Intel (x86_64)
+task build:timings            # Analyze build performance bottlenecks (opens HTML report)
 
 # Utilities
 task install                  # Install project dependencies via devbox
