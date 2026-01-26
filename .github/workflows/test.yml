@@ -124,6 +124,9 @@ jobs:
     name: Rust Backend Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      CARGO_INCREMENTAL: 0  # Disable incremental compilation in CI (faster clean builds)
+      CARGO_TERM_COLOR: always
 
     steps:
       - name: Checkout code
@@ -180,6 +183,9 @@ jobs:
     name: Build Verification
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: 0  # Disable incremental compilation in CI (faster clean builds)
+      CARGO_TERM_COLOR: always
 
     steps:
       - name: Checkout code
