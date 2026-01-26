@@ -65,7 +65,10 @@ export async function initEventListeners(Alpine) {
     const { action, track_ids } = payload;
     const library = Alpine.store('library');
 
-    console.log(`[events] Library ${action}:`, track_ids.length ? `${track_ids.length} tracks` : 'bulk update');
+    console.log(
+      `[events] Library ${action}:`,
+      track_ids.length ? `${track_ids.length} tracks` : 'bulk update',
+    );
 
     // Refresh library data based on action
     if (action === 'added' || action === 'modified' || action === 'deleted') {
@@ -98,7 +101,9 @@ export async function initEventListeners(Alpine) {
     const { job_id, added, skipped, errors, duration_ms } = payload;
     const library = Alpine.store('library');
 
-    console.log(`[events] Scan complete: ${added} added, ${skipped} skipped, ${errors} errors (${duration_ms}ms)`);
+    console.log(
+      `[events] Scan complete: ${added} added, ${skipped} skipped, ${errors} errors (${duration_ms}ms)`,
+    );
 
     // Clear scan progress and refresh library
     if (library.clearScanProgress) {
@@ -116,7 +121,10 @@ export async function initEventListeners(Alpine) {
     // Skip if we're actively updating the queue (prevents race conditions)
     const queue = Alpine.store('queue');
     if (queue?._initializing || queue?._updating) {
-      console.log('[events] Skipping queue reload during', queue._initializing ? 'initialization' : 'active update');
+      console.log(
+        '[events] Skipping queue reload during',
+        queue._initializing ? 'initialization' : 'active update',
+      );
       return;
     }
 
@@ -145,7 +153,10 @@ export async function initEventListeners(Alpine) {
       queue.shuffle = payload.shuffle_enabled;
       queue.loop = payload.loop_mode;
     } else if (queue?._initializing || queue?._updating) {
-      console.log('[events] Skipping queue state update during', queue._initializing ? 'initialization' : 'active update');
+      console.log(
+        '[events] Skipping queue state update during',
+        queue._initializing ? 'initialization' : 'active update',
+      );
     }
   });
 

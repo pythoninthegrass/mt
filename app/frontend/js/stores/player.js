@@ -1,7 +1,8 @@
 import { api } from '../api.js';
 import { formatTime } from '../utils/formatting.js';
 
-const { invoke } = window.__TAURI__?.core ?? { invoke: async () => console.warn('Tauri not available') };
+const { invoke } = window.__TAURI__?.core ??
+  { invoke: async () => console.warn('Tauri not available') };
 const { listen } = window.__TAURI__?.event ?? { listen: async () => () => {} };
 
 // Scrobbling state
@@ -68,7 +69,7 @@ export function createPlayerStore(Alpine) {
     destroy() {
       if (this._progressListener) this._progressListener();
       if (this._trackEndedListener) this._trackEndedListener();
-      this._mediaKeyListeners.forEach(unlisten => unlisten());
+      this._mediaKeyListeners.forEach((unlisten) => unlisten());
     },
 
     async playTrack(track) {
@@ -82,7 +83,10 @@ export function createPlayerStore(Alpine) {
       const requestId = ++this._playRequestId;
 
       if (track.missing) {
-        console.log('[playback]', 'missing_track_attempted', { trackId: track.id, trackTitle: track.title });
+        console.log('[playback]', 'missing_track_attempted', {
+          trackId: track.id,
+          trackTitle: track.title,
+        });
         const result = await Alpine.store('ui').showMissingTrackModal(track);
 
         if (result.result === 'located' && result.newPath) {
@@ -97,7 +101,7 @@ export function createPlayerStore(Alpine) {
         trackTitle: track.title,
         trackArtist: track.artist,
         trackPath: track.filepath || track.path,
-        requestId
+        requestId,
       });
 
       try {
@@ -106,18 +110,24 @@ export function createPlayerStore(Alpine) {
 
         // Check if this request was superseded while stopping
         if (this._playRequestId !== requestId) {
-          console.log('[playback]', 'request_superseded_early', { requestId, currentId: this._playRequestId });
+          console.log('[playback]', 'request_superseded_early', {
+            requestId,
+            currentId: this._playRequestId,
+          });
           return;
         }
 
         const info = await invoke('audio_load', {
           path: track.filepath || track.path,
-          trackId: track.id  // Pass track_id for backend play count tracking
+          trackId: track.id, // Pass track_id for backend play count tracking
         });
 
         // Check if this request was superseded while loading
         if (this._playRequestId !== requestId) {
-          console.log('[playback]', 'request_superseded', { requestId, currentId: this._playRequestId });
+          console.log('[playback]', 'request_superseded', {
+            requestId,
+            currentId: this._playRequestId,
+          });
           return;
         }
 
@@ -127,7 +137,7 @@ export function createPlayerStore(Alpine) {
           rust: info.duration_ms,
           track: track.duration,
           trackMs: trackDurationMs,
-          final: durationMs
+          final: durationMs,
         });
         this.currentTrack = { ...track, duration: durationMs };
         this.duration = durationMs;
@@ -144,7 +154,10 @@ export function createPlayerStore(Alpine) {
       } catch (error) {
         // Only log error if this request is still current
         if (this._playRequestId === requestId) {
-          console.error('[playback]', 'play_track_error', { trackId: track.id, error: error.message });
+          console.error('[playback]', 'play_track_error', {
+            trackId: track.id,
+            error: error.message,
+          });
           this.isPlaying = false;
         }
       }
@@ -153,7 +166,7 @@ export function createPlayerStore(Alpine) {
     async pause() {
       console.log('[playback]', 'pause', {
         trackId: this.currentTrack?.id,
-        currentTime: this.currentTime
+        currentTime: this.currentTime,
       });
 
       try {
@@ -168,7 +181,7 @@ export function createPlayerStore(Alpine) {
     async resume() {
       console.log('[playback]', 'resume', {
         trackId: this.currentTrack?.id,
-        currentTime: this.currentTime
+        currentTime: this.currentTime,
       });
 
       try {
@@ -183,7 +196,7 @@ export function createPlayerStore(Alpine) {
     async togglePlay() {
       console.log('[playback]', 'toggle_play', {
         currentlyPlaying: this.isPlaying,
-        hasTrack: !!this.currentTrack
+        hasTrack: !!this.currentTrack,
       });
 
       if (this.isPlaying) {
@@ -206,21 +219,21 @@ export function createPlayerStore(Alpine) {
 
     async previous() {
       console.log('[playback]', 'previous', {
-        currentTrackId: this.currentTrack?.id
+        currentTrackId: this.currentTrack?.id,
       });
       await Alpine.store('queue').skipPrevious();
     },
 
     async next() {
       console.log('[playback]', 'next', {
-        currentTrackId: this.currentTrack?.id
+        currentTrackId: this.currentTrack?.id,
       });
       await Alpine.store('queue').skipNext();
     },
 
     async stop() {
       console.log('[playback]', 'stop', {
-        trackId: this.currentTrack?.id
+        trackId: this.currentTrack?.id,
       });
 
       try {
@@ -254,7 +267,7 @@ export function createPlayerStore(Alpine) {
       console.log('[playback]', 'seek', {
         trackId: this.currentTrack?.id,
         positionMs: pos,
-        progressPercent: this.progress.toFixed(1)
+        progressPercent: this.progress.toFixed(1),
       });
 
       this._seekDebounce = setTimeout(async () => {
@@ -281,7 +294,7 @@ export function createPlayerStore(Alpine) {
 
       console.log('[playback]', 'set_volume', {
         volume: clampedVol,
-        previousVolume: this.volume
+        previousVolume: this.volume,
       });
 
       // Update volume optimistically for immediate UI feedback
@@ -293,14 +306,17 @@ export function createPlayerStore(Alpine) {
           this.muted = false;
         }
       } catch (error) {
-        console.error('[playback]', 'set_volume_error', { error: error.message, volume: clampedVol });
+        console.error('[playback]', 'set_volume_error', {
+          error: error.message,
+          volume: clampedVol,
+        });
       }
     },
 
     async toggleMute() {
       console.log('[playback]', 'toggle_mute', {
         currentlyMuted: this.muted,
-        currentVolume: this.volume
+        currentVolume: this.volume,
       });
 
       if (this.muted) {
@@ -335,7 +351,7 @@ export function createPlayerStore(Alpine) {
         trackId: this.currentTrack.id,
         trackTitle: this.currentTrack.title,
         currentlyFavorite: this.isFavorite,
-        action: this.isFavorite ? 'remove' : 'add'
+        action: this.isFavorite ? 'remove' : 'add',
       });
 
       try {
@@ -351,7 +367,7 @@ export function createPlayerStore(Alpine) {
       } catch (error) {
         console.error('[playback]', 'toggle_favorite_error', {
           trackId: this.currentTrack.id,
-          error: error.message
+          error: error.message,
         });
       }
     },
@@ -403,13 +419,13 @@ export function createPlayerStore(Alpine) {
           duration: Math.floor(this.duration / 1000), // Convert ms to seconds
         };
 
-        api.lastfm.updateNowPlaying(nowPlayingData).then(result => {
+        api.lastfm.updateNowPlaying(nowPlayingData).then((result) => {
           if (result.status === 'disabled' || result.status === 'not_authenticated') {
             // Silently ignore if not configured
             return;
           }
           console.debug('[lastfm] Now Playing updated:', nowPlayingData.track);
-        }).catch(error => {
+        }).catch((error) => {
           console.warn('[lastfm] Failed to update Now Playing:', error);
         });
       } catch (error) {

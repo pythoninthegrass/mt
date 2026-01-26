@@ -93,7 +93,7 @@ export function createSettingsView(Alpine) {
 
         const { invoke } = window.__TAURI__.core;
         const folder = await invoke('watched_folders_add', {
-          request: { path, mode: 'continuous', cadence_minutes: 10, enabled: true }
+          request: { path, mode: 'continuous', cadence_minutes: 10, enabled: true },
         });
         this.watchedFolders.push(folder);
         Alpine.store('ui').toast('Folder added to watch list', 'success');
@@ -109,7 +109,7 @@ export function createSettingsView(Alpine) {
       try {
         const { invoke } = window.__TAURI__.core;
         await invoke('watched_folders_remove', { id });
-        this.watchedFolders = this.watchedFolders.filter(f => f.id !== id);
+        this.watchedFolders = this.watchedFolders.filter((f) => f.id !== id);
         Alpine.store('ui').toast('Folder removed from watch list', 'success');
       } catch (error) {
         console.error('[settings] Failed to remove watched folder:', error);
@@ -123,7 +123,7 @@ export function createSettingsView(Alpine) {
       try {
         const { invoke } = window.__TAURI__.core;
         const updated = await invoke('watched_folders_update', { id, request: updates });
-        const index = this.watchedFolders.findIndex(f => f.id === id);
+        const index = this.watchedFolders.findIndex((f) => f.id === id);
         if (index !== -1) {
           this.watchedFolders[index] = updated;
         }
@@ -166,10 +166,12 @@ export function createSettingsView(Alpine) {
       if (window.__TAURI__?.dialog?.confirm) {
         confirmed = await window.__TAURI__.dialog.confirm(
           'This will reset all settings to their defaults. Your library and playlists will not be affected.',
-          { title: 'Reset Settings', kind: 'warning' }
+          { title: 'Reset Settings', kind: 'warning' },
         );
       } else {
-        confirmed = confirm('This will reset all settings to their defaults. Your library and playlists will not be affected.');
+        confirmed = confirm(
+          'This will reset all settings to their defaults. Your library and playlists will not be affected.',
+        );
       }
 
       if (!confirmed) return;
@@ -180,7 +182,7 @@ export function createSettingsView(Alpine) {
         'mt:settings:activeSection',
       ];
 
-      keysToReset.forEach(key => localStorage.removeItem(key));
+      keysToReset.forEach((key) => localStorage.removeItem(key));
 
       window.location.reload();
     },
@@ -241,12 +243,12 @@ export function createSettingsView(Alpine) {
     async toggleLastfm() {
       try {
         await api.lastfm.updateSettings({
-          enabled: !this.lastfm.enabled
+          enabled: !this.lastfm.enabled,
         });
         this.lastfm.enabled = !this.lastfm.enabled;
         Alpine.store('ui').toast(
           `Last.fm scrobbling ${this.lastfm.enabled ? 'enabled' : 'disabled'}`,
-          'success'
+          'success',
         );
       } catch (error) {
         console.error('[settings] Failed to toggle Last.fm:', error);
@@ -263,7 +265,7 @@ export function createSettingsView(Alpine) {
         }
 
         await api.lastfm.updateSettings({
-          scrobble_threshold: this.lastfm.scrobbleThreshold
+          scrobble_threshold: this.lastfm.scrobbleThreshold,
         });
         Alpine.store('ui').toast('Scrobble threshold updated', 'success');
       } catch (error) {
@@ -294,7 +296,7 @@ export function createSettingsView(Alpine) {
 
         Alpine.store('ui').toast(
           'Last.fm authorization page opened. After authorizing, click "Complete Authentication".',
-          'info'
+          'info',
         );
       } catch (error) {
         console.error('[settings] Failed to get Last.fm auth URL:', error);
@@ -304,7 +306,7 @@ export function createSettingsView(Alpine) {
           errorMsg.includes('API keys not configured')
             ? 'Last.fm API keys not configured. Set LASTFM_API_KEY and LASTFM_API_SECRET in .env file.'
             : `Failed to connect: ${errorMsg}`,
-          'error'
+          'error',
         );
         this.lastfm.pendingToken = null;
       } finally {
@@ -314,7 +316,10 @@ export function createSettingsView(Alpine) {
 
     async completeLastfmAuth() {
       if (!this.lastfm.pendingToken) {
-        Alpine.store('ui').toast('No pending authentication. Please start the connection process first.', 'warning');
+        Alpine.store('ui').toast(
+          'No pending authentication. Please start the connection process first.',
+          'warning',
+        );
         return;
       }
 
@@ -325,7 +330,10 @@ export function createSettingsView(Alpine) {
         this.lastfm.username = result.username;
         this.lastfm.enabled = true;
         this.lastfm.pendingToken = null;
-        Alpine.store('ui').toast(`Successfully connected to Last.fm as ${result.username}`, 'success');
+        Alpine.store('ui').toast(
+          `Successfully connected to Last.fm as ${result.username}`,
+          'success',
+        );
 
         // Load queue status now that we're authenticated
         await this.loadQueueStatus();
@@ -334,7 +342,7 @@ export function createSettingsView(Alpine) {
         const errorMsg = error.message || error.toString();
         Alpine.store('ui').toast(
           `Failed to complete authentication: ${errorMsg}`,
-          'error'
+          'error',
         );
       } finally {
         this.lastfm.isConnecting = false;
@@ -370,7 +378,7 @@ export function createSettingsView(Alpine) {
         const result = await api.lastfm.importLovedTracks();
         Alpine.store('ui').toast(
           `Imported ${result.imported_count} loved tracks from Last.fm`,
-          'success'
+          'success',
         );
 
         // Refresh library to show updated favorites
@@ -396,7 +404,7 @@ export function createSettingsView(Alpine) {
         const result = await api.lastfm.retryQueuedScrobbles();
         Alpine.store('ui').toast(
           `Retried queued scrobbles. ${result.remaining_queued} remaining.`,
-          'success'
+          'success',
         );
         await this.loadQueueStatus();
       } catch (error) {
@@ -425,7 +433,7 @@ export function createSettingsView(Alpine) {
         if (total > 0) {
           Alpine.store('ui').toast(
             `Scan complete: ${result.backfilled} backfilled, ${result.duplicates_merged} duplicates merged`,
-            'success'
+            'success',
           );
           // Refresh library to reflect merged/updated tracks
           Alpine.store('library').load();

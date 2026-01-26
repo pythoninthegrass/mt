@@ -5,7 +5,7 @@
  * volume control, and now playing info.
  */
 
-import { formatTime, formatBytes } from '../utils/formatting.js';
+import { formatBytes, formatTime } from '../utils/formatting.js';
 
 /**
  * Create the player controls Alpine component
@@ -20,7 +20,7 @@ export function createPlayerControls(Alpine) {
     dragVolume: 0,
     showVolumeTooltip: false,
     _volumeDebounce: null,
-    
+
     init() {
       document.addEventListener('mouseup', () => {
         if (this.isDraggingProgress) {
@@ -44,59 +44,59 @@ export function createPlayerControls(Alpine) {
         }
       });
     },
-    
+
     /**
      * Get the player store
      */
     get player() {
       return this.$store.player;
     },
-    
+
     /**
      * Get the queue store
      */
     get queue() {
       return this.$store.queue;
     },
-    
+
     /**
      * Get the UI store
      */
     get ui() {
       return this.$store.ui;
     },
-    
+
     /**
      * Get current track
      */
     get currentTrack() {
       return this.player.currentTrack;
     },
-    
+
     get hasTrack() {
       return !!this.currentTrack;
     },
-    
+
     get isFavorite() {
       return this.player.isFavorite;
     },
-    
+
     toggleFavorite() {
       if (!this.hasTrack) return;
       this.player.toggleFavorite();
     },
-    
+
     get trackDisplayName() {
       if (!this.currentTrack) return '';
       const artist = this.currentTrack.artist || 'Unknown Artist';
       const title = this.currentTrack.title || this.currentTrack.filename || 'Unknown Track';
       return `${artist} - ${title}`;
     },
-    
+
     get playIcon() {
       return this.player.isPlaying ? 'pause' : 'play';
     },
-    
+
     /**
      * Get volume icon based on level
      */
@@ -110,35 +110,35 @@ export function createPlayerControls(Alpine) {
       }
       return 'high';
     },
-    
+
     /**
      * Get loop icon based on mode
      */
     get loopIcon() {
       return this.queue.loop === 'one' ? 'repeat-one' : 'repeat';
     },
-    
+
     /**
      * Check if loop is active
      */
     get isLoopActive() {
       return this.queue.loop !== 'none';
     },
-    
+
     /**
      * Check if shuffle is active
      */
     get isShuffleActive() {
       return this.queue.shuffle;
     },
-    
+
     get displayPosition() {
       if (this.isDraggingProgress) {
         return this.dragPosition;
       }
       return this.player.currentTime;
     },
-    
+
     get progressPercent() {
       if (!this.player.duration) return 0;
       return (this.displayPosition / this.player.duration) * 100;
@@ -150,44 +150,44 @@ export function createPlayerControls(Alpine) {
     togglePlay() {
       this.player.togglePlay();
     },
-    
+
     /**
      * Handle previous track
      */
     previous() {
       this.player.previous();
     },
-    
+
     /**
      * Handle next track
      */
     next() {
       this.player.next();
     },
-    
+
     handleProgressClick(event) {
       if (!this.hasTrack) return;
       if (!this.player.duration || this.player.duration <= 0) return;
-      
+
       const rect = event.currentTarget.getBoundingClientRect();
       const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
       const position = Math.round(percent * this.player.duration);
-      
+
       if (isNaN(position) || position < 0) return;
       this.player.seek(position);
     },
-    
+
     /**
      * Handle progress bar drag start
      * @param {MouseEvent} event
      */
     handleProgressDragStart(event) {
       if (!this.hasTrack) return;
-      
+
       this.isDraggingProgress = true;
       this.updateDragPosition(event);
     },
-    
+
     /**
      * Handle progress bar drag
      * @param {MouseEvent} event
@@ -196,87 +196,87 @@ export function createPlayerControls(Alpine) {
       if (!this.isDraggingProgress) return;
       this.updateDragPosition(event);
     },
-    
+
     updateDragPosition(event) {
       const progressBar = this.$refs.progressBar;
       if (!progressBar) return;
       if (!this.player.duration || this.player.duration <= 0) return;
-      
+
       const rect = progressBar.getBoundingClientRect();
       const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
       const position = Math.round(percent * this.player.duration);
-      
+
       if (!isNaN(position) && position >= 0) {
         this.dragPosition = position;
       }
     },
-    
+
     handleVolumeChange(event) {
       const value = parseInt(event.target.value, 10);
       this.commitVolume(value);
     },
-    
+
     handleVolumeClick(event) {
       const rect = event.currentTarget.getBoundingClientRect();
       const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
       const volume = Math.round(percent * 100);
       this.commitVolume(volume);
     },
-    
+
     handleVolumeDragStart(event) {
       this.isDraggingVolume = true;
       this.updateDragVolume(event);
     },
-    
+
     updateDragVolume(event) {
       const volumeBar = this.$refs.volumeBar;
       if (!volumeBar) return;
-      
+
       const rect = volumeBar.getBoundingClientRect();
       const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
       this.dragVolume = Math.round(percent * 100);
     },
-    
+
     commitVolume(volume) {
       if (this._volumeDebounce) {
         clearTimeout(this._volumeDebounce);
       }
-      
+
       this._volumeDebounce = setTimeout(() => {
         this.player.setVolume(volume);
         this._volumeDebounce = null;
       }, 30);
     },
-    
+
     get displayVolume() {
       return this.isDraggingVolume ? this.dragVolume : this.player.volume;
     },
-    
+
     get volumeTooltipText() {
       return `${this.displayVolume}%`;
     },
-    
+
     /**
      * Toggle mute
      */
     toggleMute() {
       this.player.toggleMute();
     },
-    
+
     /**
      * Toggle shuffle
      */
     toggleShuffle() {
       this.queue.toggleShuffle();
     },
-    
+
     /**
      * Cycle loop mode
      */
     cycleLoop() {
       this.queue.cycleLoop();
     },
-    
+
     /**
      * Toggle queue view
      */
@@ -287,7 +287,7 @@ export function createPlayerControls(Alpine) {
         this.ui.setView('queue');
       }
     },
-    
+
     /**
      * Show now playing view
      */
@@ -307,7 +307,7 @@ export function createPlayerControls(Alpine) {
     get library() {
       return this.$store.library;
     },
-    
+
     get libraryStats() {
       const tracks = this.library.tracks;
       const count = tracks.length;

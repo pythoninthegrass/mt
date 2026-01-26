@@ -32,7 +32,7 @@ export function initStores(Alpine) {
   console.log('[stores] All stores registered');
 
   // Initialize Tauri event listeners after stores are ready
-  initEventListeners(Alpine).catch(err => {
+  initEventListeners(Alpine).catch((err) => {
     console.error('[stores] Failed to initialize event listeners:', err);
   });
 }

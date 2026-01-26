@@ -50,7 +50,10 @@ export function createUIStore(Alpine) {
       this.themePreset = window.settings.get('ui:themePreset', 'light');
       this.settingsSection = window.settings.get('ui:settingsSection', 'general');
       this.sortIgnoreWords = window.settings.get('ui:sortIgnoreWords', true);
-      this.sortIgnoreWordsList = window.settings.get('ui:sortIgnoreWordsList', 'the, le, la, los, a');
+      this.sortIgnoreWordsList = window.settings.get(
+        'ui:sortIgnoreWordsList',
+        'the, le, la, los, a',
+      );
 
       console.log('[ui] Loaded settings from backend');
 
@@ -73,13 +76,13 @@ export function createUIStore(Alpine) {
         }
       }
     },
-    
+
     setView(view) {
       const validViews = ['library', 'queue', 'nowPlaying', 'settings'];
       if (validViews.includes(view) && view !== this.view) {
         console.log('[navigation]', 'switch_view', {
           previousView: this.view,
-          newView: view
+          newView: view,
         });
 
         if (this.view !== 'settings') {
@@ -90,13 +93,11 @@ export function createUIStore(Alpine) {
     },
 
     toggleSettings() {
-      const newView = this.view === 'settings'
-        ? (this._previousView || 'library')
-        : 'settings';
+      const newView = this.view === 'settings' ? (this._previousView || 'library') : 'settings';
 
       console.log('[navigation]', 'toggle_settings', {
         previousView: this.view,
-        newView
+        newView,
       });
 
       if (this.view === 'settings') {
@@ -106,26 +107,26 @@ export function createUIStore(Alpine) {
         this.view = 'settings';
       }
     },
-    
+
     toggleSidebar() {
       this.sidebarOpen = !this.sidebarOpen;
     },
-    
+
     setSidebarWidth(width) {
       this.sidebarWidth = Math.max(180, Math.min(400, width));
     },
-    
+
     setLibraryViewMode(mode) {
       if (['list', 'grid', 'compact'].includes(mode)) {
         this.libraryViewMode = mode;
       }
     },
-    
+
     setTheme(theme) {
       if (['light', 'dark', 'system'].includes(theme)) {
         console.log('[settings]', 'set_theme', {
           previousTheme: this.theme,
-          newTheme: theme
+          newTheme: theme,
         });
 
         this.theme = theme;
@@ -137,7 +138,7 @@ export function createUIStore(Alpine) {
       if (['light', 'metro-teal'].includes(preset)) {
         console.log('[settings]', 'set_theme_preset', {
           previousPreset: this.themePreset,
-          newPreset: preset
+          newPreset: preset,
         });
 
         this.themePreset = preset;
@@ -146,23 +147,27 @@ export function createUIStore(Alpine) {
     },
 
     setSettingsSection(section) {
-      if (['general', 'library', 'appearance', 'shortcuts', 'sorting', 'advanced', 'lastfm'].includes(section)) {
+      if (
+        ['general', 'library', 'appearance', 'shortcuts', 'sorting', 'advanced', 'lastfm'].includes(
+          section,
+        )
+      ) {
         console.log('[settings]', 'navigate_section', {
           previousSection: this.settingsSection,
-          newSection: section
+          newSection: section,
         });
 
         this.settingsSection = section;
       }
     },
-    
+
     applyThemePreset() {
       document.documentElement.classList.remove('light', 'dark');
       delete document.documentElement.dataset.themePreset;
-      
+
       let titleBarTheme;
       let contentTheme;
-      
+
       if (this.themePreset === 'metro-teal') {
         document.documentElement.classList.add('dark');
         document.documentElement.dataset.themePreset = 'metro-teal';
@@ -174,13 +179,13 @@ export function createUIStore(Alpine) {
           : this.theme;
         document.documentElement.classList.add(contentTheme);
       }
-      
+
       this._applyTauriWindowTheme(titleBarTheme);
     },
-    
+
     async _applyTauriWindowTheme(theme) {
       if (!window.__TAURI__) return;
-      
+
       try {
         const tauriWindow = window.__TAURI__.window;
         if (!tauriWindow?.getCurrentWindow) {
@@ -194,23 +199,21 @@ export function createUIStore(Alpine) {
         console.warn('[ui] Failed to set Tauri window theme:', e);
       }
     },
-    
+
     applyTheme() {
       this.applyThemePreset();
     },
-    
+
     get effectiveTheme() {
       if (this.themePreset === 'metro-teal') {
         return 'dark';
       }
       if (this.theme === 'system') {
-        return window.matchMedia('(prefers-color-scheme: dark)').matches 
-          ? 'dark' 
-          : 'light';
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
       return this.theme;
     },
-    
+
     /**
      * Open modal
      * @param {string} type - Modal type
@@ -219,14 +222,14 @@ export function createUIStore(Alpine) {
     openModal(type, data = null) {
       this.modal = { type, data };
     },
-    
+
     /**
      * Close modal
      */
     closeModal() {
       this.modal = null;
     },
-    
+
     /**
      * Show context menu
      * @param {number} x - X position
@@ -237,14 +240,14 @@ export function createUIStore(Alpine) {
     showContextMenu(x, y, items, data = null) {
       this.contextMenu = { x, y, items, data };
     },
-    
+
     /**
      * Hide context menu
      */
     hideContextMenu() {
       this.contextMenu = null;
     },
-    
+
     /**
      * Show toast notification
      * @param {string} message - Toast message
@@ -254,24 +257,24 @@ export function createUIStore(Alpine) {
     toast(message, type = 'info', duration = 3000) {
       const id = Date.now();
       this.toasts.push({ id, message, type });
-      
+
       if (duration > 0) {
         setTimeout(() => {
           this.dismissToast(id);
         }, duration);
       }
-      
+
       return id;
     },
-    
+
     /**
      * Dismiss toast by ID
      * @param {number} id - Toast ID
      */
     dismissToast(id) {
-      this.toasts = this.toasts.filter(t => t.id !== id);
+      this.toasts = this.toasts.filter((t) => t.id !== id);
     },
-    
+
     /**
      * Show global loading overlay
      * @param {string} message - Loading message
@@ -280,7 +283,7 @@ export function createUIStore(Alpine) {
       this.globalLoading = true;
       this.loadingMessage = message;
     },
-    
+
     /**
      * Hide global loading overlay
      */
@@ -288,7 +291,7 @@ export function createUIStore(Alpine) {
       this.globalLoading = false;
       this.loadingMessage = '';
     },
-    
+
     /**
      * Check if current view is active
      * @param {string} view - View to check
@@ -306,10 +309,10 @@ export function createUIStore(Alpine) {
       const rect = event.target.getBoundingClientRect();
       const popoverWidth = 320;
       const popoverHeight = 180;
-      
+
       let x = rect.right + 8;
       let y = rect.top - 10;
-      
+
       if (x + popoverWidth > window.innerWidth) {
         x = rect.left - popoverWidth - 8;
       }
@@ -319,7 +322,7 @@ export function createUIStore(Alpine) {
       if (y < 10) {
         y = 10;
       }
-      
+
       this.missingTrackPopover = {
         track,
         filepath: track.filepath || track.path || 'Unknown path',
@@ -343,26 +346,31 @@ export function createUIStore(Alpine) {
         const { open } = window.__TAURI__.dialog;
         // Default to the directory of the original file path
         const originalPath = this.missingTrackPopover.filepath;
-        const defaultDir = originalPath ? originalPath.substring(0, originalPath.lastIndexOf('/')) : undefined;
+        const defaultDir = originalPath
+          ? originalPath.substring(0, originalPath.lastIndexOf('/'))
+          : undefined;
 
         const selected = await open({
           multiple: false,
           defaultPath: defaultDir,
           filters: [
-            { name: 'Audio Files', extensions: ['mp3', 'flac', 'ogg', 'm4a', 'wav', 'aac', 'wma', 'opus'] },
-            { name: 'All Files', extensions: ['*'] }
-          ]
+            {
+              name: 'Audio Files',
+              extensions: ['mp3', 'flac', 'ogg', 'm4a', 'wav', 'aac', 'wma', 'opus'],
+            },
+            { name: 'All Files', extensions: ['*'] },
+          ],
         });
 
         if (selected) {
           const { api } = await import('../api.js');
           const trackId = this.missingTrackPopover.track.id;
           await api.library.locate(trackId, selected);
-          
+
           this.missingTrackPopover.track.missing = false;
           this.missingTrackPopover.track.filepath = selected;
           this.missingTrackPopover.track.path = selected;
-          
+
           this.toast('File located successfully', 'success');
           this.closeMissingTrackPopover();
         }
@@ -397,15 +405,20 @@ export function createUIStore(Alpine) {
         const { open } = window.__TAURI__.dialog;
         // Default to the directory of the original file path
         const originalPath = this.missingTrackModal.filepath;
-        const defaultDir = originalPath ? originalPath.substring(0, originalPath.lastIndexOf('/')) : undefined;
+        const defaultDir = originalPath
+          ? originalPath.substring(0, originalPath.lastIndexOf('/'))
+          : undefined;
 
         const selected = await open({
           multiple: false,
           defaultPath: defaultDir,
           filters: [
-            { name: 'Audio Files', extensions: ['mp3', 'flac', 'ogg', 'm4a', 'wav', 'aac', 'wma', 'opus'] },
-            { name: 'All Files', extensions: ['*'] }
-          ]
+            {
+              name: 'Audio Files',
+              extensions: ['mp3', 'flac', 'ogg', 'm4a', 'wav', 'aac', 'wma', 'opus'],
+            },
+            { name: 'All Files', extensions: ['*'] },
+          ],
         });
 
         if (selected) {
@@ -448,7 +461,7 @@ export function createUIStore(Alpine) {
     Alpine.effect(() => {
       const value = store.sidebarOpen;
       if (!isInitializing) {
-        window.settings.set('ui:sidebarOpen', value).catch(err =>
+        window.settings.set('ui:sidebarOpen', value).catch((err) =>
           console.error('[ui] Failed to sync sidebarOpen:', err)
         );
       }
@@ -457,7 +470,7 @@ export function createUIStore(Alpine) {
     Alpine.effect(() => {
       const value = store.sidebarWidth;
       if (!isInitializing) {
-        window.settings.set('ui:sidebarWidth', value).catch(err =>
+        window.settings.set('ui:sidebarWidth', value).catch((err) =>
           console.error('[ui] Failed to sync sidebarWidth:', err)
         );
       }
@@ -466,7 +479,7 @@ export function createUIStore(Alpine) {
     Alpine.effect(() => {
       const value = store.libraryViewMode;
       if (!isInitializing) {
-        window.settings.set('ui:libraryViewMode', value).catch(err =>
+        window.settings.set('ui:libraryViewMode', value).catch((err) =>
           console.error('[ui] Failed to sync libraryViewMode:', err)
         );
       }
@@ -475,7 +488,7 @@ export function createUIStore(Alpine) {
     Alpine.effect(() => {
       const value = store.theme;
       if (!isInitializing) {
-        window.settings.set('ui:theme', value).catch(err =>
+        window.settings.set('ui:theme', value).catch((err) =>
           console.error('[ui] Failed to sync theme:', err)
         );
       }
@@ -484,7 +497,7 @@ export function createUIStore(Alpine) {
     Alpine.effect(() => {
       const value = store.themePreset;
       if (!isInitializing) {
-        window.settings.set('ui:themePreset', value).catch(err =>
+        window.settings.set('ui:themePreset', value).catch((err) =>
           console.error('[ui] Failed to sync themePreset:', err)
         );
       }
@@ -493,7 +506,7 @@ export function createUIStore(Alpine) {
     Alpine.effect(() => {
       const value = store.settingsSection;
       if (!isInitializing) {
-        window.settings.set('ui:settingsSection', value).catch(err =>
+        window.settings.set('ui:settingsSection', value).catch((err) =>
           console.error('[ui] Failed to sync settingsSection:', err)
         );
       }
@@ -502,7 +515,7 @@ export function createUIStore(Alpine) {
     Alpine.effect(() => {
       const value = store.sortIgnoreWords;
       if (!isInitializing) {
-        window.settings.set('ui:sortIgnoreWords', value).catch(err =>
+        window.settings.set('ui:sortIgnoreWords', value).catch((err) =>
           console.error('[ui] Failed to sync sortIgnoreWords:', err)
         );
       }
@@ -511,7 +524,7 @@ export function createUIStore(Alpine) {
     Alpine.effect(() => {
       const value = store.sortIgnoreWordsList;
       if (!isInitializing) {
-        window.settings.set('ui:sortIgnoreWordsList', value).catch(err =>
+        window.settings.set('ui:sortIgnoreWordsList', value).catch((err) =>
           console.error('[ui] Failed to sync sortIgnoreWordsList:', err)
         );
       }

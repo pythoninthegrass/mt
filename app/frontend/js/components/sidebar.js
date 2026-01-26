@@ -34,7 +34,7 @@ export function createSidebar(Alpine) {
       console.log('[Sidebar] Component initialized, drag handlers available:', {
         handlePlaylistDragOver: typeof this.handlePlaylistDragOver,
         handlePlaylistDragLeave: typeof this.handlePlaylistDragLeave,
-        handlePlaylistDrop: typeof this.handlePlaylistDrop
+        handlePlaylistDrop: typeof this.handlePlaylistDrop,
       });
       this._migrateOldStorage();
       this.loadPlaylists();
@@ -59,19 +59,19 @@ export function createSidebar(Alpine) {
       // Setup watchers to sync changes to backend
       this.$nextTick(() => {
         this.$watch('activeSection', (value) => {
-          window.settings.set('sidebar:activeSection', value).catch(err =>
+          window.settings.set('sidebar:activeSection', value).catch((err) =>
             console.error('[Sidebar] Failed to sync activeSection:', err)
           );
         });
 
         this.$watch('isCollapsed', (value) => {
-          window.settings.set('sidebar:isCollapsed', value).catch(err =>
+          window.settings.set('sidebar:isCollapsed', value).catch((err) =>
             console.error('[Sidebar] Failed to sync isCollapsed:', err)
           );
         });
       });
     },
-    
+
     _migrateOldStorage() {
       const oldData = localStorage.getItem('mt:sidebar');
       if (oldData) {
@@ -85,21 +85,21 @@ export function createSidebar(Alpine) {
         }
       }
     },
-    
+
     get library() {
       return this.$store.library;
     },
-    
+
     get ui() {
       return this.$store.ui;
     },
-    
+
     async loadSection(sectionId) {
       this.activeSection = sectionId;
-      
+
       this.ui.setView('library');
       this.library.setSection(sectionId);
-      
+
       switch (sectionId) {
         case 'all':
           this.library.searchQuery = '';
@@ -136,11 +136,11 @@ export function createSidebar(Alpine) {
           break;
       }
     },
-    
+
     async loadPlaylists() {
       try {
         const playlists = await api.playlists.getAll();
-        this.playlists = playlists.map(p => ({
+        this.playlists = playlists.map((p) => ({
           id: `playlist-${p.id}`,
           playlistId: p.id,
           name: p.name,
@@ -150,31 +150,33 @@ export function createSidebar(Alpine) {
         this.playlists = [];
       }
     },
-    
+
     async loadPlaylist(sectionId) {
       this.activeSection = sectionId;
       this.ui.setView('library');
       this.library.setSection(sectionId);
-      
+
       const playlistId = parseInt(sectionId.replace('playlist-', ''), 10);
       if (isNaN(playlistId)) {
         this.ui.toast('Invalid playlist', 'error');
         return;
       }
-      
+
       this.library.searchQuery = '';
       this.library.sortBy = 'title';
       this.library.sortOrder = 'asc';
       await this.library.loadPlaylist(playlistId);
     },
-    
+
     handlePlaylistClick(event, playlist, index) {
       if (event.button !== 0) return;
 
       // Ignore clicks that immediately follow a drag operation or playlist reorder
       // This prevents navigation when dropping tracks on playlists or reordering
-      if (window._mtInternalDragActive || window._mtDragJustEnded ||
-          window._mtPlaylistReorderActive || window._mtPlaylistReorderJustEnded) {
+      if (
+        window._mtInternalDragActive || window._mtDragJustEnded ||
+        window._mtPlaylistReorderActive || window._mtPlaylistReorderJustEnded
+      ) {
         console.log('[Sidebar] Ignoring click - drag or reorder in progress or just ended');
         event.preventDefault();
         event.stopPropagation();
@@ -183,7 +185,7 @@ export function createSidebar(Alpine) {
 
       const isMeta = event.metaKey || event.ctrlKey;
       const isShift = event.shiftKey;
-      
+
       if (isMeta) {
         const idx = this.selectedPlaylistIds.indexOf(playlist.playlistId);
         if (idx >= 0) {
@@ -205,26 +207,26 @@ export function createSidebar(Alpine) {
         this.loadPlaylist(playlist.id);
       }
     },
-    
+
     isPlaylistSelected(playlistId) {
       return this.selectedPlaylistIds.includes(playlistId);
     },
-    
+
     clearPlaylistSelection() {
       this.selectedPlaylistIds = [];
       this.selectionAnchorIndex = null;
     },
-    
+
     async createPlaylist() {
       try {
         const { name: uniqueName } = await api.playlists.generateName();
         const playlist = await api.playlists.create(uniqueName);
         await this.loadPlaylists();
-        
+
         // Notify other components (e.g., context menu) that playlists changed
         window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
-        
-        const newPlaylist = this.playlists.find(p => p.playlistId === playlist.id);
+
+        const newPlaylist = this.playlists.find((p) => p.playlistId === playlist.id);
         if (newPlaylist) {
           this.startInlineRename(newPlaylist, true);
         }
@@ -233,7 +235,7 @@ export function createSidebar(Alpine) {
         this.ui.toast('Failed to create playlist', 'error');
       }
     },
-    
+
     startInlineRename(playlist, isNew = false) {
       this.editingPlaylist = playlist;
       this.editingName = playlist.name;
@@ -246,10 +248,10 @@ export function createSidebar(Alpine) {
         }
       });
     },
-    
+
     async commitInlineRename() {
       if (!this.editingPlaylist) return;
-      
+
       const newName = this.editingName.trim();
       if (!newName) {
         if (this.editingIsNew) {
@@ -259,7 +261,7 @@ export function createSidebar(Alpine) {
         }
         return;
       }
-      
+
       if (newName === this.editingPlaylist.name) {
         const wasNew = this.editingIsNew;
         const playlistId = this.editingPlaylist.playlistId;
@@ -269,20 +271,22 @@ export function createSidebar(Alpine) {
         }
         return;
       }
-      
+
       try {
         await api.playlists.rename(this.editingPlaylist.playlistId, newName);
         const wasNew = this.editingIsNew;
         const playlistId = this.editingPlaylist.playlistId;
         this.editingPlaylist = null;
         await this.loadPlaylists();
-        
+
         if (wasNew) {
           this.loadPlaylist(`playlist-${playlistId}`);
         }
       } catch (error) {
         console.error('Failed to rename playlist:', error);
-        if (error.message?.includes('UNIQUE constraint') || error.message?.includes('already exists')) {
+        if (
+          error.message?.includes('UNIQUE constraint') || error.message?.includes('already exists')
+        ) {
           this.ui.toast('A playlist with that name already exists', 'error');
         } else {
           this.ui.toast('Failed to rename playlist', 'error');
@@ -290,7 +294,7 @@ export function createSidebar(Alpine) {
         }
       }
     },
-    
+
     async cancelInlineRename() {
       if (this.editingIsNew && this.editingPlaylist) {
         try {
@@ -304,7 +308,7 @@ export function createSidebar(Alpine) {
       this.editingName = '';
       this.editingIsNew = false;
     },
-    
+
     handleRenameKeydown(event) {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -314,10 +318,11 @@ export function createSidebar(Alpine) {
         this.cancelInlineRename();
       }
     },
-    
+
     handlePlaylistDragOver(event, playlist) {
       // Check if this is a track drag (from library or global workaround)
-      const hasTrackData = event.dataTransfer?.types?.includes('application/json') || window._mtDraggedTrackIds;
+      const hasTrackData = event.dataTransfer?.types?.includes('application/json') ||
+        window._mtDraggedTrackIds;
 
       console.log('[Sidebar] handlePlaylistDragOver called', {
         playlistId: playlist.playlistId,
@@ -325,7 +330,7 @@ export function createSidebar(Alpine) {
         reorderDraggingIndex: this.reorderDraggingIndex,
         dataTransferTypes: event.dataTransfer?.types ? [...event.dataTransfer.types] : [],
         hasTrackData,
-        globalTrackIds: !!window._mtDraggedTrackIds
+        globalTrackIds: !!window._mtDraggedTrackIds,
       });
 
       if (this.reorderDraggingIndex !== null) {
@@ -343,22 +348,22 @@ export function createSidebar(Alpine) {
       event.dataTransfer.dropEffect = 'copy';
       this.dragOverPlaylistId = playlist.playlistId;
     },
-    
+
     handlePlaylistDragLeave(event, playlist) {
       console.log('[Sidebar] handlePlaylistDragLeave called', {
         playlistId: playlist?.playlistId,
-        playlistName: playlist?.name
+        playlistName: playlist?.name,
       });
       this.dragOverPlaylistId = null;
     },
-    
+
     async handlePlaylistDrop(event, playlist) {
       console.log('[Sidebar] handlePlaylistDrop called', {
         playlistId: playlist.playlistId,
         playlistName: playlist.name,
         reorderDraggingIndex: this.reorderDraggingIndex,
         dataTransferTypes: event.dataTransfer?.types ? [...event.dataTransfer.types] : [],
-        globalTrackIds: window._mtDraggedTrackIds
+        globalTrackIds: window._mtDraggedTrackIds,
       });
 
       if (this.reorderDraggingIndex !== null) {
@@ -383,27 +388,33 @@ export function createSidebar(Alpine) {
         console.warn('[Sidebar] No trackIdsJson available - drop aborted');
         return;
       }
-      
+
       try {
         const trackIds = JSON.parse(trackIdsJson);
         console.log('[Sidebar] Parsed trackIds:', trackIds);
-        
+
         if (!Array.isArray(trackIds) || trackIds.length === 0) {
           console.warn('[Sidebar] trackIds empty or not an array - drop aborted');
           return;
         }
-        
+
         console.log('[Sidebar] Calling api.playlists.addTracks', {
           playlistId: playlist.playlistId,
-          trackIds: trackIds
+          trackIds: trackIds,
         });
         const result = await api.playlists.addTracks(playlist.playlistId, trackIds);
         console.log('[Sidebar] api.playlists.addTracks result:', result);
-        
+
         if (result.added > 0) {
-          this.ui.toast(`Added ${result.added} track${result.added > 1 ? 's' : ''} to "${playlist.name}"`, 'success');
+          this.ui.toast(
+            `Added ${result.added} track${result.added > 1 ? 's' : ''} to "${playlist.name}"`,
+            'success',
+          );
         } else {
-          this.ui.toast(`Track${trackIds.length > 1 ? 's' : ''} already in "${playlist.name}"`, 'info');
+          this.ui.toast(
+            `Track${trackIds.length > 1 ? 's' : ''} already in "${playlist.name}"`,
+            'info',
+          );
         }
         window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
       } catch (error) {
@@ -411,11 +422,11 @@ export function createSidebar(Alpine) {
         this.ui.toast('Failed to add tracks to playlist', 'error');
       }
     },
-    
+
     isPlaylistDragOver(playlistId) {
       return this.dragOverPlaylistId === playlistId;
     },
-    
+
     startPlaylistReorder(index, event) {
       if (event.button !== 0) return;
       if (window._mtInternalDragActive || window._mtDragJustEnded) {
@@ -486,7 +497,9 @@ export function createSidebar(Alpine) {
           this.finishPlaylistReorder();
           // Set flag to prevent click handler from firing
           window._mtPlaylistReorderJustEnded = true;
-          setTimeout(() => { window._mtPlaylistReorderJustEnded = false; }, 50);
+          setTimeout(() => {
+            window._mtPlaylistReorderJustEnded = false;
+          }, 50);
         }
         window._mtPlaylistReorderActive = false;
       };
@@ -551,11 +564,11 @@ export function createSidebar(Alpine) {
       this.reorderDraggingIndex = null;
       this.reorderDragOverIndex = null;
     },
-    
+
     getPlaylistReorderClass(index) {
       if (this.reorderDraggingIndex === null || this.reorderDragOverIndex === null) return '';
       if (index === this.reorderDraggingIndex) return '';
-      
+
       if (this.reorderDraggingIndex < this.reorderDragOverIndex) {
         if (index > this.reorderDraggingIndex && index < this.reorderDragOverIndex) {
           return 'playlist-shift-up';
@@ -567,53 +580,53 @@ export function createSidebar(Alpine) {
       }
       return '';
     },
-    
+
     isPlaylistDragging(index) {
       return this.reorderDraggingIndex === index;
     },
-    
+
     isOtherPlaylistDragging(index) {
       return this.reorderDraggingIndex !== null && this.reorderDraggingIndex !== index;
     },
-    
+
     getPlaylistDragTransform(index) {
       if (this.reorderDraggingIndex !== index) return '';
-      
+
       const offsetY = this.reorderDragY - this.reorderDragStartY;
       return `translateY(${offsetY}px)`;
     },
-    
+
     toggleCollapse() {
       this.isCollapsed = !this.isCollapsed;
     },
-    
+
     isActive(sectionId) {
       return this.activeSection === sectionId;
     },
-    
+
     contextMenuPlaylist: null,
     contextMenuX: 0,
     contextMenuY: 0,
-    
+
     showPlaylistContextMenu(event, playlist) {
       event.preventDefault();
       this.contextMenuPlaylist = playlist;
       this.contextMenuX = event.clientX;
       this.contextMenuY = event.clientY;
     },
-    
+
     hidePlaylistContextMenu() {
       this.contextMenuPlaylist = null;
     },
-    
+
     async renamePlaylist() {
       if (!this.contextMenuPlaylist) return;
-      
+
       const playlist = this.contextMenuPlaylist;
       this.hidePlaylistContextMenu();
       this.startInlineRename(playlist, false);
     },
-    
+
     async deletePlaylist() {
       if (!this.contextMenuPlaylist) return;
 
@@ -622,17 +635,18 @@ export function createSidebar(Alpine) {
 
       if (this.selectedPlaylistIds.length === 0) {
         this.selectedPlaylistIds = [playlist.playlistId];
-        this.selectionAnchorIndex = this.playlists.findIndex(p => p.playlistId === playlist.playlistId);
+        this.selectionAnchorIndex = this.playlists.findIndex((p) =>
+          p.playlistId === playlist.playlistId
+        );
       }
 
       await this.deleteSelectedPlaylists();
     },
-    
+
     handlePlaylistKeydown(event) {
       if (this.editingPlaylist) return;
-      
-      const isDeleteKey =
-        event.key === 'Delete' ||
+
+      const isDeleteKey = event.key === 'Delete' ||
         event.key === 'Backspace' ||
         event.code === 'Delete' ||
         event.code === 'Backspace';
@@ -644,31 +658,33 @@ export function createSidebar(Alpine) {
         }
       }
     },
-    
+
     async deleteSelectedPlaylists() {
       if (this.selectedPlaylistIds.length === 0) return;
-      
-      const selectedPlaylists = this.playlists.filter(p => this.selectedPlaylistIds.includes(p.playlistId));
-      const names = selectedPlaylists.map(p => p.name);
+
+      const selectedPlaylists = this.playlists.filter((p) =>
+        this.selectedPlaylistIds.includes(p.playlistId)
+      );
+      const names = selectedPlaylists.map((p) => p.name);
       const message = selectedPlaylists.length === 1
         ? `Delete playlist "${names[0]}"?`
         : `Delete selected playlists?\n\n${names.join('\n')}`;
-      
+
       let confirmed = false;
       if (window.__TAURI__?.dialog?.confirm) {
         confirmed = await window.__TAURI__.dialog.confirm(message, {
           title: selectedPlaylists.length === 1 ? 'Delete Playlist' : 'Delete Playlists',
-          kind: 'warning'
+          kind: 'warning',
         });
       } else {
         confirmed = confirm(message);
       }
-      
+
       if (!confirmed) return;
-      
+
       const deletedIds = [];
       const errors = [];
-      
+
       for (const playlist of selectedPlaylists) {
         try {
           await api.playlists.delete(playlist.playlistId);
@@ -678,25 +694,25 @@ export function createSidebar(Alpine) {
           errors.push(playlist.name);
         }
       }
-      
+
       if (deletedIds.length > 0) {
         const msg = deletedIds.length === 1
-          ? `Deleted \"${selectedPlaylists.find(p => deletedIds.includes(p.playlistId)).name}\"`
+          ? `Deleted \"${selectedPlaylists.find((p) => deletedIds.includes(p.playlistId)).name}\"`
           : 'Deleted selected playlists';
         this.ui.toast(msg, 'success');
       }
-      
+
       if (errors.length > 0) {
         this.ui.toast(`Failed to delete: ${errors.join(', ')}`, 'error');
       }
-      
+
       await this.loadPlaylists();
       window.dispatchEvent(new CustomEvent('mt:playlists-updated'));
-      
+
       if (deletedIds.includes(parseInt(this.activeSection.replace('playlist-', ''), 10))) {
         this.loadSection('all');
       }
-      
+
       this.clearPlaylistSelection();
     },
   }));

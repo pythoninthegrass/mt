@@ -2,7 +2,7 @@ import { api } from '../api.js';
 
 // Default column widths in pixels (all columns have explicit widths for grid layout)
 const DEFAULT_COLUMN_WIDTHS = {
-  status: 24,  // Left gutter for missing track indicator
+  status: 24, // Left gutter for missing track indicator
   index: 48,
   title: 320,
   artist: 431,
@@ -16,7 +16,7 @@ const DEFAULT_COLUMN_WIDTHS = {
 // Only Title and Time enforce minimum widths
 const MIN_OTHER_COLUMN_WIDTH = 1;
 const MIN_TITLE_WIDTH = 120;
-const MIN_DURATION_WIDTH = 52;  // Time column minimum
+const MIN_DURATION_WIDTH = 52; // Time column minimum
 
 const DEFAULT_COLUMN_VISIBILITY = {
   status: true,
@@ -30,7 +30,17 @@ const DEFAULT_COLUMN_VISIBILITY = {
   duration: true,
 };
 
-const DEFAULT_COLUMN_ORDER = ['status', 'index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'];
+const DEFAULT_COLUMN_ORDER = [
+  'status',
+  'index',
+  'title',
+  'artist',
+  'album',
+  'duration',
+  'lastPlayed',
+  'dateAdded',
+  'playCount',
+];
 
 export function createLibraryBrowser(Alpine) {
   Alpine.data('libraryBrowser', () => ({
@@ -95,7 +105,7 @@ export function createLibraryBrowser(Alpine) {
     },
 
     getColumnDef(key) {
-      const baseDef = this.baseColumns.find(c => c.key === key);
+      const baseDef = this.baseColumns.find((c) => c.key === key);
       if (baseDef) return baseDef;
 
       for (const extra of Object.values(this.extraColumns)) {
@@ -117,8 +127,8 @@ export function createLibraryBrowser(Alpine) {
       }
 
       return this.columnOrder
-        .filter(key => availableKeys.has(key) && this.columnVisibility[key] !== false)
-        .map(key => this.getColumnDef(key))
+        .filter((key) => availableKeys.has(key) && this.columnVisibility[key] !== false)
+        .map((key) => this.getColumnDef(key))
         .filter(Boolean);
     },
 
@@ -131,8 +141,8 @@ export function createLibraryBrowser(Alpine) {
       }
 
       return this.columnOrder
-        .filter(key => availableKeys.has(key))
-        .map(key => this.getColumnDef(key))
+        .filter((key) => availableKeys.has(key))
+        .map((key) => this.getColumnDef(key))
         .filter(Boolean);
     },
 
@@ -177,7 +187,7 @@ export function createLibraryBrowser(Alpine) {
       const newWidths = {};
 
       let totalBase = 0;
-      this.columns.forEach(col => {
+      this.columns.forEach((col) => {
         const base = baseWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
         const minW = this.getMinWidth(col.key);
         newWidths[col.key] = Math.max(base, minW);
@@ -188,8 +198,8 @@ export function createLibraryBrowser(Alpine) {
 
       if (difference > 0) {
         const distributionKeys = this.columns
-          .filter(col => ['title', 'artist', 'album'].includes(col.key))
-          .map(col => col.key);
+          .filter((col) => ['title', 'artist', 'album'].includes(col.key))
+          .map((col) => col.key);
 
         if (distributionKeys.length > 0) {
           let distributionTotal = distributionKeys.reduce((sum, key) => sum + newWidths[key], 0);
@@ -209,8 +219,8 @@ export function createLibraryBrowser(Alpine) {
         }
       } else if (difference < 0) {
         const shrinkable = this.columns
-          .filter(col => ['title', 'artist', 'album'].includes(col.key))
-          .map(col => col.key);
+          .filter((col) => ['title', 'artist', 'album'].includes(col.key))
+          .map((col) => col.key);
 
         if (shrinkable.length > 0) {
           let shrinkTotal = shrinkable.reduce((sum, key) => sum + newWidths[key], 0);
@@ -367,9 +377,13 @@ export function createLibraryBrowser(Alpine) {
     _initColumnSettings() {
       // Load settings from backend
       if (window.settings && window.settings.initialized) {
-        this.columnVisibility = window.settings.get('library:columnVisibility', { ...DEFAULT_COLUMN_VISIBILITY });
+        this.columnVisibility = window.settings.get('library:columnVisibility', {
+          ...DEFAULT_COLUMN_VISIBILITY,
+        });
         this.columnOrder = window.settings.get('library:columnOrder', [...DEFAULT_COLUMN_ORDER]);
-        this._persistedWidths = window.settings.get('library:columnWidths', { ...DEFAULT_COLUMN_WIDTHS });
+        this._persistedWidths = window.settings.get('library:columnWidths', {
+          ...DEFAULT_COLUMN_WIDTHS,
+        });
 
         console.log('[LibraryBrowser] Loaded column settings from backend');
 
@@ -380,7 +394,7 @@ export function createLibraryBrowser(Alpine) {
           this.$watch('columnVisibility', (value) => {
             clearTimeout(visibilityTimeout);
             visibilityTimeout = setTimeout(() => {
-              window.settings.set('library:columnVisibility', value).catch(err =>
+              window.settings.set('library:columnVisibility', value).catch((err) =>
                 console.error('[LibraryBrowser] Failed to sync columnVisibility:', err)
               );
             }, 500);
@@ -390,7 +404,7 @@ export function createLibraryBrowser(Alpine) {
           this.$watch('columnOrder', (value) => {
             clearTimeout(orderTimeout);
             orderTimeout = setTimeout(() => {
-              window.settings.set('library:columnOrder', value).catch(err =>
+              window.settings.set('library:columnOrder', value).catch((err) =>
                 console.error('[LibraryBrowser] Failed to sync columnOrder:', err)
               );
             }, 500);
@@ -400,7 +414,7 @@ export function createLibraryBrowser(Alpine) {
           this.$watch('_persistedWidths', (value) => {
             clearTimeout(widthsTimeout);
             widthsTimeout = setTimeout(() => {
-              window.settings.set('library:columnWidths', value).catch(err =>
+              window.settings.set('library:columnWidths', value).catch((err) =>
                 console.error('[LibraryBrowser] Failed to sync columnWidths:', err)
               );
             }, 500);
@@ -420,7 +434,9 @@ export function createLibraryBrowser(Alpine) {
         try {
           const data = JSON.parse(oldData);
           if (data.widths) this._persistedWidths = data.widths;
-          if (data.visibility) this.columnVisibility = { ...DEFAULT_COLUMN_VISIBILITY, ...data.visibility };
+          if (data.visibility) {
+            this.columnVisibility = { ...DEFAULT_COLUMN_VISIBILITY, ...data.visibility };
+          }
           if (data.order && Array.isArray(data.order)) this.columnOrder = data.order;
           localStorage.removeItem('mt:column-settings');
         } catch (e) {
@@ -431,7 +447,7 @@ export function createLibraryBrowser(Alpine) {
 
     _sanitizeColumnWidths() {
       const sanitizedWidths = { ...DEFAULT_COLUMN_WIDTHS };
-      Object.keys(this._persistedWidths).forEach(key => {
+      Object.keys(this._persistedWidths).forEach((key) => {
         const savedW = this._persistedWidths[key];
         const defaultW = DEFAULT_COLUMN_WIDTHS[key] || 100;
         const maxAllowed = defaultW * 5;
@@ -461,7 +477,8 @@ export function createLibraryBrowser(Alpine) {
       this.resizingNeighbor = neighborCol.key;
       this.resizeStartX = event.clientX;
       this.resizeStartWidth = this.columnWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
-      this.resizeNeighborStartWidth = this.columnWidths[neighborCol.key] || DEFAULT_COLUMN_WIDTHS[neighborCol.key] || 100;
+      this.resizeNeighborStartWidth = this.columnWidths[neighborCol.key] ||
+        DEFAULT_COLUMN_WIDTHS[neighborCol.key] || 100;
 
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
@@ -529,7 +546,7 @@ export function createLibraryBrowser(Alpine) {
       if (!header) return;
 
       const cells = header.querySelectorAll(':scope > div');
-      const colIdx = this.columns.findIndex(c => c.key === col.key);
+      const colIdx = this.columns.findIndex((c) => c.key === col.key);
       if (colIdx === -1 || !cells[colIdx]) return;
 
       const rect = cells[colIdx].getBoundingClientRect();
@@ -572,7 +589,7 @@ export function createLibraryBrowser(Alpine) {
       if (!header) return;
 
       const cells = header.querySelectorAll(':scope > div');
-      const dragIdx = this.columns.findIndex(c => c.key === this.draggingColumnKey);
+      const dragIdx = this.columns.findIndex((c) => c.key === this.draggingColumnKey);
       let newOverIdx = dragIdx;
 
       const edgeThreshold = 0.05;
@@ -582,10 +599,10 @@ export function createLibraryBrowser(Alpine) {
         const rect = cells[i].getBoundingClientRect();
         const triggerX = rect.left + rect.width * edgeThreshold;
         if (x > triggerX) {
-          newOverIdx = i;  // Swap with this column (not i+1)
-          break;  // Only swap with immediate next column
+          newOverIdx = i; // Swap with this column (not i+1)
+          break; // Only swap with immediate next column
         } else {
-          break;  // Cursor hasn't reached this column, stop
+          break; // Cursor hasn't reached this column, stop
         }
       }
 
@@ -595,10 +612,10 @@ export function createLibraryBrowser(Alpine) {
           const rect = cells[i].getBoundingClientRect();
           const triggerX = rect.right - rect.width * edgeThreshold;
           if (x < triggerX) {
-            newOverIdx = i;  // Swap with this column
-            break;  // Only swap with immediate next column
+            newOverIdx = i; // Swap with this column
+            break; // Only swap with immediate next column
           } else {
-            break;  // Cursor hasn't reached this column, stop
+            break; // Cursor hasn't reached this column, stop
           }
         }
       }
@@ -608,7 +625,7 @@ export function createLibraryBrowser(Alpine) {
 
     finishColumnDrag(hasMoved = false) {
       if (this.draggingColumnKey !== null && this.dragOverColumnIdx !== null) {
-        const fromIdx = this.columns.findIndex(c => c.key === this.draggingColumnKey);
+        const fromIdx = this.columns.findIndex((c) => c.key === this.draggingColumnKey);
         if (fromIdx !== -1 && fromIdx !== this.dragOverColumnIdx) {
           this.reorderColumnByIndex(fromIdx, this.dragOverColumnIdx);
         }
@@ -630,8 +647,10 @@ export function createLibraryBrowser(Alpine) {
       const fromKey = this.columns[fromIdx]?.key;
       if (!fromKey) return;
 
-      const visibleKeys = this.columns.map(c => c.key);
-      const targetKey = toIdx < visibleKeys.length ? visibleKeys[toIdx] : visibleKeys[visibleKeys.length - 1];
+      const visibleKeys = this.columns.map((c) => c.key);
+      const targetKey = toIdx < visibleKeys.length
+        ? visibleKeys[toIdx]
+        : visibleKeys[visibleKeys.length - 1];
 
       const fromOrderIdx = this.columnOrder.indexOf(fromKey);
       const toOrderIdx = this.columnOrder.indexOf(targetKey);
@@ -662,7 +681,7 @@ export function createLibraryBrowser(Alpine) {
     getColumnShiftDirection(colIdx) {
       if (this.draggingColumnKey === null || this.dragOverColumnIdx === null) return 'none';
 
-      const dragIdx = this.columns.findIndex(c => c.key === this.draggingColumnKey);
+      const dragIdx = this.columns.findIndex((c) => c.key === this.draggingColumnKey);
       if (colIdx === dragIdx) return 'none';
 
       const overIdx = this.dragOverColumnIdx;
@@ -710,7 +729,8 @@ export function createLibraryBrowser(Alpine) {
 
       const baseWidths = this._baseColumnWidths || this.columnWidths;
       const currentBaseWidth = baseWidths[col.key] || DEFAULT_COLUMN_WIDTHS[col.key] || 100;
-      const neighborBaseWidth = baseWidths[neighborCol.key] || DEFAULT_COLUMN_WIDTHS[neighborCol.key] || 100;
+      const neighborBaseWidth = baseWidths[neighborCol.key] ||
+        DEFAULT_COLUMN_WIDTHS[neighborCol.key] || 100;
       const neighborMinWidth = this.getMinWidth(neighborCol.key);
 
       const maxExpansion = neighborBaseWidth - neighborMinWidth;
@@ -766,7 +786,17 @@ export function createLibraryBrowser(Alpine) {
     resetColumnDefaults() {
       this._baseColumnWidths = { ...DEFAULT_COLUMN_WIDTHS };
       this.columnWidths = { ...DEFAULT_COLUMN_WIDTHS };
-      this.columnOrder = ['status', 'index', 'title', 'artist', 'album', 'duration', 'lastPlayed', 'dateAdded', 'playCount'];
+      this.columnOrder = [
+        'status',
+        'index',
+        'title',
+        'artist',
+        'album',
+        'duration',
+        'lastPlayed',
+        'dateAdded',
+        'playCount',
+      ];
       this.library.sortBy = 'default';
       this.library.sortOrder = 'asc';
       this.library.applyFilters();
@@ -838,7 +868,7 @@ export function createLibraryBrowser(Alpine) {
         this.headerContextMenu = null;
         return;
       }
-      const col = this.allColumns.find(c => c.key === key);
+      const col = this.allColumns.find((c) => c.key === key);
       if (!col?.sortable || this.wasResizing) {
         return;
       }
@@ -924,30 +954,31 @@ export function createLibraryBrowser(Alpine) {
 
     handleTrackDragStart(event, track) {
       window._mtInternalDragActive = true;
-      
+
       if (!this.selectedTracks.has(track.id)) {
         this.selectedTracks.clear();
         this.selectedTracks.add(track.id);
       }
-      
+
       const trackIds = Array.from(this.selectedTracks);
       const trackIdsJson = JSON.stringify(trackIds);
-      
+
       // Store track IDs globally for Tauri drop handler workaround
       window._mtDraggedTrackIds = trackIds;
-      
+
       console.log('[drag-drop]', 'dragstart', {
         trackCount: trackIds.length,
         trackIds,
-        dataTransferData: trackIdsJson
+        dataTransferData: trackIdsJson,
       });
-      
+
       event.dataTransfer.setData('application/json', trackIdsJson);
       event.dataTransfer.effectAllowed = 'all';
-      
+
       const count = trackIds.length;
       const dragEl = document.createElement('div');
-      dragEl.className = 'fixed bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium shadow-lg pointer-events-none';
+      dragEl.className =
+        'fixed bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium shadow-lg pointer-events-none';
       dragEl.textContent = count === 1 ? '1 track' : `${count} tracks`;
       dragEl.style.position = 'absolute';
       dragEl.style.top = '-1000px';
@@ -959,14 +990,14 @@ export function createLibraryBrowser(Alpine) {
     handleTrackDragEnd(event) {
       window._mtInternalDragActive = false;
       window._mtDragJustEnded = true;
-      setTimeout(() => { 
+      setTimeout(() => {
         window._mtDragJustEnded = false;
         window._mtDraggedTrackIds = null;
         console.log('[drag-drop]', 'dragJustEnded cleared');
       }, 1000);
-      
+
       console.log('[drag-drop]', 'dragend', {
-        dropEffect: event.dataTransfer?.dropEffect
+        dropEffect: event.dataTransfer?.dropEffect,
       });
     },
 
@@ -1029,7 +1060,9 @@ export function createLibraryBrowser(Alpine) {
         disabled: selectedCount > 1,
       });
       menuItems.push({
-        label: selectedCount > 1 ? `Edit Metadata (${selectedCount} tracks)...` : 'Edit Metadata...',
+        label: selectedCount > 1
+          ? `Edit Metadata (${selectedCount} tracks)...`
+          : 'Edit Metadata...',
         action: () => this.editMetadata(track),
       });
       menuItems.push({ type: 'separator' });
@@ -1107,7 +1140,7 @@ export function createLibraryBrowser(Alpine) {
       if (tracks.length > 0) {
         console.log('[context-menu]', 'add_to_queue', {
           trackCount: tracks.length,
-          trackIds: tracks.map(t => t.id)
+          trackIds: tracks.map((t) => t.id),
         });
 
         await this.queue.addTracks(tracks);
@@ -1127,7 +1160,7 @@ export function createLibraryBrowser(Alpine) {
       if (tracks.length > 0) {
         console.log('[context-menu]', 'play_next', {
           trackCount: tracks.length,
-          trackIds: tracks.map(t => t.id)
+          trackIds: tracks.map((t) => t.id),
         });
 
         await this.queue.playNextTracks(tracks);
@@ -1146,7 +1179,7 @@ export function createLibraryBrowser(Alpine) {
       console.log('[context-menu]', 'add_to_playlist', {
         playlistId,
         trackCount: tracks.length,
-        trackIds: tracks.map((t) => t.id)
+        trackIds: tracks.map((t) => t.id),
       });
 
       try {
@@ -1171,7 +1204,7 @@ export function createLibraryBrowser(Alpine) {
       } catch (error) {
         console.error('[context-menu]', 'add_to_playlist_error', {
           playlistId,
-          error: error.message
+          error: error.message,
         });
         this.$store.ui.toast('Failed to add to playlist', 'error');
       }
@@ -1267,7 +1300,7 @@ export function createLibraryBrowser(Alpine) {
       console.log('[context-menu]', 'show_in_finder', {
         trackId: track.id,
         trackTitle: track.title,
-        trackPath
+        trackPath,
       });
 
       try {
@@ -1280,7 +1313,7 @@ export function createLibraryBrowser(Alpine) {
       } catch (error) {
         console.error('[context-menu]', 'show_in_finder_error', {
           trackId: track.id,
-          error: error.message
+          error: error.message,
         });
         this.$store.ui.toast('Failed to open folder', 'error');
       }
@@ -1295,8 +1328,8 @@ export function createLibraryBrowser(Alpine) {
 
       console.log('[context-menu]', 'edit_metadata', {
         trackCount: tracks.length,
-        trackIds: tracks.map(t => t.id),
-        anchorTrackId: track.id
+        trackIds: tracks.map((t) => t.id),
+        anchorTrackId: track.id,
       });
 
       this.contextMenu = null;
@@ -1313,7 +1346,7 @@ export function createLibraryBrowser(Alpine) {
 
       console.log('[context-menu]', 'remove_from_library', {
         trackCount: tracks.length,
-        trackIds: tracks.map(t => t.id)
+        trackIds: tracks.map((t) => t.id),
       });
 
       const confirmMsg = tracks.length === 1
@@ -1401,7 +1434,10 @@ export function createLibraryBrowser(Alpine) {
     handleKeydown(event) {
       // Suppress destructive shortcuts when typing in inputs or when metadata modal is open
       const isDestructiveKey = event.key === 'Delete' || event.key === 'Backspace';
-      if (isDestructiveKey && (this.isTypingInInput(event) || this.$store.ui.modal?.type === 'editMetadata')) {
+      if (
+        isDestructiveKey &&
+        (this.isTypingInInput(event) || this.$store.ui.modal?.type === 'editMetadata')
+      ) {
         return;
       }
 
@@ -1438,12 +1474,12 @@ export function createLibraryBrowser(Alpine) {
     startPlaylistDrag(index, event) {
       if (!this.isInPlaylistView()) return;
       event.preventDefault();
-      
+
       const rows = document.querySelectorAll('[data-track-id]');
       const draggedRow = rows[index];
       const rect = draggedRow?.getBoundingClientRect();
       const startY = event.clientY || event.touches?.[0]?.clientY || 0;
-      
+
       this.draggingIndex = index;
       this.dragOverIndex = null;
       this.dragY = startY;
@@ -1527,14 +1563,14 @@ export function createLibraryBrowser(Alpine) {
     isDraggingTrack(index) {
       return this.draggingIndex === index;
     },
-    
+
     isOtherTrackDragging(index) {
       return this.draggingIndex !== null && this.draggingIndex !== index;
     },
-    
+
     getTrackDragTransform(index) {
       if (this.draggingIndex !== index) return '';
-      
+
       const offsetY = this.dragY - this.dragStartY;
       return `translateY(${offsetY}px)`;
     },

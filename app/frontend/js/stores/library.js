@@ -1,6 +1,6 @@
 /**
  * Library Store - manages music library state
- * 
+ *
  * Handles track loading, searching, sorting, and
  * library scanning via Python backend.
  */
@@ -12,30 +12,30 @@ const { listen } = window.__TAURI__?.event ?? { listen: async () => () => {} };
 export function createLibraryStore(Alpine) {
   Alpine.store('library', {
     // Track data
-    tracks: [],          // All tracks in library
-    filteredTracks: [],  // Tracks after search/filter
-    
+    tracks: [], // All tracks in library
+    filteredTracks: [], // Tracks after search/filter
+
     // Search and filter state
     searchQuery: '',
-    sortBy: 'default',   // 'default', 'artist', 'album', 'title', 'index', 'dateAdded', 'duration'
-    sortOrder: 'asc',    // 'asc', 'desc'
+    sortBy: 'default', // 'default', 'artist', 'album', 'title', 'index', 'dateAdded', 'duration'
+    sortOrder: 'asc', // 'asc', 'desc'
     currentSection: 'all',
-    
+
     // Loading state
     loading: false,
     scanning: false,
-    scanProgress: 0,     // 0-100
-    scanStatus: null,    // Current scan status string
-    scanJobId: null,     // Current scan job ID
-    
+    scanProgress: 0, // 0-100
+    scanStatus: null, // Current scan status string
+    scanJobId: null, // Current scan job ID
+
     // Statistics
     totalTracks: 0,
-    totalDuration: 0,    // milliseconds
-    
+    totalDuration: 0, // milliseconds
+
     // Internal
     _searchDebounce: null,
     _watchedFolderListener: null,
-    
+
     /**
      * Initialize library from backend
      */
@@ -43,7 +43,7 @@ export function createLibraryStore(Alpine) {
       await this.load();
       await this._setupWatchedFolderListener();
     },
-    
+
     /**
      * Listen for watched folder scan results to auto-reload library
      */
@@ -51,7 +51,7 @@ export function createLibraryStore(Alpine) {
       this._watchedFolderListener = await listen('watched-folder:results', (event) => {
         const { added, updated, deleted } = event.payload || {};
         console.log('[library] watched-folder:results', { added, updated, deleted });
-        
+
         // Reload library if any tracks were added, updated, or deleted
         if (added > 0 || updated > 0 || deleted > 0) {
           console.log('[library] Reloading library after watched folder scan');
@@ -59,10 +59,10 @@ export function createLibraryStore(Alpine) {
         }
       });
     },
-    
+
     async load() {
       console.log('[library]', 'load', {
-        action: 'loading_library'
+        action: 'loading_library',
       });
 
       this.loading = true;
@@ -81,8 +81,8 @@ export function createLibraryStore(Alpine) {
           search: this.searchQuery.trim() || null,
           sort: sortKeyMap[this.sortBy] || this.sortBy,
           order: this.sortOrder,
-          limit: 999999,  // Effectively unlimited (backend defaults to 100 with null)
-          offset: 0
+          limit: 999999, // Effectively unlimited (backend defaults to 100 with null)
+          offset: 0,
         });
 
         this.tracks = data.tracks || [];
@@ -94,7 +94,7 @@ export function createLibraryStore(Alpine) {
 
         console.log('[library]', 'load_complete', {
           trackCount: this.tracks.length,
-          totalDuration: Math.round(this.totalDuration / 1000) + 's'
+          totalDuration: Math.round(this.totalDuration / 1000) + 's',
         });
       } catch (error) {
         console.error('[library]', 'load_error', { error: error.message });
@@ -102,7 +102,7 @@ export function createLibraryStore(Alpine) {
         this.loading = false;
       }
     },
-    
+
     async loadFavorites() {
       this.loading = true;
       try {
@@ -117,7 +117,7 @@ export function createLibraryStore(Alpine) {
         this.loading = false;
       }
     },
-    
+
     async loadRecentlyPlayed(days = 14) {
       this.loading = true;
       try {
@@ -132,7 +132,7 @@ export function createLibraryStore(Alpine) {
         this.loading = false;
       }
     },
-    
+
     async loadRecentlyAdded(days = 14) {
       this.loading = true;
       try {
@@ -147,7 +147,7 @@ export function createLibraryStore(Alpine) {
         this.loading = false;
       }
     },
-    
+
     async loadTop25() {
       this.loading = true;
       try {
@@ -162,16 +162,16 @@ export function createLibraryStore(Alpine) {
         this.loading = false;
       }
     },
-    
+
     async loadPlaylist(playlistId) {
       console.log('[navigation]', 'load_playlist', {
-        playlistId
+        playlistId,
       });
 
       this.loading = true;
       try {
         const data = await api.playlists.get(playlistId);
-        this.tracks = (data.tracks || []).map(item => item.track || item);
+        this.tracks = (data.tracks || []).map((item) => item.track || item);
         this.totalTracks = this.tracks.length;
         this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
         this.applyFilters();
@@ -179,37 +179,37 @@ export function createLibraryStore(Alpine) {
         console.log('[navigation]', 'load_playlist_complete', {
           playlistId,
           playlistName: data.name,
-          trackCount: this.tracks.length
+          trackCount: this.tracks.length,
         });
 
         return data;
       } catch (error) {
         console.error('[navigation]', 'load_playlist_error', {
           playlistId,
-          error: error.message
+          error: error.message,
         });
         return null;
       } finally {
         this.loading = false;
       }
     },
-    
+
     setSection(section) {
       console.log('[navigation]', 'switch_section', {
         previousSection: this.currentSection,
-        newSection: section
+        newSection: section,
       });
 
       this.currentSection = section;
       window.dispatchEvent(new CustomEvent('mt:section-change', { detail: { section } }));
     },
-    
+
     refreshIfLikedSongs() {
       if (this.currentSection === 'liked') {
         this.loadFavorites();
       }
     },
-    
+
     /**
      * Search tracks with debounce
      * @param {string} query - Search query
@@ -226,7 +226,7 @@ export function createLibraryStore(Alpine) {
         this.load();
       }, 150);
     },
-    
+
     /**
      * Strip ignored prefixes from a string for sorting
      * @param {string} value - String to process
@@ -265,7 +265,7 @@ export function createLibraryStore(Alpine) {
       const uiStore = Alpine.store('ui');
       const ignoreWordsEnabled = uiStore.sortIgnoreWords;
       const ignoreWords = ignoreWordsEnabled
-        ? uiStore.sortIgnoreWordsList.split(',').map(w => w.trim()).filter(Boolean)
+        ? uiStore.sortIgnoreWordsList.split(',').map((w) => w.trim()).filter(Boolean)
         : [];
 
       // Only re-sort if ignore-words is enabled AND sorting by text field
@@ -310,7 +310,7 @@ export function createLibraryStore(Alpine) {
 
       this.filteredTracks = result;
     },
-    
+
     /**
      * Set sort field
      * @param {string} field - Field to sort by
@@ -328,7 +328,7 @@ export function createLibraryStore(Alpine) {
       // Reload from backend with new sort parameters
       this.load();
     },
-    
+
     /**
      * Scan paths for music files
      * @param {string[]} paths - File or directory paths to scan
@@ -339,17 +339,17 @@ export function createLibraryStore(Alpine) {
         console.log('[library] scan: no paths provided');
         return { added: 0, skipped: 0, errors: 0 };
       }
-      
+
       console.log('[library] scan: scanning', paths.length, 'paths:', paths);
       this.scanning = true;
       this.scanProgress = 0;
-      
+
       try {
         const result = await api.library.scan(paths, recursive);
         console.log('[library] scan result:', result);
-        
+
         await this.load();
-        
+
         return result;
       } catch (error) {
         console.error('[library] scan failed:', error);
@@ -359,29 +359,35 @@ export function createLibraryStore(Alpine) {
         this.scanProgress = 0;
       }
     },
-    
+
     async openAddMusicDialog() {
       try {
         console.log('[library] opening add music dialog...');
-        
+
         if (!window.__TAURI__) {
           throw new Error('Tauri not available');
         }
-        
+
         // Use Rust command instead of JS plugin API for better reliability
         const { invoke } = window.__TAURI__.core;
         const paths = await invoke('open_add_music_dialog');
-        
+
         console.log('[library] dialog returned paths:', paths);
-        
+
         if (paths && (Array.isArray(paths) ? paths.length > 0 : paths)) {
           const pathArray = Array.isArray(paths) ? paths : [paths];
           const result = await this.scan(pathArray);
           const ui = Alpine.store('ui');
           if (result.added > 0) {
-            ui.toast(`Added ${result.added} track${result.added === 1 ? '' : 's'} to library`, 'success');
+            ui.toast(
+              `Added ${result.added} track${result.added === 1 ? '' : 's'} to library`,
+              'success',
+            );
           } else if (result.skipped > 0) {
-            ui.toast(`All ${result.skipped} track${result.skipped === 1 ? '' : 's'} already in library`, 'info');
+            ui.toast(
+              `All ${result.skipped} track${result.skipped === 1 ? '' : 's'} already in library`,
+              'info',
+            );
           } else {
             ui.toast('No audio files found', 'info');
           }
@@ -396,7 +402,7 @@ export function createLibraryStore(Alpine) {
         throw error;
       }
     },
-    
+
     /**
      * Remove track from library
      * @param {string} trackId - Track ID to remove
@@ -404,16 +410,16 @@ export function createLibraryStore(Alpine) {
     async remove(trackId) {
       try {
         await api.library.deleteTrack(trackId);
-        
+
         // Update local state
-        this.tracks = this.tracks.filter(t => t.id !== trackId);
+        this.tracks = this.tracks.filter((t) => t.id !== trackId);
         this.totalTracks = this.tracks.length;
         this.totalDuration = this.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
         this.applyFilters();
-        
+
         // Also remove from queue if present
         const queue = Alpine.store('queue');
-        const queueIndex = queue.items.findIndex(t => t.id === trackId);
+        const queueIndex = queue.items.findIndex((t) => t.id === trackId);
         if (queueIndex >= 0) {
           await queue.remove(queueIndex);
         }
@@ -422,16 +428,16 @@ export function createLibraryStore(Alpine) {
         throw error;
       }
     },
-    
+
     /**
      * Get track by ID
      * @param {string} trackId - Track ID
      * @returns {Object|null} Track object or null
      */
     getTrack(trackId) {
-      return this.tracks.find(t => t.id === trackId) || null;
+      return this.tracks.find((t) => t.id === trackId) || null;
     },
-    
+
     /**
      * Add track to queue
      * @param {Object} track - Track to add
@@ -440,7 +446,7 @@ export function createLibraryStore(Alpine) {
     async addToQueue(track, playNow = false) {
       await Alpine.store('queue').add(track, playNow);
     },
-    
+
     /**
      * Add all filtered tracks to queue
      * @param {boolean} playNow - Start playing immediately
@@ -448,7 +454,7 @@ export function createLibraryStore(Alpine) {
     async addAllToQueue(playNow = false) {
       await Alpine.store('queue').add(this.filteredTracks, playNow);
     },
-    
+
     /**
      * Play track immediately (clears queue and plays)
      * @param {Object} track - Track to play
@@ -458,36 +464,36 @@ export function createLibraryStore(Alpine) {
       await queue.clear();
       await queue.add(track, true);
     },
-    
+
     /**
      * Format total duration for display
      */
     get formattedTotalDuration() {
       const hours = Math.floor(this.totalDuration / 3600000);
       const minutes = Math.floor((this.totalDuration % 3600000) / 60000);
-      
+
       if (hours > 0) {
         return `${hours}h ${minutes}m`;
       }
       return `${minutes} min`;
     },
-    
+
     /**
      * Get unique artists
      */
     get artists() {
-      const artistSet = new Set(this.tracks.map(t => t.artist).filter(Boolean));
+      const artistSet = new Set(this.tracks.map((t) => t.artist).filter(Boolean));
       return Array.from(artistSet).sort();
     },
-    
+
     /**
      * Get unique albums
      */
     get albums() {
-      const albumSet = new Set(this.tracks.map(t => t.album).filter(Boolean));
+      const albumSet = new Set(this.tracks.map((t) => t.album).filter(Boolean));
       return Array.from(albumSet).sort();
     },
-    
+
     /**
      * Get tracks grouped by artist
      */
@@ -502,7 +508,7 @@ export function createLibraryStore(Alpine) {
       }
       return grouped;
     },
-    
+
     get tracksByAlbum() {
       const grouped = {};
       for (const track of this.filteredTracks) {
@@ -519,7 +525,7 @@ export function createLibraryStore(Alpine) {
       try {
         const updatedTrack = await api.library.rescanTrack(trackId);
         if (updatedTrack) {
-          const index = this.tracks.findIndex(t => t.id === trackId);
+          const index = this.tracks.findIndex((t) => t.id === trackId);
           if (index >= 0) {
             this.tracks[index] = updatedTrack;
             this.applyFilters();

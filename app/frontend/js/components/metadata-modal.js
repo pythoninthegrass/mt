@@ -74,7 +74,8 @@ export function createMetadataModal(Alpine) {
     },
 
     get canNavigateNext() {
-      return this.navigationEnabled && this.currentBatchIndex >= 0 && this.currentBatchIndex < this._batchOrderedIds.length - 1;
+      return this.navigationEnabled && this.currentBatchIndex >= 0 &&
+        this.currentBatchIndex < this._batchOrderedIds.length - 1;
     },
 
     get navIndicator() {
@@ -84,8 +85,19 @@ export function createMetadataModal(Alpine) {
     },
 
     get hasUnsavedChanges() {
-      const fields = ['title', 'artist', 'album', 'album_artist', 'track_number', 'track_total', 'disc_number', 'disc_total', 'year', 'genre'];
-      return fields.some(field => this.hasFieldChanged(field));
+      const fields = [
+        'title',
+        'artist',
+        'album',
+        'album_artist',
+        'track_number',
+        'track_total',
+        'disc_number',
+        'disc_total',
+        'year',
+        'genre',
+      ];
+      return fields.some((field) => this.hasFieldChanged(field));
     },
 
     async open(data) {
@@ -97,12 +109,12 @@ export function createMetadataModal(Alpine) {
 
       this._sessionId = data.sessionId || null;
       this.navigationEnabled = this.tracks.length > 1;
-      this._batchTrackIds = this.tracks.map(t => t.id);
+      this._batchTrackIds = this.tracks.map((t) => t.id);
 
       const batchIdSet = new Set(this._batchTrackIds);
       this._batchOrderedIds = this.libraryTracks
-        .filter(t => batchIdSet.has(t.id))
-        .map(t => t.id);
+        .filter((t) => batchIdSet.has(t.id))
+        .map((t) => t.id);
 
       this.currentTrackId = null;
 
@@ -208,13 +220,26 @@ export function createMetadataModal(Alpine) {
         duration: formatDuration(data.duration_ms ? data.duration_ms / 1000 : 0),
         bitrate: data.bitrate ? `${data.bitrate} kbps` : '—',
         sample_rate: data.sample_rate ? `${data.sample_rate} Hz` : '—',
-        channels: data.channels ? (data.channels === 1 ? 'Mono' : data.channels === 2 ? 'Stereo' : `${data.channels} ch`) : '—',
+        channels: data.channels
+          ? (data.channels === 1 ? 'Mono' : data.channels === 2 ? 'Stereo' : `${data.channels} ch`)
+          : '—',
         path: data.path || '',
       };
     },
 
     async loadBatchMetadata() {
-      const fields = ['title', 'artist', 'album', 'album_artist', 'track_number', 'track_total', 'disc_number', 'disc_total', 'year', 'genre'];
+      const fields = [
+        'title',
+        'artist',
+        'album',
+        'album_artist',
+        'track_number',
+        'track_total',
+        'disc_number',
+        'disc_total',
+        'year',
+        'genre',
+      ];
       const allMetadata = [];
 
       for (const track of this.tracks) {
@@ -256,7 +281,7 @@ export function createMetadataModal(Alpine) {
 
       const mergedMetadata = {};
       for (const field of fields) {
-        const values = allMetadata.map(m => m[field]);
+        const values = allMetadata.map((m) => m[field]);
         const uniqueValues = [...new Set(values)];
         if (uniqueValues.length === 1) {
           mergedMetadata[field] = uniqueValues[0];
@@ -295,7 +320,18 @@ export function createMetadataModal(Alpine) {
     },
 
     _getChangedFields() {
-      const allFields = ['title', 'artist', 'album', 'album_artist', 'track_number', 'track_total', 'disc_number', 'disc_total', 'year', 'genre'];
+      const allFields = [
+        'title',
+        'artist',
+        'album',
+        'album_artist',
+        'track_number',
+        'track_total',
+        'disc_number',
+        'disc_total',
+        'year',
+        'genre',
+      ];
       const changed = {};
       for (const field of allFields) {
         if (this.hasFieldChanged(field)) {
@@ -356,7 +392,9 @@ export function createMetadataModal(Alpine) {
 
         if (savedCount > 0) {
           if (!silent) {
-            const msg = savedCount === 1 ? 'Metadata saved successfully' : `Metadata saved for ${savedCount} tracks`;
+            const msg = savedCount === 1
+              ? 'Metadata saved successfully'
+              : `Metadata saved for ${savedCount} tracks`;
             Alpine.store('ui').toast(msg, 'success');
           }
 
@@ -408,7 +446,7 @@ export function createMetadataModal(Alpine) {
       }
 
       const newTrackId = this._batchOrderedIds[newIdx];
-      const newTrack = this.libraryTracks.find(t => t.id === newTrackId);
+      const newTrack = this.libraryTracks.find((t) => t.id === newTrackId);
 
       if (!newTrack) {
         return;
@@ -419,7 +457,7 @@ export function createMetadataModal(Alpine) {
         return;
       }
 
-      const libraryIndex = this.libraryTracks.findIndex(t => t.id === newTrackId);
+      const libraryIndex = this.libraryTracks.findIndex((t) => t.id === newTrackId);
       this.updateLibrarySelection(newTrackId, libraryIndex);
 
       this.tracks = [newTrack];

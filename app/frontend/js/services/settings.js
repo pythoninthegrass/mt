@@ -38,7 +38,7 @@ class SettingsService {
 
           // Notify all watchers for this key
           const watchers = this.listeners.get(key) || [];
-          watchers.forEach(fn => fn(value));
+          watchers.forEach((fn) => fn(value));
         });
 
         this.initialized = true;
@@ -81,7 +81,7 @@ class SettingsService {
 
       // Notify watchers (backend event will also trigger this, but we do it here for immediate feedback)
       const watchers = this.listeners.get(key) || [];
-      watchers.forEach(fn => fn(value));
+      watchers.forEach((fn) => fn(value));
 
       console.log('[Settings]', 'Set', key, '=', value);
     } catch (error) {
@@ -140,10 +140,10 @@ class SettingsService {
       },
       set value(newValue) {
         value = newValue;
-        self.set(key, newValue).catch(err => {
+        self.set(key, newValue).catch((err) => {
           console.error('[Settings]', 'Error setting', key, ':', err);
         });
-      }
+      },
     };
   }
 

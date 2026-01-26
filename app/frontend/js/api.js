@@ -145,7 +145,7 @@ export const api = {
             added: result.added_count || 0,
             skipped: result.unchanged_count || 0,
             errors: result.error_count || 0,
-            tracks: [],  // The new API doesn't return tracks
+            tracks: [], // The new API doesn't return tracks
           };
         } catch (error) {
           console.error('[api.library.scan] Tauri error:', error);

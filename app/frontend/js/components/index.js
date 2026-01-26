@@ -1,6 +1,6 @@
 /**
  * Component Registry
- * 
+ *
  * Registers all Alpine.js components with the Alpine instance.
  * Import this module and call initComponents(Alpine) before Alpine.start().
  */
@@ -19,7 +19,7 @@ export function initComponents(Alpine) {
   createNowPlayingView(Alpine);
   createSettingsView(Alpine);
   createMetadataModal(Alpine);
-  
+
   console.log('[components] All components registered');
 }
 
