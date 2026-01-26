@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main, tauri-migration]
 
+# Cancel in-progress runs when a new push supersedes them
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Frontend E2E tests with Playwright
   playwright-tests:
