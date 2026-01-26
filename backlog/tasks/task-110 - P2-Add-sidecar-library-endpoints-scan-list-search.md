@@ -1,10 +1,10 @@
 ---
 id: task-110
 title: 'P2: Add sidecar library endpoints (scan, list, search)'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 06:35'
-updated_date: '2026-01-26 01:32'
+updated_date: '2026-01-26 01:53'
 labels:
   - backend
   - python

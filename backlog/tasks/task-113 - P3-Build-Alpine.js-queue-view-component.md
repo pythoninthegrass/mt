@@ -1,10 +1,10 @@
 ---
 id: task-113
 title: 'P3: Build Alpine.js queue view component'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 06:35'
-updated_date: '2026-01-19 00:41'
+updated_date: '2026-01-26 01:53'
 labels:
   - frontend
   - alpine
