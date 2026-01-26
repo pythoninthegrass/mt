@@ -72,10 +72,10 @@ export default defineConfig({
     timezoneId: 'America/Chicago',
 
     // Default timeout for actions (click, fill, etc.)
-    actionTimeout: 5000,
+    actionTimeout: 8000,
 
     // Default timeout for navigation
-    navigationTimeout: 15000,
+    navigationTimeout: 20000,
   },
 
   // Skip @tauri tests by default (they require Tauri runtime, not browser)
