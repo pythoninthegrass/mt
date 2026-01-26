@@ -146,9 +146,18 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          # Cache cargo binaries (including cargo-tarpaulin)
+          cache-directories: |
+            ~/.cargo/bin/
 
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin
+        run: |
+          # Only install if not already cached
+          if ! command -v cargo-tarpaulin &> /dev/null; then
+            cargo install cargo-tarpaulin
+          else
+            echo "cargo-tarpaulin already installed (cached)"
+          fi
 
       - name: Run Rust tests with coverage
         working-directory: ./src-tauri
