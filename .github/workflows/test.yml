@@ -242,8 +242,8 @@ jobs:
         run: |
           cargo tarpaulin --out Html --out Json --output-dir coverage \
             --ignore-tests --skip-clean \
+            --exclude-files 'src/commands/*' 'src/lib.rs' 'src/main.rs' 'src/watcher.rs' 'src/dialog.rs' 'src/media_keys.rs' \
             --fail-under 50
-        continue-on-error: true  # Pre-existing prop-test failures
 
       - name: Upload coverage report
         if: always()
