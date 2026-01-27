@@ -4,7 +4,7 @@ title: Improve Rust backend test coverage from 34% to 50%
 status: In Progress
 assignee: []
 created_date: '2026-01-26 07:27'
-updated_date: '2026-01-27 03:00'
+updated_date: '2026-01-27 04:23'
 labels:
   - testing
   - coverage
@@ -12,7 +12,7 @@ labels:
   - ci
 dependencies: []
 priority: high
-ordinal: 1625
+ordinal: 406.25
 ---
 
 ## Description

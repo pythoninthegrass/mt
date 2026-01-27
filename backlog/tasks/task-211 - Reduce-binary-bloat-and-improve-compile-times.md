@@ -4,12 +4,22 @@ title: Reduce binary bloat and improve compile times
 status: In Progress
 assignee: []
 created_date: '2026-01-27 02:50'
-updated_date: '2026-01-27 03:02'
+updated_date: '2026-01-27 04:23'
 labels:
   - performance
   - rust
   - build-system
-dependencies: []
+dependencies:
+  - task-211.01
+  - task-211.02
+  - task-211.03
+  - task-211.04
+  - task-211.05
+  - task-211.06
+  - task-211.07
+  - task-211.08
+  - task-211.09
+  - task-211.10
 priority: high
 ordinal: 812.5
 ---
@@ -76,9 +86,9 @@ The single 196KB `run::inner` closure recompiles whenever ANY command changes, m
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Binary size reduced by at least 15%
+- [x] #1 Binary size reduced by at least 15%
 - [ ] #2 Incremental compile time for single command change under 10 seconds
-- [ ] #3 devtools excluded from release builds
+- [x] #3 devtools excluded from release builds
 - [ ] #4 Commands split into logical plugin groups
 <!-- AC:END -->
 
@@ -142,3 +152,92 @@ cargo bloat --release --crates > after-crates.txt
 diff baseline-crates.txt after-crates.txt
 ```
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Implementation Progress (2026-01-26)
+
+### Completed: Feature-gate devtools in release builds
+
+**Commit:** `2e2b23c` - perf: feature-gate devtools to reduce release binary size
+
+**Changes:**
+- Removed `devtools` from default features in Cargo.toml
+- Removed `tauri = { features = ["devtools"] }` (now empty features)
+- Updated devtools feature to include `tauri/devtools` when enabled
+- Added `#[allow(unused_mut)]` for builder variable
+
+**Results:**
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Binary size | 13.9MB | 8.7MB | **-37.6%** |
+| .text section | 7.8MB | 6.1MB | -22% |
+| mt_lib size | 2.6MB | 1.7MB | -35% |
+| h2 (HTTP/2) | 282.9KB | 53.6KB | -81% |
+| tonic (gRPC) | 125.9KB | 0 | -100% |
+| Crate count | 160 | 136 | -15% |
+
+Devtools can still be enabled for development with:
+```bash
+cargo build --features devtools
+cargo tauri dev --features devtools
+```
+
+### Remaining Work
+
+#### Incremental compile time (<10s) - Not achieved
+
+The 10-second incremental compile target is fundamentally at odds with the current release profile:
+- `lto = true` requires reprocessing at link time (~40-60s overhead)
+- `codegen-units = 1` prevents parallel codegen
+- `opt-level = "s"` adds optimization overhead
+
+**Options for future work:**
+1. Create a `[profile.release-dev]` for faster iteration without LTO
+2. Accept slower release builds as tradeoff for smaller binary
+3. Use `cargo check` for fast validation, reserve full builds for CI
+
+#### Plugin architecture - Not implemented
+
+Splitting 89 commands into Tauri plugins would:
+- Enable parallel plugin compilation
+- Reduce invoke_handler closure size (currently 136.5KB)
+- Improve code organization
+
+However, this is a significant refactoring with risk. The commands are already well-organized in modules:
+- `commands/audio.rs` (8 commands)
+- `commands/favorites.rs` (7 commands)
+- `commands/lastfm.rs` (10 commands)
+- `commands/playlists.rs` (10 commands)
+- `commands/queue.rs` (11 commands)
+- `commands/settings.rs` (5 commands)
+- `library/commands.rs` (14 commands)
+- `scanner/commands.rs` (5 commands)
+- `watcher/` (7 commands)
+- `lib.rs` (12 commands)
+
+Recommend creating a separate task for plugin migration if incremental compile time becomes a priority.
+
+## Child Tasks Created (2026-01-26)
+
+10 plugin tasks created as dependencies:
+
+| Task | Plugin | Commands | Priority |
+|------|--------|----------|----------|
+| 211.01 | audio-plugin | 12 | Medium |
+| 211.02 | library-plugin | 14 | Medium |
+| 211.03 | queue-plugin | 11 | Medium |
+| 211.04 | playlist-plugin | 10 | Medium |
+| 211.05 | favorites-plugin | 7 | Low |
+| 211.06 | lastfm-plugin | 10 | Low |
+| 211.07 | settings-plugin | 5 | Low |
+| 211.08 | watcher-plugin | 7 | Low |
+| 211.09 | scanner-plugin | 5 | Low |
+| 211.10 | core-plugin | 6 | Low |
+
+**Total: 87 commands across 10 plugins**
+
+Recommended order: Start with medium priority tasks (audio, library, queue, playlist) as they cover the most frequently changed code paths.
+<!-- SECTION:NOTES:END -->
