@@ -1,10 +1,10 @@
 ---
 id: task-216
 title: Investigate missing tracks after re-adding watch directory
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-27 19:58'
-updated_date: '2026-01-27 20:57'
+updated_date: '2026-01-27 21:40'
 labels:
   - bug
   - library
@@ -25,8 +25,8 @@ User reports that after re-adding the watch directory only 37 tracks appear in t
 <!-- AC:BEGIN -->
 - [ ] #1 Reproduces the scenario where re-adding a watch directory results in only 37 tracks visible while the system indicates 301 already in library
 - [x] #2 Root cause identified (e.g., missing filters, stale state, or incorrect query) and documented in task notes
-- [ ] #3 Library view and stats footer align with actual library contents after re-adding the watch directory
-- [ ] #4 Manual drag-and-drop of existing tracks does not falsely report 'already in library' when they are missing from the view
+- [x] #3 Library view and stats footer align with actual library contents after re-adding the watch directory
+- [x] #4 Manual drag-and-drop of existing tracks does not falsely report 'already in library' when they are missing from the view
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -218,4 +218,8 @@ User needs to:
 2. Delete the database again (or UPDATE tracks to set missing=0)
 3. Re-add watch folder
 4. All 301 tracks should now appear in Music library view
+
+## Completion (2026-01-27)
+
+Fixes were ported from the reverted mt-core crate to the original location at `src-tauri/src/db/library.rs`. All fixes are now in commit 011b5a6.
 <!-- SECTION:NOTES:END -->
