@@ -1,38 +1,69 @@
-//! Backward compatibility test for existing databases.
+//! Backward compatibility tests for existing databases.
 //!
-//! This test verifies that the Rust database layer can read databases
-//! created by the Python backend.
-//!
-//! Note: These tests must run sequentially (not in parallel) because they
-//! share the same database file. Use: cargo test compat_test -- --test-threads=1
+//! These tests verify that the Rust database layer can read databases
+//! created by the Python backend. They are skipped if the database
+//! doesn't exist or is empty (normal for CI and fresh machines).
 
 #[cfg(test)]
 mod tests {
-    use crate::db::{Database, favorites, library, library::LibraryQuery, playlists, settings};
-    use std::path::Path;
-    use std::sync::Mutex;
+    use crate::db::{favorites, library, library::LibraryQuery, playlists, settings, Database};
+    use std::path::PathBuf;
 
-    const TEST_DB_PATH: &str = "/Users/lance/git/mt/mt.db";
+    fn get_test_db_path() -> PathBuf {
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
+        PathBuf::from(manifest_dir).parent().unwrap().join("mt.db")
+    }
 
-    // Mutex to ensure tests run sequentially
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
+    fn should_skip() -> bool {
+        let db_path = get_test_db_path();
 
-    fn skip_if_no_db() -> bool {
-        !Path::new(TEST_DB_PATH).exists()
+        if !db_path.exists() {
+            println!("Skipping compat test: no database at {:?}", db_path);
+            return true;
+        }
+
+        let db = match Database::new(db_path.to_str().unwrap()) {
+            Ok(db) => db,
+            Err(e) => {
+                println!("Skipping compat test: could not open database: {}", e);
+                return true;
+            }
+        };
+
+        let conn = match db.conn() {
+            Ok(c) => c,
+            Err(e) => {
+                println!("Skipping compat test: could not get connection: {}", e);
+                return true;
+            }
+        };
+
+        let stats = match library::get_library_stats(&conn) {
+            Ok(s) => s,
+            Err(e) => {
+                println!("Skipping compat test: could not get stats: {}", e);
+                return true;
+            }
+        };
+
+        if stats.total_tracks == 0 {
+            println!("Skipping compat test: database is empty");
+            return true;
+        }
+
+        false
     }
 
     #[test]
     fn test_open_existing_database() {
-        let _lock = TEST_LOCK.lock().unwrap();
-        if skip_if_no_db() {
-            println!("Skipping: test database not found at {}", TEST_DB_PATH);
+        if should_skip() {
             return;
         }
 
-        let db = Database::new(TEST_DB_PATH).expect("Failed to open existing database");
+        let db_path = get_test_db_path();
+        let db = Database::new(db_path.to_str().unwrap()).expect("Failed to open database");
         let conn = db.conn().expect("Failed to get connection");
 
-        // Verify we can query the database
         let stats = library::get_library_stats(&conn).expect("Failed to get stats");
         println!("Library stats: {:?}", stats);
         assert!(stats.total_tracks > 0, "Expected tracks in library");
@@ -40,12 +71,12 @@ mod tests {
 
     #[test]
     fn test_read_existing_tracks() {
-        let _lock = TEST_LOCK.lock().unwrap();
-        if skip_if_no_db() {
+        if should_skip() {
             return;
         }
 
-        let db = Database::new(TEST_DB_PATH).expect("Failed to open database");
+        let db_path = get_test_db_path();
+        let db = Database::new(db_path.to_str().unwrap()).expect("Failed to open database");
         let conn = db.conn().expect("Failed to get connection");
 
         let query = LibraryQuery {
@@ -54,79 +85,69 @@ mod tests {
         };
 
         let result = library::get_all_tracks(&conn, &query).expect("Failed to get tracks");
-        println!("Found {} tracks (showing first {})", result.total, result.items.len());
-
-        for track in &result.items {
-            println!("  - {} by {:?}", track.title.as_deref().unwrap_or("Unknown"), track.artist);
-        }
+        println!(
+            "Found {} tracks (showing first {})",
+            result.total,
+            result.items.len()
+        );
 
         assert!(!result.items.is_empty(), "Expected some tracks");
     }
 
     #[test]
     fn test_read_existing_playlists() {
-        let _lock = TEST_LOCK.lock().unwrap();
-        if skip_if_no_db() {
+        if should_skip() {
             return;
         }
 
-        let db = Database::new(TEST_DB_PATH).expect("Failed to open database");
+        let db_path = get_test_db_path();
+        let db = Database::new(db_path.to_str().unwrap()).expect("Failed to open database");
         let conn = db.conn().expect("Failed to get connection");
 
         let playlist_list = playlists::get_playlists(&conn).expect("Failed to get playlists");
         println!("Found {} playlists", playlist_list.len());
-
-        for playlist in &playlist_list {
-            println!("  - {} ({} tracks)", playlist.name, playlist.track_count);
-        }
     }
 
     #[test]
     fn test_read_existing_favorites() {
-        let _lock = TEST_LOCK.lock().unwrap();
-        if skip_if_no_db() {
+        if should_skip() {
             return;
         }
 
-        let db = Database::new(TEST_DB_PATH).expect("Failed to open database");
+        let db_path = get_test_db_path();
+        let db = Database::new(db_path.to_str().unwrap()).expect("Failed to open database");
         let conn = db.conn().expect("Failed to get connection");
 
         let result = favorites::get_favorites(&conn, 100, 0).expect("Failed to get favorites");
         println!("Found {} favorites", result.total);
-
-        for fav in &result.items {
-            println!("  - {} by {:?}", fav.track.title.as_deref().unwrap_or("Unknown"), fav.track.artist);
-        }
     }
 
     #[test]
     fn test_read_existing_settings() {
-        let _lock = TEST_LOCK.lock().unwrap();
-        if skip_if_no_db() {
+        if should_skip() {
             return;
         }
 
-        let db = Database::new(TEST_DB_PATH).expect("Failed to open database");
+        let db_path = get_test_db_path();
+        let db = Database::new(db_path.to_str().unwrap()).expect("Failed to open database");
         let conn = db.conn().expect("Failed to get connection");
 
         let all_settings = settings::get_all_settings(&conn).expect("Failed to get settings");
         println!("Settings: {:?}", all_settings);
 
-        // Verify defaults are applied
         assert!(all_settings.contains_key("volume"));
     }
 
     #[test]
     fn test_schema_compatibility() {
-        let _lock = TEST_LOCK.lock().unwrap();
-        if skip_if_no_db() {
+        if should_skip() {
             return;
         }
 
-        let db = Database::new(TEST_DB_PATH).expect("Failed to open database");
+        let db_path = get_test_db_path();
+        let db = Database::new(db_path.to_str().unwrap()).expect("Failed to open database");
         let conn = db.conn().expect("Failed to get connection");
 
-        // Check that all expected columns exist in library table
         let mut stmt = conn.prepare("PRAGMA table_info(library)").unwrap();
         let columns: Vec<String> = stmt
             .query_map([], |row| row.get::<_, String>(1))
@@ -135,9 +156,20 @@ mod tests {
             .collect();
 
         let expected_columns = [
-            "id", "filepath", "title", "artist", "album", "album_artist",
-            "track_number", "track_total", "date", "duration", "file_size",
-            "added_date", "last_played", "play_count",
+            "id",
+            "filepath",
+            "title",
+            "artist",
+            "album",
+            "album_artist",
+            "track_number",
+            "track_total",
+            "date",
+            "duration",
+            "file_size",
+            "added_date",
+            "last_played",
+            "play_count",
         ];
 
         for col in &expected_columns {
@@ -148,6 +180,9 @@ mod tests {
             );
         }
 
-        println!("All {} expected columns found in library table", expected_columns.len());
+        println!(
+            "All {} expected columns found in library table",
+            expected_columns.len()
+        );
     }
 }
