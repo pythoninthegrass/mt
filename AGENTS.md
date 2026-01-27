@@ -27,10 +27,13 @@ Always use Context7 MCP when I need library/API documentation, code generation, 
 
 - alpinejs/alpine
 - dubzzz/fast-check
+- hunvreus/basecoat
 - jdx/mise
-- microsoft/playwright (for E2E testing)
+- microsoft/playwright
+- nextest-rs/nextest
 - serial-ata/lofty-rs
 - tailwindlabs/tailwindcss
+- websites/deno
 - websites/last_fm_api
 - websites/rs_tauri_2_9_5
 
@@ -491,17 +494,38 @@ wt switch -
 
 **Merge workflow:**
 ```bash
-# Full merge workflow: squash, rebase, remove worktree
+# Full merge workflow: squash, rebase, fast-forward merge, remove worktree
 wt merge
 
-# Merge to specific target branch
-wt merge --target=develop
+# Merge to specific target branch (positional argument, not --target)
+wt merge develop
 
 # Skip squashing (keep commit history)
 wt merge --no-squash
 
 # Merge without removing worktree
 wt merge --no-remove
+
+# Skip approval prompts (auto-confirm)
+wt merge -y
+
+# Combined: merge to main, auto-confirm, keep worktree
+wt merge main -y --no-remove
+```
+
+**What `wt merge` does (pipeline):**
+
+1. **Squash** - Stages uncommitted changes, combines all commits since target into one
+2. **Rebase** - Rebases onto target if behind (skipped if up-to-date)
+3. **Pre-merge hooks** - Runs configured hooks (tests, lint) before merge
+4. **Merge** - Fast-forward merge to target branch
+5. **Cleanup** - Removes worktree and branch (unless `--no-remove`)
+
+**Staging options** (what gets included in squash commit):
+```bash
+wt merge --stage=all      # Default: untracked + unstaged changes
+wt merge --stage=tracked  # Only tracked file changes (like git add -u)
+wt merge --stage=none     # Only what's already staged
 ```
 
 **Granular operations:**
