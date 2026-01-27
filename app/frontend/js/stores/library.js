@@ -66,6 +66,10 @@ export function createLibraryStore(Alpine) {
       });
 
       this.loading = true;
+      // Clear tracks immediately to prevent showing stale data
+      this.tracks = [];
+      this.filteredTracks = [];
+
       try {
         // Map frontend sort keys to backend column names
         const sortKeyMap = {
@@ -98,6 +102,9 @@ export function createLibraryStore(Alpine) {
         });
       } catch (error) {
         console.error('[library]', 'load_error', { error: error.message });
+        // Ensure tracks stay cleared on error
+        this.tracks = [];
+        this.filteredTracks = [];
       } finally {
         this.loading = false;
       }
@@ -105,6 +112,8 @@ export function createLibraryStore(Alpine) {
 
     async loadFavorites() {
       this.loading = true;
+      this.tracks = [];
+      this.filteredTracks = [];
       try {
         const data = await api.favorites.get({ limit: 1000 });
         this.tracks = data.tracks || [];
@@ -113,6 +122,8 @@ export function createLibraryStore(Alpine) {
         this.applyFilters();
       } catch (error) {
         console.error('Failed to load favorites:', error);
+        this.tracks = [];
+        this.filteredTracks = [];
       } finally {
         this.loading = false;
       }
@@ -120,6 +131,8 @@ export function createLibraryStore(Alpine) {
 
     async loadRecentlyPlayed(days = 14) {
       this.loading = true;
+      this.tracks = [];
+      this.filteredTracks = [];
       try {
         const data = await api.favorites.getRecentlyPlayed({ days, limit: 100 });
         this.tracks = data.tracks || [];
@@ -128,6 +141,8 @@ export function createLibraryStore(Alpine) {
         this.applyFilters();
       } catch (error) {
         console.error('Failed to load recently played:', error);
+        this.tracks = [];
+        this.filteredTracks = [];
       } finally {
         this.loading = false;
       }
@@ -135,6 +150,8 @@ export function createLibraryStore(Alpine) {
 
     async loadRecentlyAdded(days = 14) {
       this.loading = true;
+      this.tracks = [];
+      this.filteredTracks = [];
       try {
         const data = await api.favorites.getRecentlyAdded({ days, limit: 100 });
         this.tracks = data.tracks || [];
@@ -143,6 +160,8 @@ export function createLibraryStore(Alpine) {
         this.applyFilters();
       } catch (error) {
         console.error('Failed to load recently added:', error);
+        this.tracks = [];
+        this.filteredTracks = [];
       } finally {
         this.loading = false;
       }
@@ -150,6 +169,8 @@ export function createLibraryStore(Alpine) {
 
     async loadTop25() {
       this.loading = true;
+      this.tracks = [];
+      this.filteredTracks = [];
       try {
         const data = await api.favorites.getTop25();
         this.tracks = data.tracks || [];
@@ -158,6 +179,8 @@ export function createLibraryStore(Alpine) {
         this.applyFilters();
       } catch (error) {
         console.error('Failed to load top 25:', error);
+        this.tracks = [];
+        this.filteredTracks = [];
       } finally {
         this.loading = false;
       }
@@ -169,6 +192,8 @@ export function createLibraryStore(Alpine) {
       });
 
       this.loading = true;
+      this.tracks = [];
+      this.filteredTracks = [];
       try {
         const data = await api.playlists.get(playlistId);
         this.tracks = (data.tracks || []).map((item) => item.track || item);
@@ -188,6 +213,8 @@ export function createLibraryStore(Alpine) {
           playlistId,
           error: error.message,
         });
+        this.tracks = [];
+        this.filteredTracks = [];
         return null;
       } finally {
         this.loading = false;

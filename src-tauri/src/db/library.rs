@@ -80,6 +80,9 @@ pub fn get_all_tracks(conn: &Connection, query: &LibraryQuery) -> DbResult<Pagin
         params_vec.push(Box::new(album.clone()));
     }
 
+    // Always filter out missing tracks from library view
+    conditions.push("(missing = 0 OR missing IS NULL)");
+
     let where_clause = if conditions.is_empty() {
         String::new()
     } else {
@@ -212,8 +215,8 @@ pub fn add_track(conn: &Connection, filepath: &str, metadata: &TrackMetadata) ->
         "INSERT INTO library
          (filepath, title, artist, album, album_artist,
           track_number, track_total, date, duration, file_size, file_mtime_ns,
-          file_inode, content_hash)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          file_inode, content_hash, missing)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
         params![
             filepath,
             metadata.title,
@@ -244,8 +247,8 @@ pub fn add_tracks_bulk(conn: &Connection, tracks: &[(String, TrackMetadata)]) ->
         "INSERT INTO library
          (filepath, title, artist, album, album_artist,
           track_number, track_total, date, duration, file_size, file_mtime_ns,
-          file_inode, content_hash)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          file_inode, content_hash, missing)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
     )?;
 
     let mut count = 0;
@@ -408,29 +411,34 @@ pub fn update_play_count(conn: &Connection, track_id: i64) -> DbResult<Option<Tr
 
 /// Get library statistics
 pub fn get_library_stats(conn: &Connection) -> DbResult<LibraryStats> {
-    let total_tracks: i64 = conn.query_row("SELECT COUNT(*) FROM library", [], |row| row.get(0))?;
+    // Only count non-missing tracks
+    let total_tracks: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM library WHERE (missing = 0 OR missing IS NULL)",
+        [],
+        |row| row.get(0),
+    )?;
 
     // Duration is stored as REAL, so read as f64 and convert
     let total_duration: i64 = conn.query_row(
-        "SELECT COALESCE(SUM(duration), 0) FROM library",
+        "SELECT COALESCE(SUM(duration), 0) FROM library WHERE (missing = 0 OR missing IS NULL)",
         [],
         |row| row.get::<_, f64>(0).map(|v| v as i64),
     )?;
 
     let total_size: i64 = conn.query_row(
-        "SELECT COALESCE(SUM(file_size), 0) FROM library",
+        "SELECT COALESCE(SUM(file_size), 0) FROM library WHERE (missing = 0 OR missing IS NULL)",
         [],
         |row| row.get(0),
     )?;
 
     let total_artists: i64 = conn.query_row(
-        "SELECT COUNT(DISTINCT artist) FROM library WHERE artist IS NOT NULL",
+        "SELECT COUNT(DISTINCT artist) FROM library WHERE artist IS NOT NULL AND (missing = 0 OR missing IS NULL)",
         [],
         |row| row.get(0),
     )?;
 
     let total_albums: i64 = conn.query_row(
-        "SELECT COUNT(DISTINCT album) FROM library WHERE album IS NOT NULL",
+        "SELECT COUNT(DISTINCT album) FROM library WHERE album IS NOT NULL AND (missing = 0 OR missing IS NULL)",
         [],
         |row| row.get(0),
     )?;
