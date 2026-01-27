@@ -178,11 +178,45 @@ jobs:
           path: app/frontend/coverage/
           retention-days: 30
 
+  # Build verification
+  build:
+    name: Build Verification
+    runs-on: self-hosted
+    timeout-minutes: 5
+    env:
+      CARGO_INCREMENTAL: 0  # Disable incremental compilation in CI (faster clean builds)
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        working-directory: ./app/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./app/frontend
+        run: npm run build
+
+      - name: Check Rust build
+        working-directory: ./src-tauri
+        run: cargo check --all-features
+
   # Rust backend tests with coverage
   rust-tests:
     name: Rust Backend Tests
     runs-on: self-hosted
-    timeout-minutes: 20
+    needs: build
+    timeout-minutes: 5
     env:
       CARGO_INCREMENTAL: 0  # Disable incremental compilation in CI (faster clean builds)
       CARGO_TERM_COLOR: always
@@ -218,36 +252,3 @@ jobs:
           name: rust-coverage
           path: src-tauri/coverage/
           retention-days: 30
-
-  # Build verification
-  build:
-    name: Build Verification
-    runs-on: self-hosted
-    timeout-minutes: 30
-    env:
-      CARGO_INCREMENTAL: 0  # Disable incremental compilation in CI (faster clean builds)
-      CARGO_TERM_COLOR: always
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install frontend dependencies
-        working-directory: ./app/frontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: ./app/frontend
-        run: npm run build
-
-      - name: Check Rust build
-        working-directory: ./src-tauri
-        run: cargo check --all-features
