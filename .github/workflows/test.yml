@@ -77,7 +77,7 @@ jobs:
   # Frontend E2E tests with Playwright
   playwright-tests:
     name: Playwright E2E Tests
-    runs-on: self-hosted
+    runs-on: ['studio', 'mini']
     timeout-minutes: 20
 
     steps:
