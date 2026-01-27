@@ -62,7 +62,6 @@ sha2 = "0.10.9"
 
 # Last.fm integration
 md5 = "0.7"
-hex = "0.4"
 
 # LRU cache for artwork
 lru = "0.12"
