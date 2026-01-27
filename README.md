@@ -7,35 +7,19 @@
 ## Minimum Requirements
 
 * macOS/Linux
-* [Python 3.11+](https://www.python.org/downloads/release/python-31111/)
-* [tcl-tk](https://formulae.brew.sh/formula/tcl-tk)
-* [VLC](https://www.videolan.org/vlc/index.html)
-* [uv](https://github.com/astral-sh/uv)
+* [node 24.2.0](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+* [rust 1.92.0](https://doc.rust-lang.org/book/ch01-01-installation.html)
+  * Be sure to install `rustup`!
+* [task](https://taskfile.dev/docs/installation)
 
 ## Setup
 
 ```bash
-# install tcl-tk
-brew install tcl-tk
+# install deps
+task npm:install
 
-# install vlc
-## macos
-brew install --cask vlc
-
-## TODO: qa ubuntu/wsl
-## linux
-
-# install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# create virtual environment
-uv venv --python ">=3.11,<3.12"
-
-# install dependencies
-uv pip install -r pyproject.toml --all-extras
-
-# run the app
-uv run main.py
+# run dev server
+task tauri:dev
 ```
 
 ## Usage
@@ -51,40 +35,7 @@ uv run main.py
 
 ## Development
 
-### Auto-Reload Utility
-
-The `repeater` script provides automatic reloading for Tkinter applications during development, extending tkreload functionality to watch multiple files and directories simultaneously.
-
-#### Installation
-
-```bash
-uv sync --all-extras  # Install all dependencies including watchdog
-```
-
-#### Run the app
-
-```bash
-# Watch main.py and default directories (core/, utils/)
-uv run python repeater
-
-# Watch a specific main file
-uv run python repeater main.py
-```
-
-#### Watched Paths
-
-By default, watches:
-
-* **Main file**: `main.py` (or specified file)
-* **core/**: Business logic directory (recursive)
-* **utils/**: Utilities directory (recursive)
-
-#### Runtime Commands
-
-* **`h`**: Show help and current status
-* **`r`**: Manual restart of the application
-* **`a`**: Toggle auto-reload on/off
-* **`Ctrl+C`**: Exit the application gracefully
+Same as [Setup](#setup) while in alpha.
 
 #### Features
 
