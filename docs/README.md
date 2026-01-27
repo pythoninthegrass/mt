@@ -1,36 +1,27 @@
 # MT Music Player Documentation
 
-This directory contains comprehensive documentation for the MT music player project.
+This directory contains documentation for the MT music player project.
 
-## Documentation Structure
+## Current Architecture
 
-- [**Python Architecture**](python-architecture.md) - Core Python modules and their interactions
-- [**Zig Modules**](zig-modules.md) - High-performance Zig extensions and FFI integration
-- [**GUI Implementation**](tkinter-gui.md) - Tkinter-based user interface design and components
-- [**Theming System**](theming.md) - Theme configuration, styling, and visual customization
-- [**VLC Integration**](vlc-integration.md) - Audio playback engine integration and media controls
-- [**API Server**](api.md) - Programmatic control interface for LLMs and automation
-- [**Custom Playlists**](custom-playlists.md) - Implementation plan for user-created playlists
-- [**Current Status**](status.md) - Implementation progress, outstanding tasks, and known issues
-- [**Web Migration Guide**](web-migration.md) - Strategy for porting to FastAPI/Flask web application
-- [**Tauri Architecture**](tauri-architecture.md) - Target architecture for Tauri migration (Rust audio, Python sidecar, Alpine.js frontend)
+MT is a desktop music player built with:
 
-## Quick Start
+- **Frontend**: Tauri WebView with Alpine.js + Basecoat (Tailwind CSS)
+- **Backend**: Pure Rust (all 87 Tauri commands)
+- **Audio**: Rodio/Symphonia for playback
+- **Database**: SQLite via rusqlite
 
-For immediate understanding of the codebase:
+## Documentation
 
-1. Start with [Python Architecture](python-architecture.md) for overall system design
-2. Review [Current Status](status.md) for what's implemented and what's planned
-3. Check [VLC Integration](vlc-integration.md) for audio playback details
+- [**Tauri Architecture**](tauri-architecture.md) - System architecture and component design
+- [**Last.fm Integration**](lastfm.md) - Rust implementation of Last.fm scrobbling and authentication
+- [**FastAPI Migration Analysis**](fastapi-to-rust-migration-analysis.md) - Historical reference for the Python-to-Rust migration
 
 ## Development Context
 
-This documentation is generated from analysis of:
+For comprehensive development guidance, see the root [`CLAUDE.md`](../CLAUDE.md) which covers:
 
-- Source code in `core/`, `src/`, `utils/` directories
-- Configuration files (`config.py`, `themes.json`, `pyproject.toml`)
-- Task management (`backlog/`, `TODO.md`)
-- Development guidance (`AGENTS.md`)
-- Test specifications (`tests/`)
-
-Each document provides both current implementation details and future development considerations.
+- Development commands and workflows
+- Testing strategy (Rust, Vitest, Playwright)
+- Architecture overview
+- Code style and patterns

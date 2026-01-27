@@ -1,66 +1,61 @@
-# Tauri Migration Architecture
+# Tauri Architecture
 
-This document describes the target architecture for migrating MT from Tkinter/VLC to Tauri with native Rust audio playback.
+This document describes the architecture of MT, a desktop music player built with Tauri and native Rust.
 
 ## Overview
 
-The migration replaces the current Python/Tkinter/VLC stack with a modern architecture:
+MT uses a modern pure-Rust architecture:
 
-| Current | Target |
-|---------|--------|
-| Tkinter GUI | Tauri WebView (Alpine.js + Basecoat) |
-| VLC playback | Rust audio engine (symphonia + rodio) |
-| Python monolith | Python sidecar (PEX) for data operations |
-| macOS-only media keys | Cross-platform via Tauri plugins |
+| Component | Technology |
+|-----------|------------|
+| Frontend | Tauri WebView (Alpine.js + Basecoat) |
+| Backend | Native Rust (87 Tauri commands) |
+| Audio | Rust audio engine (symphonia + rodio) |
+| Database | SQLite via rusqlite |
+| Media Keys | Cross-platform via Tauri plugins |
 
-## Target Architecture
+## Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           Tauri Application                              │
+│                           Tauri Application                             │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
+│                                                                         │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                     Frontend (WebView)                            │   │
+│  │                     Frontend (WebView)                           │   │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │   │
 │  │  │  Alpine.js  │  │  Basecoat   │  │    Player Controls      │   │   │
 │  │  │   Stores    │  │  Components │  │    Library Browser      │   │   │
 │  │  └─────────────┘  └─────────────┘  └─────────────────────────┘   │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
-│                              │                                           │
-│                    Tauri invoke / events                                 │
-│                              │                                           │
+│                              │                                          │
+│                    Tauri invoke / events                                │
+│                              │                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    Tauri Core (Rust)                              │   │
+│  │                    Tauri Core (Rust)                             │   │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │   │
 │  │  │   Window    │  │   Menus     │  │     Media Keys          │   │   │
 │  │  │  Lifecycle  │  │   & Tray    │  │   (tauri-plugin-global- │   │   │
 │  │  │             │  │             │  │    shortcut)            │   │   │
 │  │  └─────────────┘  └─────────────┘  └─────────────────────────┘   │   │
-│  │                                                                   │   │
+│  │                                                                  │   │
 │  │  ┌───────────────────────────────────────────────────────────┐   │   │
-│  │  │              Rust Audio Engine                             │   │   │
+│  │  │              Rust Audio Engine                            │   │   │
 │  │  │  ┌───────────┐  ┌───────────┐  ┌───────────────────────┐  │   │   │
 │  │  │  │ symphonia │  │   rodio   │  │   Audio State         │  │   │   │
 │  │  │  │  (decode) │  │  (output) │  │   (position, volume)  │  │   │   │
 │  │  │  └───────────┘  └───────────┘  └───────────────────────┘  │   │   │
 │  │  └───────────────────────────────────────────────────────────┘   │   │
+│  │                                                                  │   │
+│  │  ┌───────────────────────────────────────────────────────────┐   │   │
+│  │  │              Data Layer (Rust)                            │   │   │
+│  │  │  ┌───────────┐  ┌───────────┐  ┌───────────────────────┐  │   │   │
+│  │  │  │  SQLite   │  │  Library  │  │    Metadata           │  │   │   │
+│  │  │  │ (rusqlite)│  │  Scanner  │  │    (lofty-rs)         │  │   │   │
+│  │  │  └───────────┘  └───────────┘  └───────────────────────┘  │   │   │
+│  │  └───────────────────────────────────────────────────────────┘   │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
-│                              │                                           │
-│                    Sidecar management                                    │
-│                              │                                           │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                 Python Sidecar (PEX)                              │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │   │
-│  │  │  FastAPI    │  │  SQLite     │  │    Library Scanner      │   │   │
-│  │  │  REST API   │  │  Database   │  │    (mutagen metadata)   │   │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────────┘   │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │   │
-│  │  │  Playlists  │  │   Lyrics    │  │    WebSocket Events     │   │   │
-│  │  │  Management │  │   Fetching  │  │    (real-time updates)  │   │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────────┘   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -68,20 +63,21 @@ The migration replaces the current Python/Tkinter/VLC stack with a modern archit
 
 ### Tauri Core (Rust)
 
-The Rust layer handles performance-critical and platform-specific functionality:
+The Rust backend handles all functionality:
 
 | Component | Responsibility |
 |-----------|----------------|
 | **Window Lifecycle** | Create, resize, minimize, close, fullscreen |
-| **Native Menus** | Application menu, context menus, system tray |
+| **Native Menus** | Application menu, context menus |
 | **Media Keys** | Global hotkeys via `tauri-plugin-global-shortcut` |
 | **Audio Engine** | Decode and play audio with sub-millisecond latency |
-| **Sidecar Management** | Spawn, monitor, and communicate with Python process |
-| **Auto-Updater** | Check for and apply application updates |
+| **Database** | SQLite operations via rusqlite |
+| **Library Scanner** | Directory traversal, metadata extraction |
+| **Last.fm** | Scrobbling, authentication, loved tracks |
 
 ### Rust Audio Engine
 
-Native audio playback replacing VLC:
+Native audio playback:
 
 | Library | Purpose |
 |---------|---------|
@@ -96,28 +92,20 @@ Native audio playback replacing VLC:
 - Playing/paused state
 - Loop mode (none, track, queue)
 
-### Python Sidecar (PEX)
+### Data Layer (Rust)
 
-Data operations that benefit from Python's ecosystem:
+All data operations in native Rust:
 
 | Component | Responsibility |
 |-----------|----------------|
-| **FastAPI Server** | REST API for library/playlist operations |
-| **SQLite Database** | Persistent storage (reuses existing schema) |
-| **Library Scanner** | Directory traversal, mutagen metadata extraction |
-| **Playlist Manager** | CRUD operations for playlists |
-| **Lyrics Fetcher** | External API integration (Genius, etc.) |
-| **WebSocket Server** | Real-time events (scan progress, library updates) |
-
-**Why PEX?**
-- Single-file distribution (no Python installation required)
-- Bundles all dependencies
-- Cross-platform (same PEX works on macOS/Linux)
-- Fast startup (~200ms)
+| **rusqlite** | SQLite database operations |
+| **lofty-rs** | Audio metadata extraction |
+| **Library Scanner** | Recursive directory traversal |
+| **Watched Folders** | File system monitoring |
 
 ### Frontend (WebView)
 
-Modern web UI replacing Tkinter:
+Modern web UI:
 
 | Technology | Purpose |
 |------------|---------|
@@ -126,11 +114,13 @@ Modern web UI replacing Tkinter:
 | **Vite** | Fast development builds, HMR |
 
 **UI Components:**
-- Library browser (tree view with virtual scrolling)
+- Library browser (virtual scrolling)
 - Queue view (drag-and-drop reordering)
 - Player controls (play/pause, seek, volume)
 - Search bar (instant filtering)
 - Sidebar navigation (library sections, playlists)
+- Settings panel
+- Metadata editor
 
 ## Communication Patterns
 
@@ -139,9 +129,9 @@ Modern web UI replacing Tkinter:
 **Tauri Invoke (Commands):**
 ```typescript
 // Frontend calls Rust function
-const status = await invoke('get_playback_status');
-await invoke('play_track', { path: '/path/to/song.mp3' });
-await invoke('seek', { position_ms: 30000 });
+const status = await invoke('audio_get_status');
+await invoke('audio_load', { path: '/path/to/song.mp3' });
+await invoke('audio_seek', { positionMs: 30000 });
 ```
 
 **Tauri Events (Push):**
@@ -156,24 +146,6 @@ listen('track-ended', () => {
 });
 ```
 
-### Tauri Core ↔ Python Sidecar
-
-**REST API (Request/Response):**
-```rust
-// Rust calls Python sidecar
-let response = reqwest::get("http://localhost:5556/api/library").await?;
-let tracks: Vec<Track> = response.json().await?;
-```
-
-**WebSocket (Real-time):**
-```rust
-// Python pushes scan progress
-// Rust forwards to frontend via Tauri events
-ws.on_message(|msg| {
-    app.emit_all("scan-progress", msg.payload);
-});
-```
-
 ### Communication Flow Example
 
 ```
@@ -181,67 +153,49 @@ User clicks "Add Music" button
          │
          ▼
 ┌─────────────────┐
-│    Frontend     │  invoke('start_scan', { path: '/Music' })
+│    Frontend     │  invoke('scan_directory', { path: '/Music' })
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│   Tauri Core    │  POST http://localhost:5556/api/scan
+│   Tauri Core    │  Scans directory, extracts metadata via lofty-rs
+│     (Rust)      │  Emits scan-progress events
 └────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Python Sidecar  │  Scans directory, extracts metadata
-└────────┬────────┘
-         │ WebSocket: { "type": "scan_progress", "count": 150 }
-         ▼
-┌─────────────────┐
-│   Tauri Core    │  emit_all("scan-progress", payload)
-└────────┬────────┘
-         │
+         │ emit("scan-progress", { count: 150 })
          ▼
 ┌─────────────────┐
 │    Frontend     │  Updates progress bar
 └─────────────────┘
 ```
 
-## Platform Support Strategy
+## Platform Support
 
-### Phase 1: macOS (Primary)
-
-**Target:** macOS 12+ (Monterey and later)
+### macOS (Primary)
 
 | Feature | Implementation |
 |---------|----------------|
 | Window chrome | Native titlebar with traffic lights |
 | Media keys | `tauri-plugin-global-shortcut` |
 | Menu bar | Native application menu |
-| Notifications | Native notification center |
 | File associations | Info.plist configuration |
 
-### Phase 2: Linux
-
-**Target:** Ubuntu 22.04+, Fedora 38+
+### Linux
 
 | Feature | Implementation |
 |---------|----------------|
 | Window chrome | Client-side decorations (CSD) |
 | Media keys | D-Bus MPRIS integration |
-| System tray | libappindicator |
 | Audio output | PulseAudio/PipeWire via cpal |
 
-### Phase 3: Windows
-
-**Target:** Windows 10/11
+### Windows
 
 | Feature | Implementation |
 |---------|----------------|
 | Window chrome | Native Win32 frame |
 | Media keys | System Media Transport Controls (SMTC) |
-| System tray | Windows notification area |
 | Audio output | WASAPI via cpal |
 
-## Directory Structure (Target)
+## Directory Structure
 
 ```
 mt/
@@ -249,74 +203,37 @@ mt/
 │   ├── src/
 │   │   ├── main.rs         # Entry point
 │   │   ├── audio/          # Audio engine module
-│   │   │   ├── mod.rs
-│   │   │   ├── player.rs   # Playback control
-│   │   │   └── decoder.rs  # symphonia integration
 │   │   ├── commands/       # Tauri command handlers
-│   │   │   ├── mod.rs
-│   │   │   ├── playback.rs
-│   │   │   └── library.rs
-│   │   └── sidecar.rs      # Python process management
+│   │   ├── db/             # Database operations
+│   │   ├── lastfm/         # Last.fm integration
+│   │   ├── scanner/        # Library scanning
+│   │   └── watcher/        # File system monitoring
 │   ├── Cargo.toml
 │   └── tauri.conf.json
-├── src/                    # Frontend source
+├── app/frontend/           # Frontend source
 │   ├── index.html
-│   ├── main.js             # Alpine.js initialization
-│   ├── stores/             # Alpine.js stores
-│   │   ├── player.js
-│   │   └── library.js
+│   ├── js/
+│   │   ├── main.js         # Alpine.js initialization
+│   │   └── stores/         # Alpine.js stores
 │   ├── components/         # UI components
-│   │   ├── library-browser.html
-│   │   ├── queue-view.html
-│   │   └── player-controls.html
 │   └── styles/
 │       └── main.css        # Tailwind + Basecoat
-├── backend/                # Python sidecar
-│   ├── main.py             # FastAPI entry point
-│   ├── api/                # REST endpoints
-│   ├── core/               # Reused from current codebase
-│   │   ├── db/
-│   │   ├── library.py
-│   │   └── queue.py
-│   └── requirements.txt
 ├── package.json            # Frontend dependencies
 ├── vite.config.js
 └── tailwind.config.js
 ```
 
-## Migration Path
+## Performance
 
-### Hard-Cut Approach
+| Metric | Achieved |
+|--------|----------|
+| Cold start | < 500ms |
+| Track switch | < 50ms |
+| Memory (idle) | < 100MB |
+| CPU (playing) | < 5% |
+| Binary size | ~30MB |
 
-The migration uses a **hard-cut** strategy rather than incremental replacement:
-
-1. **Phase 1 (Infrastructure)**: Set up Tauri project, worktree, documentation
-2. **Phase 2 (Audio)**: Build Rust audio engine, expose via Tauri commands
-3. **Phase 3 (Backend)**: Create Python FastAPI sidecar, package as PEX
-4. **Phase 4 (Frontend)**: Build Alpine.js UI with Basecoat components
-5. **Phase 5 (Polish)**: Media keys, drag-drop, keyboard shortcuts, platform support
-
-### Data Migration
-
-- **Database**: Reuse existing SQLite schema (`mt.db`)
-- **Preferences**: Migrate from current settings table
-- **Playlists**: Direct compatibility (same schema)
-
-### Rollback Strategy
-
-The original Tkinter application remains functional in the `main` branch. The `tauri-migration` worktree allows parallel development without risk to the existing codebase.
-
-## Performance Targets
-
-| Metric | Target | Current (Tkinter/VLC) |
-|--------|--------|----------------------|
-| Cold start | < 500ms | ~2s |
-| Track switch | < 50ms | ~200ms |
-| Memory (idle) | < 100MB | ~150MB |
-| CPU (playing) | < 5% | ~8% |
-| Binary size | < 50MB | N/A (requires Python) |
-
-## Dependencies
+## Key Dependencies
 
 ### Rust (Cargo.toml)
 
@@ -325,39 +242,15 @@ The original Tkinter application remains functional in the `main` branch. The `t
 tauri = { version = "2", features = ["shell-open"] }
 symphonia = { version = "0.5", features = ["mp3", "flac", "aac", "ogg"] }
 rodio = "0.19"
+rusqlite = { version = "0.32", features = ["bundled"] }
+lofty = "0.22"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+reqwest = { version = "0.12", features = ["json"] }
 
 [dependencies.tauri-plugin-global-shortcut]
 version = "2"
-```
-
-### Python (pyproject.toml)
-
-```toml
-[project]
-name = "mt-backend"
-version = "0.1.0"
-requires-python = ">=3.12,<3.13"
-
-dependencies = [
-    "fastapi>=0.115",
-    "uvicorn>=0.32",
-    "mutagen>=1.47.0",
-    "aiosqlite>=0.20",
-    "websockets>=13",
-    "httpx>=0.28",
-    "eliot>=1.17.5",
-    "eliot-tree>=24.0.0",
-]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-# PEX build: uv run pex . -o mt-backend.pex -c mt-backend
 ```
 
 ### Frontend (package.json)
