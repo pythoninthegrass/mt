@@ -181,7 +181,7 @@ jobs:
   # Build verification
   build:
     name: Build Verification
-    runs-on: self-hosted
+    runs-on: studio
     timeout-minutes: 5
     env:
       CARGO_INCREMENTAL: 1  # Enable incremental compilation on self-hosted (reuses artifacts)
@@ -214,7 +214,7 @@ jobs:
   # Rust backend tests with coverage
   rust-tests:
     name: Rust Backend Tests
-    runs-on: self-hosted
+    runs-on: ['studio', 'mini']
     needs: build
     timeout-minutes: 5
     env:
