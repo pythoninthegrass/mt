@@ -77,8 +77,7 @@ jobs:
   # Frontend E2E tests with Playwright
   playwright-tests:
     name: Playwright E2E Tests
-    # runs-on: self-hosted
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 20
 
     steps:
@@ -125,7 +124,7 @@ jobs:
   # Linting and code quality
   lint:
     name: Lint and Format Check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
@@ -150,7 +149,7 @@ jobs:
   # Vitest unit tests with coverage
   vitest-tests:
     name: Vitest Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 10
 
     steps:
@@ -184,7 +183,7 @@ jobs:
   # Rust backend tests with coverage
   rust-tests:
     name: Rust Backend Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 20
     env:
       CARGO_INCREMENTAL: 0  # Disable incremental compilation in CI (faster clean builds)
@@ -196,16 +195,6 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libasound2-dev
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -243,7 +232,7 @@ jobs:
   # Build verification
   build:
     name: Build Verification
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 30
     env:
       CARGO_INCREMENTAL: 0  # Disable incremental compilation in CI (faster clean builds)
@@ -262,16 +251,6 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libasound2-dev
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
