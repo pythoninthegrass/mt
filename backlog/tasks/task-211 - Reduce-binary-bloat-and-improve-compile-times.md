@@ -1,10 +1,10 @@
 ---
 id: task-211
 title: Reduce binary bloat and improve compile times
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-27 02:50'
-updated_date: '2026-01-27 07:40'
+updated_date: '2026-01-27 21:39'
 labels:
   - performance
   - rust
@@ -279,4 +279,38 @@ These plugins can be implemented without mt-core:
 ### Cleanup
 
 Deleted broken skeleton: `src-tauri/plugins/tauri-plugin-library/`
+
+## Abandoned - Plugin Refactoring Reverted (2026-01-27)
+
+**Decision:** The Tauri v2 plugin architecture refactoring has been abandoned and reverted.
+
+### Reason
+
+The complexity of Tauri v2's permission/capabilities system introduced regressions that were not worth the refactoring effort:
+
+1. **Permission issues**: Plugin commands required explicit capabilities configuration in `tauri.conf.json`
+2. **Window dragging broke**: Adding capabilities removed default core permissions, breaking the custom titlebar
+3. **Multiple attempted fixes failed**: Tried `core:default`, granular `core:*:default` permissions - all had issues
+4. **Regression introduced**: The refactoring caused task-216 (missing tracks bug) and broke fundamental UI functionality
+
+### What Was Achieved
+
+- ✅ **Binary size reduced by 37.6%** (13.9MB → 8.7MB) via devtools feature-gating (commit 2e2b23c)
+- ✅ **devtools excluded from release builds**
+- ❌ Plugin architecture abandoned
+- ❌ Incremental compile time goal not achieved (blocked by LTO)
+
+### Resolution
+
+Reverted all plugin-related commits and restored the monolithic command handler. The binary size reduction from devtools feature-gating is preserved. The current architecture is stable and working.
+
+**Commits reverted:**
+- eaea57c (audio-plugin)
+- 6722f37 (settings-plugin)
+- e80022a (mt-core crate)
+- e1c5126 (library-plugin)
+- 9ef185d (queue-plugin)
+- All permission fix attempts
+
+**Lesson learned:** Tauri v2's plugin system has significant complexity around permissions that makes it unsuitable for incremental refactoring of an existing application.
 <!-- SECTION:NOTES:END -->

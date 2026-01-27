@@ -4,7 +4,7 @@ title: Shuffle enqueues playing track as second track (plays twice)
 status: In Progress
 assignee: []
 created_date: '2026-01-27 07:36'
-updated_date: '2026-01-27 07:39'
+updated_date: '2026-01-27 21:39'
 labels:
   - bug
   - playback
@@ -13,6 +13,7 @@ labels:
   - frontend
 dependencies: []
 priority: medium
+ordinal: 17375
 ---
 
 ## Description

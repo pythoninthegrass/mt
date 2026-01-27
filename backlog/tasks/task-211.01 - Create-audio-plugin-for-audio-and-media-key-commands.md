@@ -1,10 +1,10 @@
 ---
 id: task-211.01
 title: Create audio-plugin for audio and media key commands
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-27 04:22'
-updated_date: '2026-01-27 04:23'
+updated_date: '2026-01-27 21:39'
 labels:
   - performance
   - rust
@@ -43,3 +43,11 @@ Extract audio playback and media key commands into a dedicated Tauri plugin.
 - [ ] #3 No regression in audio playback functionality
 - [ ] #4 Plugin registered in lib.rs with .plugin()
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Abandoned (2026-01-27)
+
+Plugin refactoring reverted due to Tauri v2 permission complexity. See parent task-211 for details.
+<!-- SECTION:NOTES:END -->

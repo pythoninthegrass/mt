@@ -4,7 +4,7 @@ title: Extract shared types into mt-core crate for plugin architecture
 status: Done
 assignee: []
 created_date: '2026-01-27 07:39'
-updated_date: '2026-01-27 08:03'
+updated_date: '2026-01-27 21:40'
 labels:
   - performance
   - rust
@@ -144,4 +144,8 @@ This task blocks:
 
 ### Note on AC #4:
 AC #4 (plugin using mt-core) is for subsequent tasks (task-211.02+) that will create plugins depending on mt-core. The mt-core crate is ready for use.
+
+## Abandoned
+
+This task was abandoned as part of the plugin refactoring revert. See task-211 for full explanation. The Tauri v2 permission/capabilities system complexity made the plugin architecture impractical.
 <!-- SECTION:NOTES:END -->

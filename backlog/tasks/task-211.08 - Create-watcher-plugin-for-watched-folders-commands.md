@@ -1,10 +1,10 @@
 ---
 id: task-211.08
 title: Create watcher-plugin for watched folders commands
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-27 04:22'
-updated_date: '2026-01-27 08:04'
+updated_date: '2026-01-27 21:40'
 labels:
   - performance
   - rust
@@ -14,6 +14,7 @@ dependencies:
   - task-211.11
 parent_task_id: '211'
 priority: low
+ordinal: 20375
 ---
 
 ## Description
@@ -49,4 +50,8 @@ Extract watched folders and filesystem monitoring commands into a dedicated Taur
 ## Blocked by task-211.11
 
 This task requires shared types (Database, WatchedFolder, etc.) to be extracted into mt-core crate first.
+
+## Abandoned
+
+This task was abandoned as part of the plugin refactoring revert. See task-211 for full explanation. The Tauri v2 permission/capabilities system complexity made the plugin architecture impractical.
 <!-- SECTION:NOTES:END -->

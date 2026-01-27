@@ -4,7 +4,7 @@ title: Create settings-plugin for application settings commands
 status: Done
 assignee: []
 created_date: '2026-01-27 04:22'
-updated_date: '2026-01-27 07:17'
+updated_date: '2026-01-27 21:40'
 labels:
   - performance
   - rust
@@ -67,4 +67,8 @@ Extract application settings commands into a dedicated Tauri plugin.
 - Plugin tests pass: 2 tests passed
 - No new clippy warnings in plugin
 - Pre-existing db::compat_test failures (6 tests) unrelated to changes
+
+## Abandoned
+
+This task was abandoned as part of the plugin refactoring revert. See task-211 for full explanation. The Tauri v2 permission/capabilities system complexity made the plugin architecture impractical.
 <!-- SECTION:NOTES:END -->

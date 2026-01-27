@@ -1,10 +1,10 @@
 ---
 id: task-211.06
 title: Create lastfm-plugin for Last.fm integration commands
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-27 04:22'
-updated_date: '2026-01-27 08:04'
+updated_date: '2026-01-27 21:39'
 labels:
   - performance
   - rust
@@ -14,6 +14,7 @@ dependencies:
   - task-211.11
 parent_task_id: '211'
 priority: low
+ordinal: 19375
 ---
 
 ## Description
@@ -51,4 +52,8 @@ Extract Last.fm scrobbling and integration commands into a dedicated Tauri plugi
 ## Blocked by task-211.11
 
 This task requires shared types (Database, scrobble types, etc.) to be extracted into mt-core crate first.
+
+## Abandoned (2026-01-27)
+
+Plugin refactoring reverted due to Tauri v2 permission complexity. See parent task-211 for details.
 <!-- SECTION:NOTES:END -->

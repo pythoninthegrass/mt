@@ -3,10 +3,10 @@ id: task-212
 title: >-
   Loop doesn't jump back to start of library (first track by alphanumeric
   artist/album)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-27 07:36'
-updated_date: '2026-01-27 07:39'
+updated_date: '2026-01-27 21:39'
 labels:
   - bug
   - playback
@@ -65,3 +65,11 @@ Investigate:
 - [ ] #2 Library order is preserved in queue when playing entire library
 - [ ] #3 Test: Play library with loop=all, verify restart order matches library sort
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Regression Note (2026-01-27)
+
+This bug investigation revealed that task-211 (plugin refactoring) introduced permission-related regressions. The plugin refactoring was subsequently abandoned and reverted. See task-211 implementation notes for details.
+<!-- SECTION:NOTES:END -->

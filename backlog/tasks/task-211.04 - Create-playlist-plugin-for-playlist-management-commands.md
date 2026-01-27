@@ -1,10 +1,10 @@
 ---
 id: task-211.04
 title: Create playlist-plugin for playlist management commands
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-27 04:22'
-updated_date: '2026-01-27 08:03'
+updated_date: '2026-01-27 21:39'
 labels:
   - performance
   - rust
@@ -50,4 +50,8 @@ Extract playlist management commands into a dedicated Tauri plugin.
 ## Blocked by task-211.11
 
 This task requires shared types (Database, Playlist, etc.) to be extracted into mt-core crate first. See task-211.02 implementation notes for architectural details.
+
+## Abandoned (2026-01-27)
+
+Plugin refactoring reverted due to Tauri v2 permission complexity. See parent task-211 for details.
 <!-- SECTION:NOTES:END -->

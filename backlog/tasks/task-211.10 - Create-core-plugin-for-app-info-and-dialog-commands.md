@@ -1,10 +1,10 @@
 ---
 id: task-211.10
 title: Create core-plugin for app info and dialog commands
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-27 04:22'
-updated_date: '2026-01-27 08:04'
+updated_date: '2026-01-27 21:40'
 labels:
   - performance
   - rust
@@ -13,6 +13,7 @@ labels:
 dependencies: []
 parent_task_id: '211'
 priority: low
+ordinal: 22375
 ---
 
 ## Description
@@ -43,3 +44,11 @@ Extract core application commands (app info, dialogs, diagnostics) into a dedica
 - [ ] #3 No regression in app info/dialogs
 - [ ] #4 Plugin registered in lib.rs with .plugin()
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Abandoned
+
+This task was abandoned as part of the plugin refactoring revert. See task-211 for full explanation. The Tauri v2 permission/capabilities system complexity made the plugin architecture impractical.
+<!-- SECTION:NOTES:END -->
