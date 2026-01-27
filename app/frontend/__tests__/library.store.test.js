@@ -38,7 +38,7 @@ function createTestLibraryStore(initialTracks = []) {
      */
     _stripIgnoredPrefix(value, ignoreWords) {
       if (!value || !ignoreWords || ignoreWords.length === 0) {
-        return value || '';
+        return String(value || '').trim();
       }
 
       const str = String(value).trim();
