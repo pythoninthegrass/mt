@@ -49,11 +49,11 @@ tasks:
     cmds:
       - |
         echo "Building {{.APP_NAME}} v{{.APP_VERSION}}{{if .TARGET}} for {{.TARGET}}{{end}}..."
-        npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri build -- {{.TARGET_FLAG}}
+        deno run -A npm:@tauri-apps/cli build {{.TARGET_FLAG}}
 
   build:
     desc: "Build Tauri app for current architecture"
-    deps: [":npm:install"]
+    deps: [":deno:install"]
     vars:
       CURRENT_TARGET: '{{if eq ARCH "arm64"}}{{.MACOS_ARM64_TARGET}}{{else}}{{.MACOS_X64_TARGET}}{{end}}'
     cmds:
@@ -67,7 +67,7 @@ tasks:
 
   build:arm64:
     desc: "Build Tauri app for Apple Silicon (arm64)"
-    deps: [":npm:install"]
+    deps: [":deno:install"]
     cmds:
       - task: _build
         vars:
@@ -79,7 +79,7 @@ tasks:
 
   build:x64:
     desc: "Build Tauri app for Intel (x86_64)"
-    deps: [":npm:install"]
+    deps: [":deno:install"]
     cmds:
       - task: _build
         vars:
@@ -91,16 +91,16 @@ tasks:
 
   dev:
     desc: "Run Tauri in development mode"
-    deps: [":npm:install"]
+    deps: [":deno:install"]
     cmds:
-      - npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri dev
+      - deno run -A npm:@tauri-apps/cli dev
     interactive: true
     ignore_error: true
 
   icons:
     desc: "Generate app icons from logo"
     cmds:
-      - npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri icon -- {{.ROOT_DIR}}/static/logo.png
+      - deno run -A npm:@tauri-apps/cli icon {{.ROOT_DIR}}/static/logo.png
     sources:
       - "{{.ROOT_DIR}}/static/logo.png"
     generates:
@@ -160,4 +160,4 @@ tasks:
   doctor:
     desc: "Run Tauri doctor to check environment"
     cmds:
-      - npm --prefix {{.ROOT_DIR}}/app/frontend exec tauri info
+      - deno run -A npm:@tauri-apps/cli info

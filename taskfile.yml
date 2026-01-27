@@ -10,6 +10,8 @@ vars:
 includes:
   npm:
     taskfile: ./taskfiles/npm.yml
+  deno:
+    taskfile: ./taskfiles/deno.yml
   tauri:
     taskfile: ./taskfiles/tauri.yml
 

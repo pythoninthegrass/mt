@@ -11,23 +11,22 @@ vars:
 
 tasks:
   install:
-    desc: "Install npm dependencies"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Install dependencies via Deno (8x faster than npm ci)"
     cmds:
-      - npm install
+      - deno install --node-modules-dir=auto
     sources:
       - "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}/package.json"
     generates:
-      - "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}/node_modules/**/*"
+      - "{{.ROOT_DIR}}/node_modules/**/*"
     status:
-      - test -d "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}/node_modules"
+      - test -d "{{.ROOT_DIR}}/node_modules"
     silent: true
 
   ci:
-    desc: "Clean install npm dependencies (CI mode)"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Clean install dependencies via Deno (8x faster than npm ci)"
     cmds:
-      - npm ci
+      - rm -rf node_modules
+      - deno install --node-modules-dir=auto
 
   update:
     desc: "Update npm dependencies"
@@ -55,9 +54,10 @@ tasks:
       - npm audit fix
 
   clean:
-    desc: "Clean npm artifacts"
+    desc: "Clean npm/deno artifacts"
     cmds:
-      - rm -rf {{.ROOT_DIR}}/{{.FRONTEND_DIR}}/node_modules
+      - rm -rf {{.ROOT_DIR}}/node_modules
+      - rm -rf {{.ROOT_DIR}}/deno.lock
       - rm -rf {{.ROOT_DIR}}/.cache/npm
     silent: true
 

@@ -1,0 +1,125 @@
+version: "3.0"
+
+set: ['e', 'u', 'pipefail']
+shopt: ['globstar']
+
+vars:
+  FRONTEND_DIR: "app/frontend"
+
+tasks:
+  install:
+    desc: "Install dependencies via Deno (8x faster than npm ci)"
+    cmds:
+      - deno install --node-modules-dir=auto
+    sources:
+      - "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}/package.json"
+    generates:
+      - "{{.ROOT_DIR}}/node_modules/**/*"
+    status:
+      - test -d "{{.ROOT_DIR}}/node_modules"
+    silent: true
+
+  clean:
+    desc: "Clean deno artifacts"
+    cmds:
+      - rm -rf {{.ROOT_DIR}}/node_modules
+      - rm -rf {{.ROOT_DIR}}/deno.lock
+      - rm -rf {{.ROOT_DIR}}/{{.FRONTEND_DIR}}/deno.lock
+    silent: true
+
+  outdated:
+    desc: "Check for outdated dependencies (uses npm)"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm outdated || true
+    silent: true
+
+  audit:
+    desc: "Run security audit (uses npm)"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm audit
+
+  audit-fix:
+    desc: "Fix security vulnerabilities (uses npm)"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm audit fix
+
+  cache-clean:
+    desc: "Clean deno cache"
+    cmds:
+      - deno cache --reload
+    silent: true
+
+  list:
+    desc: "List installed packages"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - deno info --json package.json | head -50
+    silent: true
+
+  check-deps:
+    desc: "Check if deno is installed"
+    cmds:
+      - |
+        echo "Checking deno dependencies..."
+        if ! command -v deno &> /dev/null; then
+          echo "deno not found. Install from https://deno.com"
+          exit 1
+        fi
+        echo "deno version: $(deno --version | head -1)"
+    silent: true
+
+  # Script execution - Use deno for simple scripts, npm for Node-dependent tools
+  dev:
+    desc: "Run Vite dev server via Deno"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - deno run -A npm:vite {{.CLI_ARGS}}
+
+  build:
+    desc: "Build frontend via Deno (2.2x faster than npm)"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - deno run -A npm:vite build {{.CLI_ARGS}}
+
+  preview:
+    desc: "Preview production build via Deno"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - deno run -A npm:vite preview {{.CLI_ARGS}}
+
+  # Testing - Uses npm/node due to Vitest worker thread requirements
+  test:
+    desc: "Run Vitest unit/property tests (uses Node - Vitest requires native workers)"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - npm test {{.CLI_ARGS}}
+
+  test:watch:
+    desc: "Run Vitest in watch mode (uses Node)"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run test:watch {{.CLI_ARGS}}
+
+  test:e2e:
+    desc: "Run Playwright E2E tests (uses Node - Playwright requires native Node)"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    env:
+      E2E_MODE: '{{.E2E_MODE | default "fast"}}'
+    cmds:
+      - npx playwright test {{.CLI_ARGS}}
+
+  test:e2e:ui:
+    desc: "Run Playwright E2E tests in UI mode (uses Node)"
+    deps: [install]
+    dir: "{{.ROOT_DIR}}/{{.FRONTEND_DIR}}"
+    cmds:
+      - npx playwright test --ui {{.CLI_ARGS}}

@@ -1,6 +1,31 @@
 {
   "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
 
+  // Enable node_modules directory for Vite/Vitest/Playwright compatibility
+  // Creates physical node_modules instead of using Deno's global cache
+  "nodeModulesDir": "auto",
+
+  // Workspace configuration for frontend package
+  "workspace": ["./app/frontend"],
+
+  // Tasks for common operations (use `deno task <name>` to run)
+  "tasks": {
+    // Dependency management
+    "install": "cd app/frontend && deno install --node-modules-dir=auto",
+
+    // Development
+    "dev": "cd app/frontend && deno run -A npm:vite",
+    "build": "cd app/frontend && deno run -A npm:vite build",
+    "preview": "cd app/frontend && deno run -A npm:vite preview",
+
+    // Testing (requires Node due to worker thread limitations)
+    // Use npm commands which leverage deno-created node_modules
+    "test": "cd app/frontend && npm test",
+    "test:watch": "cd app/frontend && npm run test:watch",
+    "test:e2e": "cd app/frontend && npx playwright test",
+    "test:e2e:ui": "cd app/frontend && npx playwright test --ui"
+  },
+
   "lint": {
     // Include only frontend JavaScript source files
     "include": [
