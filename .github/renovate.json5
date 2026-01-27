@@ -7,8 +7,14 @@
   },
   "packageRules": [
     {
-      "matchManagers": ["pip_requirements"],
-      "enabled": true
+      "matchManagers": ["npm"],
+      "enabled": true,
+      "groupName": "npm dependencies"
+    },
+    {
+      "matchManagers": ["cargo"],
+      "enabled": true,
+      "groupName": "rust dependencies"
     }
   ],
   "schedule": [
