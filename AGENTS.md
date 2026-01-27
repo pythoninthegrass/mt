@@ -30,6 +30,7 @@ Always use Context7 MCP when I need library/API documentation, code generation, 
 - hunvreus/basecoat
 - jdx/mise
 - microsoft/playwright
+- mrlesk/backlog.md
 - nextest-rs/nextest
 - serial-ata/lofty-rs
 - tailwindlabs/tailwindcss
