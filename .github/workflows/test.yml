@@ -184,7 +184,7 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     env:
-      CARGO_INCREMENTAL: 0  # Disable incremental compilation in CI (faster clean builds)
+      CARGO_INCREMENTAL: 1  # Enable incremental compilation on self-hosted (reuses artifacts)
       CARGO_TERM_COLOR: always
 
     steps:
@@ -218,7 +218,7 @@ jobs:
     needs: build
     timeout-minutes: 5
     env:
-      CARGO_INCREMENTAL: 0  # Disable incremental compilation in CI (faster clean builds)
+      CARGO_INCREMENTAL: 1  # Enable incremental compilation on self-hosted (reuses artifacts)
       CARGO_TERM_COLOR: always
 
     steps:
