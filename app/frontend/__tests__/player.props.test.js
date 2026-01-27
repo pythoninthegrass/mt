@@ -208,16 +208,18 @@ describe('Player Store - Property-Based Tests', () => {
     test.prop([fc.integer({ min: 0, max: 600000 })])('seek with zero duration is safe', async (position) => {
       store.duration = 0;
 
-      await expect(store.seek(position)).resolves.not.toThrow();
+      // seek() doesn't return a Promise (uses debounced setTimeout internally)
+      store.seek(position);
 
       expect(store.progress).toBe(0);
     });
 
     test.prop([fc.constantFrom(NaN, Infinity, -Infinity)])('seek with invalid values is safe', async (invalidValue) => {
       store.duration = 180000;
-      const previousTime = store.currentTime;
 
-      await expect(store.seek(invalidValue)).resolves.not.toThrow();
+      // seek() doesn't return a Promise (uses debounced setTimeout internally)
+      // Invalid values are handled by clamping to valid range
+      store.seek(invalidValue);
 
       // Should either keep previous value or set to valid value (0 or duration)
       expect(Number.isFinite(store.currentTime)).toBe(true);

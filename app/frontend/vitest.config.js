@@ -11,8 +11,9 @@ export default defineConfig({
     // Exclude Playwright E2E tests (they have their own config)
     exclude: ['tests/**/*', 'node_modules/**/*'],
 
-    // Reporter configuration
-    reporters: ['default'],
+    // Reporter configuration - dot for compact output, silent to suppress console.log noise
+    reporters: ['dot'],
+    silent: true,
 
     // Coverage configuration
     // NOTE: The 80% coverage target for frontend is primarily achieved through
