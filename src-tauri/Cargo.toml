@@ -13,7 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["devtools"] }
+tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-dialog = "2"
@@ -67,8 +67,8 @@ md5 = "0.7"
 lru = "0.12"
 
 [features]
-default = ["devtools"]
-devtools = ["dep:tauri-plugin-devtools"]
+default = []
+devtools = ["dep:tauri-plugin-devtools", "tauri/devtools"]
 
 [dev-dependencies]
 tempfile = "3"
