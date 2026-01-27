@@ -1,15 +1,17 @@
 ---
 id: task-211.06
 title: Create lastfm-plugin for Last.fm integration commands
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-27 04:22'
+updated_date: '2026-01-27 08:04'
 labels:
   - performance
   - rust
   - refactoring
   - plugin
-dependencies: []
+dependencies:
+  - task-211.11
 parent_task_id: '211'
 priority: low
 ---
@@ -42,3 +44,11 @@ Extract Last.fm scrobbling and integration commands into a dedicated Tauri plugi
 - [ ] #3 No regression in scrobbling/auth flow
 - [ ] #4 Plugin registered in lib.rs with .plugin()
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Blocked by task-211.11
+
+This task requires shared types (Database, scrobble types, etc.) to be extracted into mt-core crate first.
+<!-- SECTION:NOTES:END -->

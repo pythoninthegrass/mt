@@ -4,7 +4,7 @@ title: Reduce binary bloat and improve compile times
 status: In Progress
 assignee: []
 created_date: '2026-01-27 02:50'
-updated_date: '2026-01-27 04:23'
+updated_date: '2026-01-27 07:40'
 labels:
   - performance
   - rust
@@ -20,6 +20,7 @@ dependencies:
   - task-211.08
   - task-211.09
   - task-211.10
+  - task-211.11
 priority: high
 ordinal: 812.5
 ---
@@ -240,4 +241,42 @@ Recommend creating a separate task for plugin migration if incremental compile t
 **Total: 87 commands across 10 plugins**
 
 Recommended order: Start with medium priority tasks (audio, library, queue, playlist) as they cover the most frequently changed code paths.
+
+## Dependency Graph Update (2026-01-27)
+
+### Discovered Circular Dependency Issue
+
+Analysis revealed that most plugin extractions (8 of 10) are blocked by a circular dependency:
+- Main crate would depend on plugins
+- Plugins need types from main crate (Database, Track, etc.)
+
+### New Prerequisite Task
+
+Created **task-211.11: Extract shared types into mt-core crate** as a prerequisite for:
+- task-211.02 (library-plugin)
+- task-211.03 (queue-plugin)
+- task-211.04 (playlist-plugin)
+- task-211.05 (favorites-plugin)
+- task-211.06 (lastfm-plugin)
+- task-211.08 (watcher-plugin)
+- task-211.09 (scanner-plugin)
+
+### Unblocked Tasks
+
+These plugins can be implemented without mt-core:
+- ✅ task-211.01 (audio-plugin) - Already complete, self-contained
+- ✅ task-211.07 (settings-plugin) - Already complete, uses tauri_plugin_store
+- ⚠️ task-211.10 (core-plugin) - Partially blocked, some commands may work
+
+### Revised Implementation Order
+
+1. ~~audio-plugin~~ (done)
+2. ~~settings-plugin~~ (done)
+3. **mt-core shared crate** (task-211.11) - NEW, HIGH PRIORITY
+4. library-plugin (task-211.02) - largest impact
+5. Remaining plugins in priority order
+
+### Cleanup
+
+Deleted broken skeleton: `src-tauri/plugins/tauri-plugin-library/`
 <!-- SECTION:NOTES:END -->

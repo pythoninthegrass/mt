@@ -1,9 +1,10 @@
 ---
 id: task-211.10
 title: Create core-plugin for app info and dialog commands
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-27 04:22'
+updated_date: '2026-01-27 08:04'
 labels:
   - performance
   - rust

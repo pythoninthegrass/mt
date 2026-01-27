@@ -1,15 +1,17 @@
 ---
 id: task-211.09
 title: Create scanner-plugin for music scanning commands
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-27 04:22'
+updated_date: '2026-01-27 08:04'
 labels:
   - performance
   - rust
   - refactoring
   - plugin
-dependencies: []
+dependencies:
+  - task-211.11
 parent_task_id: '211'
 priority: low
 ---
@@ -41,3 +43,11 @@ Extract music file scanning and metadata extraction commands into a dedicated Ta
 - [ ] #3 No regression in music importing/scanning
 - [ ] #4 Plugin registered in lib.rs with .plugin()
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Blocked by task-211.11
+
+This task requires shared types (Database, Track, ArtworkCache, etc.) to be extracted into mt-core crate first.
+<!-- SECTION:NOTES:END -->

@@ -4,7 +4,7 @@ title: Implement custom (manual) playlists in Tauri UI (replace stubs)
 status: Done
 assignee: []
 created_date: '2026-01-14 19:21'
-updated_date: '2026-01-14 19:45'
+updated_date: '2026-01-24 22:28'
 labels:
   - ui
   - playlists
@@ -14,7 +14,7 @@ milestone: Tauri Migration
 dependencies:
   - task-006
 priority: medium
-ordinal: 1000
+ordinal: 11382.8125
 ---
 
 ## Description

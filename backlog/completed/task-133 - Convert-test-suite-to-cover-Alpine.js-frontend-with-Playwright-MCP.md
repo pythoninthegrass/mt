@@ -5,7 +5,7 @@ status: Done
 assignee:
   - Claude
 created_date: '2026-01-14 19:30'
-updated_date: '2026-01-15 03:11'
+updated_date: '2026-01-24 22:28'
 labels:
   - testing
   - playwright
@@ -15,7 +15,7 @@ labels:
   - e2e
 dependencies: []
 priority: medium
-ordinal: 1000
+ordinal: 10382.8125
 ---
 
 ## Description
