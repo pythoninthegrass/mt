@@ -4,7 +4,7 @@ title: 'P3: Package Python backend as PEX sidecar'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
-updated_date: '2026-01-13 07:59'
+updated_date: '2026-01-24 22:28'
 labels:
   - python
   - packaging
@@ -13,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-097
 priority: medium
+ordinal: 85382.8125
 ---
 
 ## Description

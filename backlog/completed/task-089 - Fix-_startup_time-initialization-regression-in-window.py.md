@@ -4,11 +4,11 @@ title: Fix _startup_time initialization regression in window.py
 status: Done
 assignee: []
 created_date: '2026-01-10 05:31'
-updated_date: '2026-01-10 05:45'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
 priority: high
-ordinal: 2000
+ordinal: 22382.8125
 ---
 
 ## Description

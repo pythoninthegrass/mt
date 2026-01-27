@@ -4,7 +4,7 @@ title: 'P3: Define backend API contract (REST + WebSocket)'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
-updated_date: '2026-01-13 06:08'
+updated_date: '2026-01-24 22:28'
 labels:
   - documentation
   - api
@@ -12,6 +12,7 @@ labels:
 milestone: Tauri Migration
 dependencies: []
 priority: high
+ordinal: 87382.8125
 ---
 
 ## Description

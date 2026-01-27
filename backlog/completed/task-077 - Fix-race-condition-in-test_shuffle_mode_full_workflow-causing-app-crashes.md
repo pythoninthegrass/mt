@@ -4,16 +4,18 @@ title: Fix race condition in test_shuffle_mode_full_workflow causing app crashes
 status: Done
 assignee: []
 created_date: '2025-10-26 18:40'
-updated_date: '2025-10-26 18:59'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
 priority: high
-ordinal: 1375
+ordinal: 15382.8125
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 The test_shuffle_mode_full_workflow test intermittently crashes the app when run as part of the full test suite, though it passes consistently in isolation. This suggests a race condition or resource contention issue.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -23,9 +25,9 @@ The test_shuffle_mode_full_workflow test intermittently crashes the app when run
 - [x] #4 Document any timing dependencies or resource constraints
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 ## Implementation Summary
 
 ### Root Cause Identified
@@ -57,7 +59,6 @@ The test_shuffle_mode_full_workflow test intermittently crashes the app when run
 ### Status
 AC #1 and #2 complete. AC #3 needs further investigation of test_loop_queue_exhaustion.
 
-
 ## Timing Dependencies and Resource Constraints
 
 ### VLC Threading Model
@@ -79,3 +80,4 @@ AC #1 and #2 complete. AC #3 needs further investigation of test_loop_queue_exha
 - No VLC player state locking (handled by tkinter single-threaded event loop)
 - No file handle limits encountered
 - Memory: Minimal overhead from locks (~80 bytes per RLock)
+<!-- SECTION:NOTES:END -->

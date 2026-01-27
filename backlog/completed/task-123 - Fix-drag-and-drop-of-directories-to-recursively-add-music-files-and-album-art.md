@@ -4,7 +4,7 @@ title: Fix drag and drop of directories to recursively add music files and album
 status: Done
 assignee: []
 created_date: '2026-01-14 01:46'
-updated_date: '2026-01-14 04:45'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - backend
@@ -13,6 +13,7 @@ labels:
   - file-scanning
 dependencies: []
 priority: high
+ordinal: 77382.8125
 ---
 
 ## Description

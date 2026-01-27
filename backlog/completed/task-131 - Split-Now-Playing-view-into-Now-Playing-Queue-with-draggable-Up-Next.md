@@ -4,7 +4,7 @@ title: Split Now Playing view into Now Playing + Queue with draggable Up Next
 status: Done
 assignee: []
 created_date: '2026-01-14 06:34'
-updated_date: '2026-01-14 07:36'
+updated_date: '2026-01-24 22:28'
 labels:
   - ui
   - now-playing
@@ -12,7 +12,7 @@ labels:
   - ux
 dependencies: []
 priority: medium
-ordinal: 1000
+ordinal: 12382.8125
 ---
 
 ## Description

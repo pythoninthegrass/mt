@@ -1,16 +1,17 @@
 ---
 id: task-211
 title: Reduce binary bloat and improve compile times
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-27 02:50'
-updated_date: '2026-01-27 02:50'
+updated_date: '2026-01-27 03:02'
 labels:
   - performance
   - rust
   - build-system
 dependencies: []
-priority: medium
+priority: high
+ordinal: 812.5
 ---
 
 ## Description

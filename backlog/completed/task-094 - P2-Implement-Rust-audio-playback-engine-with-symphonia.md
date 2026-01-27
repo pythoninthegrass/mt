@@ -4,7 +4,7 @@ title: 'P2: Implement Rust audio playback engine with symphonia'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
-updated_date: '2026-01-13 05:46'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - audio
@@ -13,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-090
 priority: high
+ordinal: 89382.8125
 ---
 
 ## Description

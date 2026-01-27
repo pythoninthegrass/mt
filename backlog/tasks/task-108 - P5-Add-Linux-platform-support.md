@@ -4,7 +4,7 @@ title: 'P5: Add Linux platform support'
 status: To Do
 assignee: []
 created_date: '2026-01-12 04:09'
-updated_date: '2026-01-26 01:32'
+updated_date: '2026-01-27 03:02'
 labels:
   - linux
   - platform
@@ -14,7 +14,7 @@ dependencies:
   - task-094
   - task-098
 priority: low
-ordinal: 38000
+ordinal: 37250
 ---
 
 ## Description

@@ -4,7 +4,7 @@ title: 'P5: Implement macOS global media key support in Tauri'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:09'
-updated_date: '2026-01-14 08:24'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - macos
@@ -13,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-095
 priority: medium
+ordinal: 72382.8125
 ---
 
 ## Description

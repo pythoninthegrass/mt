@@ -4,10 +4,10 @@ title: Package application for macOS and Linux
 status: To Do
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2026-01-26 01:32'
+updated_date: '2026-01-27 03:02'
 labels: []
 dependencies: []
-ordinal: 39000
+ordinal: 37125
 ---
 
 ## Description

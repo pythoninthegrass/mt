@@ -4,7 +4,7 @@ title: Auto-scroll and highlight currently playing track in library view
 status: Done
 assignee: []
 created_date: '2026-01-14 01:36'
-updated_date: '2026-01-14 01:41'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - ui
@@ -12,6 +12,7 @@ labels:
   - playback
 dependencies: []
 priority: medium
+ordinal: 80382.8125
 ---
 
 ## Description

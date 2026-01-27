@@ -4,7 +4,7 @@ title: 'Tauri UI: Fix Top 25 dynamic playlist (play count column + API query)'
 status: Done
 assignee: []
 created_date: '2026-01-14 02:31'
-updated_date: '2026-01-14 05:36'
+updated_date: '2026-01-24 22:28'
 labels:
   - tauri
   - frontend
@@ -12,6 +12,7 @@ labels:
   - dynamic-playlist
 dependencies: []
 priority: high
+ordinal: 76382.8125
 ---
 
 ## Description

@@ -4,7 +4,7 @@ title: 'Improve progress bar: add track info display and fix seeking'
 status: Done
 assignee: []
 created_date: '2026-01-13 23:53'
-updated_date: '2026-01-13 23:56'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - ui
@@ -12,6 +12,7 @@ labels:
   - tauri-migration
 dependencies: []
 priority: medium
+ordinal: 81382.8125
 ---
 
 ## Description

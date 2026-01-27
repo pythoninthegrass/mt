@@ -4,7 +4,7 @@ title: Fix column padding inconsistency between Title and other columns
 status: Done
 assignee: []
 created_date: '2026-01-15 06:24'
-updated_date: '2026-01-15 21:40'
+updated_date: '2026-01-24 22:28'
 labels:
   - ui
   - css
@@ -12,7 +12,7 @@ labels:
   - library-view
 dependencies: []
 priority: low
-ordinal: 1000
+ordinal: 9382.8125
 ---
 
 ## Description

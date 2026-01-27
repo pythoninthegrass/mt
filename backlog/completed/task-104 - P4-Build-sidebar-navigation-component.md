@@ -4,7 +4,7 @@ title: 'P4: Build sidebar navigation component'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:08'
-updated_date: '2026-01-13 04:41'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - ui
@@ -13,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-101
 priority: medium
+ordinal: 90382.8125
 ---
 
 ## Description

@@ -4,16 +4,18 @@ title: Add integration tests for recent bug fixes
 status: Done
 assignee: []
 created_date: '2025-10-26 04:51'
-updated_date: '2025-10-26 17:33'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
 priority: high
-ordinal: 2000
+ordinal: 26382.8125
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Add automated tests for code paths added during Python 3.12 migration bug fixes. These areas currently lack test coverage and caused regressions during manual testing.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -24,9 +26,9 @@ Add automated tests for code paths added during Python 3.12 migration bug fixes.
 - [x] #5 Add integration test: Double-click track → queue populated → playback starts
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 Added comprehensive test coverage for Python 3.12 migration bug fixes. Created two test files:
 
 1. test_e2e_bug_fixes.py with 3 passing E2E/integration tests:
@@ -41,3 +43,4 @@ Added comprehensive test coverage for Python 3.12 migration bug fixes. Created t
 All 12 tests pass successfully. 
 
 CORRECTION: AC #1 was initially skipped because I incorrectly thought the feature wasn't implemented. After user confirmation that the feature works, I unskipped the test and it passes. The feature was implemented during Python 3.12 migration bug fixes in PlayerCore.play_pause() (lines 80-93) which populates queue from current view when queue is empty.
+<!-- SECTION:NOTES:END -->

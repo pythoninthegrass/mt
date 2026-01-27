@@ -4,7 +4,7 @@ title: 'P4: Implement Alpine.js global stores for player state'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:08'
-updated_date: '2026-01-13 04:27'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - alpinejs
@@ -14,6 +14,7 @@ dependencies:
   - task-100
   - task-095
 priority: high
+ordinal: 93382.8125
 ---
 
 ## Description

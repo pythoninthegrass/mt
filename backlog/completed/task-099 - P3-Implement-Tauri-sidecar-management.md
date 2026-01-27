@@ -4,7 +4,7 @@ title: 'P3: Implement Tauri sidecar management'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
-updated_date: '2026-01-13 08:03'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - tauri
@@ -13,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-098
 priority: medium
+ordinal: 84382.8125
 ---
 
 ## Description

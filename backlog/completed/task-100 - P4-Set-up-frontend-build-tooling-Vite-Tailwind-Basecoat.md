@@ -4,7 +4,7 @@ title: 'P4: Set up frontend build tooling (Vite + Tailwind + Basecoat)'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:08'
-updated_date: '2026-01-12 07:46'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - infrastructure
@@ -13,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-093
 priority: high
+ordinal: 94382.8125
 ---
 
 ## Description

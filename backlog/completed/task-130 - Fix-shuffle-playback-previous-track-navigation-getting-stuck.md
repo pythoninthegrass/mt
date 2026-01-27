@@ -4,7 +4,7 @@ title: Fix shuffle playback previous track navigation getting stuck
 status: Done
 assignee: []
 created_date: '2026-01-14 06:10'
-updated_date: '2026-01-14 06:14'
+updated_date: '2026-01-24 22:28'
 labels:
   - bug
   - playback
@@ -12,6 +12,7 @@ labels:
   - queue
 dependencies: []
 priority: medium
+ordinal: 73382.8125
 ---
 
 ## Description

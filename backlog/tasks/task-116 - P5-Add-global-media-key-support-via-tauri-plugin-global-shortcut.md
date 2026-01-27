@@ -1,10 +1,10 @@
 ---
 id: task-116
 title: 'P5: Add global media key support via tauri-plugin-global-shortcut'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 06:36'
-updated_date: '2026-01-19 00:41'
+updated_date: '2026-01-27 03:03'
 labels:
   - rust
   - platform

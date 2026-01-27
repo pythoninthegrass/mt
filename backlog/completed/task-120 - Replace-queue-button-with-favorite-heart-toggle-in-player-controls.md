@@ -4,13 +4,14 @@ title: Replace queue button with favorite/heart toggle in player controls
 status: Done
 assignee: []
 created_date: '2026-01-14 01:02'
-updated_date: '2026-01-14 04:30'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - ui
   - player-controls
 dependencies: []
 priority: medium
+ordinal: 78382.8125
 ---
 
 ## Description

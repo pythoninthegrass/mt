@@ -4,14 +4,14 @@ title: Fix track selection persistence and input field cursor behavior
 status: Done
 assignee: []
 created_date: '2026-01-14 05:43'
-updated_date: '2026-01-14 06:05'
+updated_date: '2026-01-24 22:28'
 labels:
   - bug
   - ui
   - ux
 dependencies: []
 priority: medium
-ordinal: 1000
+ordinal: 13382.8125
 ---
 
 ## Description

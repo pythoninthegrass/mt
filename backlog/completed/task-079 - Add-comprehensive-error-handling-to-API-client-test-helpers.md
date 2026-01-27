@@ -4,16 +4,18 @@ title: Add comprehensive error handling to API client test helpers
 status: Done
 assignee: []
 created_date: '2025-10-26 18:40'
-updated_date: '2025-10-26 19:23'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
 priority: medium
-ordinal: 3000
+ordinal: 30382.8125
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 The API client in tests should gracefully handle server disconnections and provide better error messages. Currently, when the app crashes mid-test, cascading failures occur because the client doesn't handle connection failures robustly.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->

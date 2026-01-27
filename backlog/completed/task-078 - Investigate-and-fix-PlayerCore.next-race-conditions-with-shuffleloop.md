@@ -4,11 +4,11 @@ title: Investigate and fix PlayerCore.next() race conditions with shuffle+loop
 status: Done
 assignee: []
 created_date: '2025-10-26 18:40'
-updated_date: '2026-01-18 22:45'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
 priority: high
-ordinal: 19382.8125
+ordinal: 25382.8125
 ---
 
 ## Description

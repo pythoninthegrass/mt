@@ -4,7 +4,7 @@ title: Fix auto-sizing columns (double-click resize border)
 status: Done
 assignee: []
 created_date: '2026-01-15 21:41'
-updated_date: '2026-01-15 22:09'
+updated_date: '2026-01-24 22:28'
 labels:
   - bug
   - ui
@@ -12,6 +12,7 @@ labels:
   - column-resize
 dependencies: []
 priority: medium
+ordinal: 71382.8125
 ---
 
 ## Description

@@ -4,7 +4,7 @@ title: Add column customization to library table view
 status: Done
 assignee: []
 created_date: '2026-01-15 02:48'
-updated_date: '2026-01-15 04:17'
+updated_date: '2026-01-24 22:28'
 labels:
   - enhancement
   - frontend
@@ -12,7 +12,7 @@ labels:
   - database
 dependencies: []
 priority: medium
-ordinal: 1500
+ordinal: 17382.8125
 ---
 
 ## Description

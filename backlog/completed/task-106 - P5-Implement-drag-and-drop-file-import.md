@@ -4,7 +4,7 @@ title: 'P5: Implement drag-and-drop file import'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:09'
-updated_date: '2026-01-13 21:28'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - backend
@@ -14,6 +14,7 @@ dependencies:
   - task-097
   - task-102
 priority: medium
+ordinal: 83382.8125
 ---
 
 ## Description

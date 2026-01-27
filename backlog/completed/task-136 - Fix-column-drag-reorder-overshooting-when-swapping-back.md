@@ -4,14 +4,14 @@ title: Fix column drag reorder overshooting when swapping back
 status: Done
 assignee: []
 created_date: '2026-01-15 08:38'
-updated_date: '2026-01-15 20:02'
+updated_date: '2026-01-24 22:28'
 labels:
   - bug
   - frontend
   - column-customization
 dependencies: []
 priority: medium
-ordinal: 1500
+ordinal: 16382.8125
 ---
 
 ## Description

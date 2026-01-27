@@ -4,17 +4,19 @@ title: 'Fix remaining test failures: property tests and flaky smoke test'
 status: Done
 assignee: []
 created_date: '2025-10-27 05:48'
-updated_date: '2025-11-03 05:11'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies:
   - task-003
 priority: high
-ordinal: 1500
+ordinal: 18382.8125
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Two categories of test failures remain after test suite optimization: (1) 5 property tests fail because real VLC returns -1 for time/duration operations with mock media objects (test_seek_position_stays_in_bounds, test_seek_position_proportional_to_duration, test_get_current_time_non_negative, test_get_duration_non_negative, test_get_duration_matches_media_length); (2) test_next_previous_navigation in smoke suite intermittently fails with 'Track should have changed' - timing-sensitive test that passes in isolation but can fail when run with other tests.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -24,9 +26,9 @@ Two categories of test failures remain after test suite optimization: (1) 5 prop
 - [ ] #4 Verify all fast tests pass consistently: pytest -m 'not slow' should show 473 passed, 0 failed
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 Fixed all identified test failures:
 
 1. Loop toggle property tests: Updated tests to match 3-state cycle (OFF → LOOP ALL → REPEAT ONE → OFF) instead of simple 2-state toggle. Tests now pass consistently.
@@ -59,3 +61,4 @@ Improvements made:
 - Verified first track before attempting navigation
 
 Test marked with @pytest.mark.flaky_in_suite for documentation. Recommendation: Run this specific test in isolation for reliable results.
+<!-- SECTION:NOTES:END -->
