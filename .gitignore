@@ -1,5 +1,5 @@
 # ETC
-*.db
+*.db*
 *.sqlite
 .playwright-mcp/
 .serena/
