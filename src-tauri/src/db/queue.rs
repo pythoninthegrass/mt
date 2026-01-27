@@ -443,6 +443,214 @@ mod tests {
         let length = get_queue_length(&conn).unwrap();
         assert_eq!(length, 0);
     }
+
+    #[test]
+    fn test_remove_from_queue_invalid_position() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 3);
+        add_to_queue(&conn, &track_ids, None).unwrap();
+
+        // Invalid positive position
+        let removed = remove_from_queue(&conn, 999).unwrap();
+        assert!(!removed);
+
+        // Invalid negative position
+        let removed = remove_from_queue(&conn, -1).unwrap();
+        assert!(!removed);
+    }
+
+    #[test]
+    fn test_reorder_queue_invalid_from() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 3);
+        add_to_queue(&conn, &track_ids, None).unwrap();
+
+        let success = reorder_queue(&conn, 999, 0).unwrap();
+        assert!(!success);
+    }
+
+    #[test]
+    fn test_reorder_queue_invalid_to() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 3);
+        add_to_queue(&conn, &track_ids, None).unwrap();
+
+        let success = reorder_queue(&conn, 0, 999).unwrap();
+        assert!(!success);
+    }
+
+    #[test]
+    fn test_get_queue_state_default() {
+        let conn = setup_test_db();
+
+        // First call should initialize default state
+        let state = get_queue_state(&conn).unwrap();
+        assert_eq!(state.current_index, -1);
+        assert!(!state.shuffle_enabled);
+        assert_eq!(state.loop_mode, "none");
+        assert!(state.original_order_json.is_none());
+    }
+
+    #[test]
+    fn test_set_queue_state() {
+        let conn = setup_test_db();
+
+        let state = QueueState {
+            current_index: 5,
+            shuffle_enabled: true,
+            loop_mode: "all".to_string(),
+            original_order_json: Some("[1,2,3]".to_string()),
+        };
+
+        set_queue_state(&conn, &state).unwrap();
+
+        let retrieved = get_queue_state(&conn).unwrap();
+        assert_eq!(retrieved.current_index, 5);
+        assert!(retrieved.shuffle_enabled);
+        assert_eq!(retrieved.loop_mode, "all");
+        assert_eq!(retrieved.original_order_json, Some("[1,2,3]".to_string()));
+    }
+
+    #[test]
+    fn test_set_current_index() {
+        let conn = setup_test_db();
+
+        set_current_index(&conn, 10).unwrap();
+
+        let state = get_queue_state(&conn).unwrap();
+        assert_eq!(state.current_index, 10);
+    }
+
+    #[test]
+    fn test_set_shuffle_enabled() {
+        let conn = setup_test_db();
+
+        set_shuffle_enabled(&conn, true).unwrap();
+
+        let state = get_queue_state(&conn).unwrap();
+        assert!(state.shuffle_enabled);
+
+        set_shuffle_enabled(&conn, false).unwrap();
+
+        let state = get_queue_state(&conn).unwrap();
+        assert!(!state.shuffle_enabled);
+    }
+
+    #[test]
+    fn test_set_loop_mode() {
+        let conn = setup_test_db();
+
+        set_loop_mode(&conn, "one").unwrap();
+
+        let state = get_queue_state(&conn).unwrap();
+        assert_eq!(state.loop_mode, "one");
+
+        set_loop_mode(&conn, "all").unwrap();
+
+        let state = get_queue_state(&conn).unwrap();
+        assert_eq!(state.loop_mode, "all");
+    }
+
+    #[test]
+    fn test_set_original_order_json() {
+        let conn = setup_test_db();
+
+        set_original_order_json(&conn, Some("[5,4,3,2,1]".to_string())).unwrap();
+
+        let state = get_queue_state(&conn).unwrap();
+        assert_eq!(state.original_order_json, Some("[5,4,3,2,1]".to_string()));
+
+        // Clear it
+        set_original_order_json(&conn, None).unwrap();
+
+        let state = get_queue_state(&conn).unwrap();
+        assert!(state.original_order_json.is_none());
+    }
+
+    #[test]
+    fn test_add_files_to_queue_new_files() {
+        let conn = setup_test_db();
+
+        // Add files not in library
+        let filepaths = vec![
+            "/music/new1.mp3".to_string(),
+            "/music/new2.mp3".to_string(),
+        ];
+
+        let (count, tracks) = add_files_to_queue(&conn, &filepaths, None).unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(tracks.len(), 2);
+
+        let queue = get_queue(&conn).unwrap();
+        assert_eq!(queue.len(), 2);
+    }
+
+    #[test]
+    fn test_add_files_to_queue_existing_files() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 2);
+
+        // Get filepaths from library
+        let filepaths = vec![
+            "/music/track1.mp3".to_string(),
+            "/music/track2.mp3".to_string(),
+        ];
+
+        let (count, tracks) = add_files_to_queue(&conn, &filepaths, None).unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(tracks.len(), 2);
+        assert_eq!(tracks[0].id, track_ids[0]);
+        assert_eq!(tracks[1].id, track_ids[1]);
+    }
+
+    #[test]
+    fn test_add_files_to_queue_at_position() {
+        let conn = setup_test_db();
+
+        // Add initial files
+        let initial = vec!["/music/first.mp3".to_string(), "/music/second.mp3".to_string()];
+        add_files_to_queue(&conn, &initial, None).unwrap();
+
+        // Add new files at position 1
+        let new_files = vec!["/music/inserted.mp3".to_string()];
+        add_files_to_queue(&conn, &new_files, Some(1)).unwrap();
+
+        let queue = get_queue(&conn).unwrap();
+        assert_eq!(queue.len(), 3);
+        assert_eq!(queue[0].track.filepath, "/music/first.mp3");
+        assert_eq!(queue[1].track.filepath, "/music/inserted.mp3");
+        assert_eq!(queue[2].track.filepath, "/music/second.mp3");
+    }
+
+    #[test]
+    fn test_get_queue_empty() {
+        let conn = setup_test_db();
+
+        let queue = get_queue(&conn).unwrap();
+        assert!(queue.is_empty());
+    }
+
+    #[test]
+    fn test_get_queue_length() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 5);
+        add_to_queue(&conn, &track_ids, None).unwrap();
+
+        let length = get_queue_length(&conn).unwrap();
+        assert_eq!(length, 5);
+    }
+
+    #[test]
+    fn test_add_to_queue_nonexistent_tracks() {
+        let conn = setup_test_db();
+
+        // Try to add nonexistent track IDs
+        let added = add_to_queue(&conn, &[9999, 9998], None).unwrap();
+        assert_eq!(added, 0);
+
+        let queue = get_queue(&conn).unwrap();
+        assert!(queue.is_empty());
+    }
 }
 
 #[cfg(test)]

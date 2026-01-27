@@ -282,4 +282,130 @@ mod tests {
         let folder = get_watched_folder(&conn, folder.id).unwrap().unwrap();
         assert!(folder.last_scanned_at.is_some());
     }
+
+    #[test]
+    fn test_get_watched_folder_nonexistent() {
+        let conn = setup_test_db();
+
+        let result = get_watched_folder(&conn, 999).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_watched_folder_by_path() {
+        let conn = setup_test_db();
+
+        add_watched_folder(&conn, "/music/library", "startup", 15, true).unwrap();
+
+        let folder = get_watched_folder_by_path(&conn, "/music/library")
+            .unwrap()
+            .unwrap();
+        assert_eq!(folder.path, "/music/library");
+        assert_eq!(folder.cadence_minutes, 15);
+    }
+
+    #[test]
+    fn test_get_watched_folder_by_path_nonexistent() {
+        let conn = setup_test_db();
+
+        let result = get_watched_folder_by_path(&conn, "/nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_update_watched_folder_no_changes() {
+        let conn = setup_test_db();
+
+        let folder = add_watched_folder(&conn, "/music", "startup", 10, true)
+            .unwrap()
+            .unwrap();
+
+        // Update with no changes
+        let updated = update_watched_folder(&conn, folder.id, None, None, None)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(updated.mode, "startup");
+        assert_eq!(updated.cadence_minutes, 10);
+        assert!(updated.enabled);
+    }
+
+    #[test]
+    fn test_update_watched_folder_partial() {
+        let conn = setup_test_db();
+
+        let folder = add_watched_folder(&conn, "/music", "startup", 10, true)
+            .unwrap()
+            .unwrap();
+
+        // Update only mode
+        let updated = update_watched_folder(&conn, folder.id, Some("manual"), None, None)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(updated.mode, "manual");
+        assert_eq!(updated.cadence_minutes, 10); // Unchanged
+        assert!(updated.enabled); // Unchanged
+    }
+
+    #[test]
+    fn test_update_watched_folder_nonexistent() {
+        let conn = setup_test_db();
+
+        let result = update_watched_folder(&conn, 999, Some("manual"), None, None).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_remove_watched_folder_nonexistent() {
+        let conn = setup_test_db();
+
+        let removed = remove_watched_folder(&conn, 999).unwrap();
+        assert!(!removed);
+    }
+
+    #[test]
+    fn test_update_last_scanned_nonexistent() {
+        let conn = setup_test_db();
+
+        let updated = update_watched_folder_last_scanned(&conn, 999).unwrap();
+        assert!(!updated);
+    }
+
+    #[test]
+    fn test_get_watched_folders_multiple() {
+        let conn = setup_test_db();
+
+        add_watched_folder(&conn, "/music1", "startup", 5, true).unwrap();
+        add_watched_folder(&conn, "/music2", "manual", 10, false).unwrap();
+        add_watched_folder(&conn, "/music3", "watch", 15, true).unwrap();
+
+        let folders = get_watched_folders(&conn).unwrap();
+        assert_eq!(folders.len(), 3);
+
+        // Verify each folder's data
+        assert_eq!(folders[0].path, "/music1");
+        assert_eq!(folders[0].mode, "startup");
+        assert_eq!(folders[0].cadence_minutes, 5);
+        assert!(folders[0].enabled);
+
+        assert_eq!(folders[1].path, "/music2");
+        assert_eq!(folders[1].mode, "manual");
+        assert!(!folders[1].enabled);
+
+        assert_eq!(folders[2].path, "/music3");
+        assert_eq!(folders[2].mode, "watch");
+        assert_eq!(folders[2].cadence_minutes, 15);
+    }
+
+    #[test]
+    fn test_watched_folder_disabled_by_default() {
+        let conn = setup_test_db();
+
+        let folder = add_watched_folder(&conn, "/music", "startup", 10, false)
+            .unwrap()
+            .unwrap();
+
+        assert!(!folder.enabled);
+    }
 }

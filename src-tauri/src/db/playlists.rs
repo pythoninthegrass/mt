@@ -494,4 +494,212 @@ mod tests {
         let playlists = get_playlists(&conn).unwrap();
         assert!(playlists.is_empty());
     }
+
+    #[test]
+    fn test_create_playlist_duplicate_name() {
+        let conn = setup_test_db();
+
+        // Create first playlist
+        let playlist = create_playlist(&conn, "Duplicate").unwrap();
+        assert!(playlist.is_some());
+
+        // Try to create with same name - should return None
+        let duplicate = create_playlist(&conn, "Duplicate").unwrap();
+        assert!(duplicate.is_none());
+    }
+
+    #[test]
+    fn test_get_playlist_nonexistent() {
+        let conn = setup_test_db();
+
+        let result = get_playlist(&conn, 999).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_update_playlist_name() {
+        let conn = setup_test_db();
+
+        let playlist = create_playlist(&conn, "Original").unwrap().unwrap();
+        let updated = update_playlist(&conn, playlist.id, Some("Renamed")).unwrap();
+
+        assert!(updated.is_some());
+        assert_eq!(updated.unwrap().name, "Renamed");
+    }
+
+    #[test]
+    fn test_update_playlist_name_conflict() {
+        let conn = setup_test_db();
+
+        create_playlist(&conn, "Existing").unwrap();
+        let playlist = create_playlist(&conn, "Original").unwrap().unwrap();
+
+        // Try to rename to existing name - should return None
+        let updated = update_playlist(&conn, playlist.id, Some("Existing")).unwrap();
+        assert!(updated.is_none());
+    }
+
+    #[test]
+    fn test_update_playlist_nonexistent() {
+        let conn = setup_test_db();
+
+        let result = update_playlist(&conn, 999, Some("New Name")).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_update_playlist_no_changes() {
+        let conn = setup_test_db();
+
+        let playlist = create_playlist(&conn, "Unchanged").unwrap().unwrap();
+
+        // Update with None (no changes)
+        let updated = update_playlist(&conn, playlist.id, None).unwrap();
+        assert!(updated.is_some());
+        assert_eq!(updated.unwrap().name, "Unchanged");
+    }
+
+    #[test]
+    fn test_add_duplicate_track_to_playlist() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 2);
+
+        let playlist = create_playlist(&conn, "Test").unwrap().unwrap();
+
+        // Add tracks
+        let added1 = add_tracks_to_playlist(&conn, playlist.id, &track_ids, None).unwrap();
+        assert_eq!(added1, 2);
+
+        // Try to add same tracks again - should skip duplicates
+        let added2 = add_tracks_to_playlist(&conn, playlist.id, &track_ids, None).unwrap();
+        assert_eq!(added2, 0);
+
+        let playlist = get_playlist(&conn, playlist.id).unwrap().unwrap();
+        assert_eq!(playlist.track_count, 2); // Still only 2
+    }
+
+    #[test]
+    fn test_remove_track_invalid_position() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 2);
+
+        let playlist = create_playlist(&conn, "Test").unwrap().unwrap();
+        add_tracks_to_playlist(&conn, playlist.id, &track_ids, None).unwrap();
+
+        // Try to remove from invalid position
+        let removed = remove_track_from_playlist(&conn, playlist.id, 999).unwrap();
+        assert!(!removed);
+    }
+
+    #[test]
+    fn test_reorder_playlist_invalid_from() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 3);
+
+        let playlist = create_playlist(&conn, "Test").unwrap().unwrap();
+        add_tracks_to_playlist(&conn, playlist.id, &track_ids, None).unwrap();
+
+        // Invalid from position
+        let success = reorder_playlist(&conn, playlist.id, 999, 0).unwrap();
+        assert!(!success);
+    }
+
+    #[test]
+    fn test_reorder_playlist_invalid_to() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 3);
+
+        let playlist = create_playlist(&conn, "Test").unwrap().unwrap();
+        add_tracks_to_playlist(&conn, playlist.id, &track_ids, None).unwrap();
+
+        // Invalid to position
+        let success = reorder_playlist(&conn, playlist.id, 0, 999).unwrap();
+        assert!(!success);
+    }
+
+    #[test]
+    fn test_reorder_playlists() {
+        let conn = setup_test_db();
+
+        // Create 3 playlists
+        create_playlist(&conn, "First").unwrap();
+        create_playlist(&conn, "Second").unwrap();
+        create_playlist(&conn, "Third").unwrap();
+
+        // Move first to last position
+        let success = reorder_playlists(&conn, 0, 2).unwrap();
+        assert!(success);
+
+        let playlists = get_playlists(&conn).unwrap();
+        assert_eq!(playlists[0].name, "Second");
+        assert_eq!(playlists[1].name, "Third");
+        assert_eq!(playlists[2].name, "First");
+    }
+
+    #[test]
+    fn test_reorder_playlists_invalid_positions() {
+        let conn = setup_test_db();
+
+        create_playlist(&conn, "Only").unwrap();
+
+        // Invalid from position
+        let success = reorder_playlists(&conn, 999, 0).unwrap();
+        assert!(!success);
+
+        // Invalid to position
+        let success = reorder_playlists(&conn, 0, 999).unwrap();
+        assert!(!success);
+    }
+
+    #[test]
+    fn test_get_playlist_track_count() {
+        let conn = setup_test_db();
+        let track_ids = add_test_tracks(&conn, 5);
+
+        let playlist = create_playlist(&conn, "Test").unwrap().unwrap();
+        add_tracks_to_playlist(&conn, playlist.id, &track_ids, None).unwrap();
+
+        let count = get_playlist_track_count(&conn, playlist.id).unwrap();
+        assert_eq!(count, 5);
+    }
+
+    #[test]
+    fn test_get_playlist_track_count_empty() {
+        let conn = setup_test_db();
+
+        let playlist = create_playlist(&conn, "Empty").unwrap().unwrap();
+        let count = get_playlist_track_count(&conn, playlist.id).unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_delete_playlist_nonexistent() {
+        let conn = setup_test_db();
+
+        let deleted = delete_playlist(&conn, 999).unwrap();
+        assert!(!deleted);
+    }
+
+    #[test]
+    fn test_playlist_with_tracks_returns_track_data() {
+        let conn = setup_test_db();
+
+        // Add a track with specific metadata
+        let metadata = TrackMetadata {
+            title: Some("Specific Track".to_string()),
+            artist: Some("Test Artist".to_string()),
+            album: Some("Test Album".to_string()),
+            ..Default::default()
+        };
+        let track_id = add_track(&conn, "/music/specific.mp3", &metadata).unwrap();
+
+        let playlist = create_playlist(&conn, "Test").unwrap().unwrap();
+        add_tracks_to_playlist(&conn, playlist.id, &[track_id], None).unwrap();
+
+        let playlist = get_playlist(&conn, playlist.id).unwrap().unwrap();
+        assert_eq!(playlist.tracks.len(), 1);
+        assert_eq!(playlist.tracks[0].track.title, Some("Specific Track".to_string()));
+        assert_eq!(playlist.tracks[0].track.artist, Some("Test Artist".to_string()));
+        assert_eq!(playlist.tracks[0].position, 0);
+    }
 }

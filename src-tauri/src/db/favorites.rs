@@ -321,4 +321,196 @@ mod tests {
         assert_eq!(top.len(), 25);
         assert_eq!(top[0].play_count, 30); // Most played first
     }
+
+    #[test]
+    fn test_get_recently_played_empty() {
+        let conn = setup_test_db();
+
+        // No tracks played yet
+        let recent = get_recently_played(&conn, 7, 10).unwrap();
+        assert!(recent.is_empty());
+    }
+
+    #[test]
+    fn test_get_recently_played_with_tracks() {
+        let conn = setup_test_db();
+
+        // Add a track and update its play count (which also sets last_played)
+        let metadata = TrackMetadata {
+            title: Some("Recently Played".to_string()),
+            ..Default::default()
+        };
+        let id = add_track(&conn, "/music/recent.mp3", &metadata).unwrap();
+        update_play_count(&conn, id).unwrap();
+
+        // Should find the recently played track
+        let recent = get_recently_played(&conn, 7, 10).unwrap();
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].title, Some("Recently Played".to_string()));
+    }
+
+    #[test]
+    fn test_get_recently_played_respects_limit() {
+        let conn = setup_test_db();
+
+        // Add 5 tracks and play them
+        for i in 1..=5 {
+            let metadata = TrackMetadata {
+                title: Some(format!("Track {}", i)),
+                ..Default::default()
+            };
+            let id = add_track(&conn, &format!("/music/track{}.mp3", i), &metadata).unwrap();
+            update_play_count(&conn, id).unwrap();
+        }
+
+        // Request only 3
+        let recent = get_recently_played(&conn, 7, 3).unwrap();
+        assert_eq!(recent.len(), 3);
+    }
+
+    #[test]
+    fn test_get_recently_added_empty() {
+        let conn = setup_test_db();
+
+        // No tracks added
+        let recent = get_recently_added(&conn, 7, 10).unwrap();
+        assert!(recent.is_empty());
+    }
+
+    #[test]
+    fn test_get_recently_added_with_tracks() {
+        let conn = setup_test_db();
+
+        // Add a track (added_date is set automatically)
+        let metadata = TrackMetadata {
+            title: Some("New Track".to_string()),
+            ..Default::default()
+        };
+        add_track(&conn, "/music/new.mp3", &metadata).unwrap();
+
+        // Should find the recently added track
+        let recent = get_recently_added(&conn, 7, 10).unwrap();
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].title, Some("New Track".to_string()));
+    }
+
+    #[test]
+    fn test_get_recently_added_respects_limit() {
+        let conn = setup_test_db();
+
+        // Add 5 tracks
+        for i in 1..=5 {
+            let metadata = TrackMetadata {
+                title: Some(format!("Track {}", i)),
+                ..Default::default()
+            };
+            add_track(&conn, &format!("/music/track{}.mp3", i), &metadata).unwrap();
+        }
+
+        // Request only 2
+        let recent = get_recently_added(&conn, 7, 2).unwrap();
+        assert_eq!(recent.len(), 2);
+    }
+
+    #[test]
+    fn test_remove_favorite_nonexistent() {
+        let conn = setup_test_db();
+
+        // Try to remove a favorite that doesn't exist
+        let removed = remove_favorite(&conn, 999).unwrap();
+        assert!(!removed);
+    }
+
+    #[test]
+    fn test_is_favorite_nonexistent_track() {
+        let conn = setup_test_db();
+
+        // Check if nonexistent track is favorite
+        let (is_fav, timestamp) = is_favorite(&conn, 999).unwrap();
+        assert!(!is_fav);
+        assert!(timestamp.is_none());
+    }
+
+    #[test]
+    fn test_get_favorites_pagination() {
+        let conn = setup_test_db();
+
+        // Add 10 tracks and favorite them
+        for i in 1..=10 {
+            let metadata = TrackMetadata {
+                title: Some(format!("Track {}", i)),
+                ..Default::default()
+            };
+            let id = add_track(&conn, &format!("/music/track{}.mp3", i), &metadata).unwrap();
+            add_favorite(&conn, id).unwrap();
+        }
+
+        // Get first page
+        let page1 = get_favorites(&conn, 5, 0).unwrap();
+        assert_eq!(page1.total, 10);
+        assert_eq!(page1.items.len(), 5);
+
+        // Get second page
+        let page2 = get_favorites(&conn, 5, 5).unwrap();
+        assert_eq!(page2.total, 10);
+        assert_eq!(page2.items.len(), 5);
+
+        // Different tracks on each page
+        assert_ne!(page1.items[0].track.id, page2.items[0].track.id);
+    }
+
+    #[test]
+    fn test_get_top_25_with_zero_plays() {
+        let conn = setup_test_db();
+
+        // Add tracks but don't play them
+        for i in 1..=5 {
+            let metadata = TrackMetadata {
+                title: Some(format!("Track {}", i)),
+                ..Default::default()
+            };
+            add_track(&conn, &format!("/music/track{}.mp3", i), &metadata).unwrap();
+        }
+
+        // Should return empty since no tracks have been played
+        let top = get_top_25(&conn).unwrap();
+        assert!(top.is_empty());
+    }
+
+    #[test]
+    fn test_get_top_25_orders_by_play_count() {
+        let conn = setup_test_db();
+
+        // Add 3 tracks with different play counts
+        let metadata1 = TrackMetadata {
+            title: Some("Low Plays".to_string()),
+            ..Default::default()
+        };
+        let id1 = add_track(&conn, "/music/low.mp3", &metadata1).unwrap();
+        update_play_count(&conn, id1).unwrap(); // 1 play
+
+        let metadata2 = TrackMetadata {
+            title: Some("High Plays".to_string()),
+            ..Default::default()
+        };
+        let id2 = add_track(&conn, "/music/high.mp3", &metadata2).unwrap();
+        for _ in 0..10 {
+            update_play_count(&conn, id2).unwrap(); // 10 plays
+        }
+
+        let metadata3 = TrackMetadata {
+            title: Some("Medium Plays".to_string()),
+            ..Default::default()
+        };
+        let id3 = add_track(&conn, "/music/medium.mp3", &metadata3).unwrap();
+        for _ in 0..5 {
+            update_play_count(&conn, id3).unwrap(); // 5 plays
+        }
+
+        let top = get_top_25(&conn).unwrap();
+        assert_eq!(top.len(), 3);
+        assert_eq!(top[0].title, Some("High Plays".to_string()));
+        assert_eq!(top[1].title, Some("Medium Plays".to_string()));
+        assert_eq!(top[2].title, Some("Low Plays".to_string()));
+    }
 }
