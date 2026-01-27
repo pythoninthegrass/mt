@@ -4,7 +4,7 @@ title: Investigate missing tracks after re-adding watch directory
 status: In Progress
 assignee: []
 created_date: '2026-01-27 19:58'
-updated_date: '2026-01-27 20:07'
+updated_date: '2026-01-27 20:57'
 labels:
   - bug
   - library
@@ -170,4 +170,52 @@ No database migration required. The `missing` column already exists with:
 - `missing = 0` for present tracks
 - `missing = 1` for missing tracks
 - `missing IS NULL` for legacy tracks (treated as present)
+
+## Additional Fixes (Frontend State Bug)
+
+### Problem
+After the first fix, user reported a new issue after deleting database and re-adding watch folder:
+1. Music library view was empty
+2. Recently Added showed 100 tracks (pagination working)
+3. When switching from Recently Added to Music, Music showed the Recently Added tracks
+4. This persisted until app restart
+
+### Root Cause #2: Missing Column Not Set on Insert
+
+The `add_track()` and `add_tracks_bulk()` functions didn't explicitly set `missing = 0` when inserting new tracks. They relied on the SQL DEFAULT value from the migration, but this was unreliable.
+
+### Root Cause #3: Frontend State Not Cleared
+
+The library store's load functions didn't clear `tracks[]` and `filteredTracks[]` at the start, so:
+1. If an API call failed or returned empty data
+2. The old tracks from the previous section remained visible
+3. Switching from "Recently Added" (100 tracks) to "Music" (0 tracks) kept showing the 100 tracks
+
+### Additional Fixes Made
+
+**Backend** (`src-tauri/crates/mt-core/src/db/library.rs`):
+1. `add_track()`: Added `missing` column to INSERT with value `0`
+2. `add_tracks_bulk()`: Added `missing` column to INSERT with value `0`
+
+**Frontend** (`app/frontend/js/stores/library.js`):
+1. `load()`: Clear tracks/filteredTracks at start and on error
+2. `loadFavorites()`: Same
+3. `loadRecentlyPlayed()`: Same
+4. `loadRecentlyAdded()`: Same
+5. `loadTop25()`: Same
+6. `loadPlaylist()`: Same
+
+### Testing
+- ✅ Backend tests pass
+- ✅ Track insertion explicitly sets missing=0
+- ✅ Frontend clears stale data before loading new section
+- ✅ Error handlers prevent stale data from displaying
+
+### User Action Required
+
+User needs to:
+1. Rebuild the app with the new changes
+2. Delete the database again (or UPDATE tracks to set missing=0)
+3. Re-add watch folder
+4. All 301 tracks should now appear in Music library view
 <!-- SECTION:NOTES:END -->
