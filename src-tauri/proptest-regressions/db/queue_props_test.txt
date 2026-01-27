@@ -1,0 +1,11 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 66cc5d2ba1a3b3e8281fb4a519e0e481e269ebd1361ace4bc9609fbea61883e0 # shrinks to track_ids = [2]
+cc 7bde18027721d8260ef1252e4603c513a24ce9eea6b120d9769c7861eb1412ab # shrinks to track_count = 1, operations = [0, 0]
+cc 66900cb58ad5fc16a6a23dc427e15e7245a926e1af82a39063b04a0ab604edb8 # shrinks to track_ids = [2]
+cc 51e482b228a7b752328edf3c4bd6a4f03723a5909f5de01232dfd46d3b767de7 # shrinks to track_ids = [221, 221]
+cc aa3f38345a2da471ce18e5ac15bbf9e45df7f7ff5db690d3d3f1a1ad522b626e # shrinks to track_ids = [325, 325]

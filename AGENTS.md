@@ -4,7 +4,7 @@ This file provides guidance to LLMs when working with code in this repository.
 
 ## Project Overview
 
-mt is a desktop music player designed for large music collections, built with Python and Tkinter. It uses VLC for audio playback and supports drag-and-drop functionality.
+mt is a desktop music player designed for large music collections, built with Tauri (Rust backend), basecoat (with Tailwind CSS), and Alpine.js. The backend uses Rust for audio playback and system integration, while the frontend is a modern web-based UI with reactive components.
 
 ## General Guidelines
 
@@ -23,13 +23,16 @@ mt is a desktop music player designed for large music collections, built with Py
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 
-- oaubert/python-vlc
-- quodlibet/mutagen
-- itamarst/eliot
-- hypothesisworks/hypothesis
-- spiraldb/ziggy-pydust
-- ludo-technologies/pyscn
-- johnwmillr/lyricsgenius
+### AlpineJS + Basecoat + Tauri Libraries
+
+- alpinejs/alpine
+- dubzzz/fast-check
+- jdx/mise
+- microsoft/playwright (for E2E testing)
+- serial-ata/lofty-rs
+- tailwindlabs/tailwindcss
+- websites/last_fm_api
+- websites/rs_tauri_2_9_5
 
 ## Atomic Commit Workflow
 
@@ -64,6 +67,7 @@ git stash save --patch   # Stash specific hunks
 ```
 
 **Interactive Mode Commands** (`git add -i`):
+
 - `s` or `1`: View status (staged vs unstaged changes)
 - `u` or `2`: Stage files (equivalent to `git add <file>`)
 - `r` or `3`: Unstage files (equivalent to `git rm --cached <file>`)
@@ -72,6 +76,7 @@ git stash save --patch   # Stash specific hunks
 - `d` or `6`: View diff of staged files
 
 **Patch Mode Commands** (after selecting `p` or using `git add -p`):
+
 - `y`: Stage this hunk
 - `n`: Don't stage this hunk
 - `s`: Split the hunk into smaller hunks ⭐ (most useful!)
@@ -115,105 +120,351 @@ After completing development with multiple atomic commits:
 ### Running the Application
 
 ```bash
-# Standard run
-uv run main.py
+# Development mode with hot-reload
+task tauri:dev
 
-# Run main with auto-reload
-uv run repeater
+# Build the application
+task build
+```
 
-# Run with API server enabled (for LLM/automation control)
-MT_API_SERVER_ENABLED=true uv run main.py
+### Running Tests (Task Commands)
 
-# Run with API server on custom port
-MT_API_SERVER_ENABLED=true MT_API_SERVER_PORT=5555 uv run main.py
+| Layer | Task Command | Tests | Duration |
+|-------|--------------|-------|----------|
+| **All Tests** | `task test` | Rust + Vitest | ~30s |
+| **Rust Backend** | `task test` | 320 tests | ~15s |
+| **Vitest Unit** | `task npm:test` | 210 tests | ~2s |
+| **Playwright E2E** | `task test:e2e` | 413 tests | ~1m |
+
+```bash
+# Run all tests (Rust + Vitest unit tests)
+task test
+
+# Run only Vitest unit/property tests
+task npm:test
+
+# Run Vitest in watch mode (development)
+task npm:test:watch
+
+# Run Playwright E2E tests (fast mode - webkit only)
+task test:e2e
+
+# Run E2E with all browsers
+E2E_MODE=full task test:e2e
+
+# Run E2E in interactive UI mode
+task npm:test:e2e:ui
+```
+
+### Initial setup
+
+```bash
+# Install runtimes
+mise install
+
+# Copy environment configuration (Last.fm API keys are optional)
+cp .env.example .env
+
+# Install dependencies
+npm install
 ```
 
 ### Development Workflow
 
+#### Task runner abstraction
+
+```bash
+# Start development server
+task tauri:dev
+```
+
+#### Raw commands (without task runner)
+
 ```bash
 # Install dependencies
-uv pip install -r pyproject.toml --all-extras
+npm install                           # Frontend dependencies
+cargo build                           # Rust backend dependencies
 
-# Update dependencies
-uv lock --upgrade
+# Fast syntax/type checking (no binary output, 2-3x faster than build)
+cargo check --manifest-path src-tauri/Cargo.toml  # Quick validation during development
+cargo check --all-features            # Check with all feature combinations
 
 # Run linting
-uv run ruff check --fix --respect-gitignore
+npm run lint                          # Frontend linting (ESLint)
+cargo clippy                          # Rust linting
 
 # Run formatting
-uv run ruff format --respect-gitignore
+npm run format                        # Frontend formatting (Prettier)
+cargo fmt                             # Rust formatting
 
-# Test execution tiers - run different tests based on workflow stage
-uv run pytest tests/test_unit_*.py tests/test_props_*.py                      # TDD: unit+property only (~18s)
-uv run pytest tests/test_unit_*.py tests/test_props_*.py tests/test_e2e_smoke.py  # Pre-commit: +smoke (~20s)
-uv run pytest tests/ -m "not slow and not flaky_in_suite"                    # Pre-PR: fast suite (~22s)
-uv run pytest tests/                                                          # CI/pre-push: everything (~60s)
-
-# Specialized test commands (less common)
-uv run pytest tests/test_e2e_smoke.py                                        # Quick smoke tests only
-uv run pytest tests/test_props_*.py --hypothesis-profile=thorough            # Thorough property testing
-uv run pytest tests/test_props_*.py --hypothesis-show-statistics             # Property test statistics
-uv run pytest tests/test_e2e_*.py -m slow                                    # Comprehensive E2E tests
+# Run tests directly
+cargo test --manifest-path src-tauri/Cargo.toml  # Rust backend (320 tests)
+npm --prefix app/frontend test                    # Vitest unit (210 tests)
+npm --prefix app/frontend run test:e2e            # Playwright E2E (413 tests)
 
 # Run pre-commit hooks
 pre-commit run --all-files
 
-# Clean Python cache files
-task pyclean
+# Clean build artifacts
+cargo clean
+rm -rf node_modules dist
 ```
 
-### Flaky Tests
+### Playwright E2E Testing
 
-Some tests are marked with `@pytest.mark.flaky_in_suite` because they pass reliably in isolation but experience timing issues when run in the full test suite due to persistent application state pollution:
+The application uses Playwright for end-to-end testing of the Tauri application. All integration and E2E tests should be written using Playwright.
 
-**Known Flaky Tests:**
-- `tests/test_e2e_smoke.py::test_next_previous_navigation` - Track navigation test that passes 100% in isolation but ~50% in full suite
-- `tests/test_e2e_controls.py::test_media_key_next` - Media key next test that experiences timing issues with track changes in full suite
+**E2E_MODE Environment Variable:**
 
-**Root Cause:**
-These tests experience persistent application state pollution after running many other E2E tests. The application's internal state (VLC player, queue manager, event handlers) doesn't fully reset between tests, causing timing-dependent failures.
+Tests are controlled by the `E2E_MODE` env var to optimize for different scenarios:
 
-**To run flaky tests in isolation (reliable):**
+| Mode | Browsers | @tauri tests | Tests | Duration |
+|------|----------|--------------|-------|----------|
+| `fast` (default) | WebKit only | Skipped | ~413 | ~1m |
+| `full` | All 3 | Skipped | ~1239 | ~3m |
+| `tauri` | All 3 | Included | ~1300+ | ~4m |
+
+Tests tagged with `@tauri` in their describe block require the Tauri runtime (audio playback, queue behavior, etc.) and will fail in browser-only mode.
+
+**Running Playwright Tests:**
+
 ```bash
-# Single test
-uv run pytest tests/test_e2e_smoke.py::test_next_previous_navigation -v
+# Fast mode (default): WebKit only, skip @tauri tests
+task npm:test:e2e
 
-# Multiple flaky tests
-uv run pytest tests/test_e2e_smoke.py::test_next_previous_navigation tests/test_e2e_controls.py::test_media_key_next -v
+# Full mode: All browsers, skip @tauri tests
+E2E_MODE=full task npm:test:e2e
+
+# Tauri mode: All browsers, include @tauri tests
+E2E_MODE=tauri task npm:test:e2e
+
+# Run E2E tests in UI mode (interactive debugging)
+task npm:test:e2e:ui
+
+# Run specific test file
+npx playwright test tests/library.spec.js
+
+# Run tests in headed mode (see browser)
+npx playwright test --headed
+
+# Debug a specific test
+npx playwright test --debug tests/sidebar.spec.js
+
+# Generate test code with Playwright codegen
+npx playwright codegen
 ```
 
-**To skip flaky tests in full suite:**
+**Browser Installation:**
+
+Playwright requires browser binaries that match the installed Playwright version. If tests fail with errors like:
+```
+Error: browserType.launch: Executable doesn't exist at .../webkit-XXXX/pw_run.sh
+```
+
+Run the following to install/update browsers:
 ```bash
-uv run pytest tests/ -m "not flaky_in_suite"
+# Install all browsers
+npx playwright install
+
+# Install specific browser only
+npx playwright install webkit
+npx playwright install chromium
+npx playwright install firefox
+
+# Check installed browsers vs required
+npx playwright --version
+ls ~/Library/Caches/ms-playwright/
 ```
 
-**To skip both slow and flaky tests (recommended for development):**
+Browser binaries are cached in `~/Library/Caches/ms-playwright/` (macOS). Each Playwright version requires specific browser builds (e.g., Playwright 1.57.0 requires webkit-2227).
+
+**Test counts by mode:**
+- `fast`: ~413 tests (webkit only, ~1m)
+- `full`: ~1239 tests (all 3 browsers, ~3m)
+- `tauri`: ~1300+ tests (all browsers + @tauri tagged tests, ~4m)
+
+**Playwright Test Structure:**
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('should play track when clicked', async ({ page }) => {
+  // Set viewport size to mimic desktop use (minimum 1624x1057)
+  await page.setViewportSize({ width: 1624, height: 1057 });
+
+  // Navigate to application
+  await page.goto('/');
+
+  // Interact with UI
+  await page.click('[data-testid="play-button"]');
+
+  // Assert expected behavior
+  await expect(page.locator('[data-testid="now-playing"]')).toBeVisible();
+});
+```
+
+**Best Practices:**
+
+- **Viewport Size**: Set minimum viewport to 1624x1057 to mimic desktop use
+- Use `data-testid` attributes for stable selectors
+- Wait for network requests and animations to complete
+- Use `page.waitForSelector()` for dynamic content
+- Take screenshots on failure: `await page.screenshot({ path: 'failure.png' })`
+- Use `test.beforeEach()` and `test.afterEach()` for setup/teardown
+- Organize tests by feature in separate files
+- Use Playwright's auto-waiting features instead of arbitrary timeouts
+
+**API Mocking for Tests:**
+
+When running Playwright tests in browser mode (without Tauri backend), the frontend falls back to HTTP requests at `http://127.0.0.1:8765/api/*` which fails. Use the mock fixtures to intercept these requests:
+
+```javascript
+import { test } from '@playwright/test';
+import { createLibraryState, setupLibraryMocks } from './fixtures/mock-library.js';
+import { createPlaylistState, setupPlaylistMocks } from './fixtures/mock-playlists.js';
+
+test.describe('My Test Suite', () => {
+  test.beforeEach(async ({ page }) => {
+    // Set up mocks BEFORE page.goto()
+    const libraryState = createLibraryState();
+    await setupLibraryMocks(page, libraryState);
+
+    // Optional: also mock playlists
+    const playlistState = createPlaylistState();
+    await setupPlaylistMocks(page, playlistState);
+
+    await page.goto('/');
+  });
+});
+```
+
+Available mock fixtures:
+- `mock-library.js`: Library API (`/api/library`, track CRUD operations)
+- `mock-playlists.js`: Playlist API (`/api/playlists`, playlist CRUD operations)
+
+Each mock creates a mutable state object that persists for the test and tracks API calls for assertions.
+
+### Code Coverage
+
+The project uses code coverage tools to track test effectiveness:
+
+**Frontend Coverage (Vitest):**
+
 ```bash
-uv run pytest tests/ -m "not slow and not flaky_in_suite"
+# Run Vitest unit tests with coverage
+cd app/frontend
+npm run test:coverage
+
+# Coverage report generated at app/frontend/coverage/
 ```
 
-**Note:** The `flaky_in_suite` marker is defined in `pyproject.toml` and allows excluding these tests during CI/CD or full test suite runs while still maintaining them for isolation testing. If you need to verify these tests work, always run them in isolation.
+- Uses `@vitest/coverage-v8` for V8-based coverage
+- Per-file thresholds configured in `vitest.config.js`
+- Primary coverage target: `js/stores/queue.js` (35% minimum)
+- Note: Most frontend testing is E2E via Playwright; Vitest covers store logic
 
-**Pytest marker syntax clarification:**
-- ❌ Wrong: `-m "not slow" -m "not flaky_in_suite"` (multiple flags don't combine correctly)
-- ✅ Correct: `-m "not slow and not flaky_in_suite"` (boolean AND expression)
-- ✅ Alternative: `-m "not (slow or flaky_in_suite)"` (boolean OR with negation)
+**Backend Coverage (Rust):**
+
+```bash
+# Local (macOS) - uses cargo-llvm-cov
+cd src-tauri
+cargo llvm-cov --html --output-dir coverage
+
+# CI (Linux) - uses cargo-tarpaulin
+cargo tarpaulin --out Html --output-dir coverage --fail-under 50
+```
+
+- Current coverage: ~56% line coverage (320 passing tests)
+- CI threshold: 50% minimum line coverage
+- Coverage reports uploaded as GitHub Actions artifacts
+
+**Coverage Thresholds:**
+
+| Component | Tool | Tests | Current | Threshold |
+|-----------|------|-------|---------|-----------|
+| Rust backend | tarpaulin/llvm-cov | 320 | ~56% | 50% |
+| Vitest unit | @vitest/coverage-v8 | 210 | ~40% | 35% |
+| Playwright E2E | Playwright | 413 | N/A | N/A |
+
+Note: The 80% target is aspirational. Current thresholds are set to pass existing tests while providing infrastructure to track improvement over time.
 
 ### Task Runner Commands
 
-The project uses Taskfile for common operations:
+The project uses Taskfile (task-runner) for orchestrating build, test, and development workflows.
+
+**Main Taskfile Commands:**
 ```bash
-task lint       # Run linters
-task format     # Run formatters
-task test       # Run tests
-task pre-commit # Run pre-commit hooks
-task uv:sync    # Sync dependencies
-task uv:lock    # Update lockfile
+# Development
+task lint                     # Run Rust and JS linters
+task format                   # Run Rust and JS formatters
+task test                     # Run Rust and JS tests
+task test:e2e                 # Run Playwright E2E tests
+task pre-commit               # Run pre-commit hooks
+
+# Building
+task build                    # Build Tauri app for current arch
+task build:arm64              # Build for Apple Silicon (arm64)
+task build:x64                # Build for Intel (x86_64)
+task build:timings            # Analyze build performance bottlenecks (opens HTML report)
+
+# Utilities
+task install                  # Install project dependencies via devbox
+```
+
+**Tauri Taskfile Commands** (namespace: `tauri:`):
+```bash
+task tauri:dev                # Run Tauri in development mode
+task tauri:build              # Build Tauri app for current architecture
+task tauri:build:arm64        # Build Tauri app for Apple Silicon
+task tauri:build:x64          # Build Tauri app for Intel
+task tauri:info               # Show Tauri build configuration
+task tauri:clean              # Clean Tauri build artifacts
+```
+
+**NPM Taskfile Commands** (namespace: `npm:`):
+```bash
+task npm:install              # Install npm dependencies
+task npm:clean                # Clean npm cache and node_modules
+```
+
+**Build Pipeline:**
+
+When running `task build`, the following happens automatically:
+1. `npm:install` - Install frontend dependencies
+2. `tauri:build` - Build Rust backend and bundle with frontend
+
+**Development Workflow:**
+
+```bash
+# Start development server
+task tauri:dev
+
+# After making Rust backend changes, Tauri will auto-rebuild
+# (hot reload is automatic in dev mode)
 ```
 
 ### Git Worktree Management (worktrunk)
 
 The project uses [worktrunk](https://github.com/max-sixty/worktrunk) (`wt`) for managing git worktrees, enabling parallel development and isolated migration work.
+
+**Checking out worktrees on another computer:**
+
+```bash
+# If repository already exists, fetch latest branches
+git fetch origin
+
+# Create and switch to a worktree for a remote branch
+wt switch tauri-migration
+
+# Or if starting fresh:
+git clone https://github.com/pythoninthegrass/mt.git
+cd mt
+wt switch tauri-migration
+```
+
+Worktrunk automatically detects remote branches and creates worktrees at computed paths based on your configured template (typically `../repo.branch-name`).
+
+**Basic worktree operations:**
 
 ```bash
 # list existing worktrees
@@ -285,313 +536,334 @@ wt remove feature -D
 ```
 
 **Current worktrees:**
-- `main` - Primary development (Tkinter app)
-- `tauri-migration` - Tauri + Rust playback migration (when created)
+
+- `main` - Legacy Python/Tkinter implementation (maintenance only)
+- `tauri-migration` - Active development: Tauri + Rust + basecoat/Alpine.js frontend
 
 ## Architecture Overview
 
+### Pure Rust + Tauri Architecture
+
+**Current State:** The application uses a modern Tauri architecture with a pure Rust backend:
+
+- **Frontend**: Tauri + basecoat/Alpine.js
+- **Backend**: Native Rust (all 87 Tauri commands implemented)
+- **Database**: SQLite via rusqlite
+- **Audio**: Rodio/Symphonia for playback
+
+```
+┌─────────────┐
+│   Frontend  │
+│  (Tauri +   │
+│  basecoat)  │
+└──────┬──────┘
+       │ Tauri
+       │ Commands
+┌──────▼──────┐
+│    Rust     │
+│   Backend   │
+│  (Native)   │
+└─────────────┘
+```
+
+**Key Features:**
+- Fast startup (no interpreter initialization)
+- Low memory footprint (no Python runtime)
+- Single binary distribution
+- Type-safe IPC via Tauri commands
+
 ### Core Components
 
-The application follows a modular architecture with clear separation of concerns. Large files have been refactored into focused packages with clear responsibilities:
+The application follows a modern web-based architecture with Tauri providing native desktop capabilities and system integration:
 
-1. **Player Engine** (`core/player/`): Central MusicPlayer class that orchestrates all components
-   - Split into focused modules: handlers, library, progress, queue, ui, window
-   - Manages VLC media player instance
-   - Handles file loading and playback control
-   - Coordinates between GUI, database (`./mt.db`), and playback systems
-     - ALWAYS respect the `DB_NAME` under `config.py`
-     - NEVER create additional sqlite databases (e.g., `mt_test.db`)
+1. **Backend (Rust/Tauri)** (`src-tauri/src/`):
+   - Audio playback engine using native Rust libraries
+   - File system operations and music library scanning
+   - System integration (media keys, notifications, window management)
+   - Database operations (SQLite via Tauri)
+   - Tauri commands exposed to frontend via IPC
+   - Event emitters for real-time updates to frontend
 
-2. **GUI Components** (`core/gui/`): Modular UI components
-   - `music_player.py`: Main application window container
-   - `player_controls.py`: Transport controls (play/pause, prev/next, loop, add)
-   - `progress_status.py`: Progress bar and status display
-   - `library_search.py`: Library search and filtering interface
-   - `queue_view.py`: Tree-based queue visualization with drag-and-drop
-   - Uses tkinter/ttk with custom theming
+2. **Frontend (basecoat + Alpine.js)** (`src/`):
+   - **basecoat**: Utility-first design system built on Tailwind CSS
+   - **Alpine.js**: Lightweight reactive framework for interactivity
+   - **Components**: Modular UI components with scoped styles
+     - Player controls (play/pause, prev/next, shuffle, loop)
+     - Progress bar and volume slider
+     - Library browser with search and filtering
+     - Queue view with drag-and-drop reordering
+     - Now playing display with track metadata
+   - **Styling**: Tailwind CSS for responsive, utility-based styling
+   - **State Management**: Alpine.js stores for global state
 
-3. **Library Management** (`core/library.py`):
-   - LibraryManager: Handles music collection scanning and database operations
-   - Supports recursive directory scanning with configurable depth
-   - Deduplication based on file content hashes
+3. **Database Layer** (`src-tauri/src/db/`):
+   - SQLite database for library and queue persistence
+   - Database schema versioning and migrations
+   - Prepared statements for performance
+   - Transaction support for data integrity
+   - Query builders for complex operations
 
-4. **Queue System** (`core/queue.py`):
-   - QueueManager: Manages playback queue with SQLite backend
-   - Supports drag-and-drop reordering
+4. **IPC Communication**:
+   - Tauri commands for frontend→backend communication
+   - Event system for backend→frontend updates
+   - Type-safe message passing with serde serialization
+   - Async/await patterns for non-blocking operations
 
-5. **Database Layer** (`core/db/`): Facade pattern for database operations
-   - `database.py`: Core MusicDatabase facade
-   - `preferences.py`: User preferences and settings persistence
-   - `library.py`: Library track operations
-   - `queue.py`: Queue management operations
-   - `favorites.py`: Favorites and dynamic playlist views
-   - SQLite interface for library and queue persistence
-
-6. **Playback Controls** (`core/controls/`):
-   - `player_core.py`: PlayerCore class for playback control logic
-   - Handles play, pause, next, previous, shuffle, loop operations
-
-7. **Now Playing View** (`core/now_playing/`):
-   - `view.py`: NowPlayingView class for current playback display
-   - Shows currently playing track with metadata
-
-8. **Media Controls**:
-   - Progress tracking (`core/progress.py`): Custom canvas-based progress bar
-   - Volume control (`core/volume.py`): Slider-based volume adjustment
-   - Media key support (`utils/mediakeys.py`): macOS-specific media key integration
-
-9. **API Server** (`api/server.py`):
-   - Socket-based API server for programmatic control
-   - JSON command/response protocol with comprehensive error handling
-   - Enables LLM and automation tool integration
-   - Thread-safe command execution on main UI thread
-   - Localhost-only security by default (port 5555)
+5. **Testing Infrastructure**:
+   - **Playwright**: E2E and integration testing
+   - **Vitest/Jest**: Frontend unit tests
+   - **Rust tests**: Backend unit and integration tests
+   - **Test fixtures**: Reusable test data and utilities
 
 ### Key Design Patterns
 
-- **Modular Package Structure**: Large files (>500 LOC) refactored into focused packages using facade pattern
-- **Event-Driven Architecture**: Uses tkinter event system and callbacks for UI updates
-- **Singleton Pattern**: Database and player instances managed as singletons
-- **Observer Pattern**: File watcher for hot-reloading during development
-- **MVC-like Structure**: Clear separation between data (models), UI (views), and logic (controllers)
-- **Facade Pattern**: Database and API components use facade pattern for clean public interfaces
+- **Component-Based Architecture**: Modular, reusable UI components
+- **Event-Driven IPC**: Backend emits events for real-time frontend updates
+- **Command Pattern**: Tauri commands encapsulate backend operations
+- **Reactive State**: Alpine.js reactive stores for UI state management
+- **Repository Pattern**: Database layer abstracts data access
+- **Builder Pattern**: Complex object construction (e.g., queries, commands)
 
 ### Configuration System
 
-- Central configuration in `config.py` with environment variable support via python-decouple
-- Theme configuration loaded from `themes.json`
-- Hot-reload capability during development (MT_RELOAD=true)
-- API server configuration:
-  - `MT_API_SERVER_ENABLED`: Enable/disable API server (default: false)
-  - `MT_API_SERVER_PORT`: Configure API server port (default: 5555)
+- Tauri configuration in `tauri.conf.json`
+- Environment-based builds (dev/production)
+- Frontend configuration via Vite
+- Runtime settings stored in database
+- Platform-specific configurations for macOS/Linux/Windows
 
 ### Platform Considerations
 
-- Primary support for macOS with Linux compatibility
-- macOS-specific features: media keys, window styling, drag-and-drop
-- Requires Homebrew-installed Tcl/Tk on macOS for tkinterdnd2 compatibility
+- Cross-platform support: macOS, Linux, Windows
+- Platform-specific features detected at runtime
+- Native system integration via Tauri APIs
+- Responsive UI adapts to window sizes
+- Platform-native styling and behaviors
 
-### Quick Visual Check
+### Browser Development Mode
 
-**IMMEDIATELY after implementing any front-end change:**
+**Audio playback only works in Tauri.** When running the frontend in a standalone browser (Firefox, Chrome) for UI development:
+
+- `window.__TAURI__` is undefined
+- Audio playback commands (`audio_load`, `audio_play`, etc.) silently fail
+- Use browser mode **only for UI/styling work**, not playback testing
+- For playback testing, always use `task tauri:dev`
+
+See [task-159](backlog/tasks/task-159%20-%20Implement-browser-WebAudio-fallback-for-playback.md) for future WebAudio fallback implementation.
+
+### Queue and Shuffle Behavior
+
+The queue store (`app/frontend/js/stores/queue.js`) maintains tracks in **play order** - the `items` array always reflects the order tracks will be played.
+
+**Key behaviors:**
+
+- **Without shuffle**: Tracks play sequentially in the order they were added
+- **With shuffle enabled**: The `items` array is physically reordered using the [Fisher-Yates shuffle algorithm](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+  - Current track moves to index 0
+  - Remaining tracks are randomly shuffled
+  - Playback proceeds sequentially through the shuffled array
+- **When shuffle is disabled**: Original order is restored from `_originalOrder`
+- **Loop + Shuffle**: When queue ends with loop=all, items are re-shuffled for a new random order
+
+**Now Playing view**: Always displays tracks in the order they will play (current track first, then upcoming). This means the UI never "jumps around" - tracks are always adjacent and sequential.
+
+### Frontend Testing with Playwright
+
+**IMMEDIATELY after implementing any frontend change:**
 
 1. **Identify what changed** - Review the modified components/pages
-2. **Navigate to affected pages** - Use `screencap` MCP to compare before and after changes
-   - If an `"error": "No windows found for 'python3'"` occurs, relaunch the app via `nohup uv run repeater > /dev/null 2>&1` 
-   - When pkill raises a non-zero exit code, assume that the app has been manually quit and restart it
-   - Skip screencap calls if the front-end change isn't _visible_ (e.g., typing produces a bell sound)
-   - DO NOT take a screenshot until verifying that the app has reloaded with the end user; `sleep 2` isn't enough time to propagate the changes
-3. **Validate feature implementation** - Ensure the change fulfills the user's specific request
-4. **Check acceptance criteria** - Review any provided context files or requirements
-5. **Capture evidence** - Take a screenshot of each changed view. Save to `/tmp` if writeable; otherwise, `.claude/screenshots`
-6. **Check for errors** - Look for any errors in stdout or Eliot logging
+2. **Write or update Playwright tests** - Ensure test coverage for the changed functionality
+3. **Run tests locally** - Execute `npm run test:e2e` to verify changes
+4. **Visual validation** - Use Playwright's screenshot capabilities:
+   ```javascript
+   await page.screenshot({ path: 'screenshots/feature-name.png' });
+   ```
+5. **Validate feature implementation** - Ensure the change fulfills the user's specific request
+6. **Check acceptance criteria** - Review any provided context files or requirements
+7. **Interactive debugging** - Use `npm run test:e2e:ui` for step-by-step test debugging
+8. **Check for errors** - Review test output and browser console logs
+
+**Playwright Best Practices for this Project:**
+
+```javascript
+// Set desktop viewport size (minimum 1624x1057)
+await page.setViewportSize({ width: 1624, height: 1057 });
+
+// Use data-testid attributes for reliable selectors
+await page.click('[data-testid="play-button"]');
+
+// Wait for Tauri IPC calls to complete
+await page.waitForResponse(response =>
+  response.url().includes('tauri://') && response.status() === 200
+);
+
+// Verify real-time updates from backend events
+await expect(page.locator('[data-testid="now-playing"]')).toContainText('Track Name');
+
+// Test drag-and-drop functionality
+await page.dragAndDrop('[data-testid="track-1"]', '[data-testid="drop-zone"]');
+
+// Capture screenshots for visual regression testing
+await expect(page).toHaveScreenshot('player-controls.png');
+```
 
 ### Dependencies
 
-- **VLC**: Audio playback engine
-- **tkinterdnd2**: Drag-and-drop functionality
-- **python-decouple**: Environment variable configuration
-- **eliot/eliot-tree**: Structured logging system
-- **watchdog**: File system monitoring for development tools
-- **ziggy-pydust**: Zig extension module framework for Python
+**Frontend:**
+- **Tauri**: Desktop application framework
+- **basecoat**: Design system built on Tailwind CSS
+- **Alpine.js**: Lightweight reactive JavaScript framework
+- **Tailwind CSS**: Utility-first CSS framework
+- **Playwright**: E2E testing framework
+- **Vite**: Frontend build tool and dev server
+
+**Backend:**
+- **Rust/Cargo**: Backend language and package manager
+- **Tauri**: Native system integration
+- **Rodio/Symphonia**: Audio playback libraries
+- **SQLite/rusqlite**: Database operations
+- **Serde**: Serialization/deserialization
+- **Tokio**: Async runtime
 
 ### Dependency Management
 
-**ALWAYS use `uv` for Python dependency management. NEVER install packages at the system level with `pip`.**
+**Frontend (npm):**
 
 ```bash
 # Install dependencies
-uv pip install -r pyproject.toml --all-extras
+npm install
 
 # Add new dependencies
-uv add package-name
+npm install package-name
 
 # Add development dependencies
-uv add --dev package-name
+npm install --save-dev package-name
 
 # Update dependencies
-uv lock --upgrade
+npm update
 ```
 
-All dependencies should be managed through `uv` to ensure proper virtual environment isolation and reproducible builds.
+**Backend (Cargo):**
+
+```bash
+# Install/update dependencies
+cargo build
+
+# Add new dependencies
+cargo add crate-name
+
+# Add development dependencies
+cargo add --dev crate-name
+
+# Update dependencies
+cargo update
+```
 
 ## Important Implementation Notes
 
-1. **Modular Refactoring**: The codebase has undergone comprehensive refactoring (Phases 1-6 completed Oct 2025)
-   - Large files split into focused packages with facade pattern
-   - Target: ~500 LOC per file for maintainability
-   - All core components now use package structure (player, gui, db, controls, now_playing, api)
-   - Note: Some files like `queue_view.py` (709 LOC) still exceed target and may be refactored further
+1. **Component-Based Architecture**:
+   - Frontend components are modular and reusable
+   - Keep components focused on single responsibilities
+   - Use Alpine.js components for interactive elements
+   - Apply basecoat/Tailwind utilities for consistent styling
 
-2. **Tcl/Tk Compatibility**: The project originally used ttkbootstrap but was refactored to use standard tkinter.ttk due to PIL/ImageTk compatibility issues on macOS
+2. **Tauri IPC Communication**:
+   - All backend operations must be exposed via Tauri commands
+   - Use async/await for all Tauri command invocations
+   - Handle errors gracefully with proper error types
+   - Emit events for real-time updates (playback progress, track changes)
 
-3. **Theme Setup**: `setup_theme()` should be called once before creating MusicPlayer instance to avoid duplicate initialization
+3. **Type Safety**:
+   - Use TypeScript for frontend code when possible
+   - Rust backend provides compile-time type safety
+   - Define shared types for IPC message structures
+   - Validate data at system boundaries
 
-4. **File Organization**: Follow the 500 LOC limit per file as specified in .cursorrules
-   - When adding new features, prefer extending existing packages over creating new files
-   - Use facade pattern for complex components with multiple responsibilities
+4. **File Organization**:
+   - Frontend: Organize by feature/component in `src/`
+   - Backend: Organize by module in `src-tauri/src/`
+   - Keep files focused and under 500 LOC when practical
+   - Use barrel exports for clean imports
 
-5. **Testing**: Use pytest exclusively (no unittest module) with full type annotations
-   - All 467+ tests pass after refactoring phases
-   - Unit, property-based, and E2E tests maintained
+5. **Testing Strategy**:
+   - **Unit tests**: Test individual functions and components
+   - **Integration tests**: Test Tauri commands and IPC
+   - **E2E tests**: Use Playwright for full user flows
+   - All E2E/integration tests MUST use Playwright
+   - Aim for high coverage of critical paths
 
-6. **Code Style**: Maintained by Ruff with specific configuration in ruff.toml
-    - Additional linter rules:
-      - Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
-      - Use ternary operator `indicator = ('▶' if is_currently_playing else '⏸') if is_current else ''` instead of `if`-`else`-block
+6. **Code Style**:
+   - **Frontend**: ESLint + Prettier for JavaScript/TypeScript
+   - **Backend**: `cargo fmt` and `cargo clippy` for Rust
+   - **CSS**: Follow Tailwind CSS conventions and basecoat patterns
+   - Run formatters before committing
 
 ## Development Tools
 
-### Repeater Utility (`utils/repeater.py`)
+### Hot Reload (Vite + Tauri)
 
-- Auto-reloads Tkinter application when Python files are modified
-- Respects .gitignore patterns for intelligent file watching
-- Watches entire project directory recursively
-- Provides better development experience than basic tkreload
-- Usage: `uv run python utils/repeater.py [main_file]`
+- Vite provides instant HMR (Hot Module Replacement) for frontend changes
+- Tauri dev mode automatically rebuilds Rust backend on changes
+- Frontend changes reflect immediately without full app restart
+- Backend changes trigger incremental rebuild and app restart
+- Usage: `npm run tauri:dev` or `task tauri:dev`
 
-### Eliot Logging System
+### Logging System
 
-- Structured logging for debugging and monitoring
-- Action tracking with `start_action()` context managers
-- Error reporting and file operation logging
-- Available through `eliot` and `eliot-tree` dependencies
-- Gracefully degrades when eliot is not available
-- ALWAYS couple functions and classes with Eliot logging (i.e., create/update methods with logging)
+**Frontend Logging:**
+- Console logging for development (`console.log`, `console.error`)
+- Browser DevTools for debugging and network inspection
+- Structured logging for user actions and events
+- Error boundaries for graceful error handling
 
-#### Logging Implementation Patterns
+**Backend Logging:**
+- Rust `log` crate for structured logging
+- `env_logger` or `tracing` for log output
+- Log levels: trace, debug, info, warn, error
+- Logs visible in terminal during `cargo tauri dev`
 
-The codebase uses comprehensive structured logging for all user interactions and system events:
+**Logging Best Practices:**
 
-1. **Core Logging Module** (`core/logging.py`):
-   - `log_player_action()`: Helper function for consistent player action logging
-   - Separate loggers for different subsystems (player, controls, library, queue, media_keys)
-   - Graceful fallback when Eliot is not available
+1. **Frontend**:
+   ```javascript
+   // Log user actions
+   console.log('[Action]', 'play_track', { trackId, trackName });
 
-2. **Common Logging Patterns**:
-   ```python
-   from core.logging import player_logger, log_player_action
-   from eliot import start_action
-   
-   def some_action(self):
-       with start_action(player_logger, "action_name"):
-           # Capture before state
-           old_state = self.get_current_state()
-           
-           # Perform action
-           result = self.do_something()
-           
-           # Log with comprehensive metadata
-           log_player_action(
-               "action_name",
-               trigger_source="gui",  # or "keyboard", "media_key", "drag_drop", etc.
-               old_state=old_state,
-               new_state=result,
-               description="Human-readable description"
-           )
+   // Log errors with context
+   console.error('[Error]', 'Failed to load track', { error, trackId });
+
+   // Log IPC calls
+   console.debug('[IPC]', 'invoke', { command: 'play_track', args });
    ```
 
-3. **Trigger Sources**:
-   - `"gui"`: User interface interactions (buttons, sliders, menus)
-   - `"keyboard"`: Keyboard shortcuts
-   - `"media_key"`: System media keys (play/pause, next/prev)
-   - `"drag_drop"`: File drag-and-drop operations
-   - `"user_resize"`: UI element resizing
-   - `"periodic_check"`: Automatic system checks
-   - `"automatic"`: System-initiated actions
+2. **Backend (Rust)**:
+   ```rust
+   use log::{info, warn, error, debug};
 
-4. **Instrumented Actions** (as of latest implementation):
-   - **Playback Control**: play/pause, next/previous track, stop, seek operations
-   - **Volume Control**: Volume changes with before/after values
-   - **Loop/Shuffle**: Toggle states with mode tracking
-   - **Track Management**: Track deletion with queue position and metadata
-   - **File Operations**: Drag-and-drop with file analysis
-   - **UI Navigation**: Library section switches with content counts
-   - **Window Management**: Close, minimize, maximize with geometry tracking
-   - **UI Preferences**: Column width changes, panel resizing
-   - **Media Keys**: All media key interactions with key identification
-
-5. **Logging Best Practices**:
-   - Always capture before/after states when applicable
-   - Include relevant metadata (file paths, track info, UI state)
-   - Use descriptive action names and human-readable descriptions
-   - Differentiate trigger sources for better analysis
-   - Log both successful operations and failures/errors
-
-### Zig Module Development
-
-The project uses Zig for high-performance native extensions via ziggy-pydust. Zig modules are located in the `src/` directory and provide performance-critical functionality like music file scanning.
-
-#### Building Zig Modules
-
-```bash
-# Build all Zig modules
-uv run python build.py
-
-# Or build via hatch (used during package installation)
-hatch build
-
-# Clean build artifacts
-rm -rf src/.zig-cache src/zig-out core/*.so
-```
-
-#### Zig Development Workflow
-
-```bash
-# Install/update Zig (if needed)
-# On macOS with mise:
-mise install zig@0.14.0
-
-# Check Zig version
-zig version
-
-# Build in debug mode
-cd src && zig build
-
-# Build with optimizations
-cd src && zig build -Doptimize=ReleaseSafe
-
-# Run tests
-cd src && zig build test
-```
-
-#### Zig Module Structure
-
-- `src/build.zig`: Main build configuration
-- `src/scan.zig`: Music file scanning module
-- `core/_scan.so`: Generated Python extension (created during build)
-
-#### Troubleshooting Zig Builds
-
-**Common Issues:**
-
-1. **Zig Version Compatibility**: Ensure Zig 0.14.x is installed
-   ```bash
-   zig version  # Should show 0.14.x
+   #[tauri::command]
+   fn play_track(track_id: String) -> Result<(), String> {
+       info!("Playing track: {}", track_id);
+       // ... implementation
+       Ok(())
+   }
    ```
 
-2. **Python Path Issues**: Build script uses virtual environment Python
-   ```bash
-   uv run python build.py  # Uses correct Python executable
-   ```
+### Playwright Test Tools
 
-3. **Missing Dependencies**: Ensure ziggy-pydust is installed
-   ```bash
-   uv sync
-   uv run python -c "import pydust; print('OK')"
-   ```
+- **Test Generator**: `npx playwright codegen` to generate test code interactively
+- **UI Mode**: `npm run test:e2e:ui` for interactive test debugging
+- **Trace Viewer**: `npx playwright show-trace trace.zip` for detailed test execution analysis
+- **Inspector**: `npx playwright test --debug` to step through tests
+- **Screenshots**: Automatic failure screenshots in `test-results/`
+- **Video Recording**: Enable in Playwright config for test videos
 
-4. **Build Cache Issues**: Clear cache if builds fail
-   ```bash
-   rm -rf src/.zig-cache
-   uv run python build.py
-   ```
+### Rust Development Tools
 
-**Build Configuration:**
-
-- Uses `self_managed = true` in `pyproject.toml` for custom build.zig
-- Python extensions are built to `core/` directory
-- Release-safe optimization for production builds
+- **cargo-watch**: Auto-rebuild on file changes: `cargo watch -x build`
+- **rust-analyzer**: LSP for IDE integration (VS Code, IntelliJ, etc.)
+- **clippy**: Linting tool: `cargo clippy`
+- **rustfmt**: Code formatter: `cargo fmt`
+- **cargo-expand**: View macro expansions: `cargo expand`
 
 <!-- BACKLOG.MD MCP GUIDELINES START -->
 
@@ -611,6 +883,7 @@ This project uses Backlog.md MCP for all task and project management activities.
 - **When to read it**: BEFORE creating tasks, or when you're unsure whether to track work
 
 These guides cover:
+
 - Decision framework for when to create tasks
 - Search-first workflow to avoid duplicates
 - Links to detailed guides for task creation, execution, and completion
@@ -621,3 +894,65 @@ You MUST read the overview resource to understand the complete workflow. The inf
 </CRITICAL_INSTRUCTION>
 
 <!-- BACKLOG.MD MCP GUIDELINES END -->
+
+<!-- MANTIC SEARCH GUIDELINES START -->
+
+<CRITICAL_INSTRUCTION>
+
+## SEARCH CAPABILITY (MANTIC v1.0.21)
+
+This project uses Mantic for intelligent code search. Use it before resorting to grep/find commands.
+
+**Basic Search:**
+```bash
+npx mantic.sh "your query here"
+```
+
+**Advanced Features:**
+
+**Zero-Query Mode (Context Detection):**
+```bash
+npx mantic.sh ""  # Shows modified files, suggestions, impact
+```
+
+**Context Carryover (Session Mode):**
+```bash
+npx mantic.sh "query" --session "session-name"
+```
+
+**Output Formats:**
+```bash
+npx mantic.sh "query" --json        # Full metadata
+npx mantic.sh "query" --files        # Paths only
+npx mantic.sh "query" --markdown    # Pretty output
+```
+
+**Impact Analysis:**
+```bash
+npx mantic.sh "query" --impact      # Shows blast radius
+```
+
+**File Type Filters:**
+```bash
+npx mantic.sh "query" --code        # Code files only
+npx mantic.sh "query" --test        # Test files only
+npx mantic.sh "query" --config       # Config files only
+```
+
+### Search Quality (v1.0.21)
+
+- CamelCase detection: "ScriptController" finds script_controller.h
+- Exact filename matching: "download_manager.cc" returns exact file first
+- Path sequence: "blink renderer core dom" matches directory structure
+- Word boundaries: "script" won't match "javascript"
+- Directory boosting: "gpu" prioritizes files in gpu/ directories
+
+### Best Practices
+
+**DO NOT use grep/find blindly. Use Mantic first.**
+
+Mantic provides brain-inspired scoring that prioritizes business logic over boilerplate, making it more effective for finding relevant code than traditional text search tools.
+
+</CRITICAL_INSTRUCTION>
+
+<!-- MANTIC SEARCH GUIDELINES END -->

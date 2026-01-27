@@ -1,0 +1,88 @@
+{
+  "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
+
+  "lint": {
+    // Include only frontend JavaScript source files
+    "include": [
+      "app/frontend/js/**/*.js",
+      "app/frontend/vite.config.js"
+    ],
+
+    // Exclude build artifacts, dependencies, and non-JS code
+    "exclude": [
+      // Build outputs
+      "app/frontend/dist/",
+      "src-tauri/target/",
+
+      // Dependencies
+      "app/frontend/node_modules/",
+      ".venv/",
+      "venv/",
+
+      // Vendor libraries
+      "app/frontend/public/js/basecoat/",
+
+      // Caches and artifacts
+      ".cache/",
+      ".pytest_cache/",
+      "**/*.pyc",
+      "**/__pycache__/",
+
+      // Python code (use Ruff instead)
+      "tests/**/*.py",
+      "**/*.py",
+
+      // Lock files
+      "*.lock",
+      "package-lock.json",
+      "Cargo.lock"
+    ],
+
+    "rules": {
+      // Use Deno's recommended rule set
+      "tags": ["recommended"],
+
+      // Exclude rules incompatible with browser/Alpine.js/Vite code
+      "exclude": [
+        "no-undef",          // Alpine.js and Tauri globals (no custom globals support)
+        "no-window",         // Browser code uses window object
+        "no-window-prefix",   // Browser code can use window.* APIs
+        "no-process-global"  // Vite config uses process.env
+      ]
+    }
+  },
+
+  "fmt": {
+    // Match linter includes
+    "include": [
+      "app/frontend/js/**/*.js",
+      "app/frontend/vite.config.js"
+    ],
+
+    // Match linter excludes
+    "exclude": [
+      "app/frontend/dist/",
+      "src-tauri/target/",
+      "app/frontend/node_modules/",
+      ".venv/",
+      "venv/",
+      "app/frontend/public/js/basecoat/",
+      ".cache/",
+      ".pytest_cache/",
+      "**/*.pyc",
+      "**/__pycache__/",
+      "tests/**/*.py",
+      "**/*.py",
+      "*.lock",
+      "package-lock.json",
+      "Cargo.lock"
+    ],
+
+    // Flat options format (new in Deno 2.x)
+    "indentWidth": 2,        // Match existing code style
+    "lineWidth": 100,        // Standard for modern displays
+    "semiColons": true,      // Match existing code style
+    "singleQuote": true,     // Match existing code style
+    "proseWrap": "preserve"  // Don't reflow comments
+  }
+}

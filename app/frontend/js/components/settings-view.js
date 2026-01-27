@@ -1,0 +1,453 @@
+import { api } from '../api.js';
+
+export function createSettingsView(Alpine) {
+  Alpine.data('settingsView', () => ({
+    appInfo: {
+      version: '—',
+      build: '—',
+      platform: '—',
+    },
+
+    watchedFolders: [],
+    watchedFoldersLoading: false,
+    scanningFolders: new Set(),
+
+    lastfm: {
+      enabled: false,
+      username: null,
+      authenticated: false,
+      scrobbleThreshold: 90,
+      isConnecting: false,
+      importInProgress: false,
+      queueStatus: { queued_scrobbles: 0 },
+      pendingToken: null,
+    },
+
+    reconcileScan: {
+      isRunning: false,
+      lastResult: null,
+    },
+
+    isExportingLogs: false,
+    isDraggingThreshold: false,
+
+    async init() {
+      await this.loadAppInfo();
+      await this.loadWatchedFolders();
+      await this.loadLastfmSettings();
+    },
+
+    async loadAppInfo() {
+      if (!window.__TAURI__) {
+        this.appInfo = {
+          version: 'dev',
+          build: 'browser',
+          platform: navigator.platform || 'unknown',
+        };
+        return;
+      }
+
+      try {
+        const { invoke } = window.__TAURI__.core;
+        const info = await invoke('app_get_info');
+        this.appInfo = {
+          version: info.version || '—',
+          build: info.build || '—',
+          platform: info.platform || '—',
+        };
+      } catch (error) {
+        console.error('[settings] Failed to load app info:', error);
+        this.appInfo = {
+          version: 'unknown',
+          build: 'unknown',
+          platform: 'unknown',
+        };
+      }
+    },
+
+    async loadWatchedFolders() {
+      if (!window.__TAURI__) return;
+
+      this.watchedFoldersLoading = true;
+      try {
+        const { invoke } = window.__TAURI__.core;
+        this.watchedFolders = await invoke('watched_folders_list');
+      } catch (error) {
+        console.error('[settings] Failed to load watched folders:', error);
+        Alpine.store('ui').toast('Failed to load watched folders', 'error');
+      } finally {
+        this.watchedFoldersLoading = false;
+      }
+    },
+
+    async addWatchedFolder() {
+      if (!window.__TAURI__) {
+        Alpine.store('ui').toast('Only available in desktop app', 'info');
+        return;
+      }
+
+      try {
+        const { open } = window.__TAURI__.dialog;
+        const path = await open({ directory: true, multiple: false });
+        if (!path) return;
+
+        const { invoke } = window.__TAURI__.core;
+        const folder = await invoke('watched_folders_add', {
+          request: { path, mode: 'continuous', cadence_minutes: 10, enabled: true },
+        });
+        this.watchedFolders.push(folder);
+        Alpine.store('ui').toast('Folder added to watch list', 'success');
+      } catch (error) {
+        console.error('[settings] Failed to add watched folder:', error);
+        Alpine.store('ui').toast('Failed to add folder', 'error');
+      }
+    },
+
+    async removeWatchedFolder(id) {
+      if (!window.__TAURI__) return;
+
+      try {
+        const { invoke } = window.__TAURI__.core;
+        await invoke('watched_folders_remove', { id });
+        this.watchedFolders = this.watchedFolders.filter((f) => f.id !== id);
+        Alpine.store('ui').toast('Folder removed from watch list', 'success');
+      } catch (error) {
+        console.error('[settings] Failed to remove watched folder:', error);
+        Alpine.store('ui').toast('Failed to remove folder', 'error');
+      }
+    },
+
+    async updateWatchedFolder(id, updates) {
+      if (!window.__TAURI__) return;
+
+      try {
+        const { invoke } = window.__TAURI__.core;
+        const updated = await invoke('watched_folders_update', { id, request: updates });
+        const index = this.watchedFolders.findIndex((f) => f.id === id);
+        if (index !== -1) {
+          this.watchedFolders[index] = updated;
+        }
+      } catch (error) {
+        console.error('[settings] Failed to update watched folder:', error);
+        Alpine.store('ui').toast('Failed to update folder', 'error');
+      }
+    },
+
+    async rescanWatchedFolder(id) {
+      if (!window.__TAURI__) return;
+
+      this.scanningFolders.add(id);
+      try {
+        const { invoke } = window.__TAURI__.core;
+        await invoke('watched_folders_rescan', { id });
+        Alpine.store('ui').toast('Rescan started', 'success');
+      } catch (error) {
+        console.error('[settings] Failed to rescan folder:', error);
+        Alpine.store('ui').toast('Failed to start rescan', 'error');
+      } finally {
+        this.scanningFolders.delete(id);
+      }
+    },
+
+    isFolderScanning(id) {
+      return this.scanningFolders.has(id);
+    },
+
+    truncatePath(path, maxLength = 50) {
+      if (!path || path.length <= maxLength) return path;
+      const start = path.slice(0, 20);
+      const end = path.slice(-25);
+      return `${start}...${end}`;
+    },
+
+    async resetSettings() {
+      let confirmed = false;
+
+      if (window.__TAURI__?.dialog?.confirm) {
+        confirmed = await window.__TAURI__.dialog.confirm(
+          'This will reset all settings to their defaults. Your library and playlists will not be affected.',
+          { title: 'Reset Settings', kind: 'warning' },
+        );
+      } else {
+        confirmed = confirm(
+          'This will reset all settings to their defaults. Your library and playlists will not be affected.',
+        );
+      }
+
+      if (!confirmed) return;
+
+      const keysToReset = [
+        'mt:ui:themePreset',
+        'mt:ui:theme',
+        'mt:settings:activeSection',
+      ];
+
+      keysToReset.forEach((key) => localStorage.removeItem(key));
+
+      window.location.reload();
+    },
+
+    async exportLogs() {
+      if (!window.__TAURI__) {
+        Alpine.store('ui').toast('Export logs is only available in the desktop app', 'info');
+        return;
+      }
+
+      this.isExportingLogs = true;
+      try {
+        const { invoke } = window.__TAURI__.core;
+        const { save } = window.__TAURI__.dialog;
+
+        const path = await save({
+          defaultPath: `mt_diagnostics_${new Date().toISOString().slice(0, 10)}.log`,
+          filters: [{ name: 'Log Files', extensions: ['log'] }],
+        });
+
+        if (!path) {
+          this.isExportingLogs = false;
+          return;
+        }
+
+        await invoke('export_diagnostics', { path });
+        Alpine.store('ui').toast('Diagnostics exported successfully', 'success');
+      } catch (error) {
+        console.error('[settings] Failed to export logs:', error);
+        Alpine.store('ui').toast('Failed to export diagnostics', 'error');
+      } finally {
+        this.isExportingLogs = false;
+      }
+    },
+
+    // ============================================
+    // Last.fm methods
+    // ============================================
+
+    async loadLastfmSettings() {
+      try {
+        const settings = await api.lastfm.getSettings();
+        this.lastfm.enabled = settings.enabled;
+        this.lastfm.username = settings.username;
+        this.lastfm.authenticated = settings.authenticated;
+        this.lastfm.scrobbleThreshold = settings.scrobble_threshold;
+
+        // Load queue status if authenticated
+        if (settings.authenticated) {
+          await this.loadQueueStatus();
+        }
+      } catch (error) {
+        console.error('[settings] Failed to load Last.fm settings:', error);
+        Alpine.store('ui').toast('Failed to load Last.fm settings', 'error');
+      }
+    },
+
+    async toggleLastfm() {
+      try {
+        await api.lastfm.updateSettings({
+          enabled: !this.lastfm.enabled,
+        });
+        this.lastfm.enabled = !this.lastfm.enabled;
+        Alpine.store('ui').toast(
+          `Last.fm scrobbling ${this.lastfm.enabled ? 'enabled' : 'disabled'}`,
+          'success',
+        );
+      } catch (error) {
+        console.error('[settings] Failed to toggle Last.fm:', error);
+        Alpine.store('ui').toast('Failed to update Last.fm settings', 'error');
+      }
+    },
+
+    async updateScrobbleThreshold() {
+      try {
+        // Clamp value to valid range
+        const clampedValue = Math.max(25, Math.min(100, this.lastfm.scrobbleThreshold));
+        if (clampedValue !== this.lastfm.scrobbleThreshold) {
+          this.lastfm.scrobbleThreshold = clampedValue;
+        }
+
+        await api.lastfm.updateSettings({
+          scrobble_threshold: this.lastfm.scrobbleThreshold,
+        });
+        Alpine.store('ui').toast('Scrobble threshold updated', 'success');
+      } catch (error) {
+        console.error('[settings] Failed to update scrobble threshold:', error);
+        Alpine.store('ui').toast('Failed to update scrobble threshold', 'error');
+      }
+    },
+
+    async connectLastfm() {
+      this.lastfm.isConnecting = true;
+      try {
+        const response = await api.lastfm.getAuthUrl();
+        const authUrl = response.auth_url;
+        const token = response.token;
+
+        // Store the token for completing authentication
+        this.lastfm.pendingToken = token;
+
+        // Open auth URL in browser
+        if (window.__TAURI__) {
+          // In Tauri app, use shell.open
+          const { open } = window.__TAURI__.shell;
+          await open(authUrl);
+        } else {
+          // In browser, open new tab
+          window.open(authUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        Alpine.store('ui').toast(
+          'Last.fm authorization page opened. After authorizing, click "Complete Authentication".',
+          'info',
+        );
+      } catch (error) {
+        console.error('[settings] Failed to get Last.fm auth URL:', error);
+        // Show the actual error message from backend
+        const errorMsg = error.message || error.toString();
+        Alpine.store('ui').toast(
+          errorMsg.includes('API keys not configured')
+            ? 'Last.fm API keys not configured. Set LASTFM_API_KEY and LASTFM_API_SECRET in .env file.'
+            : `Failed to connect: ${errorMsg}`,
+          'error',
+        );
+        this.lastfm.pendingToken = null;
+      } finally {
+        this.lastfm.isConnecting = false;
+      }
+    },
+
+    async completeLastfmAuth() {
+      if (!this.lastfm.pendingToken) {
+        Alpine.store('ui').toast(
+          'No pending authentication. Please start the connection process first.',
+          'warning',
+        );
+        return;
+      }
+
+      this.lastfm.isConnecting = true;
+      try {
+        const result = await api.lastfm.completeAuth(this.lastfm.pendingToken);
+        this.lastfm.authenticated = true;
+        this.lastfm.username = result.username;
+        this.lastfm.enabled = true;
+        this.lastfm.pendingToken = null;
+        Alpine.store('ui').toast(
+          `Successfully connected to Last.fm as ${result.username}`,
+          'success',
+        );
+
+        // Load queue status now that we're authenticated
+        await this.loadQueueStatus();
+      } catch (error) {
+        console.error('[settings] Failed to complete Last.fm authentication:', error);
+        const errorMsg = error.message || error.toString();
+        Alpine.store('ui').toast(
+          `Failed to complete authentication: ${errorMsg}`,
+          'error',
+        );
+      } finally {
+        this.lastfm.isConnecting = false;
+      }
+    },
+
+    cancelLastfmAuth() {
+      this.lastfm.pendingToken = null;
+      Alpine.store('ui').toast('Authentication cancelled', 'info');
+    },
+
+    async disconnectLastfm() {
+      try {
+        await api.lastfm.disconnect();
+        this.lastfm.enabled = false;
+        this.lastfm.username = null;
+        this.lastfm.authenticated = false;
+        Alpine.store('ui').toast('Disconnected from Last.fm', 'success');
+      } catch (error) {
+        console.error('[settings] Failed to disconnect from Last.fm:', error);
+        Alpine.store('ui').toast('Failed to disconnect from Last.fm', 'error');
+      }
+    },
+
+    async importLovedTracks() {
+      if (!this.lastfm.authenticated) {
+        Alpine.store('ui').toast('Please connect to Last.fm first', 'warning');
+        return;
+      }
+
+      this.lastfm.importInProgress = true;
+      try {
+        const result = await api.lastfm.importLovedTracks();
+        Alpine.store('ui').toast(
+          `Imported ${result.imported_count} loved tracks from Last.fm`,
+          'success',
+        );
+
+        // Refresh library to show updated favorites
+        Alpine.store('library').load();
+      } catch (error) {
+        console.error('[settings] Failed to import loved tracks:', error);
+        Alpine.store('ui').toast('Failed to import loved tracks', 'error');
+      } finally {
+        this.lastfm.importInProgress = false;
+      }
+    },
+
+    async loadQueueStatus() {
+      try {
+        this.lastfm.queueStatus = await api.lastfm.getQueueStatus();
+      } catch (error) {
+        console.error('[settings] Failed to load queue status:', error);
+      }
+    },
+
+    async retryQueuedScrobbles() {
+      try {
+        const result = await api.lastfm.retryQueuedScrobbles();
+        Alpine.store('ui').toast(
+          `Retried queued scrobbles. ${result.remaining_queued} remaining.`,
+          'success',
+        );
+        await this.loadQueueStatus();
+      } catch (error) {
+        console.error('[settings] Failed to retry queued scrobbles:', error);
+        Alpine.store('ui').toast('Failed to retry queued scrobbles', 'error');
+      }
+    },
+
+    // ============================================
+    // Library Reconciliation methods
+    // ============================================
+
+    async runReconcileScan() {
+      if (!window.__TAURI__) {
+        Alpine.store('ui').toast('Only available in desktop app', 'info');
+        return;
+      }
+
+      this.reconcileScan.isRunning = true;
+      try {
+        const { invoke } = window.__TAURI__.core;
+        const result = await invoke('library_reconcile_scan');
+        this.reconcileScan.lastResult = result;
+
+        const total = result.backfilled + result.duplicates_merged;
+        if (total > 0) {
+          Alpine.store('ui').toast(
+            `Scan complete: ${result.backfilled} backfilled, ${result.duplicates_merged} duplicates merged`,
+            'success',
+          );
+          // Refresh library to reflect merged/updated tracks
+          Alpine.store('library').load();
+        } else {
+          Alpine.store('ui').toast('Scan complete: no changes needed', 'info');
+        }
+      } catch (error) {
+        console.error('[settings] Reconcile scan failed:', error);
+        Alpine.store('ui').toast('Reconcile scan failed', 'error');
+      } finally {
+        this.reconcileScan.isRunning = false;
+      }
+    },
+  }));
+}
+
+export default createSettingsView;

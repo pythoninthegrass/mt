@@ -8,8 +8,7 @@ import sys
 
 def build():
     """Build the Zig modules using ziggy-pydust."""
-    # Change to src directory
-    os.chdir("src")
+    os.chdir("app/src")
 
     # Run zig build with ziggy-pydust
     try:

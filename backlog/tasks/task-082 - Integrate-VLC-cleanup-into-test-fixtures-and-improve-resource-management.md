@@ -4,18 +4,20 @@ title: Integrate VLC cleanup into test fixtures and improve resource management
 status: Done
 assignee: []
 created_date: '2025-10-26 21:15'
-updated_date: '2025-10-27 01:59'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies:
   - task-080
   - task-081
 priority: high
-ordinal: 1000
+ordinal: 14382.8125
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Implement recommendations from task 080 to prevent cumulative resource exhaustion across test runs. The rate limiting from task 081 successfully prevents crashes in individual tests, but running multiple E2E tests in sequence still causes app crashes due to VLC resource accumulation.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -26,11 +28,10 @@ Implement recommendations from task 080 to prevent cumulative resource exhaustio
 - [x] #5 Test that multiple E2E concurrency tests pass when run in sequence
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 COMPLETED via task-083: Automatic test ordering implemented via pytest hook eliminates need for process-level isolation. Tests now run in optimal sequence (Unit→Property→E2E→Stress) which minimizes resource stress. VLC cleanup integrated into fixtures works well. Remaining issue is cumulative exhaustion after 512 tests (expected with session-scoped fixture). AC#3 process-level isolation deferred as current solution achieves 92.3% pass rate without the complexity.
-
 
 ## Status: Paused - Blocking Issue Identified
 
@@ -53,7 +54,6 @@ Cons:
 - Requires modifying app_process fixture scope in conftest.py
 
 Implementation:
-
 
 **Option B: Separate test sessions for stress tests**
 Pros:
@@ -107,3 +107,4 @@ Implementation:
 - Fixture integration: tests/conftest.py:288-290
 - VLC recreation: core/controls/player_core.py:597-602
 - app_process fixture: tests/conftest.py:67-137
+<!-- SECTION:NOTES:END -->

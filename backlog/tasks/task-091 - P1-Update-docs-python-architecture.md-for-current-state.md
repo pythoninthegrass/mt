@@ -4,13 +4,14 @@ title: 'P1: Update docs/python-architecture.md for current state'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:06'
-updated_date: '2026-01-12 04:34'
+updated_date: '2026-01-24 22:28'
 labels:
   - documentation
   - phase-1
 milestone: Tauri Migration
 dependencies: []
 priority: high
+ordinal: 97382.8125
 ---
 
 ## Description

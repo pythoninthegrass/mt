@@ -4,6 +4,7 @@ title: 'P5: Add global media key support via tauri-plugin-global-shortcut'
 status: To Do
 assignee: []
 created_date: '2026-01-12 06:36'
+updated_date: '2026-01-19 00:41'
 labels:
   - rust
   - platform
@@ -11,6 +12,7 @@ labels:
 milestone: Tauri Migration
 dependencies: []
 priority: medium
+ordinal: 30000
 ---
 
 ## Description

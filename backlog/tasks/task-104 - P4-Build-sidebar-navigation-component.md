@@ -1,9 +1,10 @@
 ---
 id: task-104
 title: 'P4: Build sidebar navigation component'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:08'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - ui
@@ -12,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-101
 priority: medium
+ordinal: 90382.8125
 ---
 
 ## Description
@@ -74,9 +76,9 @@ Implement the left sidebar for navigation using AlpineJS + Basecoat.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 All library sections clickable and load correct data
-- [ ] #2 Active section highlighted
-- [ ] #3 Playlists list populated from backend
-- [ ] #4 New playlist button opens creation dialog
-- [ ] #5 Sidebar scrolls if content overflows
+- [x] #1 All library sections clickable and load correct data
+- [x] #2 Active section highlighted
+- [x] #3 Playlists list populated from backend
+- [x] #4 New playlist button opens creation dialog
+- [x] #5 Sidebar scrolls if content overflows
 <!-- AC:END -->

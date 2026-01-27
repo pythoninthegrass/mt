@@ -1,9 +1,10 @@
 ---
 id: task-117
 title: 'P3: Set up Basecoat static files and base layout'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 06:43'
+updated_date: '2026-01-26 01:28'
 labels:
   - frontend
   - basecoat
@@ -12,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-093
 priority: high
+ordinal: 31000
 ---
 
 ## Description

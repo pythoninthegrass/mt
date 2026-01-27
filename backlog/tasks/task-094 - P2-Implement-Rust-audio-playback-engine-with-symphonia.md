@@ -1,9 +1,10 @@
 ---
 id: task-094
 title: 'P2: Implement Rust audio playback engine with symphonia'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - audio
@@ -12,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-090
 priority: high
+ordinal: 89382.8125
 ---
 
 ## Description
@@ -63,11 +65,11 @@ impl AudioEngine {
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Can load and decode FLAC, MP3, M4A files
-- [ ] #2 Play/pause/stop works correctly
-- [ ] #3 Seek to arbitrary position works
-- [ ] #4 Volume control works (0.0-1.0 range)
-- [ ] #5 Progress reporting returns current_ms and duration_ms
-- [ ] #6 End-of-track event fires when playback completes
-- [ ] #7 Works on macOS
+- [x] #1 Can load and decode FLAC, MP3, M4A files
+- [x] #2 Play/pause/stop works correctly
+- [x] #3 Seek to arbitrary position works
+- [x] #4 Volume control works (0.0-1.0 range)
+- [x] #5 Progress reporting returns current_ms and duration_ms
+- [x] #6 End-of-track event fires when playback completes
+- [x] #7 Works on macOS
 <!-- AC:END -->

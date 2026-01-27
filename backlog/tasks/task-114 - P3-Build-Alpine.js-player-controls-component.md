@@ -1,10 +1,10 @@
 ---
 id: task-114
 title: 'P3: Build Alpine.js player controls component'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 06:35'
-updated_date: '2026-01-12 06:44'
+updated_date: '2026-01-26 01:53'
 labels:
   - frontend
   - alpine
@@ -14,6 +14,7 @@ dependencies:
   - task-115
   - task-117
 priority: high
+ordinal: 28000
 ---
 
 ## Description

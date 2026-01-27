@@ -1,3 +1,5 @@
-python 3.12.11
-uv     0.8.8
-zig    0.14.0
+cargo-binstall 1.14.4
+python         3.12.11
+rust           1.92.0
+uv             0.8.8
+zig            0.14.0

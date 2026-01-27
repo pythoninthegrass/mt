@@ -1,9 +1,10 @@
 ---
 id: task-099
 title: 'P3: Implement Tauri sidecar management'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
+updated_date: '2026-01-24 22:28'
 labels:
   - rust
   - tauri
@@ -12,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-098
 priority: medium
+ordinal: 84382.8125
 ---
 
 ## Description
@@ -21,8 +23,8 @@ Implement Rust code to manage the Python sidecar lifecycle.
 
 **Responsibilities:**
 1. Find available port
-2. Spawn PEX sidecar with port argument
-3. Wait for readiness signal
+2. Spawn PEX sidecar with `MT_API_PORT` environment variable
+3. Poll health endpoint for readiness
 4. Expose backend URL to frontend
 5. Monitor sidecar health
 6. Clean shutdown on app exit
@@ -30,28 +32,35 @@ Implement Rust code to manage the Python sidecar lifecycle.
 **Implementation:**
 ```rust
 // src-tauri/src/sidecar.rs
-use tauri::api::process::{Command, CommandEvent};
+use std::time::Duration;
+use tauri::Manager;
 
 pub struct SidecarManager {
     port: u16,
-    child: Option<CommandChild>,
+    child: Option<tauri::process::CommandChild>,
 }
 
 impl SidecarManager {
-    pub fn start(app: &AppHandle) -> Result<Self, Error> {
+    pub async fn start(app: &tauri::AppHandle) -> Result<Self, Error> {
         // 1. Find available port
         let port = find_available_port()?;
         
-        // 2. Spawn sidecar
-        let (mut rx, child) = app.shell()
-            .sidecar("mt-backend")?
-            .args(&["--port", &port.to_string()])
+        // 2. Spawn sidecar with MT_API_PORT env var
+        let child = app.shell()
+            .sidecar("main")?
+            .env("MT_API_PORT", port.to_string())
             .spawn()?;
         
-        // 3. Wait for readiness
-        wait_for_ready(&mut rx)?;
+        // 3. Poll health endpoint for readiness
+        let health_url = format!("http://127.0.0.1:{}/api/health", port);
+        for _ in 0..30 {
+            if reqwest::get(&health_url).await.is_ok() {
+                return Ok(Self { port, child: Some(child) });
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
         
-        Ok(Self { port, child: Some(child) })
+        Err(Error::SidecarTimeout)
     }
     
     pub fn get_url(&self) -> String {
@@ -63,18 +72,23 @@ impl SidecarManager {
 **Tauri command:**
 ```rust
 #[tauri::command]
-fn get_backend_url(state: State<SidecarManager>) -> String {
+fn get_backend_url(state: tauri::State<SidecarManager>) -> String {
     state.get_url()
 }
 ```
+
+**Key Changes from Original Design:**
+- Use `MT_API_PORT` env var instead of `--port` CLI argument
+- Poll `GET /api/health` endpoint instead of parsing stdout for "SERVER_READY"
+- Health endpoint returns `{"status": "ok"}` when server is ready
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Sidecar spawns on app startup
-- [ ] #2 Port allocation avoids conflicts
-- [ ] #3 Readiness detection works reliably
-- [ ] #4 Backend URL accessible from frontend
-- [ ] #5 Sidecar terminates on app close
-- [ ] #6 Handles sidecar crash gracefully
+- [x] #1 Sidecar spawns on app startup with `MT_API_PORT` env var
+- [x] #2 Port allocation avoids conflicts (find available port)
+- [x] #3 Health endpoint polling detects readiness (`GET /api/health`)
+- [x] #4 Backend URL accessible from frontend via Tauri command
+- [x] #5 Sidecar terminates on app close (graceful shutdown)
+- [x] #6 Handles sidecar crash gracefully (error state, retry logic)
 <!-- AC:END -->

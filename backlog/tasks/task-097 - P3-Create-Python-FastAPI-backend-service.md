@@ -1,9 +1,10 @@
 ---
 id: task-097
 title: 'P3: Create Python FastAPI backend service'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:07'
+updated_date: '2026-01-24 22:28'
 labels:
   - python
   - backend
@@ -12,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-096
 priority: high
+ordinal: 86382.8125
 ---
 
 ## Description
@@ -56,10 +58,10 @@ def run():
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 FastAPI app runs standalone with uvicorn
-- [ ] #2 All REST endpoints from contract implemented
-- [ ] #3 WebSocket endpoint emits events
-- [ ] #4 Uses same SQLite schema as Tkinter version
-- [ ] #5 No tkinter imports anywhere in backend/
-- [ ] #6 CORS configured for tauri://localhost
+- [x] #1 FastAPI app runs standalone with uvicorn
+- [x] #2 All REST endpoints from contract implemented
+- [x] #3 WebSocket endpoint emits events
+- [x] #4 Uses same SQLite schema as Tkinter version
+- [x] #5 No tkinter imports anywhere in backend/
+- [x] #6 CORS configured for tauri://localhost
 <!-- AC:END -->

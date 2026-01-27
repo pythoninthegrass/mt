@@ -4,6 +4,7 @@ title: 'P5: Implement keyboard shortcuts'
 status: To Do
 assignee: []
 created_date: '2026-01-12 04:09'
+updated_date: '2026-01-19 00:41'
 labels:
   - frontend
   - ux
@@ -12,6 +13,7 @@ milestone: Tauri Migration
 dependencies:
   - task-101
 priority: medium
+ordinal: 21000
 ---
 
 ## Description

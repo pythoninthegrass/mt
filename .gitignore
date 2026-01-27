@@ -2,13 +2,16 @@
 .aider*
 *.db
 *.sqlite
+.playwright-mcp/
 .pyscn/
 .ruff*
 .serena/
 .task/
 CLAUDE.md
+playwright-report/
 repomix-output.md
 static/music
+test-results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -188,6 +191,10 @@ lib-cov
 coverage
 *.lcov
 
+# Rust coverage (cargo-llvm-cov, tarpaulin)
+src-tauri/coverage/
+tarpaulin-report.html
+
 # nyc test coverage
 .nyc_output
 
@@ -336,3 +343,6 @@ src/pydust.build.zig
 # INCLUDE
 !**/.gitkeep
 !**/*.example
+
+# Sidecar binaries (built by task pex:build)
+src-tauri/bin/

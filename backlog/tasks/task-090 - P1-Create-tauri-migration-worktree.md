@@ -4,13 +4,14 @@ title: 'P1: Create tauri-migration worktree'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:06'
-updated_date: '2026-01-12 04:32'
+updated_date: '2026-01-24 22:28'
 labels:
   - infrastructure
   - phase-1
 milestone: Tauri Migration
 dependencies: []
 priority: high
+ordinal: 98382.8125
 ---
 
 ## Description

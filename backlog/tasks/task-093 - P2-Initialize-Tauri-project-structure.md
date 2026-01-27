@@ -4,7 +4,7 @@ title: 'P2: Initialize Tauri project structure'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:06'
-updated_date: '2026-01-12 05:15'
+updated_date: '2026-01-24 22:28'
 labels:
   - infrastructure
   - rust
@@ -12,6 +12,7 @@ labels:
 milestone: Tauri Migration
 dependencies: []
 priority: high
+ordinal: 95382.8125
 ---
 
 ## Description

@@ -4,13 +4,14 @@ title: 'P1: Add Tauri migration architecture section to docs'
 status: Done
 assignee: []
 created_date: '2026-01-12 04:06'
-updated_date: '2026-01-12 05:00'
+updated_date: '2026-01-24 22:28'
 labels:
   - documentation
   - phase-1
 milestone: Tauri Migration
 dependencies: []
 priority: high
+ordinal: 96382.8125
 ---
 
 ## Description

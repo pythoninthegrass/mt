@@ -1,11 +1,19 @@
 fail_fast: true
 
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.0
+  - repo: https://github.com/nozaq/pre-commit-deno
+    rev: v0.1.0
     hooks:
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+      - id: deno-fmt
+        files: \.(ts|tsx|js|jsx|json|jsonc)$
+      - id: deno-lint
+        files: \.(ts|tsx|js|jsx)$
+  - repo: https://github.com/thibaudcolas/pre-commit-stylelint
+    rev: v14.4.0
+    hooks:
+      - id: stylelint
+        args: [--fix]
+        files: \.(css|scss|sass|less|html|js|jsx|ts|tsx)$
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.45.0
     hooks:
@@ -17,27 +25,18 @@ repos:
       - id: check-added-large-files
         args: ['--maxkb=1024']
       - id: check-executables-have-shebangs
-        files: \.(py|sh)$
-      - id: check-docstring-first
-        files: \.(py)$
-        exclude: |
-            (?x)^(
-                scratch.py
-            )$
+        files: \.(sh)$
       - id: check-merge-conflict
       - id: check-shebang-scripts-are-executable
-        files: \.(py|sh)$
+        files: \.(sh)$
       - id: check-symlinks
-      - id: debug-statements
       - id: destroyed-symlinks
       - id: detect-private-key
       - id: end-of-file-fixer
-        files: \.(py|sh)$
+        files: \.(sh|rs|js|ts|css|html)$
       - id: fix-byte-order-marker
       - id: mixed-line-ending
-        files: \.(py|sh)$
-      - id: requirements-txt-fixer
-        files: requirements.txt
+        files: \.(sh|rs|js|ts|css|html)$
       - id: check-toml
         files: \.toml$
       - id: check-yaml

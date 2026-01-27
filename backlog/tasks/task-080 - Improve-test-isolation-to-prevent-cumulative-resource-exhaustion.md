@@ -4,16 +4,18 @@ title: Improve test isolation to prevent cumulative resource exhaustion
 status: Done
 assignee: []
 created_date: '2025-10-26 18:40'
-updated_date: '2025-10-26 20:03'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
 priority: medium
-ordinal: 4000
+ordinal: 34382.8125
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Tests exhibit non-deterministic failures when run in full suite but pass consistently in isolation. This suggests cumulative resource exhaustion (VLC handles, threads, memory) that isn't being cleaned up between tests.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -24,9 +26,9 @@ Tests exhibit non-deterministic failures when run in full suite but pass consist
 - [x] #5 Consider adding pytest-timeout to prevent hung tests from blocking suite
 <!-- AC:END -->
 
-
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 ## Implementation Summary
 
 Completed all 5 acceptance criteria:
@@ -96,3 +98,4 @@ The improvements help with individual test isolation, but cumulative resource ex
 5. **Profile VLC resource usage**:
    - Use monitor_resources fixture with tests
    - Identify specific VLC resource that's exhausting
+<!-- SECTION:NOTES:END -->

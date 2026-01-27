@@ -4,15 +4,17 @@ title: Implement repeat functionality
 status: Done
 assignee: []
 created_date: '2025-09-17 04:10'
-updated_date: '2025-10-28 05:09'
+updated_date: '2026-01-24 22:28'
 labels: []
 dependencies: []
-ordinal: 9000
+ordinal: 40382.8125
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Add repeat modes for single track and ~~all tracks~~ (latter technically exists with loop button)
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -22,15 +24,16 @@ Add repeat modes for single track and ~~all tracks~~ (latter technically exists 
 - [x] #4 Test repeat functionality with different queue states
 <!-- AC:END -->
 
-
 ## Implementation Plan
 
+<!-- SECTION:PLAN:BEGIN -->
 - Use repeat_one.png image in place of the loop utility control when pressed a second time.
   - e.g., loop OFF > ON > REPEAT 1 > track either repeats once or user clicks REPEAT 1 to circle back to loop OFF
-
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 ## Final Implementation: "Play Once More" Pattern ✅
 
 ### Overview
@@ -135,7 +138,6 @@ Repeat-one **completely overrides shuffle** - when user explicitly wants to hear
 ✅ Auto-reverts correctly after second playthrough
 ✅ Manual navigation jumps to repeat track
 ✅ Complete "play once more" UX
-
 
 ## Remaining Implementation (Phases 4-8)
 
@@ -407,3 +409,4 @@ backlog task 003 --plain
 - core/gui/player_controls.py: Icon loading, three-state button logic
 - core/gui/progress_status.py: Pass-through parameter
 - core/player/__init__.py: Initial state propagation
+<!-- SECTION:NOTES:END -->

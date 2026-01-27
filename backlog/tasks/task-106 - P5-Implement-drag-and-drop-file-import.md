@@ -1,9 +1,10 @@
 ---
 id: task-106
 title: 'P5: Implement drag-and-drop file import'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-12 04:09'
+updated_date: '2026-01-24 22:28'
 labels:
   - frontend
   - backend
@@ -13,6 +14,7 @@ dependencies:
   - task-097
   - task-102
 priority: medium
+ordinal: 83382.8125
 ---
 
 ## Description
@@ -55,9 +57,9 @@ document.addEventListener('drop', async (e) => {
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Can drag files onto app window
-- [ ] #2 Can drag folders onto app window
-- [ ] #3 Visual feedback during drag
-- [ ] #4 Progress shown during scan
-- [ ] #5 Library updates after scan completes
+- [x] #1 Can drag files onto app window
+- [x] #2 Can drag folders onto app window
+- [x] #3 Visual feedback during drag
+- [x] #4 Progress shown during scan
+- [x] #5 Library updates after scan completes
 <!-- AC:END -->
