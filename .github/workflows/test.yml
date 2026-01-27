@@ -2,7 +2,7 @@ name: Test Suite
 
 on:
   push:
-    branches: [main, tauri-migration]
+    branches: [main]
     paths:
       # Rust source and config
       - '**/*.rs'
@@ -35,7 +35,7 @@ on:
       # CI workflow itself
       - '.github/workflows/test.yml'
   pull_request:
-    branches: [main, tauri-migration]
+    branches: [main]
     paths:
       # Rust source and config
       - '**/*.rs'
