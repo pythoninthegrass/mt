@@ -124,7 +124,7 @@ jobs:
   # Linting and code quality
   lint:
     name: Lint and Format Check
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -149,7 +149,7 @@ jobs:
   # Vitest unit tests with coverage
   vitest-tests:
     name: Vitest Unit Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
