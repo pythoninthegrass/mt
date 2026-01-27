@@ -196,14 +196,6 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          # Cache cargo binaries (including cargo-tarpaulin)
-          cache-directories: |
-            ~/.cargo/bin/
-
       - name: Install cargo-tarpaulin
         run: |
           # Only install if not already cached
@@ -251,11 +243,6 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
 
       - name: Install frontend dependencies
         working-directory: ./app/frontend
