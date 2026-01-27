@@ -4,7 +4,7 @@ title: Improve Rust backend test coverage from 34% to 50%
 status: In Progress
 assignee: []
 created_date: '2026-01-26 07:27'
-updated_date: '2026-01-27 22:04'
+updated_date: '2026-01-27 22:15'
 labels:
   - testing
   - coverage
@@ -138,4 +138,48 @@ Coverage improved from 28.82% to 29.93% (+1.11%).
 1. Refactor Tauri commands to extract testable pure functions
 2. Add integration tests using Tauri test harness
 3. Focus on db/library.rs (currently 47%) to push it over 50%
+
+## Progress Update (2026-01-27 - Session 2)
+
+### Coverage Improved from 29.93% to 33.39% (+3.46%)
+
+**Tests Added:**
+
+1. **db/library.rs** - 35 new tests:
+   - get_existing_filepaths: 4 tests
+   - get_all_fingerprints: 3 tests
+   - update_tracks_bulk: 3 tests
+   - delete_tracks_bulk: 3 tests
+   - update_track_metadata: 2 tests
+   - get_missing_tracks: 2 tests
+   - Fingerprint backfill functions: 4 tests
+   - Duplicate detection functions: 6 tests
+   - Merge duplicate tracks: 2 tests
+   - LibraryQuery: 4 tests
+   - Struct debug tests: 2 tests
+   - Coverage: 47% → 88.59% (264/298 lines)
+
+2. **lastfm/types.rs** - 24 new tests:
+   - All struct serialization/deserialization tests
+   - ArtistInfo::name() method tests
+   - Coverage: 0% → 100% (4/4 lines)
+
+**Bug Fixed:**
+- Fixed `merge_duplicate_tracks` function: Changed `added_at` to `timestamp` column name for favorites table
+
+**Test Count: 445 → 469 (+24 tests)**
+
+### Remaining Challenge
+
+To reach 50% requires ~611 more covered lines. The uncovered code is primarily Tauri-dependent:
+- src/watcher.rs: 0/395 (10.7% of total codebase)
+- src/commands/*: 0/XXX (command wrappers)
+- src/lib.rs: 0/135 (Tauri app setup)
+- src/media_keys.rs: 0/59 (system integration)
+- src/dialog.rs: 0/41 (Tauri plugin)
+
+**Recommendation:**
+1. **Extract pure functions** from Tauri commands into separate modules
+2. **Create mock traits** for Tauri AppHandle to test command logic
+3. **Integration tests** using Tauri test harness for runtime-dependent features
 <!-- SECTION:NOTES:END -->

@@ -785,8 +785,8 @@ pub fn merge_duplicate_tracks(conn: &Connection, keep_id: i64, delete_id: i64) -
 
     // Transfer favorites (ignore if already exists)
     conn.execute(
-        "INSERT OR IGNORE INTO favorites (track_id, added_at)
-         SELECT ?, added_at FROM favorites WHERE track_id = ?",
+        "INSERT OR IGNORE INTO favorites (track_id, timestamp)
+         SELECT ?, timestamp FROM favorites WHERE track_id = ?",
         params![keep_id, delete_id],
     )?;
 
@@ -1369,5 +1369,709 @@ mod tests {
         assert!(!track_a_updated.missing);
         assert_eq!(track_a_updated.play_count, 10, "Play history should be preserved");
         assert_eq!(track_a_updated.title, Some("My Song".to_string()));
+    }
+
+    // ===== get_existing_filepaths Tests =====
+
+    #[test]
+    fn test_get_existing_filepaths_empty_input() {
+        let conn = setup_test_db();
+
+        // Empty input should return empty set
+        let result = get_existing_filepaths(&conn, &[]).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_get_existing_filepaths_no_matches() {
+        let conn = setup_test_db();
+
+        // Add a track
+        let metadata = TrackMetadata {
+            title: Some("Test".to_string()),
+            ..Default::default()
+        };
+        add_track(&conn, "/music/existing.mp3", &metadata).unwrap();
+
+        // Query for non-existing paths
+        let paths = vec![
+            "/music/nonexistent1.mp3".to_string(),
+            "/music/nonexistent2.mp3".to_string(),
+        ];
+        let result = get_existing_filepaths(&conn, &paths).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_get_existing_filepaths_some_matches() {
+        let conn = setup_test_db();
+
+        // Add tracks
+        for i in 1..=3 {
+            let metadata = TrackMetadata {
+                title: Some(format!("Track {}", i)),
+                ..Default::default()
+            };
+            add_track(&conn, &format!("/music/track{}.mp3", i), &metadata).unwrap();
+        }
+
+        // Query for mix of existing and non-existing
+        let paths = vec![
+            "/music/track1.mp3".to_string(),
+            "/music/nonexistent.mp3".to_string(),
+            "/music/track3.mp3".to_string(),
+        ];
+        let result = get_existing_filepaths(&conn, &paths).unwrap();
+        assert_eq!(result.len(), 2);
+        assert!(result.contains("/music/track1.mp3"));
+        assert!(result.contains("/music/track3.mp3"));
+    }
+
+    #[test]
+    fn test_get_existing_filepaths_all_matches() {
+        let conn = setup_test_db();
+
+        // Add tracks
+        let paths: Vec<String> = (1..=5).map(|i| format!("/music/track{}.mp3", i)).collect();
+        for path in &paths {
+            let metadata = TrackMetadata {
+                title: Some("Test".to_string()),
+                ..Default::default()
+            };
+            add_track(&conn, path, &metadata).unwrap();
+        }
+
+        // Query for all existing paths
+        let result = get_existing_filepaths(&conn, &paths).unwrap();
+        assert_eq!(result.len(), 5);
+    }
+
+    // ===== get_all_fingerprints Tests =====
+
+    #[test]
+    fn test_get_all_fingerprints_empty() {
+        let conn = setup_test_db();
+
+        let result = get_all_fingerprints(&conn).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_get_all_fingerprints_with_data() {
+        let conn = setup_test_db();
+
+        // Add tracks with fingerprint data
+        let metadata1 = TrackMetadata {
+            title: Some("Track 1".to_string()),
+            file_mtime_ns: Some(1234567890),
+            file_size: Some(1000),
+            ..Default::default()
+        };
+        let metadata2 = TrackMetadata {
+            title: Some("Track 2".to_string()),
+            file_mtime_ns: Some(9876543210),
+            file_size: Some(2000),
+            ..Default::default()
+        };
+
+        add_track(&conn, "/music/track1.mp3", &metadata1).unwrap();
+        add_track(&conn, "/music/track2.mp3", &metadata2).unwrap();
+
+        let result = get_all_fingerprints(&conn).unwrap();
+        assert_eq!(result.len(), 2);
+
+        let fp1 = &result["/music/track1.mp3"];
+        assert_eq!(fp1.filepath, "/music/track1.mp3");
+        assert_eq!(fp1.file_mtime_ns, Some(1234567890));
+        assert_eq!(fp1.file_size, 1000);
+
+        let fp2 = &result["/music/track2.mp3"];
+        assert_eq!(fp2.filepath, "/music/track2.mp3");
+        assert_eq!(fp2.file_mtime_ns, Some(9876543210));
+        assert_eq!(fp2.file_size, 2000);
+    }
+
+    #[test]
+    fn test_get_all_fingerprints_null_values() {
+        let conn = setup_test_db();
+
+        // Add track with null fingerprint values
+        let metadata = TrackMetadata {
+            title: Some("No Fingerprint".to_string()),
+            file_mtime_ns: None,
+            file_size: None,
+            ..Default::default()
+        };
+        add_track(&conn, "/music/nofingerprint.mp3", &metadata).unwrap();
+
+        let result = get_all_fingerprints(&conn).unwrap();
+        assert_eq!(result.len(), 1);
+
+        let fp = &result["/music/nofingerprint.mp3"];
+        assert_eq!(fp.file_mtime_ns, None);
+        assert_eq!(fp.file_size, 0); // Default when NULL
+    }
+
+    // ===== update_tracks_bulk Tests =====
+
+    #[test]
+    fn test_update_tracks_bulk_empty() {
+        let conn = setup_test_db();
+
+        let result = update_tracks_bulk(&conn, &[]).unwrap();
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_update_tracks_bulk_updates_metadata() {
+        let conn = setup_test_db();
+
+        // Add initial tracks
+        let tracks: Vec<(String, TrackMetadata)> = (1..=3)
+            .map(|i| {
+                (
+                    format!("/music/track{}.mp3", i),
+                    TrackMetadata {
+                        title: Some(format!("Original {}", i)),
+                        artist: Some("Original Artist".to_string()),
+                        duration: Some(100.0),
+                        ..Default::default()
+                    },
+                )
+            })
+            .collect();
+        add_tracks_bulk(&conn, &tracks).unwrap();
+
+        // Update tracks
+        let updates: Vec<(String, TrackMetadata)> = (1..=3)
+            .map(|i| {
+                (
+                    format!("/music/track{}.mp3", i),
+                    TrackMetadata {
+                        title: Some(format!("Updated {}", i)),
+                        artist: Some("Updated Artist".to_string()),
+                        duration: Some(200.0),
+                        ..Default::default()
+                    },
+                )
+            })
+            .collect();
+
+        let result = update_tracks_bulk(&conn, &updates).unwrap();
+        assert_eq!(result, 3);
+
+        // Verify updates
+        let track = get_track_by_filepath(&conn, "/music/track1.mp3").unwrap().unwrap();
+        assert_eq!(track.title, Some("Updated 1".to_string()));
+        assert_eq!(track.artist, Some("Updated Artist".to_string()));
+    }
+
+    #[test]
+    fn test_update_tracks_bulk_nonexistent_path() {
+        let conn = setup_test_db();
+
+        // Try to update non-existent paths
+        let updates = vec![(
+            "/music/nonexistent.mp3".to_string(),
+            TrackMetadata {
+                title: Some("Updated".to_string()),
+                ..Default::default()
+            },
+        )];
+
+        let result = update_tracks_bulk(&conn, &updates).unwrap();
+        assert_eq!(result, 0); // No rows updated
+    }
+
+    // ===== delete_tracks_bulk Tests =====
+
+    #[test]
+    fn test_delete_tracks_bulk_empty() {
+        let conn = setup_test_db();
+
+        let result = delete_tracks_bulk(&conn, &[]).unwrap();
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_delete_tracks_bulk_deletes_tracks() {
+        let conn = setup_test_db();
+
+        // Add tracks
+        for i in 1..=5 {
+            let metadata = TrackMetadata {
+                title: Some(format!("Track {}", i)),
+                ..Default::default()
+            };
+            add_track(&conn, &format!("/music/track{}.mp3", i), &metadata).unwrap();
+        }
+
+        // Delete some tracks
+        let to_delete = vec![
+            "/music/track1.mp3".to_string(),
+            "/music/track3.mp3".to_string(),
+            "/music/track5.mp3".to_string(),
+        ];
+
+        let result = delete_tracks_bulk(&conn, &to_delete).unwrap();
+        assert_eq!(result, 3);
+
+        // Verify remaining tracks
+        let stats = get_library_stats(&conn).unwrap();
+        assert_eq!(stats.total_tracks, 2);
+
+        assert!(get_track_by_filepath(&conn, "/music/track1.mp3").unwrap().is_none());
+        assert!(get_track_by_filepath(&conn, "/music/track2.mp3").unwrap().is_some());
+        assert!(get_track_by_filepath(&conn, "/music/track3.mp3").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_delete_tracks_bulk_nonexistent() {
+        let conn = setup_test_db();
+
+        // Add one track
+        let metadata = TrackMetadata {
+            title: Some("Track".to_string()),
+            ..Default::default()
+        };
+        add_track(&conn, "/music/track.mp3", &metadata).unwrap();
+
+        // Try to delete non-existent paths
+        let to_delete = vec!["/music/nonexistent.mp3".to_string()];
+
+        let result = delete_tracks_bulk(&conn, &to_delete).unwrap();
+        assert_eq!(result, 0);
+
+        // Original track should still exist
+        let stats = get_library_stats(&conn).unwrap();
+        assert_eq!(stats.total_tracks, 1);
+    }
+
+    // ===== update_track_metadata Tests =====
+
+    #[test]
+    fn test_update_track_metadata_success() {
+        let conn = setup_test_db();
+
+        let original = TrackMetadata {
+            title: Some("Original Title".to_string()),
+            artist: Some("Original Artist".to_string()),
+            album: Some("Original Album".to_string()),
+            duration: Some(180.0),
+            ..Default::default()
+        };
+        let id = add_track(&conn, "/music/test.mp3", &original).unwrap();
+
+        let updated = TrackMetadata {
+            title: Some("New Title".to_string()),
+            artist: Some("New Artist".to_string()),
+            album: Some("New Album".to_string()),
+            duration: Some(240.0),
+            ..Default::default()
+        };
+
+        let result = update_track_metadata(&conn, id, &updated).unwrap();
+        assert!(result);
+
+        let track = get_track_by_id(&conn, id).unwrap().unwrap();
+        assert_eq!(track.title, Some("New Title".to_string()));
+        assert_eq!(track.artist, Some("New Artist".to_string()));
+        assert_eq!(track.album, Some("New Album".to_string()));
+    }
+
+    #[test]
+    fn test_update_track_metadata_nonexistent() {
+        let conn = setup_test_db();
+
+        let metadata = TrackMetadata {
+            title: Some("Title".to_string()),
+            ..Default::default()
+        };
+
+        let result = update_track_metadata(&conn, 99999, &metadata).unwrap();
+        assert!(!result);
+    }
+
+    // ===== get_missing_tracks Tests =====
+
+    #[test]
+    fn test_get_missing_tracks_empty() {
+        let conn = setup_test_db();
+
+        let result = get_missing_tracks(&conn).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_get_missing_tracks_returns_missing_only() {
+        let conn = setup_test_db();
+
+        // Add tracks - some missing, some not
+        for i in 1..=4 {
+            let metadata = TrackMetadata {
+                title: Some(format!("Track {}", i)),
+                ..Default::default()
+            };
+            add_track(&conn, &format!("/music/track{}.mp3", i), &metadata).unwrap();
+        }
+
+        // Mark some as missing
+        mark_track_missing_by_filepath(&conn, "/music/track1.mp3").unwrap();
+        mark_track_missing_by_filepath(&conn, "/music/track3.mp3").unwrap();
+
+        let result = get_missing_tracks(&conn).unwrap();
+        assert_eq!(result.len(), 2);
+
+        // Should be sorted by title
+        assert_eq!(result[0].title, Some("Track 1".to_string()));
+        assert_eq!(result[1].title, Some("Track 3".to_string()));
+
+        // All should have missing=true
+        for track in &result {
+            assert!(track.missing);
+        }
+    }
+
+    // ===== Fingerprint Backfill Tests =====
+
+    #[test]
+    fn test_get_tracks_needing_fingerprints_empty() {
+        let conn = setup_test_db();
+
+        let result = get_tracks_needing_fingerprints(&conn).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_get_tracks_needing_fingerprints_returns_incomplete() {
+        let conn = setup_test_db();
+
+        // Track with complete fingerprints (shouldn't be returned)
+        let complete = TrackMetadata {
+            title: Some("Complete".to_string()),
+            file_inode: Some(12345),
+            content_hash: Some("sha256:abc".to_string()),
+            ..Default::default()
+        };
+        add_track(&conn, "/music/complete.mp3", &complete).unwrap();
+
+        // Track with no inode
+        let no_inode = TrackMetadata {
+            title: Some("No Inode".to_string()),
+            file_inode: None,
+            content_hash: Some("sha256:def".to_string()),
+            ..Default::default()
+        };
+        add_track(&conn, "/music/no_inode.mp3", &no_inode).unwrap();
+
+        // Track with no hash
+        let no_hash = TrackMetadata {
+            title: Some("No Hash".to_string()),
+            file_inode: Some(67890),
+            content_hash: None,
+            ..Default::default()
+        };
+        add_track(&conn, "/music/no_hash.mp3", &no_hash).unwrap();
+
+        // Missing track (shouldn't be returned)
+        let missing = TrackMetadata {
+            title: Some("Missing".to_string()),
+            file_inode: None,
+            content_hash: None,
+            ..Default::default()
+        };
+        let missing_id = add_track(&conn, "/music/missing.mp3", &missing).unwrap();
+        mark_track_missing(&conn, missing_id).unwrap();
+
+        let result = get_tracks_needing_fingerprints(&conn).unwrap();
+        assert_eq!(result.len(), 2);
+
+        let paths: Vec<&str> = result.iter().map(|t| t.filepath.as_str()).collect();
+        assert!(paths.contains(&"/music/no_inode.mp3"));
+        assert!(paths.contains(&"/music/no_hash.mp3"));
+    }
+
+    #[test]
+    fn test_update_track_fingerprints() {
+        let conn = setup_test_db();
+
+        let metadata = TrackMetadata {
+            title: Some("Test".to_string()),
+            file_inode: None,
+            content_hash: None,
+            ..Default::default()
+        };
+        let id = add_track(&conn, "/music/test.mp3", &metadata).unwrap();
+
+        // Update fingerprints
+        let result = update_track_fingerprints(&conn, id, Some(12345), Some("sha256:abc123")).unwrap();
+        assert!(result);
+
+        // Verify update
+        let track = get_track_by_id(&conn, id).unwrap().unwrap();
+        assert_eq!(track.file_inode, Some(12345));
+        assert_eq!(track.content_hash, Some("sha256:abc123".to_string()));
+    }
+
+    #[test]
+    fn test_update_track_fingerprints_nonexistent() {
+        let conn = setup_test_db();
+
+        let result = update_track_fingerprints(&conn, 99999, Some(12345), Some("hash")).unwrap();
+        assert!(!result);
+    }
+
+    // ===== Duplicate Detection Tests =====
+
+    #[test]
+    fn test_find_duplicates_by_inode_empty() {
+        let conn = setup_test_db();
+
+        let result = find_duplicates_by_inode(&conn).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_find_duplicates_by_inode_no_duplicates() {
+        let conn = setup_test_db();
+
+        // Add tracks with unique inodes
+        for i in 1..=3 {
+            let metadata = TrackMetadata {
+                title: Some(format!("Track {}", i)),
+                file_inode: Some(i as u64 * 1000),
+                ..Default::default()
+            };
+            add_track(&conn, &format!("/music/track{}.mp3", i), &metadata).unwrap();
+        }
+
+        let result = find_duplicates_by_inode(&conn).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_find_duplicates_by_inode_finds_duplicates() {
+        let conn = setup_test_db();
+
+        // Add tracks with duplicate inode
+        let metadata1 = TrackMetadata {
+            title: Some("Original".to_string()),
+            file_inode: Some(12345),
+            ..Default::default()
+        };
+        let metadata2 = TrackMetadata {
+            title: Some("Duplicate".to_string()),
+            file_inode: Some(12345), // Same inode
+            ..Default::default()
+        };
+        let metadata3 = TrackMetadata {
+            title: Some("Unique".to_string()),
+            file_inode: Some(99999), // Different inode
+            ..Default::default()
+        };
+
+        add_track(&conn, "/music/original.mp3", &metadata1).unwrap();
+        add_track(&conn, "/music/duplicate.mp3", &metadata2).unwrap();
+        add_track(&conn, "/music/unique.mp3", &metadata3).unwrap();
+
+        let result = find_duplicates_by_inode(&conn).unwrap();
+        assert_eq!(result.len(), 1); // One group of duplicates
+        assert_eq!(result[0].len(), 2); // Two tracks in the group
+    }
+
+    #[test]
+    fn test_find_duplicates_by_content_hash_empty() {
+        let conn = setup_test_db();
+
+        let result = find_duplicates_by_content_hash(&conn).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_find_duplicates_by_content_hash_finds_duplicates() {
+        let conn = setup_test_db();
+
+        // Add tracks with duplicate content hash
+        let metadata1 = TrackMetadata {
+            title: Some("File 1".to_string()),
+            content_hash: Some("sha256:samehash".to_string()),
+            file_inode: Some(11111),
+            ..Default::default()
+        };
+        let metadata2 = TrackMetadata {
+            title: Some("File 2".to_string()),
+            content_hash: Some("sha256:samehash".to_string()),
+            file_inode: Some(22222),
+            ..Default::default()
+        };
+        let metadata3 = TrackMetadata {
+            title: Some("Different".to_string()),
+            content_hash: Some("sha256:differenthash".to_string()),
+            file_inode: Some(33333),
+            ..Default::default()
+        };
+
+        add_track(&conn, "/music/file1.mp3", &metadata1).unwrap();
+        add_track(&conn, "/music/file2.mp3", &metadata2).unwrap();
+        add_track(&conn, "/music/different.mp3", &metadata3).unwrap();
+
+        let result = find_duplicates_by_content_hash(&conn).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].len(), 2);
+    }
+
+    // ===== Merge Duplicate Tracks Tests =====
+
+    #[test]
+    fn test_merge_duplicate_tracks_sums_play_count() {
+        let conn = setup_test_db();
+
+        // Add two tracks
+        let metadata1 = TrackMetadata {
+            title: Some("Keep".to_string()),
+            ..Default::default()
+        };
+        let metadata2 = TrackMetadata {
+            title: Some("Delete".to_string()),
+            ..Default::default()
+        };
+
+        let keep_id = add_track(&conn, "/music/keep.mp3", &metadata1).unwrap();
+        let delete_id = add_track(&conn, "/music/delete.mp3", &metadata2).unwrap();
+
+        // Add play counts
+        for _ in 0..5 {
+            update_play_count(&conn, keep_id).unwrap();
+        }
+        for _ in 0..3 {
+            update_play_count(&conn, delete_id).unwrap();
+        }
+
+        // Merge
+        let result = merge_duplicate_tracks(&conn, keep_id, delete_id).unwrap();
+        assert!(result);
+
+        // Verify: keep_id should have combined play count
+        let track = get_track_by_id(&conn, keep_id).unwrap().unwrap();
+        assert_eq!(track.play_count, 8); // 5 + 3
+
+        // Verify: delete_id should be gone
+        let deleted = get_track_by_id(&conn, delete_id).unwrap();
+        assert!(deleted.is_none());
+    }
+
+    #[test]
+    fn test_merge_duplicate_tracks_nonexistent() {
+        let conn = setup_test_db();
+
+        let metadata = TrackMetadata {
+            title: Some("Test".to_string()),
+            ..Default::default()
+        };
+        let keep_id = add_track(&conn, "/music/test.mp3", &metadata).unwrap();
+
+        // Try to merge with non-existent track
+        let result = merge_duplicate_tracks(&conn, keep_id, 99999).unwrap();
+        assert!(!result); // No rows deleted
+    }
+
+    // ===== LibraryQuery Tests =====
+
+    #[test]
+    fn test_library_query_new_defaults() {
+        let query = LibraryQuery::new();
+        assert_eq!(query.limit, 100);
+        assert!(query.search.is_none());
+        assert!(query.artist.is_none());
+        assert!(query.album.is_none());
+    }
+
+    #[test]
+    fn test_library_query_search_filter() {
+        let conn = setup_test_db();
+
+        // Add tracks with different titles
+        let tracks = vec![
+            ("Rock Song", "Rock Artist", "Rock Album"),
+            ("Pop Song", "Pop Artist", "Pop Album"),
+            ("Jazz Song", "Jazz Artist", "Jazz Album"),
+        ];
+
+        for (title, artist, album) in tracks {
+            let metadata = TrackMetadata {
+                title: Some(title.to_string()),
+                artist: Some(artist.to_string()),
+                album: Some(album.to_string()),
+                ..Default::default()
+            };
+            add_track(&conn, &format!("/music/{}.mp3", title), &metadata).unwrap();
+        }
+
+        // Search for "Rock"
+        let query = LibraryQuery {
+            search: Some("Rock".to_string()),
+            limit: 100,
+            ..Default::default()
+        };
+        let result = get_all_tracks(&conn, &query).unwrap();
+        assert_eq!(result.total, 1);
+        assert_eq!(result.items[0].title, Some("Rock Song".to_string()));
+    }
+
+    #[test]
+    fn test_library_query_album_filter() {
+        let conn = setup_test_db();
+
+        // Add tracks in different albums
+        for i in 1..=4 {
+            let metadata = TrackMetadata {
+                title: Some(format!("Track {}", i)),
+                album: Some(if i <= 2 {
+                    "Album A".to_string()
+                } else {
+                    "Album B".to_string()
+                }),
+                ..Default::default()
+            };
+            add_track(&conn, &format!("/music/track{}.mp3", i), &metadata).unwrap();
+        }
+
+        let query = LibraryQuery {
+            album: Some("Album A".to_string()),
+            limit: 100,
+            ..Default::default()
+        };
+        let result = get_all_tracks(&conn, &query).unwrap();
+        assert_eq!(result.total, 2);
+    }
+
+    // ===== DuplicateCandidate and TrackForBackfill Struct Tests =====
+
+    #[test]
+    fn test_duplicate_candidate_debug() {
+        let candidate = DuplicateCandidate {
+            id: 1,
+            filepath: "/music/test.mp3".to_string(),
+            missing: false,
+            play_count: 10,
+            added_date: Some("2024-01-01".to_string()),
+        };
+
+        let debug_str = format!("{:?}", candidate);
+        assert!(debug_str.contains("DuplicateCandidate"));
+        assert!(debug_str.contains("test.mp3"));
+    }
+
+    #[test]
+    fn test_track_for_backfill_debug() {
+        let track = TrackForBackfill {
+            id: 42,
+            filepath: "/music/backfill.mp3".to_string(),
+        };
+
+        let debug_str = format!("{:?}", track);
+        assert!(debug_str.contains("TrackForBackfill"));
+        assert!(debug_str.contains("42"));
+        assert!(debug_str.contains("backfill.mp3"));
     }
 }
