@@ -5,7 +5,6 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::db::models::Track;
     use crate::db::queue::{
         add_files_to_queue, add_to_queue, clear_queue, get_queue, remove_from_queue,
     };
@@ -75,11 +74,6 @@ mod tests {
     // Strategy for generating track ID lists
     fn track_id_list_strategy() -> impl Strategy<Value = Vec<i64>> {
         prop::collection::vec(track_id_strategy(), 0..20)
-    }
-
-    // Strategy for generating valid positions
-    fn position_strategy(max: usize) -> impl Strategy<Value = i64> {
-        0i64..=(max as i64)
     }
 
     proptest! {
@@ -317,7 +311,7 @@ mod tests {
             // Add initial tracks
             let mut track_counter = 0usize;
             let initial_ids: Vec<i64> = (0..initial_count)
-                .map(|i| {
+                .map(|_| {
                     let id = add_test_track(&conn, &format!("/path/track{}.mp3", track_counter), &format!("Track {}", track_counter));
                     track_counter += 1;
                     id

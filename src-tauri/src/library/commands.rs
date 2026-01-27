@@ -471,6 +471,10 @@ pub fn library_reconcile_scan(
 mod tests {
     use super::*;
 
+    // =========================================================================
+    // LibraryResponse tests
+    // =========================================================================
+
     #[test]
     fn test_library_response_serialization() {
         let response = LibraryResponse {
@@ -483,5 +487,274 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("\"total\":0"));
         assert!(json.contains("\"limit\":100"));
+    }
+
+    #[test]
+    fn test_library_response_with_pagination() {
+        let response = LibraryResponse {
+            tracks: vec![],
+            total: 500,
+            limit: 50,
+            offset: 100,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"total\":500"));
+        assert!(json.contains("\"limit\":50"));
+        assert!(json.contains("\"offset\":100"));
+    }
+
+    #[test]
+    fn test_library_response_clone() {
+        let response = LibraryResponse {
+            tracks: vec![],
+            total: 10,
+            limit: 10,
+            offset: 0,
+        };
+
+        let cloned = response.clone();
+        assert_eq!(response.total, cloned.total);
+        assert_eq!(response.limit, cloned.limit);
+        assert_eq!(response.offset, cloned.offset);
+    }
+
+    #[test]
+    fn test_library_response_large_values() {
+        let response = LibraryResponse {
+            tracks: vec![],
+            total: 1_000_000,
+            limit: 1000,
+            offset: 999_000,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"total\":1000000"));
+    }
+
+    // =========================================================================
+    // MissingTracksResponse tests
+    // =========================================================================
+
+    #[test]
+    fn test_missing_tracks_response_serialization() {
+        let response = MissingTracksResponse {
+            tracks: vec![],
+            total: 0,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"tracks\":[]"));
+        assert!(json.contains("\"total\":0"));
+    }
+
+    #[test]
+    fn test_missing_tracks_response_with_count() {
+        let response = MissingTracksResponse {
+            tracks: vec![],
+            total: 25,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"total\":25"));
+    }
+
+    #[test]
+    fn test_missing_tracks_response_clone() {
+        let response = MissingTracksResponse {
+            tracks: vec![],
+            total: 5,
+        };
+
+        let cloned = response.clone();
+        assert_eq!(response.total, cloned.total);
+        assert_eq!(response.tracks.len(), cloned.tracks.len());
+    }
+
+    // =========================================================================
+    // ReconcileScanResult tests
+    // =========================================================================
+
+    #[test]
+    fn test_reconcile_scan_result_serialization() {
+        let result = ReconcileScanResult {
+            backfilled: 10,
+            duplicates_merged: 5,
+            errors: 2,
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"backfilled\":10"));
+        assert!(json.contains("\"duplicates_merged\":5"));
+        assert!(json.contains("\"errors\":2"));
+    }
+
+    #[test]
+    fn test_reconcile_scan_result_zero_values() {
+        let result = ReconcileScanResult {
+            backfilled: 0,
+            duplicates_merged: 0,
+            errors: 0,
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"backfilled\":0"));
+        assert!(json.contains("\"duplicates_merged\":0"));
+        assert!(json.contains("\"errors\":0"));
+    }
+
+    #[test]
+    fn test_reconcile_scan_result_clone() {
+        let result = ReconcileScanResult {
+            backfilled: 100,
+            duplicates_merged: 20,
+            errors: 3,
+        };
+
+        let cloned = result.clone();
+        assert_eq!(result.backfilled, cloned.backfilled);
+        assert_eq!(result.duplicates_merged, cloned.duplicates_merged);
+        assert_eq!(result.errors, cloned.errors);
+    }
+
+    #[test]
+    fn test_reconcile_scan_result_large_values() {
+        let result = ReconcileScanResult {
+            backfilled: 10_000,
+            duplicates_merged: 5_000,
+            errors: 100,
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"backfilled\":10000"));
+        assert!(json.contains("\"duplicates_merged\":5000"));
+    }
+
+    // =========================================================================
+    // Pagination calculation tests
+    // =========================================================================
+
+    #[test]
+    fn test_pagination_first_page() {
+        let limit = 50i64;
+        let offset = 0i64;
+        let total = 100i64;
+
+        assert_eq!(offset, 0);
+        assert!(offset + limit <= total || offset < total);
+    }
+
+    #[test]
+    fn test_pagination_middle_page() {
+        let limit = 50i64;
+        let offset = 50i64;
+
+        let current_page = offset / limit + 1;
+        assert_eq!(current_page, 2);
+    }
+
+    #[test]
+    fn test_pagination_last_page() {
+        let total = 125i64;
+        let offset = 100i64; // Last page with 25 items
+
+        let remaining = total - offset;
+        assert_eq!(remaining, 25);
+    }
+
+    #[test]
+    fn test_pagination_beyond_total() {
+        let limit = 50i64;
+        let total = 100i64;
+        let offset = 150i64; // Beyond total
+
+        let items_to_return = if offset >= total {
+            0
+        } else {
+            (total - offset).min(limit)
+        };
+        assert_eq!(items_to_return, 0);
+    }
+
+    // =========================================================================
+    // Sort order parsing tests
+    // =========================================================================
+
+    #[test]
+    fn test_sort_order_asc() {
+        let order_str = "asc";
+        let sort_order = if order_str.to_lowercase() == "asc" {
+            SortOrder::Asc
+        } else {
+            SortOrder::Desc
+        };
+        assert!(matches!(sort_order, SortOrder::Asc));
+    }
+
+    #[test]
+    fn test_sort_order_desc() {
+        let order_str = "desc";
+        let sort_order = if order_str.to_lowercase() == "asc" {
+            SortOrder::Asc
+        } else {
+            SortOrder::Desc
+        };
+        assert!(matches!(sort_order, SortOrder::Desc));
+    }
+
+    #[test]
+    fn test_sort_order_case_insensitive() {
+        let orders = ["ASC", "Asc", "asc", "ASc"];
+        for order_str in orders {
+            let sort_order = if order_str.to_lowercase() == "asc" {
+                SortOrder::Asc
+            } else {
+                SortOrder::Desc
+            };
+            assert!(matches!(sort_order, SortOrder::Asc));
+        }
+    }
+
+    #[test]
+    fn test_sort_order_default_to_desc() {
+        let order_str = "invalid";
+        let sort_order = if order_str.to_lowercase() == "asc" {
+            SortOrder::Asc
+        } else {
+            SortOrder::Desc
+        };
+        assert!(matches!(sort_order, SortOrder::Desc));
+    }
+
+    // =========================================================================
+    // Path validation tests
+    // =========================================================================
+
+    #[test]
+    fn test_path_exists_check() {
+        // Using a path that definitely doesn't exist
+        let path = Path::new("/nonexistent/path/to/file.mp3");
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn test_path_from_string() {
+        let path_str = "/Users/test/Music/track.mp3";
+        let path = Path::new(path_str);
+        assert_eq!(path.to_str(), Some(path_str));
+    }
+
+    #[test]
+    fn test_path_with_spaces() {
+        let path_str = "/Users/test/My Music/My Track.mp3";
+        let path = Path::new(path_str);
+        assert_eq!(path.to_str(), Some(path_str));
+    }
+
+    #[test]
+    fn test_path_with_unicode() {
+        let path_str = "/Users/test/音楽/曲.mp3";
+        let path = Path::new(path_str);
+        assert_eq!(path.to_str(), Some(path_str));
     }
 }

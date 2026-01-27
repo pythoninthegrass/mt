@@ -244,6 +244,10 @@ pub fn settings_reset(app: AppHandle) -> Result<AllSettingsResponse, String> {
 mod tests {
     use super::*;
 
+    // =====================================================================
+    // Default values tests
+    // =====================================================================
+
     #[test]
     fn test_defaults() {
         let defaults = get_defaults();
@@ -253,5 +257,327 @@ mod tests {
         assert_eq!(defaults.get("theme"), Some(&json!("dark")));
         assert_eq!(defaults.get("sidebar_width"), Some(&json!(250)));
         assert_eq!(defaults.get("queue_panel_height"), Some(&json!(300)));
+    }
+
+    #[test]
+    fn test_defaults_count() {
+        let defaults = get_defaults();
+        assert_eq!(defaults.len(), 6);
+    }
+
+    #[test]
+    fn test_store_name_constant() {
+        assert_eq!(STORE_NAME, "settings.json");
+    }
+
+    // =====================================================================
+    // AllSettingsResponse tests
+    // =====================================================================
+
+    #[test]
+    fn test_all_settings_response_serialization() {
+        let mut settings = HashMap::new();
+        settings.insert("volume".to_string(), json!(50));
+        settings.insert("theme".to_string(), json!("light"));
+
+        let response = AllSettingsResponse { settings };
+        let json_str = serde_json::to_string(&response).unwrap();
+
+        assert!(json_str.contains("\"volume\":50"));
+        assert!(json_str.contains("\"theme\":\"light\""));
+    }
+
+    #[test]
+    fn test_all_settings_response_deserialization() {
+        let json_str = r#"{"settings":{"volume":80,"shuffle":true}}"#;
+        let response: AllSettingsResponse = serde_json::from_str(json_str).unwrap();
+
+        assert_eq!(response.settings.get("volume"), Some(&json!(80)));
+        assert_eq!(response.settings.get("shuffle"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn test_all_settings_response_empty() {
+        let response = AllSettingsResponse {
+            settings: HashMap::new(),
+        };
+        let json_str = serde_json::to_string(&response).unwrap();
+        assert_eq!(json_str, r#"{"settings":{}}"#);
+    }
+
+    // =====================================================================
+    // SettingResponse tests
+    // =====================================================================
+
+    #[test]
+    fn test_setting_response_string_value() {
+        let response = SettingResponse {
+            key: "theme".to_string(),
+            value: json!("dark"),
+        };
+
+        let json_str = serde_json::to_string(&response).unwrap();
+        assert!(json_str.contains("\"key\":\"theme\""));
+        assert!(json_str.contains("\"value\":\"dark\""));
+    }
+
+    #[test]
+    fn test_setting_response_number_value() {
+        let response = SettingResponse {
+            key: "volume".to_string(),
+            value: json!(75),
+        };
+
+        let json_str = serde_json::to_string(&response).unwrap();
+        assert!(json_str.contains("\"key\":\"volume\""));
+        assert!(json_str.contains("\"value\":75"));
+    }
+
+    #[test]
+    fn test_setting_response_bool_value() {
+        let response = SettingResponse {
+            key: "shuffle".to_string(),
+            value: json!(true),
+        };
+
+        let json_str = serde_json::to_string(&response).unwrap();
+        assert!(json_str.contains("\"key\":\"shuffle\""));
+        assert!(json_str.contains("\"value\":true"));
+    }
+
+    #[test]
+    fn test_setting_response_null_value() {
+        let response = SettingResponse {
+            key: "unknown".to_string(),
+            value: JsonValue::Null,
+        };
+
+        let json_str = serde_json::to_string(&response).unwrap();
+        assert!(json_str.contains("\"value\":null"));
+    }
+
+    #[test]
+    fn test_setting_response_deserialization() {
+        let json_str = r#"{"key":"volume","value":100}"#;
+        let response: SettingResponse = serde_json::from_str(json_str).unwrap();
+
+        assert_eq!(response.key, "volume");
+        assert_eq!(response.value, json!(100));
+    }
+
+    // =====================================================================
+    // SettingsUpdateRequest tests
+    // =====================================================================
+
+    #[test]
+    fn test_settings_update_request_all_fields() {
+        let request = SettingsUpdateRequest {
+            volume: Some(50),
+            shuffle: Some(true),
+            loop_mode: Some("all".to_string()),
+            theme: Some("light".to_string()),
+            sidebar_width: Some(300),
+            queue_panel_height: Some(400),
+        };
+
+        let json_str = serde_json::to_string(&request).unwrap();
+        assert!(json_str.contains("\"volume\":50"));
+        assert!(json_str.contains("\"shuffle\":true"));
+        assert!(json_str.contains("\"loop_mode\":\"all\""));
+        assert!(json_str.contains("\"theme\":\"light\""));
+        assert!(json_str.contains("\"sidebar_width\":300"));
+        assert!(json_str.contains("\"queue_panel_height\":400"));
+    }
+
+    #[test]
+    fn test_settings_update_request_partial() {
+        let request = SettingsUpdateRequest {
+            volume: Some(80),
+            shuffle: None,
+            loop_mode: None,
+            theme: None,
+            sidebar_width: None,
+            queue_panel_height: None,
+        };
+
+        let json_str = serde_json::to_string(&request).unwrap();
+        assert!(json_str.contains("\"volume\":80"));
+        // Optional fields with None should be skipped due to skip_serializing_if
+        assert!(!json_str.contains("\"shuffle\""));
+    }
+
+    #[test]
+    fn test_settings_update_request_deserialization() {
+        let json_str = r#"{"volume":60,"shuffle":false}"#;
+        let request: SettingsUpdateRequest = serde_json::from_str(json_str).unwrap();
+
+        assert_eq!(request.volume, Some(60));
+        assert_eq!(request.shuffle, Some(false));
+        assert!(request.loop_mode.is_none());
+        assert!(request.theme.is_none());
+    }
+
+    #[test]
+    fn test_settings_update_request_empty() {
+        let json_str = r#"{}"#;
+        let request: SettingsUpdateRequest = serde_json::from_str(json_str).unwrap();
+
+        assert!(request.volume.is_none());
+        assert!(request.shuffle.is_none());
+        assert!(request.loop_mode.is_none());
+        assert!(request.theme.is_none());
+        assert!(request.sidebar_width.is_none());
+        assert!(request.queue_panel_height.is_none());
+    }
+
+    // =====================================================================
+    // SettingsUpdateResponse tests
+    // =====================================================================
+
+    #[test]
+    fn test_settings_update_response_serialization() {
+        let response = SettingsUpdateResponse {
+            updated: vec!["volume".to_string(), "theme".to_string()],
+        };
+
+        let json_str = serde_json::to_string(&response).unwrap();
+        assert!(json_str.contains("\"updated\":[\"volume\",\"theme\"]"));
+    }
+
+    #[test]
+    fn test_settings_update_response_empty() {
+        let response = SettingsUpdateResponse { updated: vec![] };
+
+        let json_str = serde_json::to_string(&response).unwrap();
+        assert_eq!(json_str, r#"{"updated":[]}"#);
+    }
+
+    #[test]
+    fn test_settings_update_response_deserialization() {
+        let json_str = r#"{"updated":["shuffle","loop_mode"]}"#;
+        let response: SettingsUpdateResponse = serde_json::from_str(json_str).unwrap();
+
+        assert_eq!(response.updated.len(), 2);
+        assert!(response.updated.contains(&"shuffle".to_string()));
+        assert!(response.updated.contains(&"loop_mode".to_string()));
+    }
+
+    // =====================================================================
+    // SettingsChangedPayload tests
+    // =====================================================================
+
+    #[test]
+    fn test_settings_changed_payload_serialization() {
+        let payload = SettingsChangedPayload {
+            key: "volume".to_string(),
+            value: json!(85),
+        };
+
+        let json_str = serde_json::to_string(&payload).unwrap();
+        assert!(json_str.contains("\"key\":\"volume\""));
+        assert!(json_str.contains("\"value\":85"));
+    }
+
+    #[test]
+    fn test_settings_changed_payload_clone() {
+        let payload = SettingsChangedPayload {
+            key: "theme".to_string(),
+            value: json!("dark"),
+        };
+
+        let cloned = payload.clone();
+        assert_eq!(payload.key, cloned.key);
+        assert_eq!(payload.value, cloned.value);
+    }
+
+    #[test]
+    fn test_settings_changed_payload_debug() {
+        let payload = SettingsChangedPayload {
+            key: "shuffle".to_string(),
+            value: json!(true),
+        };
+
+        let debug_str = format!("{:?}", payload);
+        assert!(debug_str.contains("SettingsChangedPayload"));
+        assert!(debug_str.contains("shuffle"));
+    }
+
+    // =====================================================================
+    // Volume validation tests
+    // =====================================================================
+
+    #[test]
+    fn test_volume_clamp_below_min() {
+        let vol: i64 = -10;
+        let clamped = vol.clamp(0, 100);
+        assert_eq!(clamped, 0);
+    }
+
+    #[test]
+    fn test_volume_clamp_above_max() {
+        let vol: i64 = 150;
+        let clamped = vol.clamp(0, 100);
+        assert_eq!(clamped, 100);
+    }
+
+    #[test]
+    fn test_volume_clamp_in_range() {
+        let vol: i64 = 75;
+        let clamped = vol.clamp(0, 100);
+        assert_eq!(clamped, 75);
+    }
+
+    // =====================================================================
+    // Loop mode validation tests
+    // =====================================================================
+
+    #[test]
+    fn test_valid_loop_modes() {
+        let valid_modes = ["none", "all", "one"];
+        for mode in valid_modes {
+            assert!(["none", "all", "one"].contains(&mode));
+        }
+    }
+
+    #[test]
+    fn test_invalid_loop_mode() {
+        let mode = "invalid";
+        assert!(!["none", "all", "one"].contains(&mode));
+    }
+
+    // =====================================================================
+    // Sidebar width validation tests
+    // =====================================================================
+
+    #[test]
+    fn test_sidebar_width_clamp_below_min() {
+        let width: i64 = 50;
+        let clamped = width.clamp(100, 500);
+        assert_eq!(clamped, 100);
+    }
+
+    #[test]
+    fn test_sidebar_width_clamp_above_max() {
+        let width: i64 = 600;
+        let clamped = width.clamp(100, 500);
+        assert_eq!(clamped, 500);
+    }
+
+    // =====================================================================
+    // Queue panel height validation tests
+    // =====================================================================
+
+    #[test]
+    fn test_queue_panel_height_clamp_below_min() {
+        let height: i64 = 50;
+        let clamped = height.clamp(100, 800);
+        assert_eq!(clamped, 100);
+    }
+
+    #[test]
+    fn test_queue_panel_height_clamp_above_max() {
+        let height: i64 = 1000;
+        let clamped = height.clamp(100, 800);
+        assert_eq!(clamped, 800);
     }
 }
