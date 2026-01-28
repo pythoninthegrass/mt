@@ -7,6 +7,7 @@ import {
   doubleClickTrackRow,
   callAlpineStoreMethod,
 } from './fixtures/helpers.js';
+import { createLibraryState, setupLibraryMocks } from './fixtures/mock-library.js';
 
 test.describe('Queue Management @tauri', () => {
   test.beforeEach(async ({ page }) => {
@@ -181,6 +182,63 @@ test.describe('Shuffle and Loop Modes @tauri', () => {
     } else {
       expect(buttonClasses).not.toContain('text-primary');
     }
+  });
+
+  test('shuffle keeps current track at index 0 (task-213)', async ({ page }) => {
+    // Wait for library to load
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // Start playback to populate queue
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Get initial queue state
+    const initialQueue = await page.evaluate(() => {
+      const store = window.Alpine.store('queue');
+      return {
+        length: store.items.length,
+        currentIndex: store.currentIndex,
+        currentTrackId: store.currentTrack?.id,
+        trackIds: store.items.map(t => t.id)
+      };
+    });
+
+    // Enable shuffle
+    await page.locator('[data-testid="player-shuffle"]').click();
+    await page.waitForFunction(
+      () => window.Alpine.store('queue').shuffle === true,
+      null,
+      { timeout: 5000 }
+    );
+
+    // Get queue state after shuffle
+    const afterShuffle = await page.evaluate(() => {
+      const store = window.Alpine.store('queue');
+      return {
+        length: store.items.length,
+        currentIndex: store.currentIndex,
+        currentTrackId: store.currentTrack?.id,
+        trackIds: store.items.map(t => t.id),
+        firstTrackId: store.items[0]?.id
+      };
+    });
+
+    // Assertions - new behavior: current track stays at index 0, no removal
+    // 1. Queue length should be the same (no track removed)
+    expect(afterShuffle.length).toBe(initialQueue.length);
+
+    // 2. Current index should be 0 (current track moved to front)
+    expect(afterShuffle.currentIndex).toBe(0);
+
+    // 3. Current track ID should remain the same
+    expect(afterShuffle.currentTrackId).toBe(initialQueue.currentTrackId);
+
+    // 4. Current track should be at index 0
+    expect(afterShuffle.firstTrackId).toBe(initialQueue.currentTrackId);
+
+    // 5. No duplicate track IDs in the shuffled queue
+    const uniqueIds = [...new Set(afterShuffle.trackIds)];
+    expect(uniqueIds.length).toBe(afterShuffle.length);
   });
 
   test('should cycle through loop modes', async ({ page }) => {
@@ -646,6 +704,211 @@ test.describe('Shuffle Navigation History (task-200) @tauri', () => {
 
     // Verify we went back through the same tracks (excluding the last one we were on)
     expect(reversedTrackIds.slice(0, 4)).toEqual(expectedIds);
+  });
+
+  test('shuffle mode should play all tracks exactly once before any repeat (task-222)', async ({ page }) => {
+    // 1. Setup: Load library with 10+ tracks
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // 2. Start playback to populate queue
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Get the total number of tracks
+    const totalTracks = await page.evaluate(() =>
+      window.Alpine.store('queue').items.length
+    );
+
+    // Require at least 10 tracks for meaningful test
+    expect(totalTracks).toBeGreaterThanOrEqual(10);
+
+    // 3. Enable shuffle via toggle (current track moves to index 0)
+    await page.locator('[data-testid="player-shuffle"]').click();
+    await page.waitForFunction(
+      () => window.Alpine.store('queue').shuffle === true,
+      null,
+      { timeout: 5000 }
+    );
+
+    // Disable loop
+    await page.evaluate(() => {
+      window.Alpine.store('queue').loop = 'none';
+    });
+
+    // 4. Get queue length after shuffle (should be same as before)
+    const queueLength = await page.evaluate(() =>
+      window.Alpine.store('queue').items.length
+    );
+    expect(queueLength).toBe(totalTracks);
+
+    // 5. Play through entire queue, recording played track IDs
+    // Start with the current track at index 0
+    const playedIds = new Set();
+
+    // Record the current track (at index 0 after shuffle)
+    const firstTrackId = await page.evaluate(() =>
+      window.Alpine.store('queue').currentTrack?.id
+    );
+    playedIds.add(firstTrackId);
+
+    // Now advance through the rest of the shuffled queue
+    for (let i = 1; i < queueLength; i++) {
+      // Use the next button to advance
+      await page.locator('[data-testid="player-next"]').click();
+      await page.waitForTimeout(100);
+
+      const currentId = await page.evaluate(() =>
+        window.Alpine.store('queue').currentTrack?.id
+      );
+
+      // Assert: No duplicate plays
+      expect(playedIds.has(currentId), `Track ${currentId} played more than once at position ${i}`).toBe(false);
+      playedIds.add(currentId);
+    }
+
+    // 6. Assert: All tracks played exactly once
+    expect(playedIds.size).toBe(totalTracks);
+
+    // 7. Verify we're at the end of the queue
+    const finalIndex = await page.evaluate(() =>
+      window.Alpine.store('queue').currentIndex
+    );
+    expect(finalIndex).toBe(queueLength - 1);
+  });
+
+  test('shuffle + loop-all should reshuffle and restart after queue exhaustion (task-223)', async ({ page }) => {
+    // Setup mocks for browser-only testing (Playwright can't access Tauri backend)
+    const libraryState = createLibraryState({ trackCount: 15 });
+    await setupLibraryMocks(page, libraryState);
+    await page.goto('/');
+    await waitForAlpine(page);
+
+    // 1. Setup: Load library with tracks
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // 2. Directly populate queue with library tracks (bypasses audio playback)
+    await page.evaluate((tracks) => {
+      const queue = window.Alpine.store('queue');
+      queue.items = tracks;
+      queue.currentIndex = 0;
+      queue._originalOrder = [...tracks];
+    }, libraryState.tracks);
+
+    const totalTracks = await page.evaluate(() =>
+      window.Alpine.store('queue').items.length
+    );
+    expect(totalTracks).toBe(15);
+
+    // 3. Enable shuffle (current track moves to index 0)
+    await page.evaluate(() => {
+      const queue = window.Alpine.store('queue');
+      queue.shuffle = true;
+      queue._shuffleItems();
+    });
+
+    // Verify shuffle is enabled and current track is at index 0
+    const afterShuffle = await page.evaluate(() => {
+      const queue = window.Alpine.store('queue');
+      return {
+        shuffle: queue.shuffle,
+        currentIndex: queue.currentIndex,
+        itemCount: queue.items.length,
+      };
+    });
+    expect(afterShuffle.shuffle).toBe(true);
+    expect(afterShuffle.currentIndex).toBe(0);
+    expect(afterShuffle.itemCount).toBe(15);
+
+    // 4. Set loop to 'all'
+    await page.evaluate(() => {
+      window.Alpine.store('queue').loop = 'all';
+    });
+
+    // 5. Record first cycle play order by advancing through entire queue
+    const firstCycleOrder = [];
+
+    // Record starting track
+    const firstTrackId = await page.evaluate(() =>
+      window.Alpine.store('queue').currentTrack?.id
+    );
+    firstCycleOrder.push(firstTrackId);
+
+    // Advance through entire queue using playNext() directly
+    for (let i = 1; i < totalTracks; i++) {
+      await page.evaluate(() => {
+        const queue = window.Alpine.store('queue');
+        // Manually advance index (simulates playNext without audio)
+        queue.currentIndex++;
+      });
+      await page.waitForTimeout(50);
+
+      const currentId = await page.evaluate(() =>
+        window.Alpine.store('queue').currentTrack?.id
+      );
+      firstCycleOrder.push(currentId);
+    }
+
+    // At this point, currentIndex should be at last track (totalTracks - 1)
+    const indexAtEnd = await page.evaluate(() =>
+      window.Alpine.store('queue').currentIndex
+    );
+    expect(indexAtEnd).toBe(totalTracks - 1);
+
+    const lastTrackOfFirstCycle = firstCycleOrder[firstCycleOrder.length - 1];
+
+    // 6. Trigger wrap-around: call the reshuffle logic directly
+    await page.evaluate(() => {
+      const queue = window.Alpine.store('queue');
+      // This is what playNext() does when reaching end with loop='all' and shuffle=true
+      queue._reshuffleForLoopRestart();
+      queue.currentIndex = 0;
+    });
+    await page.waitForTimeout(100);
+
+    // 7. Verify we wrapped to index 0
+    const newIndex = await page.evaluate(() =>
+      window.Alpine.store('queue').currentIndex
+    );
+    expect(newIndex).toBe(0);
+
+    // 8. Get the first track of the second cycle
+    const firstTrackOfSecondCycle = await page.evaluate(() =>
+      window.Alpine.store('queue').currentTrack?.id
+    );
+
+    // 9. Assert: First track of new cycle is NOT the same as last track of previous cycle
+    // (no immediate repeat at boundary - _reshuffleForLoopRestart puts just-played at END)
+    expect(firstTrackOfSecondCycle).not.toBe(lastTrackOfFirstCycle);
+
+    // 10. Get new queue order and verify reshuffle occurred
+    const newQueueOrder = await page.evaluate(() =>
+      window.Alpine.store('queue').items.map(t => t.id)
+    );
+
+    // The just-played track should be at the END of the new shuffled order
+    expect(newQueueOrder[newQueueOrder.length - 1]).toBe(lastTrackOfFirstCycle);
+
+    // 11. Verify queue integrity (no duplicates)
+    const uniqueIds = new Set(newQueueOrder);
+    expect(uniqueIds.size).toBe(totalTracks);
+
+    // 12. Record a few more tracks to verify different order
+    const secondCycleStart = [firstTrackOfSecondCycle];
+    for (let i = 0; i < 2; i++) {
+      await page.evaluate(() => {
+        window.Alpine.store('queue').currentIndex++;
+      });
+      await page.waitForTimeout(50);
+      const currentId = await page.evaluate(() =>
+        window.Alpine.store('queue').currentTrack?.id
+      );
+      secondCycleStart.push(currentId);
+    }
+
+    // With 15 tracks, probability of identical first 3 tracks is very low
+    const firstCycleStart = firstCycleOrder.slice(0, 3).join(',');
+    const secondCycleStartStr = secondCycleStart.join(',');
+    expect(secondCycleStartStr).not.toBe(firstCycleStart);
   });
 
   test('play history should be cleared when shuffle is toggled', async ({ page }) => {
