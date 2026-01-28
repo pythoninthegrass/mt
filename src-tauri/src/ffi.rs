@@ -3,7 +3,6 @@
 //! This module provides Rust bindings to call Zig functions exported from libmtcore.a.
 //! All types use #[repr(C)] to match Zig's extern struct layout.
 
-use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
 // ============================================================================
@@ -132,7 +131,7 @@ pub struct ScanStats {
 // FFI Function Declarations (from zig-core/src/ffi.zig)
 // ============================================================================
 
-extern "C" {
+unsafe extern "C" {
     /// Extract metadata from a single file.
     /// Returns a pointer to ExtractedMetadata that must be freed with mt_free_metadata.
     pub fn mt_extract_metadata(path: *const c_char) -> *mut ExtractedMetadata;
