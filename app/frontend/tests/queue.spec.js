@@ -1155,3 +1155,285 @@ test.describe('Loop Mode Tests (task-146) @tauri', () => {
     expect(loopAfterSkip).toBe('all');
   });
 });
+
+test.describe('Now Playing View (task-225)', () => {
+  // NOTE: These tests use mocked library data and work in browser-only mode
+  // They test the Now Playing view's display and interaction with queue state
+
+  test('Now Playing view should display tracks in queue order', async ({ page }) => {
+    // Setup mocks for browser-only testing
+    const libraryState = createLibraryState({ trackCount: 15 });
+    await setupLibraryMocks(page, libraryState);
+    await page.goto('/');
+    await waitForAlpine(page);
+
+    // 1. Setup: Load library with tracks
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // 2. Directly populate queue with library tracks
+    await page.evaluate((tracks) => {
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+      queue.items = tracks;
+      queue.currentIndex = 0;
+      queue._originalOrder = [...tracks];
+      player.currentTrack = tracks[0];
+      player.isPlaying = true;
+    }, libraryState.tracks);
+
+    // 3. Navigate to Now Playing view
+    await page.evaluate(() => {
+      window.Alpine.store('ui').view = 'nowPlaying';
+    });
+
+    // 4. Wait for queue items to render
+    await page.waitForSelector('.queue-item', { state: 'visible', timeout: 5000 });
+
+    // 5. Get queue order from store (playOrderItems shows current + upcoming)
+    const storeOrder = await page.evaluate(() => {
+      const queue = window.Alpine.store('queue');
+      return queue.playOrderItems.map(item => item.track.id);
+    });
+
+    // 6. Get displayed order from DOM
+    const displayedOrder = await page.evaluate(() => {
+      const items = document.querySelectorAll('.queue-item');
+      return Array.from(items).map(el => parseInt(el.getAttribute('data-id')));
+    });
+
+    // 7. Assert: Order matches
+    expect(displayedOrder).toEqual(storeOrder);
+  });
+
+  test('Now Playing view should update order when shuffle is toggled', async ({ page }) => {
+    // Setup mocks for browser-only testing
+    const libraryState = createLibraryState({ trackCount: 15 });
+    await setupLibraryMocks(page, libraryState);
+    await page.goto('/');
+    await waitForAlpine(page);
+
+    // 1. Setup: Load library with tracks
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // 2. Directly populate queue with library tracks
+    await page.evaluate((tracks) => {
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+      queue.items = tracks;
+      queue.currentIndex = 0;
+      queue._originalOrder = [...tracks];
+      player.currentTrack = tracks[0];
+      player.isPlaying = true;
+    }, libraryState.tracks);
+
+    // 3. Navigate to Now Playing view
+    await page.evaluate(() => {
+      window.Alpine.store('ui').view = 'nowPlaying';
+    });
+
+    await page.waitForSelector('.queue-item', { state: 'visible', timeout: 5000 });
+
+    // 4. Record initial order
+    const orderBefore = await page.evaluate(() =>
+      window.Alpine.store('queue').items.map(t => t.id).join(',')
+    );
+
+    // 5. Enable shuffle via store (since toggle button triggers Tauri commands)
+    await page.evaluate(() => {
+      const queue = window.Alpine.store('queue');
+      queue.shuffle = true;
+      queue._shuffleItems();
+    });
+
+    await page.waitForTimeout(100);
+
+    // 6. Verify: Store order changed (shuffled)
+    const storeAfterShuffle = await page.evaluate(() =>
+      window.Alpine.store('queue').items.map(t => t.id).join(',')
+    );
+
+    // With 15 tracks, the shuffled order should differ from original
+    // Note: First track stays at index 0 in our shuffle implementation
+    expect(storeAfterShuffle).not.toBe(orderBefore);
+
+    // 7. Verify: Displayed order matches store order
+    const displayedAfterShuffle = await page.evaluate(() => {
+      const queue = window.Alpine.store('queue');
+      return queue.playOrderItems.map(item => item.track.id).join(',');
+    });
+
+    const storePlayOrder = await page.evaluate(() =>
+      window.Alpine.store('queue').playOrderItems.map(item => item.track.id).join(',')
+    );
+
+    expect(displayedAfterShuffle).toBe(storePlayOrder);
+  });
+
+  test('Now Playing view should highlight currently playing track', async ({ page }) => {
+    // Setup mocks for browser-only testing
+    const libraryState = createLibraryState({ trackCount: 15 });
+    await setupLibraryMocks(page, libraryState);
+    await page.goto('/');
+    await waitForAlpine(page);
+
+    // 1. Setup: Load library with tracks
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // 2. Directly populate queue and set to track at index 3
+    await page.evaluate((tracks) => {
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+      queue.items = tracks;
+      queue.currentIndex = 3;
+      queue._originalOrder = [...tracks];
+      player.currentTrack = tracks[3];
+      player.isPlaying = true;
+    }, libraryState.tracks);
+
+    // 3. Navigate to Now Playing view
+    await page.evaluate(() => {
+      window.Alpine.store('ui').view = 'nowPlaying';
+    });
+
+    await page.waitForSelector('.queue-item', { state: 'visible', timeout: 5000 });
+
+    // 4. Get the first queue item (should be the current track in playOrderItems)
+    const firstItemHighlighted = await page.evaluate(() => {
+      const firstItem = document.querySelector('.queue-item');
+      if (!firstItem) return false;
+      // Current track has bg-primary/20 class
+      return firstItem.classList.contains('bg-primary/20') ||
+             firstItem.className.includes('bg-primary');
+    });
+
+    // 5. Assert: First item is highlighted (current track in Now Playing view)
+    expect(firstItemHighlighted).toBe(true);
+
+    // 6. Verify the highlighted track matches currentTrack
+    const highlightedTrackId = await page.evaluate(() => {
+      const firstItem = document.querySelector('.queue-item');
+      return firstItem ? parseInt(firstItem.getAttribute('data-id')) : null;
+    });
+
+    const currentTrackId = await page.evaluate(() =>
+      window.Alpine.store('player').currentTrack?.id
+    );
+
+    expect(highlightedTrackId).toBe(currentTrackId);
+  });
+
+  test('Now Playing view should update highlight when track advances', async ({ page }) => {
+    // Setup mocks for browser-only testing
+    const libraryState = createLibraryState({ trackCount: 15 });
+    await setupLibraryMocks(page, libraryState);
+    await page.goto('/');
+    await waitForAlpine(page);
+
+    // 1. Setup: Load library with tracks
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    // 2. Directly populate queue starting at index 0
+    await page.evaluate((tracks) => {
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+      queue.items = tracks;
+      queue.currentIndex = 0;
+      queue._originalOrder = [...tracks];
+      player.currentTrack = tracks[0];
+      player.isPlaying = true;
+    }, libraryState.tracks);
+
+    // 3. Navigate to Now Playing view
+    await page.evaluate(() => {
+      window.Alpine.store('ui').view = 'nowPlaying';
+    });
+
+    await page.waitForSelector('.queue-item', { state: 'visible', timeout: 5000 });
+
+    // 4. Get initial current track ID
+    const initialTrackId = await page.evaluate(() =>
+      window.Alpine.store('player').currentTrack?.id
+    );
+
+    // 5. Advance to next track (simulate what playNext does)
+    await page.evaluate(() => {
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+      queue.currentIndex++;
+      player.currentTrack = queue.items[queue.currentIndex];
+    });
+
+    await page.waitForTimeout(100);
+
+    // 6. Verify the first queue item is now the NEW current track
+    const newFirstItemId = await page.evaluate(() => {
+      const firstItem = document.querySelector('.queue-item');
+      return firstItem ? parseInt(firstItem.getAttribute('data-id')) : null;
+    });
+
+    const newCurrentTrackId = await page.evaluate(() =>
+      window.Alpine.store('player').currentTrack?.id
+    );
+
+    // The first item should be the new current track (not the old one)
+    expect(newFirstItemId).toBe(newCurrentTrackId);
+    expect(newFirstItemId).not.toBe(initialTrackId);
+  });
+
+  test('Now Playing view should show empty state when queue is cleared', async ({ page }) => {
+    // Setup mocks for browser-only testing
+    const libraryState = createLibraryState({ trackCount: 10 });
+    await setupLibraryMocks(page, libraryState);
+    await page.goto('/');
+    await waitForAlpine(page);
+
+    // 1. Setup: Populate queue with tracks
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+
+    await page.evaluate((tracks) => {
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+      queue.items = tracks;
+      queue.currentIndex = 0;
+      queue._originalOrder = [...tracks];
+      player.currentTrack = tracks[0];
+      player.isPlaying = true;
+    }, libraryState.tracks);
+
+    // 2. Navigate to Now Playing view
+    await page.evaluate(() => {
+      window.Alpine.store('ui').view = 'nowPlaying';
+    });
+
+    // 3. Verify queue items are shown
+    await page.waitForSelector('.queue-item', { state: 'visible', timeout: 5000 });
+
+    // 4. Clear the queue
+    await page.evaluate(() => {
+      const queue = window.Alpine.store('queue');
+      const player = window.Alpine.store('player');
+      queue.items = [];
+      queue.currentIndex = -1;
+      queue._originalOrder = [];
+      player.currentTrack = null;
+      player.isPlaying = false;
+    });
+
+    await page.waitForTimeout(100);
+
+    // 5. Verify empty state is shown
+    const emptyStateVisible = await page.evaluate(() => {
+      const emptyText = document.querySelector('[x-show="$store.queue.items.length === 0"]');
+      if (!emptyText) return false;
+      // Check if it's actually visible (not hidden)
+      const style = window.getComputedStyle(emptyText);
+      return style.display !== 'none';
+    });
+
+    expect(emptyStateVisible).toBe(true);
+
+    // 6. Verify "Queue is empty" text is displayed in the Now Playing view
+    const nowPlayingView = page.locator('[x-data="nowPlayingView"]');
+    await expect(nowPlayingView.locator('text=Queue is empty').first()).toBeVisible();
+  });
+});

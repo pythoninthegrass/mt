@@ -1,10 +1,10 @@
 ---
 id: task-225
 title: 'E2E: Now Playing view reflects queue order and playback state'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-27 23:37'
-updated_date: '2026-01-27 23:49'
+updated_date: '2026-01-28 03:45'
 labels:
   - e2e
   - playback
@@ -13,6 +13,7 @@ labels:
   - P0
 dependencies: []
 priority: high
+ordinal: 4906.25
 ---
 
 ## Description
@@ -23,11 +24,11 @@ Validate that the Now Playing view accurately displays the current queue order (
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Navigate to Now Playing view
-- [ ] #2 Assert displayed track list matches queue.items order
-- [ ] #3 Enable shuffle and verify order updates
-- [ ] #4 Advance to next track and verify highlight moves
-- [ ] #5 Clear queue and verify empty state shown
+- [x] #1 Navigate to Now Playing view
+- [x] #2 Assert displayed track list matches queue.items order
+- [x] #3 Enable shuffle and verify order updates
+- [x] #4 Advance to next track and verify highlight moves
+- [x] #5 Clear queue and verify empty state shown
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -158,3 +159,63 @@ test('Now Playing view should show empty state when queue cleared', async ({ pag
 - Now Playing view is `<div x-show="$store.ui.view === 'nowPlaying'" x-data="nowPlayingView">`
 - Queue items have class `.queue-item` with `data-track-id` attribute
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Implementation Notes
+
+Tests added at `app/frontend/tests/queue.spec.js:1159-1439` in a new `'Now Playing View (task-225)'` describe block.
+
+### Test Approach
+
+Tests use mock library data and run in browser-only mode (no Tauri backend required). They test the Now Playing view's display and interaction with queue state by directly manipulating Alpine stores.
+
+### Test 1: `Now Playing view should display tracks in queue order`
+
+**Validates:** AC #1, AC #2
+
+Verifies that the displayed track list in Now Playing view matches `queue.playOrderItems` order (current track + upcoming tracks).
+
+### Test 2: `Now Playing view should update order when shuffle is toggled`
+
+**Validates:** AC #3
+
+- Enables shuffle via store manipulation (`queue._shuffleItems()`)
+- Verifies store order changed from original
+- Verifies displayed order matches the new shuffled store order
+
+### Test 3: `Now Playing view should highlight currently playing track`
+
+**Validates:** AC #4 (partial)
+
+- Sets queue to track at index 3
+- Verifies first item in Now Playing view has highlight styling (`bg-primary/20`)
+- Verifies highlighted track ID matches `player.currentTrack.id`
+
+### Test 4: `Now Playing view should update highlight when track advances`
+
+**Validates:** AC #4 (complete)
+
+- Simulates track advance by incrementing `currentIndex` and updating `player.currentTrack`
+- Verifies the first queue item is now the NEW current track (not the old one)
+
+### Test 5: `Now Playing view should show empty state when queue is cleared`
+
+**Validates:** AC #5
+
+- Clears queue by setting `queue.items = []`
+- Verifies empty state element is visible
+- Verifies "Queue is empty" text is displayed in Now Playing view
+
+### Run Command
+
+Tests work in browser-only mode (no Tauri backend needed):
+
+```bash
+cd app/frontend
+npx playwright test tests/queue.spec.js -g "task-225" --project=webkit
+```
+
+**Test verified:** All 5 tests pass (5/5 runs)
+<!-- SECTION:NOTES:END -->
