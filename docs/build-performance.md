@@ -22,33 +22,66 @@ opt-level = 3  # Optimize proc-macros and build scripts
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 ```
 
+### Nightly Toolchain (`taskfiles/tauri.yml`)
+
+All `task tauri:*` commands default to nightly with parallel codegen:
+
+```yaml
+env:
+  RUSTUP_TOOLCHAIN: nightly
+  RUSTFLAGS: "-Zthreads=16"
+```
+
 ## Performance Results
 
-Measured on Apple M4 Max, macOS 15.7.1, Rust 1.92.0:
+Measured on Apple M4 Max, macOS 15.7.1:
+
+### Stable (Rust 1.92.0)
 
 | Scenario | Time | Notes |
 |----------|------|-------|
-| Cold build | ~48s | Full rebuild from clean |
-| Incremental build | ~776ms | After touching `src/main.rs` |
+| Cold build | ~50.2s | Full rebuild from clean |
+| Incremental build | ~1.06s | After touching `src/main.rs` |
 
-The incremental build target of ≤1.0s is met.
+### Nightly + `-Zthreads=16` (Rust 1.95.0-nightly)
+
+| Scenario | Time | Improvement | Notes |
+|----------|------|-------------|-------|
+| Cold build | ~50.1s | -0.3% | Negligible difference |
+| Incremental build | ~0.82s | **-23%** | Significant improvement |
+
+**Key finding**: Nightly with `-Zthreads=16` provides **23% faster incremental builds** with 50x better variance (σ=0.012s vs σ=0.588s), while maintaining full test compatibility (734/734 tests pass).
 
 ## Baseline Protocol
 
 Use [hyperfine](https://github.com/sharkdp/hyperfine) for accurate measurements:
 
 ```bash
-cd src-tauri
-
 # Cold build (3 runs with cargo clean before each)
-hyperfine --runs 3 --prepare 'cargo clean' 'cargo build'
+hyperfine --runs 3 --prepare 'cargo clean --manifest-path src-tauri/Cargo.toml' \
+  'cargo build --manifest-path src-tauri/Cargo.toml'
 
-# Incremental build (5 runs, 2 warmup)
-hyperfine --warmup 2 --runs 5 --prepare 'touch src/main.rs' 'cargo build'
+# Incremental build (5 runs, 1 warmup)
+hyperfine --warmup 1 --runs 5 --prepare 'touch src-tauri/src/main.rs' \
+  'cargo build --manifest-path src-tauri/Cargo.toml'
 
 # Build timing breakdown (HTML report)
-cargo build --timings
-# Output: target/cargo-timings/cargo-timing.html
+cargo build --manifest-path src-tauri/Cargo.toml --timings
+# Output: src-tauri/target/cargo-timings/cargo-timing.html
+```
+
+### Comparing Stable vs Nightly
+
+```bash
+# Cold build comparison
+hyperfine --runs 3 --prepare 'cargo clean --manifest-path src-tauri/Cargo.toml' \
+  'cargo build --manifest-path src-tauri/Cargo.toml' \
+  'RUSTUP_TOOLCHAIN=nightly RUSTFLAGS="-Zthreads=16" cargo build --manifest-path src-tauri/Cargo.toml'
+
+# Incremental build comparison
+hyperfine --warmup 1 --runs 5 --prepare 'touch src-tauri/src/main.rs' \
+  'cargo build --manifest-path src-tauri/Cargo.toml' \
+  'RUSTUP_TOOLCHAIN=nightly RUSTFLAGS="-Zthreads=16" cargo build --manifest-path src-tauri/Cargo.toml'
 ```
 
 ### Environment Checklist
@@ -56,10 +89,10 @@ cargo build --timings
 Before benchmarking, verify:
 
 ```bash
-rustc -Vv              # Rust version
-cargo -V               # Cargo version
-env | grep RUSTFLAGS   # Should be empty (or match config.toml)
-env | grep RUSTC_WRAPPER  # Should be empty (no sccache)
+rustc -Vv                        # Stable version
+RUSTUP_TOOLCHAIN=nightly rustc -Vv  # Nightly version
+env | grep RUSTFLAGS             # Check for conflicting flags
+env | grep RUSTC_WRAPPER         # Should be empty (no sccache)
 ```
 
 Ensure consistent power state (AC power, low power mode off).
@@ -100,6 +133,40 @@ rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 ```
 
+## Nightly Toolchain
+
+### Why Nightly?
+
+The `-Zthreads=N` flag enables parallel codegen, which significantly improves incremental build times. This is a nightly-only feature.
+
+### Using Stable Instead
+
+If you need to use stable Rust, override the taskfile environment:
+
+```bash
+# Single command
+RUSTUP_TOOLCHAIN=stable RUSTFLAGS="" task tauri:dev
+
+# Or set in shell
+export RUSTUP_TOOLCHAIN=stable
+export RUSTFLAGS=""
+task tauri:dev
+```
+
+### Updating Nightly
+
+```bash
+rustup update nightly
+```
+
+If a nightly update breaks the build, pin to a specific date:
+
+```bash
+rustup install nightly-2026-01-27
+# Then update taskfiles/tauri.yml:
+# RUSTUP_TOOLCHAIN: nightly-2026-01-27
+```
+
 ## Debugging with Reduced Debug Info
 
 The `debug = "line-tables-only"` setting provides:
@@ -116,8 +183,11 @@ debug = true  # or debug = 2 for maximum info
 ## Quick Reference
 
 ```bash
-# Development server
+# Development server (uses nightly by default)
 task tauri:dev
+
+# Development with stable toolchain
+RUSTUP_TOOLCHAIN=stable RUSTFLAGS="" task tauri:dev
 
 # Quick syntax check (no binary, faster than build)
 cargo check --manifest-path src-tauri/Cargo.toml
@@ -134,3 +204,4 @@ task build:timings
 - [Cargo Build Performance](https://doc.rust-lang.org/cargo/guide/build-performance.html)
 - [Rust Performance Book - Build Configuration](https://nnethercote.github.io/perf-book/build-configuration.html)
 - [Apple ld-prime (WWDC 2023)](https://developer.apple.com/videos/play/wwdc2023/10268/)
+- [Rust Unstable Book - threads flag](https://doc.rust-lang.org/unstable-book/compiler-flags/threads.html)
