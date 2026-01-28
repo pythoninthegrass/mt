@@ -199,9 +199,56 @@ task test
 task build:timings
 ```
 
+## Cranelift Backend (Not Supported)
+
+[Cranelift](https://github.com/rust-lang/rustc_codegen_cranelift) is an experimental codegen backend for Rust that can dramatically improve debug build times. However, it is **not compatible with mt** due to SIMD limitations.
+
+### Why Not Cranelift?
+
+Tested on 2026-01-28 with nightly-2026-01-27. Build fails with:
+
+```
+llvm.aarch64.neon.sqdmulh.v2i32 is not yet supported.
+See https://github.com/rust-lang/rustc_codegen_cranelift/issues/171
+```
+
+This error occurs in multiple Tauri plugin build scripts that use SIMD intrinsics:
+- `tauri-plugin-fs`
+- `tauri-plugin-store`
+- `tauri-plugin-shell`
+- `tauri-plugin-opener`
+- `tauri-plugin-global-shortcut`
+
+### Cranelift SIMD Status
+
+Per [rustc_codegen_cranelift#171](https://github.com/rust-lang/rustc_codegen_cranelift/issues/171):
+- `std::simd` is fully supported
+- `std::arch` (platform-specific SIMD intrinsics) is only partially supported
+- ARM NEON intrinsics like `sqdmulh` are not yet implemented
+
+### Recommendation
+
+**Stick with nightly + `-Zthreads=16`** for now. This provides 23% faster incremental builds without compatibility issues.
+
+When Cranelift SIMD support matures (or if Tauri plugins stop using raw NEON intrinsics), reconsider. Track progress at the issue linked above.
+
+### Testing Cranelift (If Revisiting)
+
+```bash
+# Install component
+rustup component add rustc-codegen-cranelift-preview --toolchain nightly
+
+# Test build (expects failure currently)
+cd src-tauri
+RUSTUP_TOOLCHAIN=nightly CARGO_PROFILE_DEV_CODEGEN_BACKEND=cranelift \
+  cargo build -Zcodegen-backend
+```
+
 ## References
 
 - [Cargo Build Performance](https://doc.rust-lang.org/cargo/guide/build-performance.html)
 - [Rust Performance Book - Build Configuration](https://nnethercote.github.io/perf-book/build-configuration.html)
 - [Apple ld-prime (WWDC 2023)](https://developer.apple.com/videos/play/wwdc2023/10268/)
 - [Rust Unstable Book - threads flag](https://doc.rust-lang.org/unstable-book/compiler-flags/threads.html)
+- [Cranelift Codegen Backend](https://github.com/rust-lang/rustc_codegen_cranelift)
+- [Cranelift SIMD Tracking Issue](https://github.com/rust-lang/rustc_codegen_cranelift/issues/171)
