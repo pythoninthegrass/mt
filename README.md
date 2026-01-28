@@ -37,6 +37,8 @@ task tauri:dev
 
 Same as [Setup](#setup) while in alpha.
 
+See [Build performance workflow](docs/build-performance.md) for optimizing dev build times.
+
 #### Features
 
 * Multi-directory watching
