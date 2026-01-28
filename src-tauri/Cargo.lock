@@ -2811,6 +2811,7 @@ dependencies = [
  "md5",
  "notify-debouncer-full",
  "parking_lot",
+ "pkg-config",
  "proptest",
  "r2d2",
  "r2d2_sqlite",

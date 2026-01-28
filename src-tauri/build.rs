@@ -12,8 +12,10 @@ fn main() {
     println!("cargo:rustc-link-search=native=../zig-core/zig-out/lib");
     println!("cargo:rustc-link-lib=static=mtcore");
 
-    // Link TagLib (required by zig-core)
-    println!("cargo:rustc-link-lib=tag_c");
+    // Link TagLib (required by zig-core) via pkg-config
+    pkg_config::Config::new()
+        .probe("taglib_c")
+        .expect("failed to find taglib_c via pkg-config");
 
     // Rebuild if zig sources change
     println!("cargo:rerun-if-changed=../zig-core/src");
