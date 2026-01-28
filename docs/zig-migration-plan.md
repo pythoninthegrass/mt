@@ -16,6 +16,7 @@ This document outlines the plan to migrate business logic from Rust to Zig via F
 - Rewriting the frontend
 - Replacing Tauri
 - Migrating audio playback (remains in Rust due to crate ecosystem)
+- Migrating metadata extraction (remains in Rust via lofty crate)
 
 ---
 
@@ -113,18 +114,21 @@ These files stay in Rust permanently—they're thin dispatch or platform-specifi
 | `media_keys.rs` | OS-level media key handling |
 | `watcher.rs` | fs notify integration |
 | `audio/*.rs` | Audio playback (rodio/cpal ecosystem) |
+| `metadata.rs` | Metadata extraction (lofty) |
+| `scanner/metadata.rs` | Scanner metadata extraction (lofty) |
+| `scanner/artwork.rs` | Artwork extraction (lofty) |
 
 ### Migrate to Zig
 
 | File | Target | Notes |
 |------|--------|-------|
-| `scanner/metadata.rs` | `zig-core/src/scanner/metadata.zig` | TagLib C bindings |
+| ~~`scanner/metadata.rs`~~ | ~~`zig-core/src/scanner/metadata.zig`~~ | ~~TagLib C bindings~~ (FUTURE/EXPERIMENTAL - stays in Rust) |
 | `scanner/fingerprint.rs` | `zig-core/src/scanner/fingerprint.zig` | Pure computation |
-| `scanner/artwork.rs` | `zig-core/src/scanner/artwork.zig` | Image extraction |
+| ~~`scanner/artwork.rs`~~ | ~~`zig-core/src/scanner/artwork.zig`~~ | ~~Image extraction~~ (FUTURE/EXPERIMENTAL - stays in Rust) |
 | `scanner/artwork_cache.rs` | `zig-core/src/scanner/artwork_cache.zig` | Cache management |
 | `scanner/inventory.rs` | `zig-core/src/scanner/inventory.zig` | Directory walking |
 | `scanner/scan.rs` | `zig-core/src/scanner/scan.zig` | Orchestration |
-| `metadata.rs` | `zig-core/src/metadata.zig` | Shared metadata types |
+| ~~`metadata.rs`~~ | ~~`zig-core/src/metadata.zig`~~ | ~~Shared metadata types~~ (FUTURE/EXPERIMENTAL - stays in Rust) |
 | `db/models.rs` | `zig-core/src/db/models.zig` | Data structures |
 | `db/schema.rs` | `zig-core/src/db/schema.zig` | Schema definitions |
 | `db/library.rs` | `zig-core/src/db/library.zig` | Library queries |
@@ -147,9 +151,9 @@ These files stay in Rust permanently—they're thin dispatch or platform-specifi
 | Phase | Files | Effort | Risk | Status |
 |-------|-------|--------|------|--------|
 | 0 | Create `zig-core/`, `build.zig`, `build.rs` integration | 1 day | Low | ✅ Started |
-| 1 | `scanner/metadata.rs` → Zig | 2-3 days | Low | ✅ Started |
+| 1 | ~~`scanner/metadata.rs` → Zig~~ (FUTURE/EXPERIMENTAL) | 2-3 days | Low | ⬜ Deferred |
 | 1 | `scanner/fingerprint.rs` → Zig | 1-2 days | Low | ✅ Started |
-| 1 | `scanner/artwork.rs`, `artwork_cache.rs` → Zig | 2 days | Low | ⬜ |
+| 1 | ~~`scanner/artwork.rs`, `artwork_cache.rs` → Zig~~ (FUTURE/EXPERIMENTAL) | 2 days | Low | ⬜ Deferred |
 | 1 | `scanner/inventory.rs`, `scan.rs` → Zig | 2-3 days | Medium | ⬜ |
 | 2 | `db/models.rs`, `db/schema.rs` → Zig | 1 day | Low | ⬜ |
 | 2 | `db/library.rs` → Zig | 2-3 days | Medium | ⬜ |
@@ -269,7 +273,7 @@ Frontend tests in `app/frontend/tests/*.spec.js` unchanged.
 - [x] `zig-core/src/types.zig` - Core types (`ExtractedMetadata`, `FileFingerprint`, etc.)
 - [x] `zig-core/src/ffi.zig` - FFI exports
 - [x] `zig-core/src/scanner/scanner.zig` - Scanner module root
-- [x] `zig-core/src/scanner/metadata.zig` - Metadata extraction with TagLib
+- [x] `zig-core/src/scanner/metadata.zig` - Metadata extraction with TagLib (FUTURE/EXPERIMENTAL - not active migration, Rust lofty is canonical)
 - [x] `zig-core/src/scanner/fingerprint.zig` - File fingerprinting
 - [x] `src-tauri/src/ffi/mod.rs` - Rust FFI module
 - [x] `src-tauri/src/ffi/scanner.rs` - Rust bindings for scanner FFI
@@ -279,7 +283,7 @@ Frontend tests in `app/frontend/tests/*.spec.js` unchanged.
 1. Update `src-tauri/build.rs` to compile Zig first
 2. Add `pub mod ffi;` to `src-tauri/src/lib.rs`
 3. Test FFI with real audio files
-4. Migrate `scanner/artwork.rs`
+4. ~~Migrate `scanner/artwork.rs`~~ (DEFERRED - stays in Rust via lofty)
 5. Migrate `scanner/inventory.rs` and `scanner/scan.rs`
 
 ---
