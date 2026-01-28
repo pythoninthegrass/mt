@@ -77,6 +77,7 @@ proptest = "1.5"
 # Dev profile optimizations for faster local builds
 [profile.dev]
 split-debuginfo = "unpacked"  # macOS-specific: up to 70% faster incremental debug builds
+debug = "line-tables-only"    # Reduce debug info for faster builds (still get line numbers in backtraces)
 
 # Optimize build scripts and proc-macros even in dev mode
 [profile.dev.build-override]
