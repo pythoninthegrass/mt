@@ -33,6 +33,7 @@ Always use Context7 MCP when I need library/API documentation, code generation, 
 - mrlesk/backlog.md
 - nextest-rs/nextest
 - serial-ata/lofty-rs
+- sharkdp/hyperfine
 - tailwindlabs/tailwindcss
 - websites/deno
 - websites/last_fm_api

@@ -3,10 +3,10 @@ id: task-208
 title: >-
   Cache Last.fm loved tracks for automatic favoriting of future library
   additions
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-25 23:14'
-updated_date: '2026-01-27 04:24'
+updated_date: '2026-01-28 05:21'
 labels:
   - lastfm
   - database
@@ -15,7 +15,7 @@ labels:
   - cache
 dependencies: []
 priority: medium
-ordinal: 6500
+ordinal: 7906.25
 ---
 
 ## Description
