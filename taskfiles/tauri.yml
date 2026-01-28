@@ -6,6 +6,8 @@ shopt: ['globstar']
 env:
   CARGO_HOME: "{{.ROOT_DIR}}/.cache/cargo"
   CARGO_TARGET_DIR: "{{.ROOT_DIR}}/src-tauri/target"
+  RUSTUP_TOOLCHAIN: nightly
+  RUSTFLAGS: "-Zthreads=16"
 
 vars:
   APP_NAME: '{{.APP_NAME | default "mt"}}'
