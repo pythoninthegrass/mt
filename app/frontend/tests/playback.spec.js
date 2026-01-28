@@ -1043,3 +1043,268 @@ test.describe('Auto-Advance Behavior (task-224)', () => {
     expect(newTrackId).not.toBe(lastTrackId);
   });
 });
+
+test.describe('Progress Bar Seeking Tests (task-228) @tauri', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAlpine(page);
+    await page.waitForSelector('[x-data="libraryBrowser"]', { state: 'visible' });
+  });
+
+  test('should seek to position when clicking on progress bar at different locations', async ({ page }) => {
+    // Start playing a track
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Wait for track to have duration
+    await page.waitForFunction(() => window.Alpine.store('player').duration > 5);
+
+    const duration = await page.evaluate(() => window.Alpine.store('player').duration);
+    const progressBar = page.locator('[data-testid="player-progressbar"]');
+    const box = await progressBar.boundingBox();
+
+    // Test multiple click positions: 25%, 50%, 75%
+    const testPositions = [
+      { fraction: 0.25, label: '25%' },
+      { fraction: 0.5, label: '50%' },
+      { fraction: 0.75, label: '75%' },
+    ];
+
+    for (const { fraction, label } of testPositions) {
+      // Click at position
+      const clickX = box.x + box.width * fraction;
+      const clickY = box.y + box.height / 2;
+      await page.mouse.click(clickX, clickY);
+
+      // Wait for seek to complete
+      await page.waitForTimeout(300);
+
+      // Verify position is at expected location (with tolerance)
+      const position = await page.evaluate(() => window.Alpine.store('player').position);
+      const expected = duration * fraction;
+      const tolerance = Math.max(2.0, duration * 0.05);
+
+      expect(Math.abs(position - expected)).toBeLessThanOrEqual(tolerance);
+    }
+
+    // Verify still playing after seeks
+    const isPlaying = await page.evaluate(() => window.Alpine.store('player').isPlaying);
+    expect(isPlaying).toBe(true);
+  });
+
+  test('should update position in real-time during drag scrubbing', async ({ page }) => {
+    // Start playing a track
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Wait for track to have duration
+    await page.waitForFunction(() => window.Alpine.store('player').duration > 5);
+
+    const duration = await page.evaluate(() => window.Alpine.store('player').duration);
+    const progressBar = page.locator('[data-testid="player-progressbar"]');
+    const box = await progressBar.boundingBox();
+
+    // Record initial position
+    const initialPosition = await page.evaluate(() => window.Alpine.store('player').position);
+
+    // Start drag from 20% position
+    const startX = box.x + box.width * 0.2;
+    const centerY = box.y + box.height / 2;
+    await page.mouse.move(startX, centerY);
+    await page.mouse.down();
+
+    // Track positions during drag to verify real-time updates
+    const dragPositions = [];
+
+    // Drag to 80% in steps
+    const steps = 5;
+    for (let i = 1; i <= steps; i++) {
+      const targetFraction = 0.2 + (0.6 * i) / steps; // Move from 20% to 80%
+      const x = box.x + box.width * targetFraction;
+      await page.mouse.move(x, centerY);
+      await page.waitForTimeout(50);
+
+      // Check that dragPosition is updating during drag
+      const dragPos = await page.evaluate(() => {
+        const controls = document.querySelector('[x-data]').__x.$data;
+        return controls.isDraggingProgress ? controls.dragPosition : null;
+      });
+
+      if (dragPos !== null) {
+        dragPositions.push(dragPos);
+      }
+    }
+
+    // Verify drag positions were tracked
+    expect(dragPositions.length).toBeGreaterThan(0);
+
+    // Release at 80%
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    // Verify final position is around 80%
+    const finalPosition = await page.evaluate(() => window.Alpine.store('player').position);
+    const expected = duration * 0.8;
+    const tolerance = Math.max(2.0, duration * 0.05);
+    expect(Math.abs(finalPosition - expected)).toBeLessThanOrEqual(tolerance);
+
+    // Verify position changed significantly from initial
+    expect(Math.abs(finalPosition - initialPosition)).toBeGreaterThan(duration * 0.1);
+
+    // Verify still playing
+    const isPlaying = await page.evaluate(() => window.Alpine.store('player').isPlaying);
+    expect(isPlaying).toBe(true);
+  });
+
+  test('should not auto-play when seeking while paused', async ({ page }) => {
+    // Start playing a track
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Wait for track to have duration
+    await page.waitForFunction(() => window.Alpine.store('player').duration > 5);
+
+    // Pause playback
+    const playButton = page.locator('[data-testid="player-playpause"]');
+    await playButton.click();
+    await waitForPaused(page);
+
+    // Verify paused state
+    let isPlaying = await page.evaluate(() => window.Alpine.store('player').isPlaying);
+    expect(isPlaying).toBe(false);
+
+    const initialPosition = await page.evaluate(() => window.Alpine.store('player').position);
+
+    // Click-to-seek while paused (seek to 50%)
+    const progressBar = page.locator('[data-testid="player-progressbar"]');
+    const box = await progressBar.boundingBox();
+    const clickX = box.x + box.width * 0.5;
+    const clickY = box.y + box.height / 2;
+    await page.mouse.click(clickX, clickY);
+
+    // Wait for seek to complete
+    await page.waitForTimeout(500);
+
+    // Verify position changed
+    const newPosition = await page.evaluate(() => window.Alpine.store('player').position);
+    expect(Math.abs(newPosition - initialPosition)).toBeGreaterThan(1);
+
+    // Verify STILL paused (did not auto-play)
+    isPlaying = await page.evaluate(() => window.Alpine.store('player').isPlaying);
+    expect(isPlaying).toBe(false);
+
+    // Also test drag-to-seek while paused
+    const dragX = box.x + box.width * 0.75;
+    await page.mouse.move(dragX, clickY);
+    await page.mouse.down();
+    await page.waitForTimeout(100);
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    // Verify STILL paused after drag seek
+    isPlaying = await page.evaluate(() => window.Alpine.store('player').isPlaying);
+    expect(isPlaying).toBe(false);
+  });
+
+  test('should handle seeking near end of track correctly', async ({ page }) => {
+    // Start playing a track
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Wait for track to have duration
+    await page.waitForFunction(() => window.Alpine.store('player').duration > 5);
+
+    const duration = await page.evaluate(() => window.Alpine.store('player').duration);
+    const progressBar = page.locator('[data-testid="player-progressbar"]');
+    const box = await progressBar.boundingBox();
+
+    // Seek to 95% (near end of track)
+    const nearEndX = box.x + box.width * 0.95;
+    const centerY = box.y + box.height / 2;
+    await page.mouse.click(nearEndX, centerY);
+
+    // Wait for seek to complete
+    await page.waitForTimeout(500);
+
+    // Verify position is near end
+    const position = await page.evaluate(() => window.Alpine.store('player').position);
+    const expected = duration * 0.95;
+    const tolerance = Math.max(2.0, duration * 0.05);
+    expect(Math.abs(position - expected)).toBeLessThanOrEqual(tolerance);
+
+    // Verify still playing
+    let isPlaying = await page.evaluate(() => window.Alpine.store('player').isPlaying);
+    expect(isPlaying).toBe(true);
+
+    // Seek to 100% (exact end)
+    const endX = box.x + box.width * 0.99;
+    await page.mouse.click(endX, centerY);
+    await page.waitForTimeout(500);
+
+    // Verify position is at/near end
+    const finalPosition = await page.evaluate(() => window.Alpine.store('player').position);
+    expect(finalPosition).toBeGreaterThan(duration * 0.95);
+    expect(finalPosition).toBeLessThanOrEqual(duration);
+
+    // Track should either still be playing at end, or auto-advanced to next track
+    // (behavior depends on queue settings, but state should be consistent)
+    const finalState = await page.evaluate(() => ({
+      isPlaying: window.Alpine.store('player').isPlaying,
+      currentTrack: window.Alpine.store('player').currentTrack,
+      position: window.Alpine.store('player').position,
+    }));
+
+    // Verify player is in a valid state (has a current track if playing)
+    if (finalState.isPlaying) {
+      expect(finalState.currentTrack).toBeTruthy();
+    }
+  });
+
+  test('should handle rapid seek operations without breaking state', async ({ page }) => {
+    // Start playing a track
+    await page.waitForSelector('[data-track-id]', { state: 'visible' });
+    await doubleClickTrackRow(page, 0);
+    await waitForPlaying(page);
+
+    // Wait for track to have duration
+    await page.waitForFunction(() => window.Alpine.store('player').duration > 5);
+
+    const progressBar = page.locator('[data-testid="player-progressbar"]');
+    const box = await progressBar.boundingBox();
+    const centerY = box.y + box.height / 2;
+
+    // Rapidly click at different positions
+    const positions = [0.2, 0.8, 0.4, 0.9, 0.3, 0.6];
+
+    for (const fraction of positions) {
+      const clickX = box.x + box.width * fraction;
+      await page.mouse.click(clickX, centerY);
+      await page.waitForTimeout(50); // Very short wait to simulate rapid clicks
+    }
+
+    // Wait for all seeks to settle
+    await page.waitForTimeout(500);
+
+    // Verify player is in a valid state after rapid seeks
+    const playerState = await page.evaluate(() => ({
+      isPlaying: window.Alpine.store('player').isPlaying,
+      currentTrack: window.Alpine.store('player').currentTrack,
+      position: window.Alpine.store('player').position,
+      duration: window.Alpine.store('player').duration,
+    }));
+
+    // Should still have a current track
+    expect(playerState.currentTrack).toBeTruthy();
+
+    // Position should be within valid range
+    expect(playerState.position).toBeGreaterThanOrEqual(0);
+    expect(playerState.position).toBeLessThanOrEqual(playerState.duration);
+
+    // Should still be playing
+    expect(playerState.isPlaying).toBe(true);
+  });
+});
