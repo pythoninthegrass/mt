@@ -74,11 +74,14 @@ describe('Queue Store - Property-Based Tests', () => {
   });
 
   describe('Shuffle Invariants', () => {
-    test.prop([trackListArbitrary])('shuffle preserves all tracks', async (tracks) => {
+    test.prop([trackListArbitrary])('shuffle preserves all tracks (current track stored separately)', async (tracks) => {
+      // Need at least 2 tracks to shuffle
+      fc.pre(tracks.length >= 2);
+
       // Setup
       store.items = [...tracks];
       store._originalOrder = [...tracks];
-      store.currentIndex = tracks.length > 0 ? 0 : -1;
+      store.currentIndex = 0;
 
       // Get original track IDs
       const originalIds = new Set(tracks.map(t => t.id));
@@ -86,9 +89,11 @@ describe('Queue Store - Property-Based Tests', () => {
       // Shuffle
       store._shuffleItems();
 
-      // Verify same tracks (permutation)
+      // Verify same tracks are preserved (all tracks still in queue)
       const shuffledIds = new Set(store.items.map(t => t.id));
       expect(shuffledIds).toEqual(originalIds);
+
+      // Queue should have same length (current track stays at index 0)
       expect(store.items.length).toBe(tracks.length);
     });
 
@@ -100,24 +105,24 @@ describe('Queue Store - Property-Based Tests', () => {
       store._originalOrder = [...tracks];
       store.currentIndex = 0;
 
-      // First shuffle
+      // First shuffle - current track at index 0
       store._shuffleItems();
       const firstShuffle = store.items.map(t => t.id);
 
-      // Second shuffle
+      // Queue should have same length after shuffle
+      expect(store.items.length).toBe(tracks.length);
+
+      // Second shuffle (simulating re-shuffle at end of queue with loop)
       store._shuffleItems();
       const secondShuffle = store.items.map(t => t.id);
 
       // With 3+ tracks, probability of identical shuffle is low
       // (we accept some false negatives for simplicity)
-      const identical = firstShuffle.every((id, i) => id === secondShuffle[i]);
-
-      // This is probabilistic - with 3 tracks, chance of same order is 1/6
-      // We just verify the operation completed without error
+      // Both shuffles should maintain all tracks
       expect(store.items.length).toBe(tracks.length);
     });
 
-    test.prop([trackListArbitrary])('shuffle with current track moves it to index 0', async (tracks) => {
+    test.prop([trackListArbitrary])('shuffle keeps current track at index 0 (task-213)', async (tracks) => {
       fc.pre(tracks.length >= 2);
 
       store.items = [...tracks];
@@ -128,8 +133,46 @@ describe('Queue Store - Property-Based Tests', () => {
 
       store._shuffleItems();
 
+      // Current track should be at index 0
       expect(store.items[0].id).toBe(currentTrack.id);
+
+      // Queue should have same length (no tracks removed)
+      expect(store.items.length).toBe(tracks.length);
+
+      // currentIndex should be 0
       expect(store.currentIndex).toBe(0);
+    });
+
+    it('shuffle with duplicate tracks handles current track correctly (task-213)', () => {
+      // Create queue with duplicate tracks: [A, B, A, C]
+      // Playing track at index 2 (second occurrence of A)
+      const trackA1 = { id: 1, title: 'Track A', artist: 'Artist', album: 'Album' };
+      const trackB = { id: 2, title: 'Track B', artist: 'Artist', album: 'Album' };
+      const trackA2 = { id: 1, title: 'Track A', artist: 'Artist', album: 'Album' }; // Same ID, different object
+      const trackC = { id: 3, title: 'Track C', artist: 'Artist', album: 'Album' };
+
+      store.items = [trackA1, trackB, trackA2, trackC];
+      store._originalOrder = [trackA1, trackB, trackA2, trackC];
+      store.currentIndex = 2; // Playing second occurrence of A (trackA2)
+
+      // Shuffle the queue
+      store._shuffleItems();
+
+      // Queue should have 4 items (current track stays at index 0)
+      expect(store.items.length).toBe(4);
+
+      // Current track (second A) should be at index 0
+      expect(store.items[0]).toBe(trackA2);
+      expect(store.currentIndex).toBe(0);
+
+      // Both occurrences of A should still be in the queue
+      // since we filter by index, not by ID
+      const trackACount = store.items.filter(t => t.id === 1).length;
+      expect(trackACount).toBe(2);
+
+      // Verify queue has all 4 tracks (IDs 1, 2, 1, 3 sorted as 1, 1, 2, 3)
+      const trackIds = store.items.map(t => t.id).sort();
+      expect(trackIds).toEqual([1, 1, 2, 3]);
     });
 
     test.prop([trackListArbitrary])('toggle shuffle twice returns to original order', async (tracks) => {
@@ -149,6 +192,44 @@ describe('Queue Store - Property-Based Tests', () => {
 
       const restoredOrder = store.items.map(t => t.id);
       expect(restoredOrder).toEqual(originalOrder);
+    });
+
+    test.prop([trackListArbitrary])('_reshuffleForLoopRestart does not put just-played track first (task-222)', async (tracks) => {
+      // Need at least 2 tracks for reshuffle to be meaningful
+      fc.pre(tracks.length >= 2);
+
+      store.items = [...tracks];
+      store._originalOrder = [...tracks];
+      // Set current index to last track (simulating end of queue)
+      store.currentIndex = tracks.length - 1;
+      const justPlayedTrack = tracks[tracks.length - 1];
+
+      // Reshuffle for loop restart
+      store._reshuffleForLoopRestart();
+
+      // Just-played track should NOT be at index 0
+      expect(store.items[0].id).not.toBe(justPlayedTrack.id);
+
+      // Just-played track should be at the END
+      expect(store.items[store.items.length - 1].id).toBe(justPlayedTrack.id);
+
+      // All tracks should still be preserved
+      expect(store.items.length).toBe(tracks.length);
+
+      // Original order should be updated to new shuffle
+      expect(store._originalOrder.length).toBe(tracks.length);
+    });
+
+    it('_reshuffleForLoopRestart with single track does nothing', () => {
+      const trackA = { id: 1, title: 'Track A', artist: 'Artist', album: 'Album' };
+      store.items = [trackA];
+      store.currentIndex = 0;
+
+      store._reshuffleForLoopRestart();
+
+      // Single track - nothing should change
+      expect(store.items.length).toBe(1);
+      expect(store.items[0].id).toBe(1);
     });
   });
 

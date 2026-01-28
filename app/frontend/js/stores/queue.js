@@ -402,7 +402,7 @@ export function createQueueStore(Alpine) {
         if (this._repeatOnePending) {
           this._repeatOnePending = false;
           this.loop = 'none';
-          this._saveLoopState();
+          // Loop state is session-only, no persistence needed
         } else {
           this._repeatOnePending = true;
           await this.playIndex(this.currentIndex, true);
@@ -420,7 +420,8 @@ export function createQueueStore(Alpine) {
       if (nextIndex >= this.items.length) {
         if (this.loop === 'all') {
           if (this.shuffle) {
-            this._shuffleItems();
+            // Use special reshuffle that puts just-played track at END (task-222)
+            this._reshuffleForLoopRestart();
           }
           nextIndex = 0;
         } else {
@@ -445,8 +446,8 @@ export function createQueueStore(Alpine) {
 
       // Try to use play history first
       if (this._playHistory.length > 0) {
-        const prevIndex = this._popFromHistory();
-        await this.playIndex(prevIndex, true);
+        const historyEntry = this._popFromHistory();
+        await this.playIndex(historyEntry, true);
         return;
       }
 
@@ -472,7 +473,7 @@ export function createQueueStore(Alpine) {
       if (this.loop === 'one') {
         this.loop = 'all';
         this._repeatOnePending = false;
-        this._saveLoopState();
+        // Loop state is session-only, no persistence needed
       }
       await this._doSkipNext();
     },
@@ -485,7 +486,7 @@ export function createQueueStore(Alpine) {
       if (this.loop === 'one') {
         this.loop = 'all';
         this._repeatOnePending = false;
-        this._saveLoopState();
+        // Loop state is session-only, no persistence needed
       }
       await this.playPrevious();
     },
@@ -493,59 +494,126 @@ export function createQueueStore(Alpine) {
     async _doSkipNext() {
       if (this.items.length === 0) return;
 
+      // Push current track to history before advancing (preserves prev button navigation)
+      if (this.currentIndex >= 0) {
+        this._pushToHistory(this.currentIndex);
+      }
+
       let nextIndex = this.currentIndex + 1;
       if (nextIndex >= this.items.length) {
         nextIndex = 0;
       }
 
-      await this.playIndex(nextIndex);
+      await this.playIndex(nextIndex, true); // fromNavigation=true preserves history
     },
 
     async toggleShuffle() {
-      this.shuffle = !this.shuffle;
+      // CRITICAL: Prevent QUEUE_STATE_CHANGED event from overwriting state during operation
+      this._updating = true;
 
-      // Clear play history on shuffle toggle
-      this._playHistory = [];
+      try {
+        this.shuffle = !this.shuffle;
 
-      if (this.shuffle) {
-        this._originalOrder = [...this.items];
-        this._shuffleItems();
-      } else {
-        const currentTrack = this.items[this.currentIndex];
-        this.items = [...this._originalOrder];
-        this.currentIndex = this.items.findIndex((t) => t.id === currentTrack?.id);
-        if (this.currentIndex < 0) {
-          this.currentIndex = this.items.length > 0 ? 0 : -1;
+        if (this.shuffle) {
+          // Save original order before shuffling
+          this._originalOrder = [...this.items];
+          this._shuffleItems();
+          // Don't clear history - user can still go back to previously played tracks
+          // Don't call setCurrentIndex - same track is playing, just at index 0 now
+        } else {
+          // Restore original order
+          const currentTrack = this.items[this.currentIndex];
+          this.items = [...this._originalOrder];
+          this.currentIndex = this.items.findIndex((t) => t.id === currentTrack?.id);
+          if (this.currentIndex < 0) {
+            this.currentIndex = this.items.length > 0 ? 0 : -1;
+          }
+          // Clear history when disabling shuffle - old indices are now invalid
+          this._playHistory = [];
         }
+
+        // Persist shuffle state to backend
+        await api.queue.setShuffle(this.shuffle);
+
+        // Only update backend index when disabling shuffle (index changed in original order)
+        if (!this.shuffle) {
+          await api.queue.setCurrentIndex(this.currentIndex);
+        }
+
+        // Sync queue order to backend
+        await this._syncQueueToBackend();
+      } finally {
+        // Delay reset to let pending backend events pass
+        setTimeout(() => {
+          this._updating = false;
+        }, 200);
       }
-
-      // Persist state to backend
-      await api.queue.setShuffle(this.shuffle);
-      await api.queue.setCurrentIndex(this.currentIndex);
-
-      // Sync queue order to backend
-      await this._syncQueueToBackend();
     },
 
     _shuffleItems() {
       if (this.items.length < 2) return;
 
       const currentTrack = this.currentIndex >= 0 ? this.items[this.currentIndex] : null;
+
+      // Filter out current track by index to get tracks to shuffle
       const otherTracks = currentTrack
         ? this.items.filter((_, i) => i !== this.currentIndex)
         : [...this.items];
 
+      // Fisher-Yates shuffle of other tracks
       for (let i = otherTracks.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
       }
 
       if (currentTrack) {
+        // Current track goes to index 0, shuffled tracks follow (task-213)
         this.items = [currentTrack, ...otherTracks];
         this.currentIndex = 0;
       } else {
         this.items = otherTracks;
       }
+
+      this._validateQueueIntegrity();
+    },
+
+    /**
+     * Reshuffle for loop restart - ensures just-played track is NOT at index 0 (task-222)
+     * Called when loop=all and reaching end of queue with shuffle enabled.
+     */
+    _reshuffleForLoopRestart() {
+      if (this.items.length < 2) return;
+
+      const justPlayedTrack = this.items[this.currentIndex];
+      const otherTracks = this.items.filter((_, i) => i !== this.currentIndex);
+
+      // Fisher-Yates shuffle of other tracks
+      for (let i = otherTracks.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
+      }
+
+      // Put just-played track at END (plays last in next cycle)
+      this.items = [...otherTracks, justPlayedTrack];
+      this._originalOrder = [...this.items];
+
+      this._validateQueueIntegrity();
+    },
+
+    /**
+     * Validate queue integrity - check for duplicate track IDs
+     */
+    _validateQueueIntegrity() {
+      const ids = this.items.map((t) => t.id);
+      const uniqueIds = new Set(ids);
+      if (uniqueIds.size !== ids.length) {
+        console.error('[queue] Duplicate tracks detected!', {
+          total: ids.length,
+          unique: uniqueIds.size,
+        });
+        return false;
+      }
+      return true;
     },
 
     /**
