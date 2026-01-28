@@ -17,6 +17,7 @@
     "dialog:allow-open",
     "global-shortcut:default",
     "opener:default",
-    "store:default"
+    "store:default",
+    "mcp-bridge:default"
   ]
 }

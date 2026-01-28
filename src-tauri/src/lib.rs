@@ -355,6 +355,12 @@ pub fn run() {
                 eprintln!("Failed to setup global shortcuts: {}", e);
             }
 
+            #[cfg(feature = "mcp")]
+            {
+                app.handle().plugin(tauri_plugin_mcp_bridge::init())?;
+                println!("MCP bridge initialized (WebSocket port 9223)");
+            }
+
             // Start Last.fm scrobble retry background task
             let app_handle_lastfm = app.handle().clone();
             tauri::async_runtime::spawn(async move {

@@ -99,6 +99,14 @@ tasks:
     interactive: true
     ignore_error: true
 
+  dev:mcp:
+    desc: "Run Tauri in development mode with MCP bridge for AI agent debugging"
+    deps: [":deno:install"]
+    cmds:
+      - deno run -A npm:@tauri-apps/cli dev -- --features mcp
+    interactive: true
+    ignore_error: true
+
   icons:
     desc: "Generate app icons from logo"
     cmds:

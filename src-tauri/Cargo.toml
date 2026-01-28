@@ -60,6 +60,9 @@ base64 = "0.22"
 tauri-plugin-devtools = { version = "2", optional = true }
 sha2 = "0.10.9"
 
+# MCP bridge for AI agent debugging (IPC monitoring, screenshots, DOM access)
+tauri-plugin-mcp-bridge = { version = "0.8", optional = true }
+
 # Last.fm integration
 md5 = "0.7"
 
@@ -69,6 +72,7 @@ lru = "0.12"
 [features]
 default = []
 devtools = ["dep:tauri-plugin-devtools", "tauri/devtools"]
+mcp = ["dep:tauri-plugin-mcp-bridge"]
 
 [dev-dependencies]
 tempfile = "3"
