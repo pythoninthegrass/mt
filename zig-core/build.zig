@@ -12,8 +12,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // Link TagLib for metadata extraction
-    lib.linkSystemLibrary("tag_c");
+    // Link TagLib for metadata extraction (via pkg-config)
+    lib.linkSystemLibrary2("taglib_c", .{
+        .use_pkg_config = .force,
+    });
     lib.linkLibC();
 
     b.installArtifact(lib);
@@ -25,7 +27,9 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    shared.linkSystemLibrary("tag_c");
+    shared.linkSystemLibrary2("taglib_c", .{
+        .use_pkg_config = .force,
+    });
     shared.linkLibC();
 
     const shared_step = b.step("shared", "Build shared library");
@@ -37,7 +41,9 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib_tests.linkSystemLibrary("tag_c");
+    lib_tests.linkSystemLibrary2("taglib_c", .{
+        .use_pkg_config = .force,
+    });
     lib_tests.linkLibC();
 
     const run_lib_tests = b.addRunArtifact(lib_tests);
