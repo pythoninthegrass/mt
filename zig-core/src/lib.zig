@@ -23,10 +23,9 @@ pub const db_models = @import("db/models.zig");
 // pub const db_queue = @import("db/queue.zig");
 // pub const db_settings = @import("db/settings.zig");
 
-// Last.fm modules (Phase 1: types only)
+// Last.fm modules
 pub const lastfm_types = @import("lastfm/types.zig");
-// Phase 2 modules not yet ready:
-// pub const lastfm_client = @import("lastfm/client.zig");
+pub const lastfm_client = @import("lastfm/client.zig");
 
 // Re-export FFI functions at library root
 pub usingnamespace @import("ffi.zig");
