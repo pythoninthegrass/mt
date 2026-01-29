@@ -24,7 +24,7 @@ This document outlines the plan to migrate business logic from Rust to Zig via F
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Frontend (unchanged)                      │
+│                    Frontend (unchanged)                     │
 │              AlpineJS + Basecoat + Vite                     │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -35,10 +35,10 @@ This document outlines the plan to migrate business logic from Rust to Zig via F
 │  │ commands/*  │  │  events.rs  │  │   media_keys.rs     │  │
 │  │ (dispatch)  │  │             │  │   watcher.rs        │  │
 │  └──────┬──────┘  └─────────────┘  └─────────────────────┘  │
-│         │                                                    │
-│         ▼                                                    │
+│         │                                                   │
+│         ▼                                                   │
 │  ┌─────────────────────────────────────────────────────┐    │
-│  │              ffi/ (Rust FFI bindings)               │    │
+│  │              ffi/ (Rust FFI bindings)                │    │
 │  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -48,7 +48,7 @@ This document outlines the plan to migrate business logic from Rust to Zig via F
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │  scanner/   │  │    db/      │  │     lastfm/         │  │
 │  │  metadata   │  │  library    │  │     client          │  │
-│  │  fingerprint│  │  queue      │  │     signature       │  │
+│  │  fingerprint │  │  queue      │  │     signature       │  │
 │  │  artwork    │  │  playlists  │  │                     │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
@@ -64,12 +64,12 @@ mt/
 │   ├── build.zig
 │   ├── src/
 │   │   ├── lib.zig              # FFI exports root
-│   │   ├── ffi.zig              # C ABI exports
+│   │   ├── ffi.zig               # C ABI exports
 │   │   ├── types.zig            # Shared types
 │   │   ├── scanner/
 │   │   │   ├── scanner.zig      # Module root
 │   │   │   ├── metadata.zig     # Tag extraction (TagLib)
-│   │   │   ├── fingerprint.zig  # File change detection
+│   │   │   ├── fingerprint.zig   # File change detection
 │   │   │   ├── artwork.zig      # Album art extraction
 │   │   │   └── inventory.zig    # Directory scanning
 │   │   ├── db/
@@ -292,17 +292,58 @@ Frontend tests in `app/frontend/tests/*.spec.js` unchanged.
 
 ### Building
 
+**Recommended: Use Task Runner**
+
 ```bash
-# Build Zig library
+# Build everything
+task build
+
+# Run all tests (Rust + Vitest)
+task test
+
+# Run only Vitest unit tests
+task npm:test
+
+# Run Playwright E2E tests
+task test:e2e
+
+# Development mode with hot-reload
+task tauri:dev
+
+# Linting
+task lint
+
+# Formatting
+task format
+```
+
+**Alternative: Low-Level Commands**
+
+```bash
+# Build Zig library (called automatically by cargo build)
 cd zig-core && zig build
 
-# Build Tauri app (includes Zig build via build.rs)
+# Build Tauri app (triggers Zig build via build.rs)
 cd src-tauri && cargo build
 
-# Run tests
+# Run Zig tests
 cd zig-core && zig build test
+
+# Run Rust tests
 cd src-tauri && cargo test
+
+# Run Vitest unit tests
+cd app/frontend && npm test
+
+# Run Playwright E2E tests
+cd app/frontend && npm run test:e2e
 ```
+
+**Test Summary:**
+- Rust backend: 535 tests
+- Vitest unit: 213 tests
+- Playwright E2E: 413 tests (fast mode, webkit only)
+- Total: 1,161 tests
 
 ### Worktree
 
