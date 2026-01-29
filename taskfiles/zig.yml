@@ -11,9 +11,7 @@ vars:
 tasks:
   info:
     desc: "Show Zig build configuration"
-    cmds:
-      - |
-        cat << EOF
+    summary: |
         Zig Build Configuration:
           Zig Version: $(zig version)
           Source Directory: {{.ZIG_CORE_DIR}}/src
@@ -32,8 +30,6 @@ tasks:
 
         Output locations:
           - Static library: {{.ZIG_OUT_DIR}}/lib/libmtcore.a
-        EOF
-    silent: true
 
   check-deps:
     desc: "Verify Zig is installed"
