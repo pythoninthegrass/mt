@@ -204,10 +204,20 @@ jobs:
         with:
           version: 0.14.0
 
-      - name: Verify Zig and TagLib
+      - name: Install TagLib (macOS)
         run: |
-          zig version
-          pkg-config --modversion taglib_c || echo "TagLib not found via pkg-config (may be pre-installed)"
+          if ! pkg-config --exists taglib_c 2>/dev/null; then
+            echo "Installing TagLib via Homebrew..."
+            brew install taglib
+          else
+            echo "TagLib already installed: $(pkg-config --modversion taglib_c)"
+          fi
+
+      - name: Verify build dependencies
+        run: |
+          echo "Zig: $(zig version)"
+          echo "TagLib: $(pkg-config --modversion taglib_c)"
+          echo "pkg-config path: $(pkg-config --variable=libdir taglib_c)"
 
       - name: Install frontend dependencies
         working-directory: ./app/frontend
@@ -241,6 +251,12 @@ jobs:
         uses: mlugg/setup-zig@v1
         with:
           version: 0.14.0
+
+      - name: Install TagLib (macOS)
+        run: |
+          if ! pkg-config --exists taglib_c 2>/dev/null; then
+            brew install taglib
+          fi
 
       - name: Install cargo-tarpaulin
         run: |
