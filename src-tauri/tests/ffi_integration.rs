@@ -1,5 +1,18 @@
 // Integration test to verify FFI calls to Zig library work
 use std::ffi::CString;
+use std::path::PathBuf;
+
+/// Helper to get absolute path to test fixtures directory
+fn fixtures_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+}
+
+/// Helper to get absolute path to a test fixture file
+fn fixture_path(filename: &str) -> PathBuf {
+    fixtures_dir().join(filename)
+}
 
 #[test]
 fn test_zig_version() {
@@ -98,5 +111,218 @@ fn test_zig_fingerprint_matches() {
             !mt_lib::ffi::mt_fingerprint_matches(&fp1, &fp3),
             "Different fingerprints should not match"
         );
+    }
+}
+
+#[test]
+fn test_extract_metadata_mp3() {
+    let path = fixture_path("test_sample.mp3");
+    assert!(path.exists(), "Test MP3 file should exist");
+
+    let path_cstr = CString::new(path.to_str().unwrap()).unwrap();
+
+    unsafe {
+        let mut metadata = std::mem::zeroed::<mt_lib::ffi::ExtractedMetadata>();
+        let success = mt_lib::ffi::mt_extract_metadata_into(path_cstr.as_ptr(), &mut metadata);
+
+        assert!(success, "Metadata extraction should succeed for MP3");
+        assert!(metadata.is_valid, "Metadata should be marked as valid");
+        assert_eq!(metadata.get_title(), "Test Track", "Title should match");
+        assert_eq!(metadata.get_artist(), "Test Artist", "Artist should match");
+        assert_eq!(metadata.get_album(), "Test Album", "Album should match");
+        assert_eq!(metadata.sample_rate, 44100, "Sample rate should be 44100");
+        assert_eq!(metadata.channels, 2, "Channels should be 2 (stereo)");
+        assert!(metadata.duration_secs > 0.9 && metadata.duration_secs < 1.1, "Duration should be approximately 1 second");
+        assert!(metadata.bitrate > 0, "Bitrate should be present");
+
+        println!("MP3 metadata: title={}, artist={}, album={}, duration={:.2}s, bitrate={}kbps, sample_rate={}Hz, channels={}",
+            metadata.get_title(), metadata.get_artist(), metadata.get_album(),
+            metadata.duration_secs, metadata.bitrate, metadata.sample_rate, metadata.channels);
+    }
+}
+
+#[test]
+fn test_extract_metadata_flac() {
+    let path = fixture_path("test_sample.flac");
+    assert!(path.exists(), "Test FLAC file should exist");
+
+    let path_cstr = CString::new(path.to_str().unwrap()).unwrap();
+
+    unsafe {
+        let mut metadata = std::mem::zeroed::<mt_lib::ffi::ExtractedMetadata>();
+        let success = mt_lib::ffi::mt_extract_metadata_into(path_cstr.as_ptr(), &mut metadata);
+
+        assert!(success, "Metadata extraction should succeed for FLAC");
+        assert!(metadata.is_valid, "Metadata should be marked as valid");
+        assert_eq!(metadata.get_title(), "FLAC Test", "Title should match");
+        assert_eq!(metadata.get_artist(), "FLAC Artist", "Artist should match");
+        assert_eq!(metadata.get_album(), "FLAC Album", "Album should match");
+        assert_eq!(metadata.sample_rate, 48000, "Sample rate should be 48000");
+        assert_eq!(metadata.channels, 2, "Channels should be 2 (stereo)");
+        assert!(metadata.duration_secs > 0.9 && metadata.duration_secs < 1.1, "Duration should be approximately 1 second");
+
+        println!("FLAC metadata: title={}, artist={}, album={}, duration={:.2}s, sample_rate={}Hz, channels={}",
+            metadata.get_title(), metadata.get_artist(), metadata.get_album(),
+            metadata.duration_secs, metadata.sample_rate, metadata.channels);
+    }
+}
+
+#[test]
+fn test_extract_metadata_wav() {
+    let path = fixture_path("test_sample.wav");
+    assert!(path.exists(), "Test WAV file should exist");
+
+    let path_cstr = CString::new(path.to_str().unwrap()).unwrap();
+
+    unsafe {
+        let mut metadata = std::mem::zeroed::<mt_lib::ffi::ExtractedMetadata>();
+        let success = mt_lib::ffi::mt_extract_metadata_into(path_cstr.as_ptr(), &mut metadata);
+
+        assert!(success, "Metadata extraction should succeed for WAV");
+        assert!(metadata.is_valid, "Metadata should be marked as valid");
+        assert_eq!(metadata.sample_rate, 22050, "Sample rate should be 22050");
+        assert_eq!(metadata.channels, 1, "Channels should be 1 (mono)");
+        assert!(metadata.duration_secs > 0.9 && metadata.duration_secs < 1.1, "Duration should be approximately 1 second");
+
+        println!("WAV metadata: duration={:.2}s, sample_rate={}Hz, channels={}",
+            metadata.duration_secs, metadata.sample_rate, metadata.channels);
+    }
+}
+
+#[test]
+fn test_extract_metadata_m4a() {
+    let path = fixture_path("test_sample.m4a");
+    assert!(path.exists(), "Test M4A file should exist");
+
+    let path_cstr = CString::new(path.to_str().unwrap()).unwrap();
+
+    unsafe {
+        let mut metadata = std::mem::zeroed::<mt_lib::ffi::ExtractedMetadata>();
+        let success = mt_lib::ffi::mt_extract_metadata_into(path_cstr.as_ptr(), &mut metadata);
+
+        assert!(success, "Metadata extraction should succeed for M4A");
+        assert!(metadata.is_valid, "Metadata should be marked as valid");
+        assert_eq!(metadata.get_title(), "M4A Test", "Title should match");
+        assert_eq!(metadata.get_artist(), "M4A Artist", "Artist should match");
+        assert_eq!(metadata.channels, 2, "Channels should be 2 (stereo)");
+        assert!(metadata.duration_secs > 0.9 && metadata.duration_secs < 1.1, "Duration should be approximately 1 second");
+
+        println!("M4A metadata: title={}, artist={}, duration={:.2}s, channels={}",
+            metadata.get_title(), metadata.get_artist(),
+            metadata.duration_secs, metadata.channels);
+    }
+}
+
+#[test]
+fn test_extract_metadata_ogg() {
+    let path = fixture_path("test_sample.ogg");
+    assert!(path.exists(), "Test OGG file should exist");
+
+    let path_cstr = CString::new(path.to_str().unwrap()).unwrap();
+
+    unsafe {
+        let mut metadata = std::mem::zeroed::<mt_lib::ffi::ExtractedMetadata>();
+        let success = mt_lib::ffi::mt_extract_metadata_into(path_cstr.as_ptr(), &mut metadata);
+
+        assert!(success, "Metadata extraction should succeed for OGG");
+        assert!(metadata.is_valid, "Metadata should be marked as valid");
+        assert_eq!(metadata.get_title(), "OGG Test", "Title should match");
+        assert_eq!(metadata.get_artist(), "OGG Artist", "Artist should match");
+        assert_eq!(metadata.channels, 2, "Channels should be 2 (stereo)");
+        assert!(metadata.duration_secs > 0.9 && metadata.duration_secs < 1.1, "Duration should be approximately 1 second");
+
+        println!("OGG metadata: title={}, artist={}, duration={:.2}s, channels={}",
+            metadata.get_title(), metadata.get_artist(),
+            metadata.duration_secs, metadata.channels);
+    }
+}
+
+#[test]
+fn test_fingerprint_real_files() {
+    let mp3_path = fixture_path("test_sample.mp3");
+    let flac_path = fixture_path("test_sample.flac");
+
+    assert!(mp3_path.exists(), "Test MP3 file should exist");
+    assert!(flac_path.exists(), "Test FLAC file should exist");
+
+    let mp3_cstr = CString::new(mp3_path.to_str().unwrap()).unwrap();
+    let flac_cstr = CString::new(flac_path.to_str().unwrap()).unwrap();
+
+    unsafe {
+        let mut mp3_fp = std::mem::zeroed::<mt_lib::ffi::FileFingerprint>();
+        let mut flac_fp = std::mem::zeroed::<mt_lib::ffi::FileFingerprint>();
+
+        let mp3_success = mt_lib::ffi::mt_get_fingerprint(mp3_cstr.as_ptr(), &mut mp3_fp);
+        let flac_success = mt_lib::ffi::mt_get_fingerprint(flac_cstr.as_ptr(), &mut flac_fp);
+
+        assert!(mp3_success, "Should get fingerprint for MP3");
+        assert!(flac_success, "Should get fingerprint for FLAC");
+
+        assert!(mp3_fp.has_mtime, "MP3 should have mtime");
+        assert!(mp3_fp.size > 0, "MP3 should have positive size");
+        assert!(flac_fp.has_mtime, "FLAC should have mtime");
+        assert!(flac_fp.size > 0, "FLAC should have positive size");
+
+        // Files should be different
+        assert!(
+            !mt_lib::ffi::mt_fingerprint_matches(&mp3_fp, &flac_fp),
+            "Different files should have different fingerprints"
+        );
+
+        // Same file should match itself
+        let mut mp3_fp2 = std::mem::zeroed::<mt_lib::ffi::FileFingerprint>();
+        let mp3_success2 = mt_lib::ffi::mt_get_fingerprint(mp3_cstr.as_ptr(), &mut mp3_fp2);
+        assert!(mp3_success2, "Should get fingerprint for MP3 again");
+        assert!(
+            mt_lib::ffi::mt_fingerprint_matches(&mp3_fp, &mp3_fp2),
+            "Same file should match itself"
+        );
+
+        println!("MP3 fingerprint: size={}, mtime={}", mp3_fp.size, mp3_fp.mtime_ns);
+        println!("FLAC fingerprint: size={}, mtime={}", flac_fp.size, flac_fp.mtime_ns);
+    }
+}
+
+#[test]
+fn test_batch_metadata_extraction() {
+    let mp3_path = fixture_path("test_sample.mp3");
+    let flac_path = fixture_path("test_sample.flac");
+    let wav_path = fixture_path("test_sample.wav");
+
+    assert!(mp3_path.exists(), "Test MP3 file should exist");
+    assert!(flac_path.exists(), "Test FLAC file should exist");
+    assert!(wav_path.exists(), "Test WAV file should exist");
+
+    let mp3_cstr = CString::new(mp3_path.to_str().unwrap()).unwrap();
+    let flac_cstr = CString::new(flac_path.to_str().unwrap()).unwrap();
+    let wav_cstr = CString::new(wav_path.to_str().unwrap()).unwrap();
+
+    unsafe {
+        let paths = vec![mp3_cstr.as_ptr(), flac_cstr.as_ptr(), wav_cstr.as_ptr()];
+        let mut results: Vec<mt_lib::ffi::ExtractedMetadata> = vec![std::mem::zeroed(); 3];
+
+        let processed = mt_lib::ffi::mt_extract_metadata_batch(
+            paths.as_ptr(),
+            paths.len(),
+            results.as_mut_ptr(),
+        );
+
+        assert_eq!(processed, 3, "Should process all 3 files");
+
+        // Verify MP3
+        assert!(results[0].is_valid, "MP3 metadata should be valid");
+        assert_eq!(results[0].get_title(), "Test Track");
+
+        // Verify FLAC
+        assert!(results[1].is_valid, "FLAC metadata should be valid");
+        assert_eq!(results[1].get_title(), "FLAC Test");
+
+        // Verify WAV
+        assert!(results[2].is_valid, "WAV metadata should be valid");
+
+        println!("Batch extraction processed {} files successfully", processed);
+        for (i, result) in results.iter().enumerate() {
+            println!("  File {}: title={}, valid={}", i, result.get_title(), result.is_valid);
+        }
     }
 }

@@ -174,6 +174,7 @@ unsafe extern "C" {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::{CStr, CString};
 
     #[test]
     fn test_version() {
