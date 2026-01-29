@@ -46,7 +46,7 @@ pub const RateLimiter = struct {
         self.mutex.lock();
         defer self.mutex.unlock();
 
-        const now_ns = std.time.nanoTimestamp();
+        const now_ns: i64 = @intCast(std.time.nanoTimestamp());
         const elapsed_ns = now_ns - self.last_request_ns;
 
         if (elapsed_ns < self.min_interval_ns) {
@@ -54,7 +54,7 @@ pub const RateLimiter = struct {
             std.time.sleep(sleep_ns);
         }
 
-        self.last_request_ns = std.time.nanoTimestamp();
+        self.last_request_ns = @intCast(std.time.nanoTimestamp());
     }
 
     /// Check if a request can be made immediately without waiting
@@ -63,7 +63,7 @@ pub const RateLimiter = struct {
         self.mutex.lock();
         defer self.mutex.unlock();
 
-        const now_ns = std.time.nanoTimestamp();
+        const now_ns: i64 = @intCast(std.time.nanoTimestamp());
         const elapsed_ns = now_ns - self.last_request_ns;
 
         if (elapsed_ns >= self.min_interval_ns) {
@@ -76,7 +76,7 @@ pub const RateLimiter = struct {
     pub fn recordRequest(self: *RateLimiter) void {
         self.mutex.lock();
         defer self.mutex.unlock();
-        self.last_request_ns = std.time.nanoTimestamp();
+        self.last_request_ns = @intCast(std.time.nanoTimestamp());
     }
 };
 
