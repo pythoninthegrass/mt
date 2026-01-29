@@ -130,6 +130,72 @@ export fn mt_version() callconv(.C) [*:0]const u8 {
 }
 
 // ============================================================================
+// Artwork Cache FFI (TODO: Implement)
+// ============================================================================
+
+// TODO: Uncomment and implement after ArtworkCache is complete
+// const artwork_cache = @import("scanner/artwork_cache.zig");
+
+// Create new artwork cache with default capacity
+// Returns opaque handle or null on failure
+// export fn mt_artwork_cache_new() callconv(.C) ?*artwork_cache.CacheHandle {
+//     // TODO: Implement
+//     return null;
+// }
+
+// Create artwork cache with custom capacity
+// export fn mt_artwork_cache_new_with_capacity(capacity: usize) callconv(.C) ?*artwork_cache.CacheHandle {
+//     // TODO: Implement
+//     _ = capacity;
+//     return null;
+// }
+
+// Get artwork for track, loading from file if not cached
+// Returns true if artwork was found, false otherwise
+// export fn mt_artwork_cache_get_or_load(
+//     cache: *artwork_cache.CacheHandle,
+//     track_id: i64,
+//     filepath: [*:0]const u8,
+//     out: *artwork_cache.Artwork,
+// ) callconv(.C) bool {
+//     // TODO: Implement
+//     _ = cache;
+//     _ = track_id;
+//     _ = filepath;
+//     _ = out;
+//     return false;
+// }
+
+// Invalidate cache entry for a track
+// export fn mt_artwork_cache_invalidate(
+//     cache: *artwork_cache.CacheHandle,
+//     track_id: i64,
+// ) callconv(.C) void {
+//     // TODO: Implement
+//     _ = cache;
+//     _ = track_id;
+// }
+
+// Clear all cache entries
+// export fn mt_artwork_cache_clear(cache: *artwork_cache.CacheHandle) callconv(.C) void {
+//     // TODO: Implement
+//     _ = cache;
+// }
+
+// Get current cache size
+// export fn mt_artwork_cache_len(cache: *artwork_cache.CacheHandle) callconv(.C) usize {
+//     // TODO: Implement
+//     _ = cache;
+//     return 0;
+// }
+
+// Free artwork cache
+// export fn mt_artwork_cache_free(cache: ?*artwork_cache.CacheHandle) callconv(.C) void {
+//     // TODO: Implement
+//     _ = cache;
+// }
+
+// ============================================================================
 // Tests
 // ============================================================================
 
