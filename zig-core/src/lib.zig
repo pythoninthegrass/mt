@@ -14,6 +14,7 @@ pub const metadata = @import("scanner/metadata.zig");
 pub const fingerprint = @import("scanner/fingerprint.zig");
 pub const artwork_cache = @import("scanner/artwork_cache.zig");
 pub const inventory = @import("scanner/inventory.zig");
+pub const orchestration = @import("scanner/orchestration.zig");
 
 // Database modules (Phase 1: models only)
 pub const db_models = @import("db/models.zig");
