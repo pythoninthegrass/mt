@@ -14,6 +14,8 @@ includes:
     taskfile: ./taskfiles/deno.yml
   tauri:
     taskfile: ./taskfiles/tauri.yml
+  zig:
+    taskfile: ./taskfiles/zig.yml
 
 tasks:
   default:
@@ -47,18 +49,21 @@ tasks:
   lint:
     desc: "Run linters"
     cmds:
+      - task: zig:fmt:check
       - cargo clippy --manifest-path src-tauri/Cargo.toml
       - deno lint
 
   format:
     desc: "Run formatters"
     cmds:
+      - task: zig:fmt
       - cargo fmt --manifest-path src-tauri/Cargo.toml
       - deno fmt
 
   test:
-    desc: "Run tests (uses cargo-nextest if available, otherwise cargo test)"
+    desc: "Run tests (Zig + Rust + Frontend)"
     cmds:
+      - task: zig:test
       - |
         if command -v cargo-nextest &> /dev/null; then
           cargo nextest run --manifest-path src-tauri/Cargo.toml

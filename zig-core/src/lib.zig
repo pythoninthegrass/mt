@@ -5,10 +5,27 @@
 
 const std = @import("std");
 
+// Core types
+pub const types = @import("types.zig");
+
+// Scanner modules
 pub const scanner = @import("scanner/scanner.zig");
 pub const metadata = @import("scanner/metadata.zig");
 pub const fingerprint = @import("scanner/fingerprint.zig");
-pub const types = @import("types.zig");
+pub const artwork_cache = @import("scanner/artwork_cache.zig");
+pub const inventory = @import("scanner/inventory.zig");
+
+// Database modules (Phase 1: models only)
+pub const db_models = @import("db/models.zig");
+// Phase 2 modules not yet ready:
+// pub const db_library = @import("db/library.zig");
+// pub const db_queue = @import("db/queue.zig");
+// pub const db_settings = @import("db/settings.zig");
+
+// Last.fm modules (Phase 1: types only)
+pub const lastfm_types = @import("lastfm/types.zig");
+// Phase 2 modules not yet ready:
+// pub const lastfm_client = @import("lastfm/client.zig");
 
 // Re-export FFI functions at library root
 pub usingnamespace @import("ffi.zig");

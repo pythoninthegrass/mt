@@ -298,7 +298,7 @@ Frontend tests in `app/frontend/tests/*.spec.js` unchanged.
 # Build everything
 task build
 
-# Run all tests (Rust + Vitest)
+# Run all tests (Zig + Rust + Vitest)
 task test
 
 # Run only Vitest unit tests
@@ -310,11 +310,39 @@ task test:e2e
 # Development mode with hot-reload
 task tauri:dev
 
-# Linting
+# Linting (includes Zig formatting check)
 task lint
 
-# Formatting
+# Formatting (includes Zig)
 task format
+```
+
+**Zig-Specific Commands**
+
+```bash
+# Build zig-core library
+task zig:build
+
+# Build zig-core library (release optimized)
+task zig:build:release
+
+# Run Zig unit tests
+task zig:test
+
+# Run Zig tests with verbose output
+task zig:test:verbose
+
+# Format Zig source files
+task zig:fmt
+
+# Check Zig formatting (no changes)
+task zig:fmt:check
+
+# Clean Zig build artifacts
+task zig:clean
+
+# Show Zig build info
+task zig:info
 ```
 
 **Alternative: Low-Level Commands**
@@ -340,10 +368,11 @@ cd app/frontend && npm run test:e2e
 ```
 
 **Test Summary:**
+- Zig unit tests: (growing with migration)
 - Rust backend: 535 tests
 - Vitest unit: 213 tests
 - Playwright E2E: 413 tests (fast mode, webkit only)
-- Total: 1,161 tests
+- Total: 1,161+ tests
 
 ### Worktree
 
