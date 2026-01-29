@@ -3,13 +3,15 @@ pub mod commands;
 pub mod db;
 pub mod dialog;
 pub mod events;
-pub mod ffi;
 pub mod lastfm;
 pub mod library;
 pub mod media_keys;
 pub mod metadata;
 pub mod scanner;
 pub mod watcher;
+
+// Re-export FFI from mt-core for backward compatibility
+pub use mt_core::ffi;
 
 #[cfg(test)]
 mod concurrency_test;

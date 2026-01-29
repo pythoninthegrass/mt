@@ -6,7 +6,8 @@
 use std::collections::HashMap;
 
 use crate::scanner::fingerprint::FileFingerprint;
-use crate::scanner::inventory::{run_inventory, InventoryResult};
+use crate::scanner::inventory::InventoryResult;
+use crate::scanner::inventory_ffi::run_inventory_zig;
 use crate::scanner::metadata::extract_metadata_batch;
 use crate::scanner::{ExtractedMetadata, ScanProgress, ScanResult, ScanStats};
 
@@ -65,7 +66,7 @@ pub fn scan_2phase(
         }
     });
 
-    let inventory = run_inventory(paths, db_fingerprints, recursive, inventory_progress)?;
+    let inventory = run_inventory_zig(paths, db_fingerprints, recursive, inventory_progress)?;
 
     // Phase 2: Parse changed files
     let total_to_parse = inventory.added.len() + inventory.modified.len();
@@ -139,12 +140,14 @@ pub fn scan_2phase(
 ///
 /// Useful for fast change detection when you only need to know
 /// what changed, not the full metadata.
+///
+/// Note: This now uses the Zig FFI implementation for filesystem walking.
 pub fn scan_inventory_only(
     paths: &[String],
     db_fingerprints: &HashMap<String, FileFingerprint>,
     recursive: bool,
 ) -> ScanResult<InventoryResult> {
-    run_inventory(paths, db_fingerprints, recursive, None::<fn(usize)>)
+    run_inventory_zig(paths, db_fingerprints, recursive, None::<fn(usize)>)
 }
 
 /// Build a fingerprint map from database tracks

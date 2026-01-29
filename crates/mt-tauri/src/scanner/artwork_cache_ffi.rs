@@ -4,7 +4,7 @@
 //! This cache handles folder-based artwork (cover.jpg, folder.jpg, etc.).
 //! Embedded artwork extraction remains in Rust via lofty.
 
-use crate::ffi::{
+use mt_core::ffi::{
     mt_artwork_cache_clear, mt_artwork_cache_free, mt_artwork_cache_get_or_load,
     mt_artwork_cache_invalidate, mt_artwork_cache_len, mt_artwork_cache_new,
     mt_artwork_cache_new_with_capacity, ArtworkCacheHandle, FfiArtwork,

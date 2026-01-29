@@ -1,6 +1,6 @@
 use super::config::ApiKeyConfig;
 use super::rate_limiter::RateLimiter;
-use super::signature;
+use super::signature_ffi;
 use super::types::*;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -61,7 +61,7 @@ impl LastFmClient {
             all_params.insert("sk".to_string(), sk.to_string());
         }
 
-        // Generate signature if session key is present
+        // Generate signature if session key is present (using Zig FFI)
         if session_key.is_some() {
             // Signature excludes 'format' parameter
             let params_for_signing: BTreeMap<String, String> = all_params
@@ -70,7 +70,8 @@ impl LastFmClient {
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
 
-            let signature = signature::sign_params(&params_for_signing, self.config.api_secret());
+            let signature = signature_ffi::sign_params_ffi(&params_for_signing, self.config.api_secret())
+                .ok_or_else(|| LastFmError::ParseError("Failed to generate signature".to_string()))?;
             all_params.insert("api_sig".to_string(), signature);
         }
 
@@ -153,12 +154,13 @@ impl LastFmClient {
         let mut params = BTreeMap::new();
         params.insert("token".to_string(), token.to_string());
 
-        // Note: auth.getSession requires signature but no session key
+        // Note: auth.getSession requires signature but no session key (using Zig FFI)
         let mut params_for_signing = params.clone();
         params_for_signing.insert("method".to_string(), "auth.getSession".to_string());
         params_for_signing.insert("api_key".to_string(), self.config.api_key().to_string());
 
-        let signature = signature::sign_params(&params_for_signing, self.config.api_secret());
+        let signature = signature_ffi::sign_params_ffi(&params_for_signing, self.config.api_secret())
+            .ok_or_else(|| LastFmError::ParseError("Failed to generate signature".to_string()))?;
 
         params.insert("api_sig".to_string(), signature);
         params.insert("method".to_string(), "auth.getSession".to_string());

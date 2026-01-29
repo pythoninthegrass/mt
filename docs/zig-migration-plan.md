@@ -60,39 +60,50 @@ This document outlines the plan to migrate business logic from Rust to Zig via F
 
 ```
 mt/
+├── Cargo.toml                   # Workspace root
+├── crates/
+│   ├── mt-core/                 # Zig FFI + pure logic
+│   │   ├── Cargo.toml
+│   │   ├── build.rs             # Builds Zig, links libmtcore.a
+│   │   └── src/
+│   │       ├── lib.rs           # Exports ffi module
+│   │       └── ffi.rs           # FFI declarations
+│   └── mt-tauri/                # Tauri shell (depends on mt-core)
+│       ├── Cargo.toml
+│       ├── build.rs             # tauri_build only
+│       ├── tauri.conf.json
+│       └── src/
+│           ├── lib.rs           # Re-exports mt_core::ffi
+│           ├── commands/        # Tauri command handlers
+│           ├── scanner/         # Scanner with FFI wrappers
+│           │   ├── artwork_cache_ffi.rs
+│           │   ├── inventory_ffi.rs
+│           │   └── ...
+│           ├── lastfm/          # Last.fm with FFI wrapper
+│           │   ├── signature_ffi.rs
+│           │   └── ...
+│           └── ...
 ├── zig-core/
 │   ├── build.zig
 │   ├── src/
 │   │   ├── lib.zig              # FFI exports root
-│   │   ├── ffi.zig               # C ABI exports
+│   │   ├── ffi.zig              # C ABI exports
 │   │   ├── types.zig            # Shared types
 │   │   ├── scanner/
 │   │   │   ├── scanner.zig      # Module root
 │   │   │   ├── metadata.zig     # Tag extraction (TagLib)
-│   │   │   ├── fingerprint.zig   # File change detection
-│   │   │   ├── artwork.zig      # Album art extraction
+│   │   │   ├── fingerprint.zig  # File change detection
+│   │   │   ├── artwork_cache.zig # LRU cache
 │   │   │   └── inventory.zig    # Directory scanning
 │   │   ├── db/
-│   │   │   ├── database.zig     # SQLite connection (zig-sqlite)
 │   │   │   ├── models.zig       # Data models
 │   │   │   ├── library.zig      # Library queries
 │   │   │   ├── queue.zig        # Queue management
-│   │   │   ├── playlists.zig    # Playlist CRUD
-│   │   │   └── favorites.zig    # Favorites
+│   │   │   └── settings.zig     # Settings storage
 │   │   └── lastfm/
 │   │       ├── client.zig       # HTTP client
-│   │       ├── signature.zig    # API signing
-│   │       └── types.zig        # API types
+│   │       └── types.zig        # API types + signature
 │   └── tests/
-├── src-tauri/
-│   ├── src/
-│   │   ├── ffi/                 # Rust FFI bindings
-│   │   │   ├── mod.rs
-│   │   │   ├── scanner.rs
-│   │   │   ├── db.rs
-│   │   │   └── lastfm.rs
-│   │   └── ... (existing, thinned)
-│   └── build.rs                 # Modified to build Zig first
 └── app/frontend/                # Unchanged
 ```
 
@@ -150,16 +161,17 @@ These files stay in Rust permanently—they're thin dispatch or platform-specifi
 
 | Phase | Files | Effort | Risk | Status |
 |-------|-------|--------|------|--------|
-| 0 | Create `zig-core/`, `build.zig`, `build.rs` integration | 1 day | Low | ✅ Started |
+| 0 | Create `zig-core/`, `build.zig`, `build.rs` integration | 1 day | Low | ✅ Done |
 | 1 | ~~`scanner/metadata.rs` → Zig~~ (FUTURE/EXPERIMENTAL) | 2-3 days | Low | ⬜ Deferred |
-| 1 | `scanner/fingerprint.rs` → Zig | 1-2 days | Low | ✅ Started |
-| 1 | ~~`scanner/artwork.rs`, `artwork_cache.rs` → Zig~~ (FUTURE/EXPERIMENTAL) | 2 days | Low | ⬜ Deferred |
-| 1 | `scanner/inventory.rs`, `scan.rs` → Zig | 2-3 days | Medium | ⬜ |
-| 2 | `db/models.rs`, `db/schema.rs` → Zig | 1 day | Low | ⬜ |
-| 2 | `db/library.rs` → Zig | 2-3 days | Medium | ⬜ |
-| 2 | `db/queue.rs`, `db/playlists.rs`, `db/favorites.rs` → Zig | 2-3 days | Medium | ⬜ |
-| 3 | `lastfm/signature.rs`, `lastfm/types.rs` → Zig | 1 day | Low | ⬜ |
-| 3 | `lastfm/client.rs`, `lastfm/rate_limiter.rs` → Zig | 2-3 days | Medium | ⬜ |
+| 1 | `scanner/fingerprint.rs` → Zig | 1-2 days | Low | ✅ Done |
+| 1 | ~~`scanner/artwork.rs` → Zig~~ (stays in Rust via lofty) | 2 days | Low | ⬜ Deferred |
+| 1 | `scanner/artwork_cache.rs` → Zig (FFI wired) | 1 day | Low | ✅ Done |
+| 1 | `scanner/inventory.rs`, `scan.rs` → Zig (FFI wired) | 2-3 days | Medium | ✅ Done |
+| 2 | `db/models.rs`, `db/schema.rs` → Zig | 1 day | Low | ✅ Done |
+| 2 | `db/library.rs` → Zig | 2-3 days | Medium | ✅ Done |
+| 2 | `db/queue.rs`, `db/playlists.rs`, `db/favorites.rs` → Zig | 2-3 days | Medium | ✅ Done |
+| 3 | `lastfm/signature.rs`, `lastfm/types.rs` → Zig | 1 day | Low | ✅ Done |
+| 3 | `lastfm/client.rs`, `lastfm/rate_limiter.rs` → Zig | 2-3 days | Medium | ✅ Done |
 
 ---
 
@@ -187,29 +199,50 @@ These files stay in Rust permanently—they're thin dispatch or platform-specifi
 
 ## Build Integration
 
-### build.rs (Rust)
+### Workspace Structure
+
+The project uses a Cargo workspace with two crates:
+- `mt-core`: Builds Zig library and provides FFI bindings
+- `mt-tauri`: Tauri shell that depends on mt-core
+
+### crates/mt-core/build.rs
 
 ```rust
+use std::path::PathBuf;
+
 fn main() {
+    // Get absolute path to workspace root
+    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let workspace_root = manifest_dir.parent().unwrap().parent().unwrap();
+    let zig_core_dir = workspace_root.join("zig-core");
+    let zig_lib_dir = zig_core_dir.join("zig-out").join("lib");
+
     // Build Zig library first
     let status = std::process::Command::new("zig")
         .args(["build", "-Doptimize=ReleaseFast"])
-        .current_dir("../zig-core")
+        .current_dir(&zig_core_dir)
         .status()
         .expect("failed to build zig-core");
-    
+
     assert!(status.success(), "zig-core build failed");
-    
-    // Link the static library
-    println!("cargo:rustc-link-search=native=../zig-core/zig-out/lib");
+
+    // Link the static library using absolute path
+    println!("cargo:rustc-link-search=native={}", zig_lib_dir.display());
     println!("cargo:rustc-link-lib=static=mtcore");
-    
-    // Link TagLib (required by zig-core)
-    println!("cargo:rustc-link-lib=tag_c");
-    
-    // Rebuild if zig sources change
-    println!("cargo:rerun-if-changed=../zig-core/src");
-    
+
+    // Link TagLib via pkg-config
+    pkg_config::Config::new()
+        .probe("taglib_c")
+        .expect("failed to find taglib_c");
+
+    println!("cargo:rerun-if-changed={}", zig_core_dir.join("src").display());
+}
+```
+
+### crates/mt-tauri/build.rs
+
+```rust
+fn main() {
     tauri_build::build()
 }
 ```
@@ -271,20 +304,71 @@ Frontend tests in `app/frontend/tests/*.spec.js` unchanged.
 - [x] `zig-core/build.zig` - Build system
 - [x] `zig-core/src/lib.zig` - Library root
 - [x] `zig-core/src/types.zig` - Core types (`ExtractedMetadata`, `FileFingerprint`, etc.)
-- [x] `zig-core/src/ffi.zig` - FFI exports
+- [x] `zig-core/src/ffi.zig` - FFI exports (metadata, fingerprint, artwork cache, inventory scanner)
 - [x] `zig-core/src/scanner/scanner.zig` - Scanner module root
 - [x] `zig-core/src/scanner/metadata.zig` - Metadata extraction with TagLib (FUTURE/EXPERIMENTAL - not active migration, Rust lofty is canonical)
 - [x] `zig-core/src/scanner/fingerprint.zig` - File fingerprinting
-- [x] `src-tauri/src/ffi/mod.rs` - Rust FFI module
-- [x] `src-tauri/src/ffi/scanner.rs` - Rust bindings for scanner FFI
+- [x] `zig-core/src/scanner/artwork_cache.zig` - LRU artwork cache with FFI exports
+- [x] `zig-core/src/scanner/inventory.zig` - Inventory scanning (FFI wired)
+- [x] `src-tauri/src/ffi.rs` - Rust FFI declarations (incl. inventory scanner)
+- [x] `src-tauri/src/scanner/artwork_cache_ffi.rs` - Safe Rust wrapper for Zig artwork cache
+- [x] `src-tauri/src/scanner/inventory_ffi.rs` - Safe Rust wrapper for Zig inventory scanner
+- [x] `src-tauri/src/scanner/scan.rs` - Now uses Zig FFI for inventory phase
+- [x] `src-tauri/tests/ffi_integration.rs` - FFI integration tests (17+ tests)
+
+#### Phase 2: Database Layer (Completed)
+
+- [x] `zig-core/src/db/models.zig` - Database models (Track, Playlist, QueueItem, etc.) with FFI-safe fixed-size buffers
+- [x] `zig-core/src/db/library.zig` - Library queries (SearchParams, TrackQueryResult, validation functions)
+- [x] `zig-core/src/db/queue.zig` - Queue management (QueueManager, shuffle algorithms, playlist info)
+- [x] `zig-core/src/db/settings.zig` - Settings and scrobble tracking (SettingsManager, ScrobbleManager)
+- [x] `zig-core/src/ffi.zig` - Extended with db FFI exports (Track, SearchParams, Queue, Settings)
+- [x] `src-tauri/src/ffi.rs` - Rust FFI declarations for db layer (36 tests total)
+
+#### Phase 3: Last.fm (Completed)
+
+- [x] `zig-core/src/lastfm/types.zig` - API types (Method, Params, ScrobbleRequest, NowPlayingRequest, ErrorCode) with signature generation
+- [x] `zig-core/src/lastfm/client.zig` - HTTP client (Config, RateLimiter, Client, BuiltRequest, ApiResponse) with URL encoding
+- [x] `zig-core/src/ffi.zig` - Extended with lastfm FFI exports (client lifecycle, request building, rate limiting, signature)
+- [x] `src-tauri/src/ffi.rs` - Rust FFI declarations for lastfm layer (44 tests total)
+
+#### Phase 4: Rust Command Integration (Completed)
+
+- [x] `src-tauri/src/lastfm/signature_ffi.rs` - Safe Rust wrapper for Zig signature generation FFI
+- [x] `src-tauri/src/lastfm/client.rs` - Updated to use Zig FFI for API signature generation
+- [x] Rate limiter remains in Rust (async-compatible with tokio/reqwest)
+- [x] 571 Rust tests pass, 6 new signature FFI tests added
+
+#### Phase 5: Workspace Separation (Completed)
+
+Split single `mt` crate into Cargo workspace for 30-50% faster incremental builds:
+
+- [x] `/Cargo.toml` - Workspace root with shared profile settings
+- [x] `/crates/mt-core/` - Zig FFI + pure logic (minimal dependencies)
+- [x] `/crates/mt-core/build.rs` - Builds Zig library, links `libmtcore.a`
+- [x] `/crates/mt-core/src/ffi.rs` - FFI declarations (moved from src-tauri)
+- [x] `/crates/mt-tauri/` - Tauri shell (depends on mt-core)
+- [x] `/crates/mt-tauri/build.rs` - Simplified (only tauri_build)
+- [x] Updated FFI wrapper imports (`crate::ffi` → `mt_core::ffi`)
+- [x] 539 Rust tests pass across workspace
+
+**Incremental Build Isolation:**
+- Changes to `mt-tauri/` → Only `mt-tauri` recompiles
+- Changes to `mt-core/` → Both crates recompile (correct dependency)
 
 ### Next Steps
 
-1. Update `src-tauri/build.rs` to compile Zig first
-2. Add `pub mod ffi;` to `src-tauri/src/lib.rs`
-3. Test FFI with real audio files
-4. ~~Migrate `scanner/artwork.rs`~~ (DEFERRED - stays in Rust via lofty)
-5. Migrate `scanner/inventory.rs` and `scanner/scan.rs`
+1. ~~Update `src-tauri/build.rs` to compile Zig first~~ ✅
+2. ~~Add `pub mod ffi;` to `src-tauri/src/lib.rs`~~ ✅
+3. ~~Test FFI with real audio files~~ ✅
+4. ~~Wire artwork_cache FFI~~ ✅
+5. ~~Wire `scanner/inventory.rs` to use Zig FFI~~ ✅
+6. ~~Wire `scanner/scan.rs` orchestration to use Zig FFI~~ ✅
+7. ~~Phase 2: Migrate db/models, db/library, db/queue, db/settings to Zig~~ ✅
+8. ~~Phase 3: Migrate lastfm/signature, lastfm/types, lastfm/client, lastfm/rate_limiter to Zig~~ ✅
+9. ~~Wire Rust commands to use Zig FFI for Last.fm signature generation~~ ✅
+10. ~~Workspace separation for faster incremental builds~~ ✅
+11. (Optional) Wire additional database FFI calls as needed for performance-critical paths
 
 ---
 
@@ -351,14 +435,14 @@ task zig:info
 # Build Zig library (called automatically by cargo build)
 cd zig-core && zig build
 
-# Build Tauri app (triggers Zig build via build.rs)
-cd src-tauri && cargo build
+# Build workspace (triggers Zig build via mt-core's build.rs)
+cargo build --workspace
 
 # Run Zig tests
 cd zig-core && zig build test
 
-# Run Rust tests
-cd src-tauri && cargo test
+# Run Rust tests (all workspace crates)
+cargo test --workspace
 
 # Run Vitest unit tests
 cd app/frontend && npm test
@@ -368,11 +452,12 @@ cd app/frontend && npm run test:e2e
 ```
 
 **Test Summary:**
-- Zig unit tests: (growing with migration)
-- Rust backend: 535 tests
+- Zig unit tests: ~50 tests (growing with migration)
+- Rust backend: 539 tests (mt-core: 32, mt-tauri: 507)
+- Integration tests: 17 tests
 - Vitest unit: 213 tests
 - Playwright E2E: 413 tests (fast mode, webkit only)
-- Total: 1,161+ tests
+- Total: 1,200+ tests
 
 ### Worktree
 

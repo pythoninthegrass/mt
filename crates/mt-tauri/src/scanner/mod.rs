@@ -14,6 +14,7 @@ mod benchmarks;
 pub mod commands;
 pub mod fingerprint;
 pub mod inventory;
+pub mod inventory_ffi;
 pub mod metadata;
 pub mod scan;
 
