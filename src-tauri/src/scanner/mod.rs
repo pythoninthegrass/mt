@@ -8,6 +8,7 @@
 
 pub mod artwork;
 pub mod artwork_cache;
+pub mod artwork_cache_ffi;
 #[cfg(test)]
 mod benchmarks;
 pub mod commands;

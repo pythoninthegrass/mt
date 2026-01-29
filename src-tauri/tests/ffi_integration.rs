@@ -326,3 +326,185 @@ fn test_batch_metadata_extraction() {
         }
     }
 }
+
+// ============================================================================
+// Artwork Cache FFI Tests
+// ============================================================================
+
+#[test]
+fn test_artwork_cache_create_free() {
+    unsafe {
+        // Create with default capacity
+        let cache = mt_lib::ffi::mt_artwork_cache_new();
+        assert!(!cache.is_null(), "Cache creation should succeed");
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 0, "New cache should be empty");
+
+        // Free the cache
+        mt_lib::ffi::mt_artwork_cache_free(cache);
+        println!("Artwork cache create/free test passed");
+    }
+}
+
+#[test]
+fn test_artwork_cache_create_with_capacity() {
+    unsafe {
+        // Create with custom capacity
+        let cache = mt_lib::ffi::mt_artwork_cache_new_with_capacity(50);
+        assert!(!cache.is_null(), "Cache creation with capacity should succeed");
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 0, "New cache should be empty");
+
+        // Free the cache
+        mt_lib::ffi::mt_artwork_cache_free(cache);
+        println!("Artwork cache create with capacity test passed");
+    }
+}
+
+#[test]
+fn test_artwork_cache_get_or_load_nonexistent() {
+    unsafe {
+        let cache = mt_lib::ffi::mt_artwork_cache_new();
+        assert!(!cache.is_null(), "Cache creation should succeed");
+
+        let path = CString::new("/nonexistent/path/song.mp3").unwrap();
+        let mut artwork: mt_lib::ffi::FfiArtwork = std::mem::zeroed();
+
+        let found = mt_lib::ffi::mt_artwork_cache_get_or_load(
+            cache,
+            1, // track_id
+            path.as_ptr(),
+            &mut artwork,
+        );
+
+        // Should not find artwork for nonexistent file
+        assert!(!found, "Should not find artwork for nonexistent file");
+
+        // But cache should still have an entry (caching the miss)
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 1, "Cache should have one entry");
+
+        mt_lib::ffi::mt_artwork_cache_free(cache);
+        println!("Artwork cache get_or_load nonexistent test passed");
+    }
+}
+
+#[test]
+fn test_artwork_cache_get_or_load_with_folder_art() {
+    use std::fs::File;
+    use std::io::Write;
+
+    // Create a temp directory with a cover.jpg
+    let dir = tempfile::tempdir().unwrap();
+    let cover_path = dir.path().join("cover.jpg");
+    let audio_path = dir.path().join("song.mp3");
+
+    // Write a minimal JPEG header to cover.jpg
+    let mut file = File::create(&cover_path).unwrap();
+    file.write_all(&[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46]).unwrap();
+    file.flush().unwrap();
+
+    // Create an empty "audio" file
+    File::create(&audio_path).unwrap();
+
+    unsafe {
+        let cache = mt_lib::ffi::mt_artwork_cache_new();
+        assert!(!cache.is_null(), "Cache creation should succeed");
+
+        let path_cstr = CString::new(audio_path.to_str().unwrap()).unwrap();
+        let mut artwork: mt_lib::ffi::FfiArtwork = std::mem::zeroed();
+
+        let found = mt_lib::ffi::mt_artwork_cache_get_or_load(
+            cache,
+            1, // track_id
+            path_cstr.as_ptr(),
+            &mut artwork,
+        );
+
+        // Should find the folder artwork
+        assert!(found, "Should find folder artwork (cover.jpg)");
+        assert_eq!(artwork.get_mime_type(), "image/jpeg", "MIME type should be image/jpeg");
+        assert_eq!(artwork.get_source(), "folder", "Source should be 'folder'");
+        assert!(artwork.data_len > 0, "Artwork data should not be empty");
+
+        // Cache should have one entry
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 1, "Cache should have one entry");
+
+        // Second call should use cache (we can't easily verify but the call should succeed)
+        let mut artwork2: mt_lib::ffi::FfiArtwork = std::mem::zeroed();
+        let found2 = mt_lib::ffi::mt_artwork_cache_get_or_load(
+            cache,
+            1, // same track_id
+            path_cstr.as_ptr(),
+            &mut artwork2,
+        );
+        assert!(found2, "Second call should also find artwork (from cache)");
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 1, "Cache should still have one entry");
+
+        mt_lib::ffi::mt_artwork_cache_free(cache);
+        println!("Artwork cache get_or_load with folder art test passed");
+    }
+}
+
+#[test]
+fn test_artwork_cache_invalidate() {
+    unsafe {
+        let cache = mt_lib::ffi::mt_artwork_cache_new();
+        assert!(!cache.is_null(), "Cache creation should succeed");
+
+        // Add an entry
+        let path = CString::new("/path/song.mp3").unwrap();
+        let mut artwork: mt_lib::ffi::FfiArtwork = std::mem::zeroed();
+        let _ = mt_lib::ffi::mt_artwork_cache_get_or_load(cache, 1, path.as_ptr(), &mut artwork);
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 1, "Cache should have one entry");
+
+        // Invalidate the entry
+        mt_lib::ffi::mt_artwork_cache_invalidate(cache, 1);
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 0, "Cache should be empty after invalidate");
+
+        mt_lib::ffi::mt_artwork_cache_free(cache);
+        println!("Artwork cache invalidate test passed");
+    }
+}
+
+#[test]
+fn test_artwork_cache_clear() {
+    unsafe {
+        let cache = mt_lib::ffi::mt_artwork_cache_new();
+        assert!(!cache.is_null(), "Cache creation should succeed");
+
+        // Add multiple entries
+        for i in 0..5 {
+            let path = CString::new(format!("/path/song{}.mp3", i)).unwrap();
+            let mut artwork: mt_lib::ffi::FfiArtwork = std::mem::zeroed();
+            let _ = mt_lib::ffi::mt_artwork_cache_get_or_load(cache, i, path.as_ptr(), &mut artwork);
+        }
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 5, "Cache should have 5 entries");
+
+        // Clear all entries
+        mt_lib::ffi::mt_artwork_cache_clear(cache);
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 0, "Cache should be empty after clear");
+
+        mt_lib::ffi::mt_artwork_cache_free(cache);
+        println!("Artwork cache clear test passed");
+    }
+}
+
+#[test]
+fn test_artwork_cache_lru_eviction() {
+    unsafe {
+        // Create cache with capacity 3
+        let cache = mt_lib::ffi::mt_artwork_cache_new_with_capacity(3);
+        assert!(!cache.is_null(), "Cache creation should succeed");
+
+        // Add 4 entries (should evict the oldest)
+        for i in 0..4 {
+            let path = CString::new(format!("/path/song{}.mp3", i)).unwrap();
+            let mut artwork: mt_lib::ffi::FfiArtwork = std::mem::zeroed();
+            let _ = mt_lib::ffi::mt_artwork_cache_get_or_load(cache, i, path.as_ptr(), &mut artwork);
+        }
+
+        // Should only have 3 entries due to LRU eviction
+        assert_eq!(mt_lib::ffi::mt_artwork_cache_len(cache), 3, "Cache should have 3 entries (LRU eviction)");
+
+        mt_lib::ffi::mt_artwork_cache_free(cache);
+        println!("Artwork cache LRU eviction test passed");
+    }
+}

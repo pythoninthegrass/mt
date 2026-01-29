@@ -17,7 +17,7 @@ mod tests {
     fn test_artwork_cache_concurrent_len_operations() {
         use crate::scanner::artwork_cache::ArtworkCache;
 
-        let cache = Arc::new(ArtworkCache::new());
+        let cache = Arc::new(ArtworkCache::new().expect("Failed to create cache"));
         let operations = Arc::new(AtomicUsize::new(0));
 
         let handles: Vec<_> = (0..10)
@@ -50,7 +50,7 @@ mod tests {
     fn test_artwork_cache_no_deadlock_invalidate() {
         use crate::scanner::artwork_cache::ArtworkCache;
 
-        let cache = Arc::new(ArtworkCache::new());
+        let cache = Arc::new(ArtworkCache::new().expect("Failed to create cache"));
         let completed = Arc::new(AtomicUsize::new(0));
 
         let handles: Vec<_> = (0..20)
@@ -87,7 +87,7 @@ mod tests {
     fn test_artwork_cache_concurrent_clear() {
         use crate::scanner::artwork_cache::ArtworkCache;
 
-        let cache = Arc::new(ArtworkCache::new());
+        let cache = Arc::new(ArtworkCache::new().expect("Failed to create cache"));
         let completed = Arc::new(AtomicUsize::new(0));
 
         let handles: Vec<_> = (0..5)

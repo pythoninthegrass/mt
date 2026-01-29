@@ -128,6 +128,59 @@ pub struct ScanStats {
 }
 
 // ============================================================================
+// Artwork Cache Types (matching zig-core/src/scanner/artwork_cache.zig)
+// ============================================================================
+
+/// Artwork data from audio file or folder.
+/// Uses fixed-size buffers for FFI safety - no allocations cross the boundary.
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct FfiArtwork {
+    /// Base64-encoded image data (fixed-size buffer)
+    pub data: [u8; 8192],
+    pub data_len: u32,
+    /// MIME type (e.g., "image/jpeg", "image/png")
+    pub mime_type: [u8; 64],
+    pub mime_type_len: u32,
+    /// Source: "embedded" or "folder"
+    pub source: [u8; 16],
+    pub source_len: u32,
+    /// Filename for folder-based artwork
+    pub filename: [u8; 256],
+    pub filename_len: u32,
+    pub has_filename: bool,
+}
+
+impl FfiArtwork {
+    /// Get the data as a byte slice
+    pub fn get_data(&self) -> &[u8] {
+        &self.data[..self.data_len as usize]
+    }
+
+    /// Get the MIME type as a string slice
+    pub fn get_mime_type(&self) -> &str {
+        std::str::from_utf8(&self.mime_type[..self.mime_type_len as usize]).unwrap_or("")
+    }
+
+    /// Get the source as a string slice
+    pub fn get_source(&self) -> &str {
+        std::str::from_utf8(&self.source[..self.source_len as usize]).unwrap_or("")
+    }
+
+    /// Get the filename if present
+    pub fn get_filename(&self) -> Option<&str> {
+        if self.has_filename {
+            std::str::from_utf8(&self.filename[..self.filename_len as usize]).ok()
+        } else {
+            None
+        }
+    }
+}
+
+/// Opaque handle to Zig artwork cache
+pub type ArtworkCacheHandle = *mut std::ffi::c_void;
+
+// ============================================================================
 // FFI Function Declarations (from zig-core/src/ffi.zig)
 // ============================================================================
 
@@ -165,6 +218,41 @@ unsafe extern "C" {
 
     /// Get library version string
     pub fn mt_version() -> *const c_char;
+
+    // ========================================================================
+    // Artwork Cache FFI
+    // ========================================================================
+
+    /// Create new artwork cache with default capacity (100 entries).
+    /// Returns opaque handle or null on allocation failure.
+    pub fn mt_artwork_cache_new() -> ArtworkCacheHandle;
+
+    /// Create artwork cache with custom capacity.
+    /// Returns opaque handle or null on allocation failure.
+    pub fn mt_artwork_cache_new_with_capacity(capacity: usize) -> ArtworkCacheHandle;
+
+    /// Get artwork for track, loading from file if not cached.
+    /// Returns true if artwork was found, false otherwise.
+    /// The out parameter is populated only when returning true.
+    pub fn mt_artwork_cache_get_or_load(
+        cache: ArtworkCacheHandle,
+        track_id: i64,
+        filepath: *const c_char,
+        out: *mut FfiArtwork,
+    ) -> bool;
+
+    /// Invalidate cache entry for a specific track.
+    /// Call this when track metadata is updated.
+    pub fn mt_artwork_cache_invalidate(cache: ArtworkCacheHandle, track_id: i64);
+
+    /// Clear all cache entries.
+    pub fn mt_artwork_cache_clear(cache: ArtworkCacheHandle);
+
+    /// Get current number of cached items.
+    pub fn mt_artwork_cache_len(cache: ArtworkCacheHandle) -> usize;
+
+    /// Free artwork cache and all associated resources.
+    pub fn mt_artwork_cache_free(cache: ArtworkCacheHandle);
 }
 
 // ============================================================================
