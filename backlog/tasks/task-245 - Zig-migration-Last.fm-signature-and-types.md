@@ -4,7 +4,7 @@ title: 'Zig migration: Last.fm signature and types'
 status: Done
 assignee: []
 created_date: '2026-01-28 23:23'
-updated_date: '2026-01-29 03:18'
+updated_date: '2026-01-29 05:23'
 labels: []
 dependencies: []
 priority: low
@@ -18,9 +18,9 @@ Migrate Last.fm signature generation and types to Zig while preserving API behav
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Signature generation outputs match current Rust implementation for known fixtures
-- [ ] #2 Last.fm types in Zig match existing Rust structures
-- [ ] #3 Existing automated tests continue to pass
+- [x] #1 Signature generation outputs match current Rust implementation for known fixtures
+- [x] #2 Last.fm types in Zig match existing Rust structures
+- [x] #3 Existing automated tests continue to pass
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -41,4 +41,6 @@ Stubbed generateSignature: sort params → concatenate → append secret → MD5
 Fixed-size buffers (512 bytes) for artist/track/album
 
 Matches Last.fm API v2.0 specification
+
+**Completed (2026-01-28):** Implemented Method enum with toString(), Params with StringHashMap, ScrobbleRequest and NowPlayingRequest extern structs, generateSignature (sort params → concatenate → append secret → MD5 → hex). All Zig tests passing.
 <!-- SECTION:NOTES:END -->

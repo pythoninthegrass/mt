@@ -4,7 +4,7 @@ title: 'Zig migration: validate FFI with real audio files'
 status: Done
 assignee: []
 created_date: '2026-01-28 23:22'
-updated_date: '2026-01-28 23:31'
+updated_date: '2026-01-29 04:13'
 labels: []
 dependencies: []
 priority: medium

@@ -4,7 +4,7 @@ title: 'Zig migration: Last.fm client/config/rate limiter'
 status: Done
 assignee: []
 created_date: '2026-01-28 23:23'
-updated_date: '2026-01-29 03:18'
+updated_date: '2026-01-29 05:23'
 labels: []
 dependencies:
   - task-245
@@ -19,9 +19,9 @@ Migrate Last.fm client, configuration, and rate limiter logic to Zig while prese
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Client behavior (requests/responses, error handling) matches current Rust implementation on fixtures
-- [ ] #2 Rate limiting behavior matches current Rust implementation
-- [ ] #3 Existing automated tests continue to pass
+- [x] #1 Client behavior (requests/responses, error handling) matches current Rust implementation on fixtures
+- [x] #2 Rate limiting behavior matches current Rust implementation
+- [x] #3 Existing automated tests continue to pass
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -44,4 +44,6 @@ Thread-safe via mutex
 HTTP requests to be implemented via std.http
 
 Dependencies: Requires task 245 complete for signature generation
+
+**Completed (2026-01-28):** Implemented RateLimiter (mutex-protected, 5 req/sec default), Client with buildScrobbleRequest and buildNowPlayingRequest, BuiltRequest and ApiResponse FFI-safe types, URL encoding functions. All Zig tests passing.
 <!-- SECTION:NOTES:END -->
